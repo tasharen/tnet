@@ -42,6 +42,9 @@ public class Client
 	public delegate void OnPlayerLeft (Player p);
 	public delegate void OnChannelChanged (bool isInChannel, string message);
 	public delegate void OnRenamePlayer (Player p, string previous);
+	public delegate void OnCreate (int objectID, int viewID, BinaryReader reader);
+	public delegate void OnDestroy (int viewID);
+	public delegate void OnCustomPacket (int packetID, BinaryReader reader);
 
 	/// <summary>
 	/// Error notification.
@@ -85,6 +88,24 @@ public class Client
 
 	public OnRenamePlayer onRenamePlayer;
 
+	/// <summary>
+	/// Notification of a new object being created.
+	/// </summary>
+
+	public OnCreate onCreate;
+
+	/// <summary>
+	/// Notification of the specified view being destroyed.
+	/// </summary>
+
+	public OnDestroy onDestroy;
+
+	/// <summary>
+	/// Notification of a client packet arriving.
+	/// </summary>
+
+	public OnCustomPacket onCustomPacket;
+
 	int mSize = 0;
 	int mPlayerID = 0;
 	string mPlayerName = "";
@@ -123,13 +144,13 @@ public class Client
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	protected BinaryWriter BeginSend (Packet request) { return BeginSend((int)request); }
+	public BinaryWriter BeginSend (Packet request) { return BeginSend((int)request); }
 
 	/// <summary>
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	protected BinaryWriter BeginSend (int packetID)
+	public BinaryWriter BeginSend (int packetID)
 	{
 		BinaryWriter writer = mOut.BeginPacket();
 		writer.Write((byte)packetID);
@@ -140,7 +161,7 @@ public class Client
 	/// Send the outgoing buffer to the specified player.
 	/// </summary>
 
-	protected void EndSend ()
+	public void EndSend ()
 	{
 		int size = mOut.EndPacket();
 		mSocket.Send(mOut.buffer, 0, size, SocketFlags.None);
@@ -168,10 +189,41 @@ public class Client
 		{
 			mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			mSocket.Blocking = false;
-			mSocket.Connect(destination, port);
+
+			SocketAsyncEventArgs args = new SocketAsyncEventArgs();
+			args.UserToken = mSocket;
+			args.RemoteEndPoint = new IPEndPoint(destination, port);
+			args.Completed += new EventHandler<SocketAsyncEventArgs>(OnConnectEvent);
+			mSocket.ConnectAsync(args);
 			mStage = Stage.Connecting;
 		}
 		else if (onConnect != null) onConnect(false, "Invalid address");
+	}
+
+	/// <summary>
+	/// Async event: connection established (or failed).
+	/// </summary>
+
+	void OnConnectEvent (object sender, SocketAsyncEventArgs args)
+	{
+		bool success = (args.SocketError == SocketError.Success);
+
+		if (onConnect != null)
+		{
+			if (success)
+			{
+				Console.WriteLine("Connected to " + ((IPEndPoint)mSocket.RemoteEndPoint).ToString());
+
+				// Connection established -- let's verify the protocol version number
+				mStage = Stage.Verifying;
+				BinaryWriter writer = mOut.BeginWriting(4);
+				writer.Write(version);
+				mSocket.Send(mOut.buffer, 4, SocketFlags.None);
+				return;
+			}
+			onConnect(false, args.SocketError.ToString());
+		}
+		Console.WriteLine("OnConnectEvent: " + args.SocketError);
 	}
 
 	/// <summary>
@@ -252,64 +304,6 @@ public class Client
 	}
 
 	/// <summary>
-	/// Remove the specified buffered RFC call.
-	/// </summary>
-
-	public void RemoveBufferedRFC (int id)
-	{
-		if (isConnected)
-		{
-			BinaryWriter writer = BeginSend(Packet.RequestRemoveRFC);
-			writer.Write(id);
-			EndSend();
-		}
-	}
-
-	/// <summary>
-	/// Send a new RFC call to the specified player.
-	/// </summary>
-
-	public void SendRFC (int viewID, int rpcID, string rpcName, Player target, params object[] objs)
-	{
-		BinaryWriter writer = BeginSend((int)Packet.ForwardToPlayer);
-		writer.Write(target.id);
-		SendRFC(writer, viewID, rpcID, rpcName, objs);
-	}
-
-	/// <summary>
-	/// Send a new RFC call to the specified target.
-	/// </summary>
-
-	public void SendRFC (int viewID, int rpcID, string rpcName, Target target, params object[] objs)
-	{
-		BinaryWriter writer = BeginSend((int)target);
-		if (target == Target.AllBuffered || target == Target.OthersBuffered) writer.Write((short)rpcID);
-		SendRFC(writer, viewID, rpcID, rpcName, objs);
-	}
-
-	/// <summary>
-	/// Common RFC-sending functionality.
-	/// </summary>
-
-	void SendRFC (BinaryWriter writer, int viewID, int rpcID, string rpcName, params object[] objs)
-	{
-		writer.Write((short)viewID);
-		writer.Write((short)rpcID);
-		if (rpcID == 0) writer.Write(rpcName);
-		Tools.Write(writer, objs);
-		EndSend();
-	}
-
-	// TODO:
-	// - RFC receiving functionality.
-	// - Network view component with the ability to find / cache / use [RFC] functions.
-	//   Look at TNView.RebuildMethodList().
-	// - Some simplified way of sending RFCs (on TNView?)
-	//   view.RFC(123, target, params);
-	//   view.RFC(123, player, params);
-	//   view.RFC("func", target, params);
-
-	/// <summary>
 	/// Receive a packet from the associated socket.
 	/// </summary>
 
@@ -319,20 +313,17 @@ public class Client
 		if (mSocket.Available < 4) return null;
 
 		// Determine the size of the packet
-		if (mSize == 0)
-		{
-			mIn.BeginWriting(1024);
-			mSocket.Receive(mIn.buffer, 4, SocketFlags.None);
-			mSize = mIn.BeginReading().ReadInt32();
-		}
+		if (mSize == 0) mSize = mIn.Receive(mSocket, 4).ReadInt32();
 
 		// If we don't have the entire packet waiting, don't do anything.
-		if (mSocket.Available < mSize) return null;
+		if (mSocket.Available < mSize)
+		{
+			Console.WriteLine("Expecting " + mSize + " bytes, have " + mSocket.Available);
+			return null;
+		}
 
 		// Receive the entire packet
-		mIn.BeginWriting(mSize);
-		mSocket.Receive(mIn.buffer, mSize, SocketFlags.None);
-		return mIn.BeginReading();
+		return mIn.Receive(mSocket, mSize);
 	}
 
 	/// <summary>
@@ -343,25 +334,6 @@ public class Client
 	{
 		if (mStage == Stage.Disconnected || mSocket == null) return;
 		mTime = DateTime.Now.Ticks / 10000;
-
-		// Connecting stage -- we should send the version number to the server
-		if (mStage == Stage.Connecting)
-		{
-			if (mSocket.Connected)
-			{
-				mStage = Stage.Verifying;
-				BinaryWriter writer = mOut.BeginWriting(4);
-				writer.Write(version);
-				mSocket.Send(mOut.buffer, 4, SocketFlags.None);
-			}
-			else if (mConnectStart + 5000 < mTime)
-			{
-				mStage = Stage.Disconnected;
-				if (onConnect != null) onConnect(false, "Connection attempt timed out");
-			}
-			return;
-		}
-
 		BinaryReader reader;
 
 		// Read all incoming packets one at a time
@@ -370,8 +342,15 @@ public class Client
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
+			Console.WriteLine("Packet: " + response);
+
 			switch (response)
 			{
+				case Packet.Custom:
+				{
+					if (onCustomPacket != null) onCustomPacket(reader.ReadByte(), reader);
+					break;
+				}
 				case Packet.ResponseVersion:
 				{
 					if (mStage == Stage.Verifying)
@@ -459,31 +438,41 @@ public class Client
 					mHost = reader.ReadInt32();
 					break;
 				}
+				case Packet.ResponseCreate:
+				{
+					if (onCreate != null)
+					{
+						short objectID = reader.ReadInt16();
+						int viewID = reader.ReadInt32();
+						onCreate(objectID, viewID, reader);
+					}
+					break;
+				}
+				case Packet.ResponseDestroy:
+				{
+					if (onDestroy != null)
+					{
+						int count = reader.ReadInt16();
+						for (int i = 0; i < count; ++i) onDestroy(reader.ReadInt32());
+					}
+					break;
+				}
 				default:
 				{
-					OnPacket(packetID, reader);
+					if (onError != null) onError("Unknown packet ID: " + packetID);
 					break;
 				}
 			}
 		}
 		
 		// No longer connected? Send out a disconnect notification.
-		if (!mSocket.Connected)
+		if (mStage == Stage.Connected && !mSocket.Connected)
 		{
 			mStage = Stage.Disconnected;
 			mSocket.Close();
 			mSocket = null;
 			if (onDisconnect != null) onDisconnect();
 		}
-	}
-
-	/// <summary>
-	/// If custom functionality is needed, all unrecognized packets will arrive here.
-	/// </summary>
-
-	protected virtual void OnPacket (int packetID, BinaryReader reader)
-	{
-		if (onError != null) onError("Unknown packet ID: " + packetID);
 	}
 }
 }

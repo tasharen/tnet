@@ -50,7 +50,7 @@ public class BetterList<T>
 
 	void AllocateMore ()
 	{
-		int max = (buffer.Length << 1);
+		int max = (buffer == null) ? 0 : (buffer.Length << 1);
 		if (max < 32) max = 32;
 		T[] newList = new T[max];
 		if (buffer != null && size > 0) buffer.CopyTo(newList, 0);

@@ -3,6 +3,7 @@ using UnityEngine;
 using TNet;
 using System.Reflection;
 using System.Collections.Generic;
+using System.IO;
 
 [ExecuteInEditMode]
 public class TNView : MonoBehaviour
@@ -42,9 +43,6 @@ public class TNView : MonoBehaviour
 	// List of delayed calls -- calls that could not execute at the time of the call
 	static BetterList<DelayedCall> mDelayed = new BetterList<DelayedCall>();
 
-	// Last used ID
-	static int mLastID = 0;
-
 	/// <summary>
 	/// Unique Network Identifier. All TNViews have them and is how messages arrive at the correct destination.
 	/// </summary>
@@ -60,8 +58,11 @@ public class TNView : MonoBehaviour
 	// Cached RFC functions
 	BetterList<CachedRFC> mRFCs = new BetterList<CachedRFC>();
 
+	// Whether the view has been registered with the lists
+	bool mIsRegistered = false;
+
 	/// <summary>
-	/// Retrieve the Tasharen Network Behaviour by ID.
+	/// Retrieve the Tasharen Network View by ID.
 	/// </summary>
 
 	static public TNView Find (int tnID)
@@ -71,6 +72,16 @@ public class TNView : MonoBehaviour
 		mDictionary.TryGetValue(tnID, out tnb);
 		return tnb;
 	}
+
+	/// <summary>
+	/// Register the view with the lists.
+	/// </summary>
+
+	void Awake () { Register(); }
+
+#if UNITY_EDITOR
+	// Last used ID
+	static int mLastID = 0;
 
 	/// <summary>
 	/// Get a new unique view identifier.
@@ -89,54 +100,68 @@ public class TNView : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Choose a new ID if one has not been specified.
+	/// Re-register the view.
 	/// </summary>
 
 	void OnEnable ()
 	{
-#if UNITY_EDITOR
-		if (id == 0)
+		if (!Application.isPlaying)
 		{
-			id = GetUniqueID();
-		}
-		else if (Find(id) != null)
-		{
-			Debug.LogWarning("Network ID " + id + " already exists. Assigning a new one.", this);
-			id = GetUniqueID();
-		}
-#endif
-		// TODO:
-		// - Think about this:
-		// - Scene with a game object that has a TNView on it.
-		// - Player 1 joins, destroys the object.
-		// - Player 2 joins... how does he know that the object was destroyed?
-
-		//if (mDestroyed.Contains(id))
-		//{
-		//	Destroy(gameObject);
-		//}
-		//else
-		{
-			mDictionary[id] = this;
-			mList.Add(this);
+			Unregister();
+			
+			if (id == 0)
+			{
+				id = GetUniqueID();
+			}
+			else if (Find(id) != null)
+			{
+				Debug.LogWarning("Network ID " + id + " already exists. Assigning a new one.", this);
+				id = GetUniqueID();
+			}
+			Register();
 		}
 	}
+#endif
 
 	/// <summary>
 	/// Remove this view from the list.
 	/// </summary>
 
-	void OnDisable ()
+	void OnDestroy () { Unregister(); }
+
+	/// <summary>
+	/// Register the network view with the lists.
+	/// </summary>
+
+	void Register ()
 	{
-		if (mDictionary != null) mDictionary.Remove(id);
-		if (mList != null) mList.Remove(this);
+		if (!mIsRegistered)
+		{
+			mDictionary[id] = this;
+			mList.Add(this);
+			mIsRegistered = true;
+		}
+	}
+
+	/// <summary>
+	/// Unregister the network view.
+	/// </summary>
+
+	void Unregister ()
+	{
+		if (mIsRegistered)
+		{
+			if (mDictionary != null) mDictionary.Remove(id);
+			if (mList != null) mList.Remove(this);
+			mIsRegistered = false;
+		}
 	}
 
 	/// <summary>
 	/// Invoke the function specified by the ID.
 	/// </summary>
 
-	bool Execute (int funcID, params object[] parameters)
+	public bool Execute (int funcID, params object[] parameters)
 	{
 		if (rebuildMethodList) RebuildMethodList();
 
@@ -159,7 +184,7 @@ public class TNView : MonoBehaviour
 	/// Invoke the function specified by the function name.
 	/// </summary>
 
-	bool Execute (string funcName, params object[] parameters)
+	public bool Execute (string funcName, params object[] parameters)
 	{
 		if (rebuildMethodList) RebuildMethodList();
 
@@ -256,5 +281,88 @@ public class TNView : MonoBehaviour
 				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void RFC (short rfcID, Target target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void RFC (string rfcName, Target target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void RFC (short rfcID, Player target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void RFC (string rfcName, Player target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+
+	/// <summary>
+	/// Send a new RFC call to the specified target.
+	/// </summary>
+
+	static void SendRFC (int viewID, short rfcID, string rfcName, Target target, params object[] objs)
+	{
+		if (TNManager.isConnected)
+		{
+			BinaryWriter writer = TNManager.instance.client.BeginSend((int)Packet.ForwardToAll + (int)target);
+
+			if (target == Target.AllBuffered || target == Target.OthersBuffered)
+			{
+				writer.Write(viewID);
+				writer.Write(rfcID);
+			}
+			SendRFC(writer, viewID, rfcID, rfcName, objs);
+		}
+		else if (target == Target.All || target == Target.AllBuffered)
+		{
+			if (rfcID != 0)
+			{
+				TNView.FindAndExecute(viewID, rfcID, objs);
+			}
+			else
+			{
+				TNView.FindAndExecute(viewID, rfcName, objs);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Send a new RFC call to the specified player.
+	/// </summary>
+
+	static void SendRFC (int viewID, short rfcID, string rfcName, Player target, params object[] objs)
+	{
+		if (TNManager.isConnected)
+		{
+			BinaryWriter writer = TNManager.instance.client.BeginSend(Packet.ForwardToPlayer);
+			writer.Write(target.id);
+			SendRFC(writer, viewID, rfcID, rfcName, objs);
+		}
+	}
+
+	/// <summary>
+	/// Common RFC-sending functionality.
+	/// </summary>
+
+	static void SendRFC (BinaryWriter writer, int viewID, short rfcID, string rfcName, params object[] objs)
+	{
+		writer.Write((byte)Packet.Custom);
+		writer.Write((byte)0);
+		writer.Write(viewID);
+		writer.Write(rfcID);
+		if (rfcID == 0) writer.Write(rfcName);
+		Tools.Write(writer, objs);
+		TNManager.instance.client.EndSend();
 	}
 }

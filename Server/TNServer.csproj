@@ -42,11 +42,11 @@
     <Compile Include="../Common/BetterList.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="../Common/TNBuffer.cs" />
-    <Compile Include="TNPacket.cs" />
     <Compile Include="TNServer.cs" />
     <Compile Include="TNPlayer.cs" />
     <Compile Include="../Common/RandomGenerator.cs" />
-    <Compile Include="TNRoom.cs" />
+    <Compile Include="../Common/TNPacket.cs" />
+    <Compile Include="TNChannel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Sockets;
 
 namespace TNet
 {
@@ -34,7 +35,7 @@ public class Buffer
 	/// Position within the stream.
 	/// </summary>
 
-	public int position { get { return (int)mStream.Position; } }
+	public int position { get { return (int)mStream.Position; } set { mStream.Seek(value, SeekOrigin.Begin); } }
 
 	/// <summary>
 	/// Underlying memory stream.
@@ -81,6 +82,21 @@ public class Buffer
 		if (mStream.Capacity < capacity) mStream.Capacity = capacity;
 		mStream.Seek(0, SeekOrigin.Begin);
 		return mWriter;
+	}
+
+	/// <summary>
+	/// Receive the specified number of bytes and immediately switch to reading.
+	/// </summary>
+
+	public BinaryReader Receive (Socket socket, int bytes)
+	{
+		mWriting = true;
+		if (mStream.Capacity < bytes) mStream.SetLength(bytes);
+		mStream.Seek(0, SeekOrigin.Begin);
+		mSize = socket.Receive(buffer, SocketFlags.None);
+		mStream.Seek(0, SeekOrigin.Begin);
+		mWriting = false;
+		return mReader;
 	}
 
 	/// <summary>

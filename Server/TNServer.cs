@@ -43,10 +43,10 @@ public class Server
 
 	protected RandomGenerator mRandom = new RandomGenerator();
 
-	Buffer mOut;
+	Buffer mOut = new Buffer();
 	TcpListener mListener;
 	Thread mThread;
-	static int mCounter = 0;
+	static int mPlayerCounter = 0;
 
 	/// <summary>
 	/// Start listening to incoming connections on the specified port.
@@ -105,7 +105,11 @@ public class Server
 		for (; ; )
 		{
 			// Add all pending connections
-			while (mListener.Pending()) AddPlayer(mListener.AcceptSocket());
+			while (mListener.Pending())
+			{
+				Player p = AddPlayer(mListener.AcceptSocket());
+				Console.WriteLine(p.address + " has connected");
+			}
 
 			bool received = false;
 			long ms = DateTime.Now.Ticks / 10000;
@@ -117,6 +121,7 @@ public class Server
 				if (!player.socket.Connected)
 				{
 					// The socket has been disconnected -- remove this player
+					Console.WriteLine(player.address + " has disconnected");
 					RemovePlayer(player);
 					continue;
 				}
@@ -166,9 +171,10 @@ public class Server
 	protected Player AddPlayer (Socket socket)
 	{
 		Player player = new Player();
-		player.id = ++mCounter;
+		player.id = ++mPlayerCounter;
 		player.socket = socket;
 		player.timestamp = DateTime.Now.Ticks / 100000;
+		player.address = ((IPEndPoint)socket.RemoteEndPoint).ToString();
 		mDictionary.Add(player.id, player);
 		mPlayers.Add(player);
 		return player;
@@ -234,23 +240,10 @@ public class Server
 	/// Start the sending process.
 	/// </summary>
 
-	protected BinaryWriter BeginSend (Packet type) { return BeginSend(0, (int)type); }
-
-	/// <summary>
-	/// Start the sending process.
-	/// </summary>
-
-	protected BinaryWriter BeginSend (int functionID) { return BeginSend(0, functionID); }
-
-	/// <summary>
-	/// Start the sending process.
-	/// </summary>
-
-	protected BinaryWriter BeginSend (int viewID, int functionID)
+	protected BinaryWriter BeginSend (Packet type)
 	{
 		BinaryWriter writer = mOut.BeginPacket();
-		writer.Write((short)viewID);
-		writer.Write((short)functionID);
+		writer.Write((byte)type);
 		return writer;
 	}
 
@@ -358,8 +351,10 @@ public class Server
 	/// Step 1: Inform the channel that the player is joining.
 	/// Step 2: Inform the player that they have joined the channel and tell them who else is there.
 	/// Step 3: Inform the player of who's the channel's host.
-	/// Step 4: Send all buffered RFC calls to the new player.
-	/// Step 5: Inform the player that the joining process is now complete.
+	/// Step 4: Send the list of objects that have been created.
+	/// Step 5: Send the list of objects that have been destroyed.
+	/// Step 6: Send all buffered RFC calls to the new player.
+	/// Step 7: Inform the player that the joining process is now complete.
 	/// </summary>
 
 	protected void SendJoinChannel (Player player, int channelID)
@@ -368,7 +363,7 @@ public class Server
 		{
 			Channel channel = CreateChannel(channelID);
 
-			// Inform the channel that the player has joined
+			// Step 1: Inform the channel that the player has joined
 			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
 			{
 				writer.Write(player.id);
@@ -380,7 +375,7 @@ public class Server
 			player.channel = channel;
 			channel.players.Add(player);
 
-			// Tell the player who else is in the channel
+			// Step 2: Tell the player who else is in the channel
 			writer = BeginSend(Packet.ResponseJoiningChannel);
 			{
 				writer.Write(channelID);
@@ -398,15 +393,26 @@ public class Server
 			// If the channel has no host, this player is automatically hosting
 			if (player.channel.host == null) player.channel.host = player;
 
-			// Inform the player of who is hosting
+			// Step 3: Inform the player of who is hosting
 			writer = BeginSend(Packet.ResponseSetHost);
 			writer.Write(player.channel.host.id);
 			EndSend(player);
 
-			// Send all buffered RFCs to the new player
-			for (int i = 0; i < player.channel.rpcs.size; ++i) player.Send(player.channel.rpcs[i].buffer);
+			// Step 4: Send the list of objects that have been created
+			//player.Send(player.channel.created.size);
+			//for (int i = 0; i < player.channel.created.size; ++i)
+			//	player.Send(player.channel.created.buffer, 0, player.channel.created.size);
 
-			// The join process is now complete
+			// Step 5: Send the list of objects that have been destroyed
+			writer = BeginSend(Packet.ResponseDestroy);
+			writer.Write((short)player.channel.destroyed.size);
+			for (int i = 0; i < player.channel.created.size; ++i)
+				writer.Write((short)player.channel.destroyed.buffer[i]);
+
+			// Step 6: Send all buffered RFCs to the new player
+			for (int i = 0; i < player.channel.rfcs.size; ++i) player.Send(player.channel.rfcs[i].buffer);
+
+			// Step 7: The join process is now complete
 			writer = BeginSend(Packet.ResponseJoinedChannel);
 			EndSend(player);
 		}
@@ -422,6 +428,8 @@ public class Server
 		if (reader == null) return false;
 		int packetID = reader.ReadByte();
 		Packet request = (Packet)packetID;
+
+		Console.WriteLine("Packet: " + request);
 
 		if (request == Packet.ForwardToPlayer)
 		{
@@ -494,7 +502,7 @@ public class Server
 		{
 			if (player.channel != null)
 			{
-				player.channel.DeleteRFC(reader.ReadInt16());
+				player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
 			}
 		}
 		else if (player.channel != null)
@@ -520,7 +528,9 @@ public class Server
 			else if (request == Packet.ForwardToAllBuffered)
 			{
 				// Save this packet for future users
-				player.channel.CreateRFC(reader.ReadInt16()).buffer = player.CopyBuffer();
+				int viewID = reader.ReadInt32();
+				short rfcID = reader.ReadInt16();
+				player.channel.CreateRFC(viewID, rfcID).buffer = player.CopyBuffer();
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -532,7 +542,9 @@ public class Server
 			else if (request == Packet.ForwardToOthersBuffered)
 			{
 				// Save this packet for future users
-				player.channel.CreateRFC(reader.ReadInt16()).buffer = player.CopyBuffer();
+				int viewID = reader.ReadInt32();
+				short rfcID = reader.ReadInt16();
+				player.channel.CreateRFC(viewID, rfcID).buffer = player.CopyBuffer();
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -545,6 +557,47 @@ public class Server
 			{
 				// Forward the packet to the channel's host
 				player.ForwardLastPacket(player.channel.host);
+			}
+			else if (request == Packet.RequestCreate)
+			{
+				if (player.channel != null)
+				{
+					// Create a new object
+					short objectID = reader.ReadInt16();
+
+					// Dynamically created Network Views should always start out being negative
+					int viewID = (reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
+
+					// Remember that we've created a new view
+					if (viewID != 0) player.channel.created.Add(viewID);
+
+					// Inform the channel
+					BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+					writer.Write(objectID);
+					writer.Write(viewID);
+
+					// If there is any data left, append it to the end
+					int bytes = player.buffer.size - player.buffer.position;
+					if (bytes > 0) writer.Write(player.buffer.buffer, player.buffer.position, bytes);
+					EndSend(player.channel);
+				}
+			}
+			else if (request == Packet.RequestDestroy)
+			{
+				// Destroy the specified network view
+				int viewID = reader.ReadInt32();
+
+				if (!player.channel.destroyed.Contains(viewID))
+				{
+					// If this view was not created dynamically, we should remember it
+					if (!player.channel.created.Remove(viewID))
+						player.channel.destroyed.Add(viewID);
+
+					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+					writer.Write((short)1);
+					writer.Write(viewID);
+					EndSend(player.channel);
+				}
 			}
 			else OnPacket(packetID, reader);
 		}

@@ -23,7 +23,13 @@ public class Player
 	BinaryWriter mWriter;
 
 	int mSize = 0;
-	Buffer mIn = new Buffer();
+	Buffer mBuffer = new Buffer();
+
+	/// <summary>
+	/// Access to the internal buffer.
+	/// </summary>
+
+	public Buffer buffer { get { return mBuffer; } }
 
 	/// <summary>
 	/// Whether the player has some data to receive.
@@ -41,9 +47,8 @@ public class Player
 		if (socket.Available < 4) return 0;
 
 		// Determine the size of the packet
-		mIn.BeginWriting(4);
-		socket.Receive(mIn.buffer, 4, SocketFlags.None);
-		return mIn.BeginReading().ReadInt32();
+		BinaryReader reader = mBuffer.Receive(socket, 4);
+		return reader.ReadInt32();
 	}
 
 	/// <summary>
@@ -56,53 +61,57 @@ public class Player
 		if (socket.Available < 4) return null;
 
 		// Determine the size of the packet
-		if (mSize == 0)
-		{
-			mIn.BeginWriting(1024);
-			socket.Receive(mIn.buffer, 4, SocketFlags.None);
-			mSize = mIn.BeginReading().ReadInt32();
-		}
+		if (mSize == 0) mSize = mBuffer.Receive(socket, 4).ReadInt32();
 
 		// If we don't have the entire packet waiting, don't do anything.
-		if (socket.Available < mSize) return null;
+		if (socket.Available < mSize)
+		{
+			Console.WriteLine("Expecting " + mSize + " bytes, have " + socket.Available);
+			return null;
+		}
 
 		// Receive the entire packet
-		mIn.BeginWriting(mSize);
-		socket.Receive(mIn.buffer, mSize, SocketFlags.None);
-		return mIn.BeginReading();
+		return mBuffer.Receive(socket, mSize);
 	}
 
 	/// <summary>
-	/// Forward the remaining data of the last received packet to the specified player. Must follow ReceivePacket() in order to work.
+	/// Forward the remaining data of the last received packet to the specified player.
+	/// Must follow ReceivePacket() in order to work.
 	/// </summary>
 
-	public void ForwardLastPacket (Player recipient) { if (recipient != null) recipient.Send(mIn.buffer, mIn.position, mIn.size); }
+	public void ForwardLastPacket (Player recipient)
+	{
+		if (recipient != null) recipient.Send(mBuffer.buffer, mBuffer.position, mBuffer.size);
+	}
 
 	/// <summary>
-	/// Returns the stand-alone buffer of the packet from the current position onwards. Should only be used after ReceivePacket().
+	/// Returns the stand-alone buffer of the packet from the current position onwards.
+	/// Should only be used after ReceivePacket().
 	/// </summary>
 
 	public byte[] CopyBuffer ()
 	{
-		if (mIn.size > 0)
+		if (mBuffer.size > 0)
 		{
-			byte[] data = new byte[mIn.size];
-			int offset = (int)mIn.position;
-			mIn.stream.Read(data, offset, mIn.size);
-			mIn.stream.Seek(offset, SeekOrigin.Begin);
+			byte[] data = new byte[mBuffer.size];
+			int offset = (int)mBuffer.position;
+			mBuffer.stream.Read(data, offset, mBuffer.size);
+			mBuffer.stream.Seek(offset, SeekOrigin.Begin);
 			return data;
 		}
 		return null;
 	}
 
 	/// <summary>
-	/// Send a packet to this player. The packet will always be prefixed with 4 bytes indicating the size of the packet.
+	/// Send a packet to this player.
+	/// The packet will always be prefixed with 4 bytes indicating the size of the packet.
 	/// </summary>
 
 	public void Send (byte[] buffer) { Send(buffer, 0, buffer.Length); }
 
 	/// <summary>
-	/// Send a packet to this player. The packet will always be prefixed with 4 bytes indicating the size of the packet.
+	/// Send a packet to this player.
+	/// The packet will always be prefixed with 4 bytes indicating the size of the packet.
 	/// </summary>
 
 	public void Send (byte[] buffer, int offset, int size)

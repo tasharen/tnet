@@ -43,11 +43,14 @@
     <Compile Include="Main.cs" />
     <Compile Include="../Common/TNBuffer.cs" />
     <Compile Include="TNClient.cs" />
-    <Compile Include="TNPacket.cs" />
+    <Compile Include="TNObjects.cs" />
+    <Compile Include="TNTarget.cs" />
     <Compile Include="TNPlayer.cs" />
     <Compile Include="../Common/RandomGenerator.cs" />
+    <Compile Include="../Common/TNPacket.cs" />
     <Compile Include="TNRFC.cs" />
     <Compile Include="TNTools.cs" />
+    <Compile Include="TNManager.cs" />
     <Compile Include="TNView.cs" />
   </ItemGroup>
   <ItemGroup>
