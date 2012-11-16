@@ -79,7 +79,7 @@ public class Buffer
 	public BinaryWriter BeginWriting (int capacity)
 	{
 		mWriting = true;
-		if (mStream.Capacity < capacity) mStream.Capacity = capacity;
+		if (mStream.Capacity < capacity) mStream.SetLength(capacity);
 		mStream.Seek(0, SeekOrigin.Begin);
 		return mWriter;
 	}
@@ -91,9 +91,15 @@ public class Buffer
 	public BinaryReader Receive (Socket socket, int bytes)
 	{
 		mWriting = true;
-		if (mStream.Capacity < bytes) mStream.SetLength(bytes);
+		mStream.SetLength(bytes);
 		mStream.Seek(0, SeekOrigin.Begin);
-		mSize = socket.Receive(buffer, SocketFlags.None);
+
+		for (mSize = 0; mSize < bytes; )
+		{
+			mSize += socket.Receive(buffer, mSize, bytes - mSize, SocketFlags.None);
+		}
+		
+		Console.WriteLine("Received " + mSize + " bytes");
 		mStream.Seek(0, SeekOrigin.Begin);
 		mWriting = false;
 		return mReader;
@@ -130,7 +136,7 @@ public class Buffer
 	{
 		int size = position;
 		mStream.Seek(0, SeekOrigin.Begin);
-		mWriter.Write(size);
+		mWriter.Write(size - 4);
 		mWriting = false;
 		return size;
 	}

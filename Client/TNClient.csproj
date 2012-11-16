@@ -8,8 +8,8 @@
     <ProjectGuid>{8998D6B6-8CC2-4A3E-87D6-98965B3DD8A3}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ZGServer</RootNamespace>
-    <AssemblyName>ZGServer</AssemblyName>
+    <RootNamespace>TNClient</RootNamespace>
+    <AssemblyName>TNClient</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

@@ -165,6 +165,7 @@ public class Client
 	{
 		int size = mOut.EndPacket();
 		mSocket.Send(mOut.buffer, 0, size, SocketFlags.None);
+		Console.WriteLine("Sent " + size + " bytes");
 	}
 
 	/// <summary>
@@ -342,7 +343,7 @@ public class Client
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
-			Console.WriteLine("Packet: " + response);
+			Console.WriteLine("Packet: " + response + " (" + reader.BaseStream.Length + " bytes)");
 
 			switch (response)
 			{
@@ -466,7 +467,7 @@ public class Client
 		}
 		
 		// No longer connected? Send out a disconnect notification.
-		if (mStage == Stage.Connected && !mSocket.Connected)
+		if (mStage != Stage.Disconnected && !mSocket.Connected)
 		{
 			mStage = Stage.Disconnected;
 			mSocket.Close();

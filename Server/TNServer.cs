@@ -107,7 +107,9 @@ public class Server
 			// Add all pending connections
 			while (mListener.Pending())
 			{
-				Player p = AddPlayer(mListener.AcceptSocket());
+				Socket accept = mListener.AcceptSocket();
+				accept.Blocking = false;
+				Player p = AddPlayer(accept);
 				Console.WriteLine(p.address + " has connected");
 			}
 
@@ -142,13 +144,22 @@ public class Server
 					EndSend(player);
 
 					// If the version matched, this player has now been verified
-					if (playerVersion == version) player.verified = true;
-					else RemovePlayer(player);
+					if (playerVersion == version)
+					{
+						player.verified = true;
+						Console.WriteLine(player.address + " has been verified");
+					}
+					else
+					{
+						RemovePlayer(player);
+						Console.WriteLine(player.address + " failed verification");
+					}
 					continue;
 				}
 				else if (player.timestamp + 1000 < ms)
 				{
 					// Time out -- disconnect this player
+					Console.WriteLine(player.address + " timed out");
 					RemovePlayer(player);
 					continue;
 				}
@@ -173,7 +184,7 @@ public class Server
 		Player player = new Player();
 		player.id = ++mPlayerCounter;
 		player.socket = socket;
-		player.timestamp = DateTime.Now.Ticks / 100000;
+		player.timestamp = DateTime.Now.Ticks / 10000;
 		player.address = ((IPEndPoint)socket.RemoteEndPoint).ToString();
 		mDictionary.Add(player.id, player);
 		mPlayers.Add(player);
@@ -257,6 +268,7 @@ public class Server
 		{
 			int size = mOut.EndPacket();
 			player.socket.Send(mOut.buffer, 0, size, SocketFlags.None);
+			Console.WriteLine("Sent " + size + " bytes");
 		}
 	}
 
@@ -295,6 +307,7 @@ public class Server
 			if (player.socket.Connected)
 			{
 				player.socket.Send(buffer, offset, size, SocketFlags.None);
+				Console.WriteLine("Sent " + size + " bytes");
 			}
 		}
 	}
