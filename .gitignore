@@ -3,3 +3,6 @@
 /Client/bin
 /Server/obj
 /Server/bin
+*.suo
+/bin
+/obj

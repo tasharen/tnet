@@ -8,8 +8,8 @@
     <ProjectGuid>{8998D6B6-8CC2-4A3E-87D6-98965B3DD8A3}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>TNClient</RootNamespace>
-    <AssemblyName>TNClient</AssemblyName>
+    <RootNamespace>TNServer</RootNamespace>
+    <AssemblyName>TNServer</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -39,24 +39,16 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="../Common/BetterList.cs" />
-    <Compile Include="Main.cs" />
-    <Compile Include="../Common/TNBuffer.cs" />
-    <Compile Include="TNClient.cs" />
-    <Compile Include="TNObjects.cs" />
-    <Compile Include="TNTarget.cs" />
-    <Compile Include="TNPlayer.cs" />
-    <Compile Include="../Common/RandomGenerator.cs" />
-    <Compile Include="../Common/TNPacket.cs" />
-    <Compile Include="TNRFC.cs" />
-    <Compile Include="TNTools.cs" />
-    <Compile Include="TNManager.cs" />
-    <Compile Include="TNView.cs" />
+    <Compile Include="Server\Main.cs" />
+    <Compile Include="Common\BetterList.cs" />
+    <Compile Include="Common\RandomGenerator.cs" />
+    <Compile Include="Common\TNBuffer.cs" />
+    <Compile Include="Common\TNPacket.cs" />
+    <Compile Include="Server\TNChannel.cs" />
+    <Compile Include="Server\TNPlayer.cs" />
+    <Compile Include="Server\TNServer.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
-    <Reference Include="UnityEngine">
-      <HintPath>C:/Program Files (x86)/Unity/Editor/Data/Managed/UnityEngine.dll</HintPath>
-    </Reference>
   </ItemGroup>
 </Project>
