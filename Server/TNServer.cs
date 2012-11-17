@@ -114,7 +114,7 @@ public class Server
 			}
 
 			bool received = false;
-			long ms = DateTime.Now.Ticks / 10000;
+			long time = DateTime.Now.Ticks / 10000;
 
 			for (int i = 0; i < mPlayers.size; )
 			{
@@ -130,7 +130,15 @@ public class Server
 				else if (player.verified)
 				{
 					// Verified player -- receive their packets
-					for (int b = 0; b < 100 && ReceivePacket(player); ++b) received = true;
+					for (int b = 0; b < 100 && ReceivePacket(player, time); ++b) received = true;
+
+					// Ensure that the players don't remain inactive for too long
+					if (player.timestamp + 5000 < time)
+					{
+						Console.WriteLine(player.address + " has timed out");
+						RemovePlayer(player);
+						continue;
+					}
 				}
 				else if (player.hasData)
 				{
@@ -147,6 +155,7 @@ public class Server
 					if (playerVersion == version)
 					{
 						player.verified = true;
+						player.timestamp = time;
 						Console.WriteLine(player.address + " has been verified");
 					}
 					else
@@ -156,10 +165,10 @@ public class Server
 					}
 					continue;
 				}
-				else if (player.timestamp + 1000 < ms)
+				else if (player.timestamp + 1000 < time)
 				{
 					// Time out -- disconnect this player
-					Console.WriteLine(player.address + " timed out");
+					Console.WriteLine(player.address + " has timed out");
 					RemovePlayer(player);
 					continue;
 				}
@@ -255,6 +264,7 @@ public class Server
 	{
 		BinaryWriter writer = mOut.BeginPacket();
 		writer.Write((byte)type);
+		Console.WriteLine("Sending " + type);
 		return writer;
 	}
 
@@ -268,7 +278,7 @@ public class Server
 		{
 			int size = mOut.EndPacket();
 			player.socket.Send(mOut.buffer, 0, size, SocketFlags.None);
-			Console.WriteLine("Sent " + size + " bytes");
+			Console.WriteLine("...sent " + size + " bytes");
 		}
 	}
 
@@ -307,7 +317,7 @@ public class Server
 			if (player.socket.Connected)
 			{
 				player.socket.Send(buffer, offset, size, SocketFlags.None);
-				Console.WriteLine("Sent " + size + " bytes");
+				Console.WriteLine("...sent " + size + " bytes");
 			}
 		}
 	}
@@ -441,13 +451,13 @@ public class Server
 	/// Receive and process a single incoming packet. Returns 'true' if a packet was received, 'false' otherwise.
 	/// </summary>
 
-	bool ReceivePacket (Player player)
+	bool ReceivePacket (Player player, long time)
 	{
-		BinaryReader reader = player.ReceivePacket();
+		BinaryReader reader = player.ReceivePacket(time);
 		if (reader == null) return false;
 		Packet request = (Packet)reader.ReadByte();
 
-		Console.WriteLine("Packet: " + request);
+		Console.WriteLine("...packet: " + request);
 
 		switch (request)
 		{
@@ -518,8 +528,14 @@ public class Server
 			default:
 			{
 				// Other packets can only be processed while in a channel
-				if (player.channel != null) ProcessChannelPacket(player, request, reader);
-				else OnPacket((int)request, reader);
+				if (player.channel != null)
+				{
+					ProcessChannelPacket(player, request, reader);
+				}
+				else
+				{
+					OnPacket((int)request, reader);
+				}
 				break;
 			}
 		}

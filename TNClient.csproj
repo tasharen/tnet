@@ -48,7 +48,6 @@
     <Compile Include="Client\Main.cs" />
     <Compile Include="Client\TNClient.cs" />
     <Compile Include="Client\TNManager.cs" />
-    <Compile Include="Client\TNObjects.cs" />
     <Compile Include="Client\TNPlayer.cs" />
     <Compile Include="Client\TNRFC.cs" />
     <Compile Include="Client\TNTarget.cs" />

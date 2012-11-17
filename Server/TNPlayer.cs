@@ -13,16 +13,16 @@ public class Player
 	public int id = 0;
 	public string name;
 	public string address;
-	//public int ping;
 	public Socket socket;
 	public Channel channel;
 	public bool verified = false;
-	public long timestamp;
+	public long timestamp = 0;
 
 	NetworkStream mStream;
 	BinaryWriter mWriter;
 
 	int mSize = 0;
+	int mLast = 0;
 	Buffer mBuffer = new Buffer();
 
 	/// <summary>
@@ -55,7 +55,7 @@ public class Player
 	/// Receive a packet from the associated socket.
 	/// </summary>
 
-	public BinaryReader ReceivePacket ()
+	public BinaryReader ReceivePacket (long time)
 	{
 		// We must have at least 4 bytes to work with
 		if (socket.Available < 4) return null;
@@ -63,15 +63,28 @@ public class Player
 		// Determine the size of the packet
 		if (mSize == 0) mSize = mBuffer.Receive(socket, 4).ReadInt32();
 
+		int available = socket.Available;
+
 		// If we don't have the entire packet waiting, don't do anything.
-		if (socket.Available < mSize)
+		// TODO: Receive data from the socket, storing it in the "incoming" buffer.
+		if (available < mSize)
 		{
-			Console.WriteLine("Expecting " + mSize + " bytes, have " + socket.Available);
+			if (available != mLast)
+			{
+				mLast = available;
+				timestamp = time;
+			}
+			//Console.WriteLine("Expecting " + mSize + " bytes, have " + socket.Available);
 			return null;
 		}
 
 		// Receive the entire packet
-		return mBuffer.Receive(socket, mSize);
+		timestamp = time;
+		BinaryReader reader = mBuffer.Receive(socket, mSize);
+		Console.WriteLine("Received " + mSize + " bytes");
+		mSize = 0;
+		mLast = 0;
+		return reader;
 	}
 
 	/// <summary>

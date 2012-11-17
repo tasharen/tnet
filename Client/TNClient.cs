@@ -8,7 +8,7 @@ using System.Collections.Generic;
 namespace TNet
 {
 /// <summary>
-/// Server-side logic.
+/// Client-side logic.
 /// </summary>
 
 public class Client
@@ -114,8 +114,11 @@ public class Client
 	Buffer mOut = new Buffer();
 	Stage mStage = Stage.Disconnected;
 	long mTime = 0;
+	long mPingTime = 0;
 	long mConnectStart = 0;
 	int mHost = 0;
+	int mPing = 0;
+	bool mCanPing = true;
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -128,6 +131,12 @@ public class Client
 	/// </summary>
 
 	public bool isHosting { get { return (mHost == mPlayerID) || (players.size == 0); } }
+
+	/// <summary>
+	/// Current ping to the server.
+	/// </summary>
+
+	public int ping { get { return mStage == Stage.Connected ? mPing : 0; } }
 
 	/// <summary>
 	/// Retrieve a player by their ID.
@@ -154,6 +163,7 @@ public class Client
 	{
 		BinaryWriter writer = mOut.BeginPacket();
 		writer.Write((byte)packetID);
+		Console.WriteLine("Sending " + (Packet)packetID);
 		return writer;
 	}
 
@@ -164,8 +174,21 @@ public class Client
 	public void EndSend ()
 	{
 		int size = mOut.EndPacket();
-		mSocket.Send(mOut.buffer, 0, size, SocketFlags.None);
-		Console.WriteLine("Sent " + size + " bytes");
+
+		try
+		{
+			mSocket.Send(mOut.buffer, 0, size, SocketFlags.None);
+			Console.WriteLine("...sent " + size + " bytes");
+		}
+		catch (System.Net.Sockets.SocketException ex)
+		{
+			Console.WriteLine(ex.Message);
+			Disconnect();
+		}
+		catch (System.Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+		}
 	}
 
 	/// <summary>
@@ -311,12 +334,13 @@ public class Client
 	BinaryReader ReceivePacket ()
 	{
 		// We must have at least 4 bytes to work with
-		if (mSocket.Available < 4) return null;
+		if (mSocket == null || mSocket.Available < 4) return null;
 
 		// Determine the size of the packet
 		if (mSize == 0) mSize = mIn.Receive(mSocket, 4).ReadInt32();
 
 		// If we don't have the entire packet waiting, don't do anything.
+		// TODO: Receive data from the socket, storing it in the "incoming" buffer.
 		if (mSocket.Available < mSize)
 		{
 			Console.WriteLine("Expecting " + mSize + " bytes, have " + mSocket.Available);
@@ -324,7 +348,10 @@ public class Client
 		}
 
 		// Receive the entire packet
-		return mIn.Receive(mSocket, mSize);
+		BinaryReader reader = mIn.Receive(mSocket, mSize);
+		Console.WriteLine("Received " + mSize + " bytes");
+		mSize = 0;
+		return reader;
 	}
 
 	/// <summary>
@@ -335,6 +362,16 @@ public class Client
 	{
 		if (mStage == Stage.Disconnected || mSocket == null) return;
 		mTime = DateTime.Now.Ticks / 10000;
+
+		// Request pings every so often. This is also a good way of determining who's still here.
+		if (mCanPing && mPingTime + 3000 < mTime)
+		{
+			mCanPing = false;
+			mPingTime = mTime;
+			BeginSend(Packet.RequestPing);
+			EndSend();
+		}
+
 		BinaryReader reader;
 
 		// Read all incoming packets one at a time
@@ -350,6 +387,12 @@ public class Client
 				case Packet.Custom:
 				{
 					if (onCustomPacket != null) onCustomPacket(reader.ReadByte(), reader);
+					break;
+				}
+				case Packet.ResponsePing:
+				{
+					mPing = (int)(mPingTime - mTime);
+					mCanPing = true;
 					break;
 				}
 				case Packet.ResponseVersion:

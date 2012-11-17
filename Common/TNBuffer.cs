@@ -99,7 +99,6 @@ public class Buffer
 			mSize += socket.Receive(buffer, mSize, bytes - mSize, SocketFlags.None);
 		}
 		
-		Console.WriteLine("Received " + mSize + " bytes");
 		mStream.Seek(0, SeekOrigin.Begin);
 		mWriting = false;
 		return mReader;
