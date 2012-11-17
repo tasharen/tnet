@@ -107,9 +107,7 @@ public class Server
 			// Add all pending connections
 			while (mListener.Pending())
 			{
-				Socket accept = mListener.AcceptSocket();
-				accept.Blocking = false;
-				Player p = AddPlayer(accept);
+				Player p = AddPlayer(mListener.AcceptTcpClient());
 				Console.WriteLine(p.address + " has connected");
 			}
 
@@ -120,7 +118,7 @@ public class Server
 			{
 				Player player = mPlayers[i];
 
-				if (!player.socket.Connected)
+				if (!player.tcp.Connected)
 				{
 					// The socket has been disconnected -- remove this player
 					Console.WriteLine(player.address + " has disconnected");
@@ -188,13 +186,12 @@ public class Server
 	/// Add a new player entry.
 	/// </summary>
 
-	protected Player AddPlayer (Socket socket)
+	protected Player AddPlayer (TcpClient tcp)
 	{
-		Player player = new Player();
+		Player player = new Player(tcp);
 		player.id = ++mPlayerCounter;
-		player.socket = socket;
 		player.timestamp = DateTime.Now.Ticks / 10000;
-		player.address = ((IPEndPoint)socket.RemoteEndPoint).ToString();
+		player.address = ((IPEndPoint)tcp.Client.RemoteEndPoint).ToString();
 		mDictionary.Add(player.id, player);
 		mPlayers.Add(player);
 		return player;
@@ -208,7 +205,7 @@ public class Server
 	{
 		if (p != null && p.id != 0)
 		{
-			if (p.socket.Connected) p.socket.Disconnect(false);
+			p.Disconnect();
 			mDictionary.Remove(p.id);
 			mPlayers.Remove(p);
 			p.id = 0;
@@ -274,13 +271,13 @@ public class Server
 
 	protected void EndSend (Player player)
 	{
-		int size = mOut.EndPacket();
-
-		for (int offset = 0; offset < size && player.socket.Connected; )
+		if (player.tcp.Connected)
 		{
-			offset += player.socket.Send(mOut.buffer, offset, size - offset, SocketFlags.None);
+			int size = mOut.EndPacket();
+			NetworkStream stream = player.tcp.GetStream();
+			stream.Write(mOut.buffer, 0, size);
+			Console.WriteLine("...sent " + size + " bytes");
 		}
-		Console.WriteLine("...sent " + size + " bytes");
 	}
 
 	/// <summary>
@@ -311,20 +308,15 @@ public class Server
 
 	protected void SendToChannel (Channel channel, byte[] buffer, int offset, int size)
 	{
-		if (channel == null)
-			return;
-
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			Player player = channel.players[i];
 
-			if (player.verified && player.socket.Connected)
+			if (player.verified && player.tcp.Connected)
 			{
-				while (offset < size && player.socket.Connected)
-				{
-					offset += player.socket.Send(buffer, offset, size - offset, SocketFlags.None);
-				}
-				Console.WriteLine("...sent " + size + " bytes");
+				NetworkStream stream = player.tcp.GetStream();
+				stream.Write(buffer, offset, size - offset);
+				Console.WriteLine("...sent " + (size - offset) + " bytes");
 			}
 		}
 	}
@@ -464,9 +456,10 @@ public class Server
 
 	bool ReceivePacket (Player player, long time)
 	{
-		BinaryReader reader = player.ReceivePacket(time);
-		if (reader == null) return false;
-		Packet request = (Packet)reader.ReadByte();
+		if (!player.ReceivePacket(time)) return false;
+
+		// First byte is always the packet's identifier
+		Packet request = (Packet)player.reader.ReadByte();
 
 		Console.WriteLine("...packet: " + request);
 
@@ -482,15 +475,20 @@ public class Server
 			case Packet.ForwardToPlayer:
 			{
 				// Forward this packet to the specified player
-				Player tp = GetPlayer(reader.ReadInt32());
-				if (tp == null) player.ForwardLastPacket(tp);
+				Player tp = GetPlayer(player.reader.ReadInt32());
+
+				if (tp != null && tp.tcp.Connected)
+				{
+					byte[] buff = player.ExtractPacket(false);
+					tp.writer.Write(buff, 0, player.packetSize);
+				}
 				break;
 			}
 			case Packet.RequestJoinChannel:
 			{
 				// Join the specified channel
-				int channelID = reader.ReadInt32();
-				string pass = reader.ReadString();
+				int channelID = player.reader.ReadInt32();
+				string pass = player.reader.ReadString();
 
 				if (channelID == -1)
 				{
@@ -529,7 +527,7 @@ public class Server
 			case Packet.RequestSetName:
 			{
 				// Change the player's name
-				player.name = reader.ReadString();
+				player.name = player.reader.ReadString();
 				BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
 				writer.Write(player.id);
 				writer.Write(player.name);
@@ -541,15 +539,17 @@ public class Server
 				// Other packets can only be processed while in a channel
 				if (player.channel != null)
 				{
-					ProcessChannelPacket(player, request, reader);
+					ProcessChannelPacket(player, request);
 				}
 				else
 				{
-					OnPacket((int)request, reader);
+					OnPacket(player, (int)request);
 				}
 				break;
 			}
 		}
+		// We're done with this packet -- reset the size
+		player.ReleasePacket();
 		return true;
 	}
 
@@ -557,83 +557,102 @@ public class Server
 	/// Process a packet from the player.
 	/// </summary>
 
-	void ProcessChannelPacket (Player player, Packet request, BinaryReader reader)
+	void ProcessChannelPacket (Player player, Packet request)
 	{
 		switch (request)
 		{
 			case Packet.ForwardToAll:
 			{
+				byte[] buffer = player.ExtractPacket(false);
+				int size = player.packetSize;
+
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					player.ForwardLastPacket(tp);
+					tp.Send(buffer, 0, size);
 				}
 				break;
 			}
 			case Packet.ForwardToOthers:
 			{
+				byte[] buffer = player.ExtractPacket(false);
+				int size = player.packetSize;
+
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (tp != player) player.ForwardLastPacket(tp);
+					if (tp != player) tp.Send(buffer, 0, size);
 				}
 				break;
 			}
 			case Packet.ForwardToAllBuffered:
 			{
 				// Save this packet for future users
-				int viewID = reader.ReadInt32();
-				short rfcID = reader.ReadInt16();
-				player.channel.CreateRFC(viewID, rfcID).buffer = player.CopyBuffer();
+				int viewID = player.reader.ReadInt32();
+				short rfcID = player.reader.ReadInt16();
+
+				// Create a copy of this buffer and save it
+				byte[] buffer = player.ExtractPacket(true);
+				int size = player.packetSize;
+				player.channel.CreateRFC(viewID, rfcID).buffer = buffer;
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					player.ForwardLastPacket(tp);
+					if (player.tcp.Connected) player.Send(buffer, 0, size);
 				}
 				break;
 			}
 			case Packet.ForwardToOthersBuffered:
 			{
 				// Save this packet for future users
-				int viewID = reader.ReadInt32();
-				short rfcID = reader.ReadInt16();
-				player.channel.CreateRFC(viewID, rfcID).buffer = player.CopyBuffer();
+				int viewID = player.reader.ReadInt32();
+				short rfcID = player.reader.ReadInt16();
+
+				// Create a copy of this buffer and save it
+				byte[] buffer = player.ExtractPacket(true);
+				int size = player.packetSize;
+				player.channel.CreateRFC(viewID, rfcID).buffer = buffer;
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (tp != player) player.ForwardLastPacket(tp);
+					if (tp != player && player.tcp.Connected) player.Send(buffer, 0, size);
 				}
 				break;
 			}
 			case Packet.ForwardToHost:
 			{
 				// Forward the packet to the channel's host
-				player.ForwardLastPacket(player.channel.host);
+				player.channel.host.writer.Write(player.ExtractPacket(false), 0, player.packetSize);
 				break;
 			}
 			case Packet.RequestCreate:
 			{
 				// Create a new object
-				short objectID = reader.ReadInt16();
+				short objectID = player.reader.ReadInt16();
 
 				// Dynamically created Network Views should always start out being negative
-				int uniqueID = (reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
+				int uniqueID = (player.reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
+				byte[] buff = null;
+				int size = player.packetSize;
 
 				// If a unique ID was requested then this call should be persistent
 				if (uniqueID != 0)
 				{
+					if (size > 0) buff = player.ExtractPacket(true);
+
 					Channel.CreatedObject obj = new Channel.CreatedObject();
 					obj.objectID = objectID;
 					obj.uniqueID = uniqueID;
-					obj.buffer = player.CopyBuffer();
+					obj.buffer = buff;
 					player.channel.created.Add(obj);
 				}
+				else buff = player.ExtractPacket(false);
 
 				// Inform the channel
 				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
@@ -641,15 +660,14 @@ public class Server
 				writer.Write(uniqueID);
 
 				// If there is any data left, append it to the end
-				int bytes = player.buffer.size - player.buffer.position;
-				if (bytes > 0) writer.Write(player.buffer.buffer, player.buffer.position, bytes);
+				if (size > 0) writer.Write(buff, 0, size);
 				EndSend(player.channel);
 				break;
 			}
 			case Packet.RequestDestroy:
 			{
 				// Destroy the specified network view
-				int uniqueID = reader.ReadInt32();
+				int uniqueID = player.reader.ReadInt32();
 
 				if (!player.channel.destroyed.Contains(uniqueID))
 				{
@@ -685,7 +703,7 @@ public class Server
 				// Transfer the host state from one player to another
 				if (player.channel.host == player)
 				{
-					Player newHost = GetPlayer(reader.ReadInt32());
+					Player newHost = GetPlayer(player.reader.ReadInt32());
 					if (newHost != null && newHost.channel == player.channel) SendSetHost(newHost);
 				}
 				break;
@@ -693,7 +711,7 @@ public class Server
 			case Packet.RequestRemoveRFC:
 			{
 				// Remove the specified remote function call
-				player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
+				player.channel.DeleteRFC(player.reader.ReadInt32(), player.reader.ReadInt16());
 				break;
 			}
 			case Packet.RequestLeaveChannel:
@@ -703,7 +721,7 @@ public class Server
 			}
 			default:
 			{
-				OnPacket((int)request, reader);
+				OnPacket(player, (int)request);
 				break;
 			}
 		}
@@ -713,7 +731,7 @@ public class Server
 	/// If custom functionality is needed, all unrecognized packets will arrive here.
 	/// </summary>
 
-	protected virtual void OnPacket (int packetID, BinaryReader reader)
+	protected virtual void OnPacket (Player player, int packetID)
 	{
 		Error("Unrecognized packet with ID of " + packetID);
 	}

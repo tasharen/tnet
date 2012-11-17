@@ -246,7 +246,7 @@ public class Client
 
 				// Connection established -- let's verify the protocol version number
 				mStage = Stage.Verifying;
-				BinaryWriter writer = mOut.BeginWriting(4);
+				BinaryWriter writer = mOut.BeginWriting(false);
 				writer.Write(version);
 				mSocket.Send(mOut.buffer, 4, SocketFlags.None);
 				return;

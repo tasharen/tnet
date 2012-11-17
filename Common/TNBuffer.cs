@@ -65,32 +65,14 @@ public class Buffer
 	/// Begin the writing process.
 	/// </summary>
 
-	public BinaryWriter BeginWriting () { return BeginWriting(false); }
-
-	/// <summary>
-	/// Begin the writing process.
-	/// </summary>
-
 	public BinaryWriter BeginWriting (bool append)
 	{
 		if (!append || !mWriting)
 		{
 			mStream.Seek(0, SeekOrigin.Begin);
+			mSize = 0;
 		}
 		mWriting = true;
-		return mWriter;
-	}
-
-	/// <summary>
-	/// Begin the writing process.
-	/// </summary>
-
-	public BinaryWriter BeginWriting (int capacity)
-	{
-		// TODO: Remove the need for this function
-		mWriting = true;
-		if (mStream.Capacity < capacity) mStream.SetLength(capacity);
-		mStream.Seek(0, SeekOrigin.Begin);
 		return mWriter;
 	}
 
@@ -132,7 +114,7 @@ public class Buffer
 
 	public BinaryWriter BeginPacket ()
 	{
-		BinaryWriter writer = BeginWriting();
+		BinaryWriter writer = BeginWriting(false);
 		writer.Write(0);
 		return writer;
 	}

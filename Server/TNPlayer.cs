@@ -15,29 +15,74 @@ public class Player
 	public int id = 0;
 	public string name;
 	public string address;
-	public Socket socket;
+	public TcpClient tcp;
 	public Channel channel;
 	public bool verified = false;
 	public long timestamp = 0;
 
-	NetworkStream mStream;
-	BinaryWriter mWriter;
+	public BinaryReader reader;
+	public BinaryWriter writer;
 
+	NetworkStream mStream;
 	int mSize = 0;
 	int mLast = 0;
-	Buffer mBuffer = new Buffer();
-
-	/// <summary>
-	/// Access to the internal buffer.
-	/// </summary>
-
-	public Buffer buffer { get { return mBuffer; } }
+	int mPacketSize = 0;
 
 	/// <summary>
 	/// Whether the player has some data to receive.
 	/// </summary>
 
-	public bool hasData { get { return socket.Available >= 4; } }
+	public bool hasData { get { return tcp.Available >= 0; } }
+
+	/// <summary>
+	/// Whether the next packet is ready for processing.
+	/// </summary>
+
+	public bool hasPacket { get { return tcp.Available >= mSize; } }
+
+	/// <summary>
+	/// Size of the packet.
+	/// </summary>
+
+	public int packetSize { get { return mSize; } }
+
+	/// <summary>
+	/// Players can only be created with a TCP client.
+	/// </summary>
+
+	public Player (TcpClient client)
+	{
+		tcp = client;
+		mStream = tcp.GetStream();
+		reader = new BinaryReader(mStream);
+		writer = new BinaryWriter(mStream);
+	}
+
+	/// <summary>
+	/// Disconnect the player, freeing all resources.
+	/// </summary>
+
+	public void Disconnect ()
+	{
+		if (mStream != null)
+		{
+			writer.Flush();
+			
+			Socket sock = tcp.Client;
+			tcp.Close();
+
+			// TODO: Graceful shutdown
+			//mWriter.Close();
+			//mReader.Close();
+
+			//sock.Shutdown(SocketShutdown.Both);
+			//sock.Disconnect(false);
+			
+			mStream = null;
+			reader = null;
+			writer = null;
+		}
+	}
 
 	/// <summary>
 	/// Receive the player's version number.
@@ -46,69 +91,79 @@ public class Player
 	public int ReceiveVersion ()
 	{
 		// We must have at least 4 bytes to work with
-		if (socket.Available < 4) return 0;
-
-		// Determine the size of the packet
-		BinaryReader reader = mBuffer.Receive(socket, 4);
-		return reader.ReadInt32();
+		if (tcp.Available < 4) return 0;
+		return ReadInt();
 	}
 
 	/// <summary>
-	/// Receive a packet from the associated socket.
+	/// Helper function: Read a 32-bit integer value from the network stream.
 	/// </summary>
 
-	public BinaryReader ReceivePacket (long time)
+	int ReadInt ()
 	{
-		int available = socket.Available;
+		NetworkStream stream = tcp.GetStream();
+
+		int a = stream.ReadByte();
+		int b = stream.ReadByte();
+		int c = stream.ReadByte();
+		int d = stream.ReadByte();
+
+		int intVal = a | (b << 8) | (c << 16) | (d << 24);
+		return intVal;
+	}
+
+	/// <summary>
+	/// Receive a packet from the network.
+	/// </summary>
+
+	public bool ReceivePacket (long time)
+	{
+		// TODO:
+		// Eliminate this function, replacing it with an async BeginRead() operation
+		// that will save incoming data into a buffer, and flip a flag when a packet is ready.
+		// Dual buffers, maybe? Write into one while another is being processed?
+
+		int available = tcp.Available;
 
 		// We must have at least 4 bytes to work with
 		if (mSize == 0)
 		{
-			if (available < 4) return null;
+			if (available < 4) return false;
 			
 			// Determine the size of the packet
-			mSize = mBuffer.Receive(socket, 4).ReadInt32();
-			mBuffer.Clear();
+			mSize = ReadInt();
 
 			// Skip the first 4 bytes used for size
 			available -= 4;
-
-			// Only retrieve one packet at a time
-			if (available > mSize) available = mSize;
 		}
 
 		// Nothing left to receive? Do nothing.
-		if (available == 0) return null;
+		if (available == 0) return false;
 
-		// Receive as much data as we can
-		int received = socket.Receive(mTemp);
-
-		// Add this data to the buffer
-		BinaryWriter writer = mBuffer.BeginWriting(true);
-		writer.Write(mTemp, 0, received);
-		timestamp = time;
-
-		// Receive the entire packet
-		Console.WriteLine("Received " + received + " bytes");
-
-		// Once we receive the entire packet, process it
-		if (mBuffer.size == mSize)
+		// If we don't have an entire packet, don't do anything
+		if (available < mSize)
 		{
-			BinaryReader reader = mBuffer.BeginReading();
-			mSize = 0;
-			return reader;
+			if (mLast != available)
+			{
+				Console.WriteLine("Received " + available + "/" + mSize + " bytes");
+				timestamp = time;
+				mLast = available;
+			}
+			return false;
 		}
-		return null;
+		Console.WriteLine("Received " + mSize + " bytes");
+		timestamp = time;
+		return true;
 	}
 
 	/// <summary>
-	/// Forward the remaining data of the last received packet to the specified player.
-	/// Must follow ReceivePacket() in order to work.
+	/// We're done processing the packet.
 	/// </summary>
 
-	public void ForwardLastPacket (Player recipient)
+	public void ReleasePacket ()
 	{
-		if (recipient != null) recipient.Send(mBuffer.buffer, mBuffer.position, mBuffer.size);
+		mSize = 0;
+		mLast = 0;
 	}
 
 	/// <summary>
@@ -116,17 +171,20 @@ public class Player
 	/// Should only be used after ReceivePacket().
 	/// </summary>
 
-	public byte[] CopyBuffer ()
+	public byte[] ExtractPacket (bool copy)
 	{
-		if (mBuffer.size > 0)
+		if (copy)
 		{
-			byte[] data = new byte[mBuffer.size];
-			int offset = (int)mBuffer.position;
-			mBuffer.stream.Read(data, offset, mBuffer.size);
-			mBuffer.stream.Seek(offset, SeekOrigin.Begin);
-			return data;
+			byte[] buff = new byte[mSize];
+			reader.Read(buff, 0, mSize);
+			return buff;
 		}
-		return null;
+		else
+		{
+			if (mSize > mTemp.Length) mTemp = new byte[mSize];
+			reader.Read(mTemp, 0, mSize);
+			return mTemp;
+		}
 	}
 
 	/// <summary>
@@ -143,15 +201,11 @@ public class Player
 
 	public void Send (byte[] buffer, int offset, int size)
 	{
-		if (socket.Connected)
+		if (tcp.Connected)
 		{
-			if (mWriter == null)
-			{
-				mStream = new NetworkStream(socket);
-				mWriter = new BinaryWriter(mStream);
-			}
-			mWriter.Write(size);
-			mStream.Write(buffer, offset, size);
+			NetworkStream stream = tcp.GetStream();
+			writer.Write(size);
+			stream.Write(buffer, offset, size);
 		}
 	}
 }
