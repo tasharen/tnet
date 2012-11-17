@@ -14,6 +14,12 @@ public enum Packet
 	Custom,
 
 	/// <summary>
+	/// Clients should send a ping request periodically.
+	/// </summary>
+
+	RequestPing,
+
+	/// <summary>
 	/// Join the specified channel.
 	/// int32: Channel ID
 	/// string: Channel password
@@ -66,6 +72,12 @@ public enum Packet
 	RequestDestroy,
 
 	//===================================================================================
+
+	/// <summary>
+	/// Response to a ping request.
+	/// </summary>
+
+	ResponsePing,
 
 	/// <summary>
 	/// Always the first packet to arrive from the server. If the server version didn't match the client, a disconnect may follow.
@@ -140,18 +152,18 @@ public enum Packet
 	ResponseSetHost,
 
 	/// <summary>
-	/// Create a new object.
+	/// Create a new persistent entry.
 	/// int16: Object ID.
-	/// int32: View ID (if requested, 0 otherwise).
+	/// int32: Unique Identifier (aka View ID) if requested, 0 otherwise.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
 	ResponseCreate,
 
 	/// <summary>
-	/// Delete the specified Network Views.
+	/// Delete the specified Unique Identifier and its associated entry.
 	/// int16: Number of views that will follow.
-	/// int32[] View IDs.
+	/// int32[] Unique Identifiers (aka View IDs).
 	/// </summary>
 
 	ResponseDestroy,

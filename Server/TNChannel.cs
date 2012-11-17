@@ -13,11 +13,18 @@ public class Channel
 		public byte[] buffer;
 	}
 
+	public class CreatedObject
+	{
+		public short objectID;
+		public int uniqueID;
+		public byte[] buffer;
+	}
+
 	public int id;
 	public string password;
 	public BetterList<Player> players = new BetterList<Player>();
 	public BetterList<RFC> rfcs = new BetterList<RFC>();
-	public BetterList<int> created = new BetterList<int>();
+	public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
 	public BetterList<int> destroyed = new BetterList<int>();
 	public Player host;
 	public int viewCounter = 0;

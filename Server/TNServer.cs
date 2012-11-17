@@ -412,14 +412,20 @@ public class Server
 			EndSend(player);
 
 			// Step 4: Send the list of objects that have been created
-			//player.Send(player.channel.created.size);
-			//for (int i = 0; i < player.channel.created.size; ++i)
-			//	player.Send(player.channel.created.buffer, 0, player.channel.created.size);
+			for (int i = 0; i < player.channel.created.size; ++i)
+			{
+				Channel.CreatedObject obj = player.channel.created.buffer[i];
+				writer = BeginSend(Packet.ResponseCreate);
+				writer.Write(obj.objectID);
+				writer.Write(obj.uniqueID);
+				writer.Write(obj.buffer);
+				EndSend(player);
+			}
 
 			// Step 5: Send the list of objects that have been destroyed
 			writer = BeginSend(Packet.ResponseDestroy);
 			writer.Write((short)player.channel.destroyed.size);
-			for (int i = 0; i < player.channel.created.size; ++i)
+			for (int i = 0; i < player.channel.destroyed.size; ++i)
 				writer.Write((short)player.channel.destroyed.buffer[i]);
 
 			// Step 6: Send all buffered RFCs to the new player
@@ -439,88 +445,96 @@ public class Server
 	{
 		BinaryReader reader = player.ReceivePacket();
 		if (reader == null) return false;
-		int packetID = reader.ReadByte();
-		Packet request = (Packet)packetID;
+		Packet request = (Packet)reader.ReadByte();
 
 		Console.WriteLine("Packet: " + request);
 
-		if (request == Packet.ForwardToPlayer)
+		switch (request)
 		{
-			// Forward this packet to the specified player
-			Player tp = GetPlayer(reader.ReadInt32());
-			if (tp == null) player.ForwardLastPacket(tp);
-		}
-		else if (request == Packet.RequestJoinChannel)
-		{
-			// Join the specified channel
-			int channelID = reader.ReadInt32();
-			string pass = reader.ReadString();
-
-			if (channelID == -1)
+			case Packet.RequestPing:
 			{
-				channelID = mRandom.Range(1, 100000000);
+				// Respond with a ping back
+				BeginSend(Packet.ResponsePing);
+				EndSend(player);
+				break;
+			}
+			case Packet.ForwardToPlayer:
+			{
+				// Forward this packet to the specified player
+				Player tp = GetPlayer(reader.ReadInt32());
+				if (tp == null) player.ForwardLastPacket(tp);
+				break;
+			}
+			case Packet.RequestJoinChannel:
+			{
+				// Join the specified channel
+				int channelID = reader.ReadInt32();
+				string pass = reader.ReadString();
 
-				for (int i = 0; i < 1000; ++i)
+				if (channelID == -1)
 				{
-					if (!ChannelExists(channelID)) break;
 					channelID = mRandom.Range(1, 100000000);
-				}
-			}
 
-			if (player.channel.id != channelID)
-			{
-				Channel channel = CreateChannel(channelID);
+					for (int i = 0; i < 1000; ++i)
+					{
+						if (!ChannelExists(channelID)) break;
+						channelID = mRandom.Range(1, 100000000);
+					}
+				}
 
-				if (channel.players.size == 0)
+				if (player.channel.id != channelID)
 				{
-					channel.password = pass;
-					SendLeaveChannel(player);
-					SendJoinChannel(player, channelID);
+					Channel channel = CreateChannel(channelID);
+
+					if (channel.players.size == 0)
+					{
+						channel.password = pass;
+						SendLeaveChannel(player);
+						SendJoinChannel(player, channelID);
+					}
+					else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
+					{
+						SendLeaveChannel(player);
+						SendJoinChannel(player, channelID);
+					}
+					else
+					{
+						BeginSend(Packet.ResponseWrongPassword);
+						EndSend(player);
+					}
 				}
-				else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
-				{
-					SendLeaveChannel(player);
-					SendJoinChannel(player, channelID);
-				}
-				else
-				{
-					BeginSend(Packet.ResponseWrongPassword);
-					EndSend(player);
-				}
+				break;
 			}
-		}
-		else if (request == Packet.RequestLeaveChannel)
-		{
-			SendLeaveChannel(player);
-		}
-		else if (request == Packet.RequestSetName)
-		{
-			// Change the player's name
-			player.name = reader.ReadString();
-			BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
-			writer.Write(player.id);
-			writer.Write(player.name);
-			EndSend(player.channel);
-		}
-		else if (request == Packet.RequestSetHost)
-		{
-			// Transfer the host state from one player to another
-			if (player.channel != null && player.channel.host == player)
+			case Packet.RequestSetName:
 			{
-				Player newHost = GetPlayer(reader.ReadInt32());
-				if (newHost != null && newHost.channel == player.channel) SendSetHost(newHost);
+				// Change the player's name
+				player.name = reader.ReadString();
+				BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
+				writer.Write(player.id);
+				writer.Write(player.name);
+				EndSend(player.channel);
+				break;
 			}
-		}
-		else if (request == Packet.RequestRemoveRFC)
-		{
-			if (player.channel != null)
+			default:
 			{
-				player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
+				// Other packets can only be processed while in a channel
+				if (player.channel != null) ProcessChannelPacket(player, request, reader);
+				else OnPacket((int)request, reader);
+				break;
 			}
 		}
-		else if (player.channel != null)
+		return true;
+	}
+
+	/// <summary>
+	/// Process a packet from the player.
+	/// </summary>
+
+	void ProcessChannelPacket (Player player, Packet request, BinaryReader reader)
+	{
+		switch (request)
 		{
-			if (request == Packet.ForwardToAll)
+			case Packet.ForwardToAll:
 			{
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -528,8 +542,9 @@ public class Server
 					Player tp = player.channel.players[i];
 					player.ForwardLastPacket(tp);
 				}
+				break;
 			}
-			else if (request == Packet.ForwardToOthers)
+			case Packet.ForwardToOthers:
 			{
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -537,8 +552,9 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (tp != player) player.ForwardLastPacket(tp);
 				}
+				break;
 			}
-			else if (request == Packet.ForwardToAllBuffered)
+			case Packet.ForwardToAllBuffered:
 			{
 				// Save this packet for future users
 				int viewID = reader.ReadInt32();
@@ -551,8 +567,9 @@ public class Server
 					Player tp = player.channel.players[i];
 					player.ForwardLastPacket(tp);
 				}
+				break;
 			}
-			else if (request == Packet.ForwardToOthersBuffered)
+			case Packet.ForwardToOthersBuffered:
 			{
 				// Save this packet for future users
 				int viewID = reader.ReadInt32();
@@ -565,57 +582,104 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (tp != player) player.ForwardLastPacket(tp);
 				}
+				break;
 			}
-			else if (request == Packet.ForwardToHost)
+			case Packet.ForwardToHost:
 			{
 				// Forward the packet to the channel's host
 				player.ForwardLastPacket(player.channel.host);
+				break;
 			}
-			else if (request == Packet.RequestCreate)
+			case Packet.RequestCreate:
 			{
-				if (player.channel != null)
+				// Create a new object
+				short objectID = reader.ReadInt16();
+
+				// Dynamically created Network Views should always start out being negative
+				int uniqueID = (reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
+
+				// If a unique ID was requested then this call should be persistent
+				if (uniqueID != 0)
 				{
-					// Create a new object
-					short objectID = reader.ReadInt16();
-
-					// Dynamically created Network Views should always start out being negative
-					int viewID = (reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
-
-					// Remember that we've created a new view
-					if (viewID != 0) player.channel.created.Add(viewID);
-
-					// Inform the channel
-					BinaryWriter writer = BeginSend(Packet.ResponseCreate);
-					writer.Write(objectID);
-					writer.Write(viewID);
-
-					// If there is any data left, append it to the end
-					int bytes = player.buffer.size - player.buffer.position;
-					if (bytes > 0) writer.Write(player.buffer.buffer, player.buffer.position, bytes);
-					EndSend(player.channel);
+					Channel.CreatedObject obj = new Channel.CreatedObject();
+					obj.objectID = objectID;
+					obj.uniqueID = uniqueID;
+					obj.buffer = player.CopyBuffer();
+					player.channel.created.Add(obj);
 				}
+
+				// Inform the channel
+				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+				writer.Write(objectID);
+				writer.Write(uniqueID);
+
+				// If there is any data left, append it to the end
+				int bytes = player.buffer.size - player.buffer.position;
+				if (bytes > 0) writer.Write(player.buffer.buffer, player.buffer.position, bytes);
+				EndSend(player.channel);
+				break;
 			}
-			else if (request == Packet.RequestDestroy)
+			case Packet.RequestDestroy:
 			{
 				// Destroy the specified network view
-				int viewID = reader.ReadInt32();
+				int uniqueID = reader.ReadInt32();
 
-				if (!player.channel.destroyed.Contains(viewID))
+				if (!player.channel.destroyed.Contains(uniqueID))
 				{
-					// If this view was not created dynamically, we should remember it
-					if (!player.channel.created.Remove(viewID))
-						player.channel.destroyed.Add(viewID);
+					bool wasCreated = false;
 
+					// Determine if we created this view earlier
+					for (int i = 0; i < player.channel.created.size; ++i)
+					{
+						Channel.CreatedObject obj = player.channel.created[i];
+						
+						if (obj.uniqueID == uniqueID)
+						{
+							// Remove it
+							player.channel.created.RemoveAt(i);
+							wasCreated = true;
+							break;
+						}
+					}
+
+					// If the view was not created dynamically, we should remember it
+					if (!wasCreated) player.channel.destroyed.Add(uniqueID);
+
+					// Inform all players in the channel that the view should be destroyed
 					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
 					writer.Write((short)1);
-					writer.Write(viewID);
+					writer.Write(uniqueID);
 					EndSend(player.channel);
 				}
+				break;
 			}
-			else OnPacket(packetID, reader);
+			case Packet.RequestSetHost:
+			{
+				// Transfer the host state from one player to another
+				if (player.channel.host == player)
+				{
+					Player newHost = GetPlayer(reader.ReadInt32());
+					if (newHost != null && newHost.channel == player.channel) SendSetHost(newHost);
+				}
+				break;
+			}
+			case Packet.RequestRemoveRFC:
+			{
+				// Remove the specified remote function call
+				player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
+				break;
+			}
+			case Packet.RequestLeaveChannel:
+			{
+				SendLeaveChannel(player);
+				break;
+			}
+			default:
+			{
+				OnPacket((int)request, reader);
+				break;
+			}
 		}
-		else OnPacket(packetID, reader);
-		return true;
 	}
 
 	/// <summary>
