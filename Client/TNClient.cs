@@ -173,21 +173,27 @@ public class Client
 
 	public void EndSend ()
 	{
-		int size = mOut.EndPacket();
+		if (mSocket != null)
+		{
+			int size = mOut.EndPacket();
 
-		try
-		{
-			mSocket.Send(mOut.buffer, 0, size, SocketFlags.None);
-			Console.WriteLine("...sent " + size + " bytes");
-		}
-		catch (System.Net.Sockets.SocketException ex)
-		{
-			Console.WriteLine(ex.Message);
-			Disconnect();
-		}
-		catch (System.Exception ex)
-		{
-			Console.WriteLine(ex.Message);
+			try
+			{
+				for (int offset = 0; offset < size; )
+				{
+					offset += mSocket.Send(mOut.buffer, offset, size, SocketFlags.None);
+				}
+				Console.WriteLine("...sent " + size + " bytes");
+			}
+			catch (System.Net.Sockets.SocketException ex)
+			{
+				Console.WriteLine(ex.Message);
+				Disconnect();
+			}
+			catch (System.Exception ex)
+			{
+				Console.WriteLine(ex.Message);
+			}
 		}
 	}
 
@@ -279,7 +285,7 @@ public class Client
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
-			writer.Write(password);
+			writer.Write(string.IsNullOrEmpty(password) ? "" : password);
 			EndSend();
 		}
 	}

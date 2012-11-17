@@ -6,12 +6,32 @@ using System.Threading;
 public class TNetTest
 {
 	static Client client;
+	static bool test = false;
 
 	static void ThreadFunction ()
 	{
 		for (; ; )
 		{
 			client.ProcessPackets();
+
+			if (test)
+			{
+				Console.WriteLine("Large data test...");
+
+				test = false;
+
+				FileStream stream = new FileStream("../../sig.png", FileMode.Open);
+				byte[] data = new byte[stream.Length];
+				stream.Read(data, 0, (int)stream.Length);
+				stream.Close();
+				stream.Dispose();
+				
+				BinaryWriter writer = client.BeginSend(Packet.ForwardToAll);
+				writer.Write((byte)Packet.Custom);
+				writer.Write((byte)10);
+				writer.Write(data);
+				client.EndSend();
+			}
 			Thread.Sleep(1);
 		}
 	}
@@ -44,6 +64,10 @@ public class TNetTest
 				thread.Abort();
 				break;
 			}
+			else if (command == "s")
+			{
+				test = true;
+			}
 		}
 		Console.WriteLine("Shutting down...");
 		client.Disconnect();
@@ -55,6 +79,7 @@ public class TNetTest
 	static void OnConnect (bool success, string message)
 	{
 		Console.WriteLine("Connected: " + success + " (" + message + ")");
+		client.JoinChannel(123, null);
 	}
 
 	static void OnDisconnect ()
@@ -94,6 +119,6 @@ public class TNetTest
 
 	static void OnCustomPacket (int packetID, BinaryReader reader)
 	{
-		Console.WriteLine("Custom: " + packetID);
+		Console.WriteLine("Custom: " + packetID + " (" + reader.BaseStream.Length + " bytes)");
 	}
 }

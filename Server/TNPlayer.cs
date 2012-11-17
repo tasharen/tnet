@@ -10,6 +10,8 @@ namespace TNet
 
 public class Player
 {
+	static byte[] mTemp = new byte[8192];
+
 	public int id = 0;
 	public string name;
 	public string address;
@@ -57,34 +59,46 @@ public class Player
 
 	public BinaryReader ReceivePacket (long time)
 	{
-		// We must have at least 4 bytes to work with
-		if (socket.Available < 4) return null;
-
-		// Determine the size of the packet
-		if (mSize == 0) mSize = mBuffer.Receive(socket, 4).ReadInt32();
-
 		int available = socket.Available;
 
-		// If we don't have the entire packet waiting, don't do anything.
-		// TODO: Receive data from the socket, storing it in the "incoming" buffer.
-		if (available < mSize)
+		// We must have at least 4 bytes to work with
+		if (mSize == 0)
 		{
-			if (available != mLast)
-			{
-				mLast = available;
-				timestamp = time;
-			}
-			//Console.WriteLine("Expecting " + mSize + " bytes, have " + socket.Available);
-			return null;
+			if (available < 4) return null;
+			
+			// Determine the size of the packet
+			mSize = mBuffer.Receive(socket, 4).ReadInt32();
+			mBuffer.Clear();
+
+			// Skip the first 4 bytes used for size
+			available -= 4;
+
+			// Only retrieve one packet at a time
+			if (available > mSize) available = mSize;
 		}
 
-		// Receive the entire packet
+		// Nothing left to receive? Do nothing.
+		if (available == 0) return null;
+
+		// Receive as much data as we can
+		int received = socket.Receive(mTemp);
+
+		// Add this data to the buffer
+		BinaryWriter writer = mBuffer.BeginWriting(true);
+		writer.Write(mTemp, 0, received);
 		timestamp = time;
-		BinaryReader reader = mBuffer.Receive(socket, mSize);
-		Console.WriteLine("Received " + mSize + " bytes");
-		mSize = 0;
-		mLast = 0;
-		return reader;
+
+		// Receive the entire packet
+		Console.WriteLine("Received " + received + " bytes");
+
+		// Once we receive the entire packet, process it
+		if (mBuffer.size == mSize)
+		{
+			BinaryReader reader = mBuffer.BeginReading();
+			mSize = 0;
+			return reader;
+		}
+		return null;
 	}
 
 	/// <summary>

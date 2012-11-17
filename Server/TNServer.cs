@@ -274,12 +274,13 @@ public class Server
 
 	protected void EndSend (Player player)
 	{
-		if (player.socket.Connected)
+		int size = mOut.EndPacket();
+
+		for (int offset = 0; offset < size && player.socket.Connected; )
 		{
-			int size = mOut.EndPacket();
-			player.socket.Send(mOut.buffer, 0, size, SocketFlags.None);
-			Console.WriteLine("...sent " + size + " bytes");
+			offset += player.socket.Send(mOut.buffer, offset, size - offset, SocketFlags.None);
 		}
+		Console.WriteLine("...sent " + size + " bytes");
 	}
 
 	/// <summary>
@@ -310,13 +311,19 @@ public class Server
 
 	protected void SendToChannel (Channel channel, byte[] buffer, int offset, int size)
 	{
+		if (channel == null)
+			return;
+
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			Player player = channel.players[i];
 
-			if (player.socket.Connected)
+			if (player.verified && player.socket.Connected)
 			{
-				player.socket.Send(buffer, offset, size, SocketFlags.None);
+				while (offset < size && player.socket.Connected)
+				{
+					offset += player.socket.Send(buffer, offset, size - offset, SocketFlags.None);
+				}
 				Console.WriteLine("...sent " + size + " bytes");
 			}
 		}
@@ -385,14 +392,18 @@ public class Server
 		if (player.channel == null || player.channel.id != channelID)
 		{
 			Channel channel = CreateChannel(channelID);
+			BinaryWriter writer;
 
-			// Step 1: Inform the channel that the player has joined
-			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
+			if (player.channel != null)
 			{
-				writer.Write(player.id);
-				writer.Write(player.name);
+				// Step 1: Inform the channel that the player has joined
+				writer = BeginSend(Packet.ResponsePlayerJoined);
+				{
+					writer.Write(player.id);
+					writer.Write(string.IsNullOrEmpty(player.name) ? "<Guest>" : player.name);
+				}
+				EndSend(player.channel);
 			}
-			EndSend(player.channel);
 
 			// Add this player to the channel
 			player.channel = channel;
@@ -408,7 +419,7 @@ public class Server
 				{
 					Player tp = channel.players[i];
 					writer.Write(tp.id);
-					writer.Write(tp.name);
+					writer.Write(string.IsNullOrEmpty(tp.name) ? "<Guest>" : tp.name);
 				}
 			}
 			EndSend(player.channel);
@@ -492,7 +503,7 @@ public class Server
 					}
 				}
 
-				if (player.channel.id != channelID)
+				if (player.channel == null || player.channel.id != channelID)
 				{
 					Channel channel = CreateChannel(channelID);
 
