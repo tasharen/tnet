@@ -165,6 +165,21 @@ public class BetterList<T>
 	}
 
 	/// <summary>
+	/// Remove an item from the end.
+	/// </summary>
+
+	public T Pop ()
+	{
+		if (buffer != null && size != 0)
+		{
+			T val = buffer[size];
+			buffer[--size] = default(T);
+			return val;
+		}
+		return default(T);
+	}
+
+	/// <summary>
 	/// Mimic List's ToArray() functionality, except that in this case the list is resized to match the current size.
 	/// </summary>
 

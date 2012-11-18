@@ -10,14 +10,14 @@ public class Channel
 	{
 		public int viewID;
 		public short rfcID;
-		public byte[] buffer;
+		public Buffer buffer;
 	}
 
 	public class CreatedObject
 	{
 		public short objectID;
 		public int uniqueID;
-		public byte[] buffer;
+		public Buffer buffer;
 	}
 
 	public int id;
@@ -52,7 +52,7 @@ public class Channel
 	/// Delete the specified remote function call.
 	/// </summary>
 
-	public void DeleteRFC (int viewID, short rfcID)
+	public RFC DeleteRFC (int viewID, short rfcID)
 	{
 		for (int i = 0; i < rfcs.size; ++i)
 		{
@@ -61,9 +61,10 @@ public class Channel
 			if (r.viewID == viewID && r.rfcID == rfcID)
 			{
 				rfcs.RemoveAt(i);
-				return;
+				return r;
 			}
 		}
+		return null;
 	}
 }
 }

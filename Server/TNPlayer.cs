@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Net;
 using System.Net.Sockets;
 using System.IO;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace TNet
 {
@@ -10,52 +13,238 @@ namespace TNet
 
 public class Player
 {
-	static byte[] mTemp = new byte[8192];
+	static int mPlayerCounter = 0;
+
+	/// <summary>
+	/// Server protocol version. Must match the client.
+	/// </summary>
+
+	public const int version = 1;
 
 	public int id = 0;
 	public string name;
 	public string address;
-	public TcpClient tcp;
+	public Socket socket;
 	public Channel channel;
 	public bool verified = false;
 	public long timestamp = 0;
+	byte[] mTemp = new byte[8192];
 
-	public BinaryReader reader;
-	public BinaryWriter writer;
+	// Pool of messages for simple reuse
+	BetterList<Buffer> mPool;
 
-	NetworkStream mStream;
-	int mSize = 0;
-	int mLast = 0;
-	int mPacketSize = 0;
+	// Current incoming buffer
+	Buffer mCurrent;
+	int mExpected = 0;
+	int mOffset = 0;
 
-	/// <summary>
-	/// Whether the player has some data to receive.
-	/// </summary>
-
-	public bool hasData { get { return tcp.Available >= 0; } }
-
-	/// <summary>
-	/// Whether the next packet is ready for processing.
-	/// </summary>
-
-	public bool hasPacket { get { return tcp.Available >= mSize; } }
-
-	/// <summary>
-	/// Size of the packet.
-	/// </summary>
-
-	public int packetSize { get { return mSize; } }
+	// Incoming and outgoing queues
+	Queue<Buffer> mIn = new Queue<Buffer>();
+	Queue<Buffer> mOut = new Queue<Buffer>();
 
 	/// <summary>
 	/// Players can only be created with a TCP client.
 	/// </summary>
 
-	public Player (TcpClient client)
+	public Player (Socket sock, BetterList<Buffer> pool)
 	{
-		tcp = client;
-		mStream = tcp.GetStream();
-		reader = new BinaryReader(mStream);
-		writer = new BinaryWriter(mStream);
+		socket = sock;
+		mPool = pool;
+
+		id = Interlocked.Increment(ref mPlayerCounter);
+		address = ((IPEndPoint)socket.RemoteEndPoint).ToString();
+		timestamp = DateTime.Now.Ticks / 10000;
+
+		// Queue up the read operation
+		socket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+	}
+
+	/// <summary>
+	/// Create a new buffer, reusing an old one if possible.
+	/// </summary>
+
+	public Buffer CreateBuffer ()
+	{
+		if (mPool.size == 0) return new Buffer();
+
+		lock (mPool)
+		{
+			if (mPool.size != 0) return mPool.Pop();
+			else return new Buffer();
+		}
+	}
+
+	/// <summary>
+	/// Delete the specified buffer, recycling it.
+	/// </summary>
+
+	public void DeleteBuffer (Buffer buffer) { buffer.Clear(); lock (mPool) mPool.Add(buffer); }
+
+	/// <summary>
+	/// Extract the first incoming packet.
+	/// </summary>
+
+	public Buffer ReceivePacket ()
+	{
+		if (mIn.Count == 0) return null;
+		lock (mIn) return mIn.Dequeue();
+	}
+
+	/// <summary>
+	/// Send the specified packet.
+	/// </summary>
+
+	public void SendPacket (Buffer buffer)
+	{
+		if (socket.Connected)
+		{
+			buffer.BeginReading();
+
+			lock (mOut)
+			{
+				buffer.MarkAsUsed();
+				mOut.Enqueue(buffer);
+
+				if (mOut.Count == 1)
+				{
+					// If it's the first packet, let's send it
+					socket.BeginSend(buffer.buffer, buffer.position,
+						buffer.size, SocketFlags.None, OnSend, buffer);
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Send data one packet at a time.
+	/// </summary>
+
+	void OnSend (IAsyncResult result)
+	{
+		int bytes = socket.EndSend(result);
+
+		if (bytes > 0)
+		{
+			Console.WriteLine("...sent " + bytes + " bytes");
+			Buffer finished = (Buffer)result.AsyncState;
+
+			lock (mOut)
+			{
+				//mOut.Dequeue();
+
+				// This shouldn't be hit, but just in case...
+				if (mOut.Dequeue() != finished)
+					Console.WriteLine("WARNING: Unexpected...?");
+
+				// Recycle this buffer if it's no longer in use
+				finished.MarkAsUnused(mPool);
+
+				// If there is another packet to send out, let's send it
+				Buffer next = mOut.Peek();
+				if (next != null) socket.BeginSend(next.buffer, next.position, next.size,
+					SocketFlags.None, OnSend, null);
+			}
+		}
+		else Disconnect();
+	}
+
+	/// <summary>
+	/// Receive incoming data.
+	/// </summary>
+
+	void OnReceive (IAsyncResult result)
+	{
+		if (socket == null) return;
+
+		int bytes = socket.EndReceive(result);
+		timestamp = DateTime.Now.Ticks / 10000;
+
+		if (bytes > 0)
+		{
+			if (mCurrent == null)
+			{
+				// Create a new packet buffer
+				mOffset = 0;
+				mExpected = 0;
+				mCurrent = CreateBuffer();
+				mCurrent.BeginWriting(false).Write(mTemp, 0, bytes);
+			}
+			else
+			{
+				// Append this data to the end of the last used buffer
+				mCurrent.BeginWriting(true).Write(mTemp, 0, bytes);
+			}
+
+			for (int available = mCurrent.size - mOffset; available >= 4; )
+			{
+				// Figure out the packet's expected size
+				mExpected = mCurrent.PeekSize(mOffset);
+
+				// Version hasn't been verified yet? The first 4 bytes must be the version number.
+				if (!verified)
+				{
+					if (mCurrent.PeekSize(mOffset) != version)
+					{
+						Console.WriteLine(address + " failed verification");
+						Disconnect();
+						return;
+					}
+					verified = true;
+					mOffset += 4;
+					available -= 4;
+
+					Console.WriteLine(address + " has been verified");
+
+					// Move on to the actual packet
+					mExpected = mCurrent.PeekSize(mOffset);
+
+					// Send a response
+					Buffer temp = CreateBuffer();
+					BinaryWriter writer = temp.BeginPacket();
+					writer.Write((byte)Packet.ResponseVersion);
+					writer.Write(version);
+					writer.Write(id);
+					temp.EndPacket();
+					SendPacket(temp);
+				}
+
+				// Unable to determine the packet's size just yet
+				if (mExpected == 0) break;
+
+				// The first 4 bytes of any packet always contain the number of bytes in that packet
+				available -= 4;
+
+				// If the entire packet is present
+				if (available == mExpected)
+				{
+					// This packet is now ready to be processed
+					lock (mIn)
+					{
+						mIn.Enqueue(mCurrent);
+						mCurrent = null;
+					}
+					break;
+				}
+				else if (available > mExpected)
+				{
+					// Skip the size
+					mOffset += 4;
+
+					// There is more than one packet. Extract this packet.
+					Buffer temp = CreateBuffer();
+					temp.BeginWriting(false).Write(mCurrent.buffer, mOffset, mExpected);
+					lock (mIn) mIn.Enqueue(temp);
+
+					// Skip this packet
+					available -= mExpected;
+					mOffset += mExpected;
+				}
+				else break;
+			}
+			// Queue up the next read operation
+			socket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+		}
+		else Disconnect();
 	}
 
 	/// <summary>
@@ -64,148 +253,16 @@ public class Player
 
 	public void Disconnect ()
 	{
-		if (mStream != null)
+		if (socket != null)
 		{
-			writer.Flush();
-			
-			Socket sock = tcp.Client;
-			tcp.Close();
+			socket.Close();
+			socket = null;
 
-			// TODO: Graceful shutdown
-			//mWriter.Close();
-			//mReader.Close();
-
-			//sock.Shutdown(SocketShutdown.Both);
-			//sock.Disconnect(false);
-			
-			mStream = null;
-			reader = null;
-			writer = null;
-		}
-	}
-
-	/// <summary>
-	/// Receive the player's version number.
-	/// </summary>
-
-	public int ReceiveVersion ()
-	{
-		// We must have at least 4 bytes to work with
-		if (tcp.Available < 4) return 0;
-		return ReadInt();
-	}
-
-	/// <summary>
-	/// Helper function: Read a 32-bit integer value from the network stream.
-	/// </summary>
-
-	int ReadInt ()
-	{
-		NetworkStream stream = tcp.GetStream();
-
-		int a = stream.ReadByte();
-		int b = stream.ReadByte();
-		int c = stream.ReadByte();
-		int d = stream.ReadByte();
-
-		int intVal = a | (b << 8) | (c << 16) | (d << 24);
-		return intVal;
-	}
-
-	/// <summary>
-	/// Receive a packet from the network.
-	/// </summary>
-
-	public bool ReceivePacket (long time)
-	{
-		// TODO:
-		// Eliminate this function, replacing it with an async BeginRead() operation
-		// that will save incoming data into a buffer, and flip a flag when a packet is ready.
-		// Dual buffers, maybe? Write into one while another is being processed?
-
-		int available = tcp.Available;
-
-		// We must have at least 4 bytes to work with
-		if (mSize == 0)
-		{
-			if (available < 4) return false;
-			
-			// Determine the size of the packet
-			mSize = ReadInt();
-
-			// Skip the first 4 bytes used for size
-			available -= 4;
-		}
-
-		// Nothing left to receive? Do nothing.
-		if (available == 0) return false;
-
-		// If we don't have an entire packet, don't do anything
-		if (available < mSize)
-		{
-			if (mLast != available)
+			lock (mPool)
 			{
-				Console.WriteLine("Received " + available + "/" + mSize + " bytes");
-				timestamp = time;
-				mLast = available;
+				while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
+				while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
 			}
-			return false;
-		}
-		Console.WriteLine("Received " + mSize + " bytes");
-		timestamp = time;
-		return true;
-	}
-
-	/// <summary>
-	/// We're done processing the packet.
-	/// </summary>
-
-	public void ReleasePacket ()
-	{
-		mSize = 0;
-		mLast = 0;
-	}
-
-	/// <summary>
-	/// Returns the stand-alone buffer of the packet from the current position onwards.
-	/// Should only be used after ReceivePacket().
-	/// </summary>
-
-	public byte[] ExtractPacket (bool copy)
-	{
-		if (copy)
-		{
-			byte[] buff = new byte[mSize];
-			reader.Read(buff, 0, mSize);
-			return buff;
-		}
-		else
-		{
-			if (mSize > mTemp.Length) mTemp = new byte[mSize];
-			reader.Read(mTemp, 0, mSize);
-			return mTemp;
-		}
-	}
-
-	/// <summary>
-	/// Send a packet to this player.
-	/// The packet will always be prefixed with 4 bytes indicating the size of the packet.
-	/// </summary>
-
-	public void Send (byte[] buffer) { Send(buffer, 0, buffer.Length); }
-
-	/// <summary>
-	/// Send a packet to this player.
-	/// The packet will always be prefixed with 4 bytes indicating the size of the packet.
-	/// </summary>
-
-	public void Send (byte[] buffer, int offset, int size)
-	{
-		if (tcp.Connected)
-		{
-			NetworkStream stream = tcp.GetStream();
-			writer.Write(size);
-			stream.Write(buffer, offset, size);
 		}
 	}
 }

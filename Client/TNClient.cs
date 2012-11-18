@@ -118,7 +118,7 @@ public class Client
 	long mConnectStart = 0;
 	int mHost = 0;
 	int mPing = 0;
-	bool mCanPing = true;
+	bool mCanPing = false;
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -369,8 +369,8 @@ public class Client
 		if (mStage == Stage.Disconnected || mSocket == null) return;
 		mTime = DateTime.Now.Ticks / 10000;
 
-		// Request pings every so often. This is also a good way of determining who's still here.
-		if (mCanPing && mPingTime + 3000 < mTime)
+		// Request pings every so often, letting the server know we're still here.
+		if (mStage == Stage.Connected && mCanPing && mPingTime + 3000 < mTime)
 		{
 			mCanPing = false;
 			mPingTime = mTime;
@@ -410,6 +410,7 @@ public class Client
 
 						if (serverVersion == version)
 						{
+							mCanPing = true;
 							mStage = Stage.Connected;
 							if (onConnect != null) onConnect(true, null);
 						}
