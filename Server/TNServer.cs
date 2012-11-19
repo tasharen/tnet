@@ -13,11 +13,7 @@ namespace TNet
 
 public class Server
 {
-	/// <summary>
-	/// List of temporary buffers for incoming and outgoing packets.
-	/// </summary>
-
-	protected BetterList<Buffer> mPool = new BetterList<Buffer>();
+	static int mPlayerCounter = 0;
 
 	/// <summary>
 	/// List of players in a consecutive order for each looping.
@@ -131,28 +127,31 @@ public class Server
 					RemovePlayer(player);
 					continue;
 				}
-				else if (player.verified)
+				else
 				{
 					for (int b = 0; b < 100; ++b)
 					{
 						if (ReceivePacket(player, time)) received = true;
 						else break;
 					}
-					
-					if (player.timestamp + 5000 < time)
+
+					// Time out -- disconnect this player
+					if (player.verified)
+					{
+						if (player.timestamp + 5000 < time)
+						{
+							Console.WriteLine(player.address + " has timed out");
+							RemovePlayer(player);
+							continue;
+						}
+					}
+					else if (player.timestamp + 1000 < time)
 					{
 						Console.WriteLine(player.address + " has timed out");
 						RemovePlayer(player);
 						continue;
 					}
 				}
-				//else if (player.timestamp + 1000 < time)
-				//{
-				//    // Time out -- disconnect this player
-				//    Console.WriteLine(player.address + " has timed out");
-				//    RemovePlayer(player);
-				//    continue;
-				//}
 				++i;
 			}
 			if (!received) Thread.Sleep(1);
@@ -171,8 +170,9 @@ public class Server
 
 	protected Player AddPlayer (Socket socket)
 	{
-		Player player = new Player(socket, mPool);
-		mDictionary.Add(player.id, player);
+		Player player = new Player();
+		player.socket = socket;
+		player.StartReceiving();
 		mPlayers.Add(player);
 		return player;
 	}
@@ -183,12 +183,16 @@ public class Server
 
 	protected void RemovePlayer (Player p)
 	{
-		if (p != null && p.id != 0)
+		if (p != null)
 		{
 			p.Disconnect();
-			mDictionary.Remove(p.id);
 			mPlayers.Remove(p);
-			p.id = 0;
+
+			if (p.id != 0)
+			{
+				mDictionary.Remove(p.id);
+				p.id = 0;
+			}
 		}
 	}
 
@@ -234,38 +238,14 @@ public class Server
 	}
 
 	/// <summary>
-	/// Create a new buffer, reusing an old one if possible.
-	/// </summary>
-
-	Buffer CreateBuffer ()
-	{
-		Buffer b = null;
-
-		if (mPool.size == 0)
-		{
-			b = new Buffer();
-		}
-		else
-		{
-			lock (mPool)
-			{
-				if (mPool.size != 0) b = mPool.Pop();
-				else b = new Buffer();
-			}
-		}
-		b.MarkAsUsed();
-		return b;
-	}
-
-	/// <summary>
 	/// Start the sending process.
 	/// </summary>
 
 	protected BinaryWriter BeginSend (Packet type)
 	{
-		mOut = CreateBuffer();
-		BinaryWriter writer = mOut.BeginPacket();
-		writer.Write((byte)type);
+		mOut = Connection.CreateBuffer();
+		mOut.MarkAsUsed();
+		BinaryWriter writer = mOut.BeginPacket(type);
 		Console.WriteLine("Sending " + type);
 		return writer;
 	}
@@ -278,7 +258,7 @@ public class Server
 	{
 		mOut.EndPacket();
 		player.SendPacket(mOut);
-		mOut.MarkAsUnused(mPool);
+		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
 	}
 
 	/// <summary>
@@ -294,7 +274,7 @@ public class Server
 			Player player = channel.players[i];
 			if (player.verified && player != exclude) player.SendPacket(mOut);
 		}
-		mOut.MarkAsUnused(mPool);
+		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
 	}
 
 	/// <summary>
@@ -315,7 +295,7 @@ public class Server
 				if (player.verified) player.SendPacket(mOut);
 			}
 		}
-		mOut.MarkAsUnused(mPool);
+		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
 	}
 
 	/// <summary>
@@ -331,7 +311,7 @@ public class Server
 			Player player = channel.players[i];
 			if (player.verified) player.SendPacket(buffer);
 		}
-		mOut.MarkAsUnused(mPool);
+		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
 	}
 
 	/// <summary>
@@ -378,7 +358,11 @@ public class Server
 				for (int i = 0; i < player.channel.rfcs.size; ++i)
 				{
 					Channel.RFC r = player.channel.rfcs[i];
-					if (r != null && r.buffer != null) r.buffer.MarkAsUnused(mPool);
+
+					if (r != null && r.buffer != null)
+					{
+						if (r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+					}
 				}
 				mChannels.Remove(player.channel);
 			}
@@ -491,6 +475,36 @@ public class Server
 
 		Console.WriteLine("...packet: " + request + " (" + size + " bytes)");
 
+		// If the player has not yet been verified, the first packet must be an ID request
+		if (!player.verified)
+		{
+			if (request == Packet.RequestID)
+			{
+				int clientVersion = reader.ReadInt32();
+				
+				// Version matches? Connection is now verified.
+				if (clientVersion == Player.version)
+				{
+					player.id = Interlocked.Increment(ref mPlayerCounter);
+					player.verified = true;
+					mDictionary.Add(player.id, player);
+					if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
+				}
+
+				// Send the player their ID
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(Player.version);
+				writer.Write(player.id);
+				EndSend(player);
+
+				// If the version matches, move on to the next packet
+				if (clientVersion == Player.version) return true;
+			}
+			Console.WriteLine("Verification failed");
+			player.Disconnect();
+			return false;
+		}
+
 		switch (request)
 		{
 			case Packet.RequestPing:
@@ -572,7 +586,7 @@ public class Server
 			}
 		}
 		// We're done with this packet
-		buffer.MarkAsUnused(mPool);
+		if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
 		return true;
 	}
 
@@ -611,7 +625,8 @@ public class Server
 				short rfcID = reader.ReadInt16();
 
 				// Create a copy of this buffer and save it
-				Buffer copy = CreateBuffer();
+				Buffer copy = Connection.CreateBuffer();
+				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
 				player.channel.CreateRFC(viewID, rfcID).buffer = copy;
 
@@ -621,7 +636,7 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (player.socket.Connected) player.SendPacket(copy);
 				}
-				copy.MarkAsUnused(mPool);
+				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
 			}
 			case Packet.ForwardToOthersBuffered:
@@ -631,7 +646,8 @@ public class Server
 				short rfcID = reader.ReadInt16();
 
 				// Create a copy of this buffer and save it
-				Buffer copy = CreateBuffer();
+				Buffer copy = Connection.CreateBuffer();
+				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
 				player.channel.CreateRFC(viewID, rfcID).buffer = copy;
 
@@ -641,7 +657,7 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (tp != player && player.socket.Connected) player.SendPacket(copy);
 				}
-				copy.MarkAsUnused(mPool);
+				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
 			}
 			case Packet.ForwardToHost:
@@ -665,7 +681,7 @@ public class Server
 				{
 					if (buffer.size > 0)
 					{
-						copy = CreateBuffer();
+						copy = Connection.CreateBuffer();
 						buffer.CopyTo(copy);
 					}
 
@@ -732,7 +748,11 @@ public class Server
 			{
 				// Remove the specified remote function call
 				Channel.RFC rfc = player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
-				if (rfc != null && rfc.buffer != null) rfc.buffer.MarkAsUnused(mPool);
+				
+				if (rfc != null && rfc.buffer != null)
+				{
+					if (rfc.buffer.MarkAsUnused()) Connection.ReleaseBuffer(rfc.buffer);
+				}
 				break;
 			}
 			case Packet.RequestLeaveChannel:

@@ -71,15 +71,28 @@ public class Buffer
 	/// Mark the buffer as no longer being in use. Return 'true' if no one is using the buffer.
 	/// </summary>
 
-	public void MarkAsUnused (BetterList<Buffer> pool)
+	public bool MarkAsUnused ()
 	{
 		if (Interlocked.Decrement(ref mCounter) == 0)
 		{
 			mSize = 0;
 			mStream.Seek(0, SeekOrigin.Begin);
 			mWriting = true;
-			lock (pool) pool.Add(this);
+			return true;
 		}
+		return false;
+	}
+
+	/// <summary>
+	/// Clear the buffer.
+	/// </summary>
+
+	public void Clear ()
+	{
+		mCounter = 0;
+		mSize = 0;
+		mStream.Seek(0, SeekOrigin.Begin);
+		mWriting = true;
 	}
 
 	/// <summary>
@@ -92,12 +105,6 @@ public class Buffer
 		int bytes = size;
 		if (bytes > 0) w.Write(buffer, position, bytes);
 	}
-
-	/// <summary>
-	/// Clear the buffer.
-	/// </summary>
-
-	public void Clear () { mStream.Seek(0, SeekOrigin.Begin); }
 
 	/// <summary>
 	/// Dispose of the allocated memory.
@@ -160,7 +167,7 @@ public class Buffer
 	/// Read the packet's size (first 4 bytes).
 	/// </summary>
 
-	public int PeekSize (int offset)
+	public int PeekInt (int offset)
 	{
 		long pos = mStream.Position;
 		if (offset + 4 > pos) return 0;
@@ -178,6 +185,18 @@ public class Buffer
 	{
 		BinaryWriter writer = BeginWriting(false);
 		writer.Write(0);
+		return writer;
+	}
+
+	/// <summary>
+	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
+	/// </summary>
+
+	public BinaryWriter BeginPacket (Packet packet)
+	{
+		BinaryWriter writer = BeginWriting(false);
+		writer.Write(0);
+		writer.Write((byte)packet);
 		return writer;
 	}
 

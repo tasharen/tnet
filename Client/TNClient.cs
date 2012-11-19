@@ -153,7 +153,12 @@ public class Client
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	public BinaryWriter BeginSend (Packet request) { return BeginSend((int)request); }
+	public BinaryWriter BeginSend (Packet packet)
+	{
+		BinaryWriter writer = mOut.BeginPacket(packet);
+		Console.WriteLine("Sending " + packet);
+		return writer;
+	}
 
 	/// <summary>
 	/// Begin sending a new packet to the server.
@@ -246,9 +251,9 @@ public class Client
 
 				// Connection established -- let's verify the protocol version number
 				mStage = Stage.Verifying;
-				BinaryWriter writer = mOut.BeginWriting(false);
+				BinaryWriter writer = BeginSend(Packet.RequestID);
 				writer.Write(version);
-				mSocket.Send(mOut.buffer, 4, SocketFlags.None);
+				EndSend();
 				return;
 			}
 			onConnect(false, args.SocketError.ToString());
@@ -401,7 +406,7 @@ public class Client
 					mCanPing = true;
 					break;
 				}
-				case Packet.ResponseVersion:
+				case Packet.ResponseID:
 				{
 					if (mStage == Stage.Verifying)
 					{
