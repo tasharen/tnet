@@ -69,15 +69,7 @@ public class Player
 
 		lock (mPool)
 		{
-			if (mPool.size != 0)
-			{
-				Buffer b = mPool.Pop();
-				if (b == null)
-				{
-					Console.Write("Wtf?");
-				}
-				return b;
-			}
+			if (mPool.size != 0) return mPool.Pop();
 			else return new Buffer();
 		}
 	}
@@ -178,8 +170,6 @@ public class Player
 			if (mCurrent == null)
 			{
 				// Create a new packet buffer
-				mOffset = 0;
-				mExpected = 0;
 				mCurrent = CreateBuffer();
 				mCurrent.BeginWriting(false).Write(mTemp, 0, bytes);
 			}
@@ -191,12 +181,9 @@ public class Player
 
 			for (int available = mCurrent.size - mOffset; available >= 4; )
 			{
-				// Figure out the packet's expected size
-				mExpected = mCurrent.PeekSize(mOffset);
-
-				// Version hasn't been verified yet? The first 4 bytes must be the version number.
 				if (!verified)
 				{
+					// Version hasn't been verified yet? The first 4 bytes must be the version number.
 					if (mCurrent.PeekSize(mOffset) != version)
 					{
 						Console.WriteLine(address + " failed verification");
@@ -209,9 +196,6 @@ public class Player
 
 					Console.WriteLine(address + " has been verified");
 
-					// Move on to the actual packet
-					mExpected = mCurrent.PeekSize(mOffset);
-
 					// Send a response
 					Buffer temp = CreateBuffer();
 					BinaryWriter writer = temp.BeginPacket();
@@ -222,8 +206,12 @@ public class Player
 					SendPacket(temp);
 				}
 
-				// Unable to determine the packet's size just yet
-				if (mExpected == 0) break;
+				// Figure out the expected size of the packet
+				if (mExpected == 0)
+				{
+					mExpected = mCurrent.PeekSize(mOffset);
+					if (mExpected == 0) break;
+				}
 
 				// The first 4 bytes of any packet always contain the number of bytes in that packet
 				available -= 4;
@@ -231,12 +219,15 @@ public class Player
 				// If the entire packet is present
 				if (available == mExpected)
 				{
+					// Reset the position to the beginning of the packet
+					mCurrent.BeginReading();
+					mCurrent.position = mOffset + 4;
+
 					// This packet is now ready to be processed
-					lock (mIn)
-					{
-						mIn.Enqueue(mCurrent);
-						mCurrent = null;
-					}
+					lock (mIn) mIn.Enqueue(mCurrent);
+					mCurrent = null;
+					mExpected = 0;
+					mOffset = 0;
 					break;
 				}
 				else if (available > mExpected)
@@ -247,11 +238,13 @@ public class Player
 					// There is more than one packet. Extract this packet.
 					Buffer temp = CreateBuffer();
 					temp.BeginWriting(false).Write(mCurrent.buffer, mOffset, mExpected);
+					Console.WriteLine("Added packet of size " + mExpected);
 					lock (mIn) mIn.Enqueue(temp);
 
 					// Skip this packet
 					available -= mExpected;
 					mOffset += mExpected;
+					mExpected = 0;
 				}
 				else break;
 			}
