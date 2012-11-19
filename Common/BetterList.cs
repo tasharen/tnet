@@ -172,8 +172,8 @@ public class BetterList<T>
 	{
 		if (buffer != null && size != 0)
 		{
-			T val = buffer[size];
-			buffer[--size] = default(T);
+			T val = buffer[--size];
+			buffer[size] = default(T);
 			return val;
 		}
 		return default(T);

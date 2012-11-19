@@ -63,22 +63,24 @@ public class Player
 	/// Create a new buffer, reusing an old one if possible.
 	/// </summary>
 
-	public Buffer CreateBuffer ()
+	Buffer CreateBuffer ()
 	{
 		if (mPool.size == 0) return new Buffer();
 
 		lock (mPool)
 		{
-			if (mPool.size != 0) return mPool.Pop();
+			if (mPool.size != 0)
+			{
+				Buffer b = mPool.Pop();
+				if (b == null)
+				{
+					Console.Write("Wtf?");
+				}
+				return b;
+			}
 			else return new Buffer();
 		}
 	}
-
-	/// <summary>
-	/// Delete the specified buffer, recycling it.
-	/// </summary>
-
-	public void DeleteBuffer (Buffer buffer) { buffer.Clear(); lock (mPool) mPool.Add(buffer); }
 
 	/// <summary>
 	/// Extract the first incoming packet.
@@ -131,18 +133,19 @@ public class Player
 			lock (mOut)
 			{
 				//mOut.Dequeue();
+				Buffer deq = mOut.Dequeue();
 
 				// This shouldn't be hit, but just in case...
-				if (mOut.Dequeue() != finished)
+				if (deq != finished)
 					Console.WriteLine("WARNING: Unexpected...?");
 
 				// Recycle this buffer if it's no longer in use
 				finished.MarkAsUnused(mPool);
 
 				// If there is another packet to send out, let's send it
-				Buffer next = mOut.Peek();
+				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
 				if (next != null) socket.BeginSend(next.buffer, next.position, next.size,
-					SocketFlags.None, OnSend, null);
+					SocketFlags.None, OnSend, next);
 			}
 		}
 		else Disconnect();
@@ -156,7 +159,18 @@ public class Player
 	{
 		if (socket == null) return;
 
-		int bytes = socket.EndReceive(result);
+		int bytes = 0;
+		
+		try
+		{
+			bytes = socket.EndReceive(result);
+		}
+		catch (System.Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			Disconnect();
+			return;
+		}
 		timestamp = DateTime.Now.Ticks / 10000;
 
 		if (bytes > 0)

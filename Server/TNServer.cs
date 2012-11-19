@@ -124,7 +124,7 @@ public class Server
 			{
 				Player player = mPlayers[i];
 
-				if (!player.socket.Connected)
+				if (player.socket == null || !player.socket.Connected)
 				{
 					// The socket has been disconnected -- remove this player
 					Console.WriteLine(player.address + " has disconnected");
@@ -484,11 +484,12 @@ public class Server
 
 		buffer.MarkAsUsed();
 		BinaryReader reader = buffer.BeginReading();
+		int size = buffer.size;
 
 		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
 
-		Console.WriteLine("...packet: " + request);
+		Console.WriteLine("...packet: " + request + " (" + size + " bytes)");
 
 		switch (request)
 		{
