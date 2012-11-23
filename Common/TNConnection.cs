@@ -188,14 +188,11 @@ public class Connection
 				{
 					// If it's the first packet, let's begin the send process
 					socket.BeginSend(buffer.buffer, buffer.position,
-						buffer.size, SocketFlags.None, OnSend, null);
+						buffer.size, SocketFlags.None, OnSend, buffer);
 				}
 			}
 		}
-		else if (buffer.MarkAsUnused())
-		{
-			Connection.ReleaseBuffer(buffer);
-		}
+		else if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
 	}
 
 	/// <summary>
@@ -222,24 +219,29 @@ public class Connection
 			return;
 		}
 
-		if (bytes > 0)
+		Console.WriteLine("...sent " + bytes + " bytes");
+
+		lock (mOut)
 		{
-			Console.WriteLine("...sent " + bytes + " bytes");
+			Buffer finished = mOut.Dequeue();
 
-			lock (mOut)
+			if (finished != result.AsyncState)
 			{
-				Buffer finished = mOut.Dequeue();
+				Console.WriteLine("Wtf?");
+			}
 
-				// Recycle this buffer if it's no longer in use
-				if (finished.MarkAsUnused()) Connection.ReleaseBuffer(finished);
+			// Recycle this buffer if it's no longer in use
+			if (finished.MarkAsUnused()) Connection.ReleaseBuffer(finished);
 
+			if (bytes > 0)
+			{
 				// If there is another packet to send out, let's send it
 				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
 				if (next != null) socket.BeginSend(next.buffer, next.position, next.size,
-					SocketFlags.None, OnSend, null);
+					SocketFlags.None, OnSend, next);
 			}
+			else Close(true);
 		}
-		else Close(true);
 	}
 
 	/// <summary>
@@ -296,7 +298,6 @@ public class Connection
 			{
 				// Create a new packet buffer
 				mReceiveBuffer = Connection.CreateBuffer();
-				mReceiveBuffer.MarkAsUsed();
 				mReceiveBuffer.BeginWriting(false).Write(mTemp, 0, bytes);
 			}
 			else
@@ -328,11 +329,11 @@ public class Connection
 				if (available == mExpected)
 				{
 					// Reset the position to the beginning of the packet
-					mReceiveBuffer.BeginReading();
-					mReceiveBuffer.position = mOffset + 4;
+					mReceiveBuffer.BeginReading(mOffset + 4);
 
 					// This packet is now ready to be processed
 					lock (mIn) mIn.Enqueue(mReceiveBuffer);
+					
 					mReceiveBuffer = null;
 					mExpected = 0;
 					mOffset = 0;
@@ -345,9 +346,11 @@ public class Connection
 
 					// There is more than one packet. Extract this packet.
 					Buffer temp = Connection.CreateBuffer();
-					temp.MarkAsUsed();
 					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, mExpected);
 					Console.WriteLine("Added packet of size " + mExpected);
+
+					// This packet is now ready to be processed
+					temp.MarkAsUsed();
 					lock (mIn) mIn.Enqueue(temp);
 
 					// Skip this packet

@@ -26,10 +26,7 @@ public class Buffer
 		mReader = new BinaryReader(mStream);
 	}
 
-	~Buffer ()
-	{
-		mStream.Dispose();
-	}
+	~Buffer () { mStream.Dispose(); }
 
 	/// <summary>
 	/// The size of the data present in the buffer.
@@ -91,6 +88,7 @@ public class Buffer
 	{
 		mCounter = 0;
 		mSize = 0;
+		if (mStream.Capacity > 1024) mStream.SetLength(256);
 		mStream.Seek(0, SeekOrigin.Begin);
 		mWriting = true;
 	}
@@ -191,7 +189,36 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Read the packet's size (first 4 bytes).
+	/// Begin the reading process.
+	/// </summary>
+
+	public BinaryReader BeginReading (int startOffset)
+	{
+		if (mWriting)
+		{
+			mWriting = false;
+			mSize = (int)mStream.Position;
+		}
+		mStream.Seek(startOffset, SeekOrigin.Begin);
+		return mReader;
+	}
+
+	/// <summary>
+	/// Peek at the first byte at the specified offset.
+	/// </summary>
+
+	public int PeekByte (int offset)
+	{
+		long pos = mStream.Position;
+		if (offset + 1 > pos) return -1;
+		mStream.Seek(offset, SeekOrigin.Begin);
+		int val = mReader.ReadByte();
+		mStream.Seek(pos, SeekOrigin.Begin);
+		return val;
+	}
+
+	/// <summary>
+	/// Peek at the first integer at the specified offset.
 	/// </summary>
 
 	public int PeekInt (int offset)
@@ -199,9 +226,9 @@ public class Buffer
 		long pos = mStream.Position;
 		if (offset + 4 > pos) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
-		int size = mReader.ReadInt32();
+		int val = mReader.ReadInt32();
 		mStream.Seek(pos, SeekOrigin.Begin);
-		return size;
+		return val;
 	}
 
 	/// <summary>

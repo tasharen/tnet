@@ -14,6 +14,7 @@ public class TNetTest
 			Console.WriteLine("Command: ");
 			string command = Console.ReadLine();
 			if (command == "q") break;
+			else if (command == "g") GC.Collect();
 		}
 		Console.WriteLine("Shutting down...");
 		server.Stop();
