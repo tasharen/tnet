@@ -120,38 +120,28 @@ public class Server
 			{
 				Player player = mPlayers[i];
 
-				if (player.socket == null || !player.socket.Connected)
+				// Process up to 100 packets at a time
+				for (int b = 0; b < 100; ++b)
 				{
-					// The socket has been disconnected -- remove this player
-					Console.WriteLine(player.address + " has disconnected");
-					RemovePlayer(player);
-					continue;
+					if (ReceivePacket(player, time)) received = true;
+					else break;
 				}
-				else
-				{
-					// Process up to 100 packets at a time
-					for (int b = 0; b < 100; ++b)
-					{
-						if (ReceivePacket(player, time)) received = true;
-						else break;
-					}
 
-					// Time out -- disconnect this player
-					if (player.verified)
-					{
-						if (player.timestamp + 5000 < time)
-						{
-							Console.WriteLine(player.address + " has timed out");
-							RemovePlayer(player);
-							continue;
-						}
-					}
-					else if (player.timestamp + 1000 < time)
+				// Time out -- disconnect this player
+				if (player.verified)
+				{
+					if (player.timestamp + 5000 < time)
 					{
 						Console.WriteLine(player.address + " has timed out");
 						RemovePlayer(player);
 						continue;
 					}
+				}
+				else if (player.timestamp + 1000 < time)
+				{
+					Console.WriteLine(player.address + " has timed out");
+					RemovePlayer(player);
+					continue;
 				}
 				++i;
 			}
@@ -373,8 +363,11 @@ public class Server
 			player.channel = null;
 
 			// Notify the player that they have left the channel
-			BeginSend(Packet.ResponseLeftChannel);
-			EndSend(player);
+			if (player.isConnected)
+			{
+				BeginSend(Packet.ResponseLeftChannel);
+				EndSend(player);
+			}
 		}
 	}
 
@@ -646,7 +639,7 @@ public class Server
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (player.socket.Connected) player.SendPacket(copy);
+					if (player.socket.Connected) tp.SendPacket(copy);
 				}
 				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
@@ -666,7 +659,7 @@ public class Server
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (tp != player && player.socket.Connected) player.SendPacket(copy);
+					if (tp != player && player.socket.Connected) tp.SendPacket(copy);
 				}
 				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
@@ -777,9 +770,15 @@ public class Server
 				player.channel.DeleteRFC(reader.ReadInt32());
 				break;
 			}
-			case Packet.RequestLeaveChannel:
+			case Packet.Error:
 			{
-				SendLeaveChannel(player);
+				Error(reader.ReadString());
+				break;
+			}
+			case Packet.Disconnect:
+			{
+				if (player.channel != null) SendLeaveChannel(player);
+				RemovePlayer(player);
 				break;
 			}
 			default:

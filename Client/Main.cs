@@ -26,7 +26,7 @@ public class TNetTest
 				stream.Close();
 				stream.Dispose();
 				
-				BinaryWriter writer = client.BeginSend(Packet.ForwardToAll);
+				BinaryWriter writer = client.BeginSend(Packet.ForwardToAllBuffered);
 				writer.Write((byte)10);
 				writer.Write(data);
 				client.EndSend();

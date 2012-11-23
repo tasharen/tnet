@@ -45,6 +45,12 @@ public class Connection
 	int mOffset = 0;
 
 	/// <summary>
+	/// Whether the connection is currently active.
+	/// </summary>
+
+	public bool isConnected { get { return socket != null && socket.Connected; } }
+
+	/// <summary>
 	/// Create a new buffer, reusing an old one if possible.
 	/// </summary>
 
@@ -81,33 +87,6 @@ public class Connection
 	}
 
 	/// <summary>
-	/// Release the buffers.
-	/// </summary>
-
-	public void Release ()
-	{
-		if (socket != null)
-		{
-			try
-			{
-				socket.Shutdown(SocketShutdown.Both);
-				socket.Close();
-			}
-			catch (System.Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-			}
-			socket = null;
-		}
-
-		lock (mPool)
-		{
-			while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
-			while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
-		}
-	}
-
-	/// <summary>
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
@@ -131,7 +110,7 @@ public class Connection
 		{
 			try
 			{
-				socket.Shutdown(SocketShutdown.Both);
+				if (socket.Connected) socket.Shutdown(SocketShutdown.Both);
 				socket.Close();
 			}
 			catch (System.Exception ex)
@@ -146,6 +125,33 @@ public class Connection
 				buff.BeginWriting(false).Write((byte)Packet.Disconnect);
 				lock (mIn) mIn.Enqueue(buff);
 			}
+		}
+	}
+
+	/// <summary>
+	/// Release the buffers.
+	/// </summary>
+
+	public void Release ()
+	{
+		if (socket != null)
+		{
+			try
+			{
+				if (socket.Connected) socket.Shutdown(SocketShutdown.Both);
+				socket.Close();
+			}
+			catch (System.Exception ex)
+			{
+				Console.WriteLine(ex.Message);
+			}
+			socket = null;
+		}
+
+		lock (mPool)
+		{
+			while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
+			while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
 		}
 	}
 
@@ -212,7 +218,7 @@ public class Connection
 		catch (System.Exception ex)
 		{
 			bytes = 0;
-			Error(ex.Message);
+			//Error(ex.Message);
 			Close(true);
 			return;
 		}
@@ -280,7 +286,7 @@ public class Connection
 		}
 		catch (System.Exception ex)
 		{
-			Error(ex.Message);
+			//Error(ex.Message);
 			Close(true);
 			return;
 		}
