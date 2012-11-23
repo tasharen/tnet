@@ -128,6 +128,20 @@ public class Buffer
 	}
 
 	/// <summary>
+	/// Finish the writing process, returning the packet's size.
+	/// </summary>
+
+	public int EndWriting ()
+	{
+		if (mWriting)
+		{
+			mSize = position;
+			mWriting = false;
+		}
+		return mSize;
+	}
+
+	/// <summary>
 	/// Receive the specified number of bytes and immediately switch to reading.
 	/// TODO: Eliminate this function, or at least made it use a temporary incoming buffer.
 	/// </summary>
@@ -170,7 +184,7 @@ public class Buffer
 	public int PeekInt (int offset)
 	{
 		long pos = mStream.Position;
-		if (offset + 4 > pos) return 0;
+		if (offset + 4 > pos) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		int size = mReader.ReadInt32();
 		mStream.Seek(pos, SeekOrigin.Begin);
@@ -197,6 +211,18 @@ public class Buffer
 		BinaryWriter writer = BeginWriting(false);
 		writer.Write(0);
 		writer.Write((byte)packet);
+		return writer;
+	}
+
+	/// <summary>
+	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
+	/// </summary>
+
+	public BinaryWriter BeginPacket (byte packetID)
+	{
+		BinaryWriter writer = BeginWriting(false);
+		writer.Write(0);
+		writer.Write(packetID);
 		return writer;
 	}
 

@@ -8,8 +8,7 @@ public class Channel
 {
 	public class RFC
 	{
-		public int viewID;
-		public short rfcID;
+		public int id;
 		public Buffer buffer;
 	}
 
@@ -33,17 +32,16 @@ public class Channel
 	/// Create a new buffered remote function call.
 	/// </summary>
 
-	public RFC CreateRFC (int viewID, short rfcID)
+	public RFC CreateRFC (int inID)
 	{
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
-			if (r.viewID == viewID && r.rfcID == rfcID) return r;
+			if (r.id == inID) return r;
 		}
 
 		RFC rpc = new RFC();
-		rpc.viewID = viewID;
-		rpc.rfcID = rfcID;
+		rpc.id = inID;
 		rfcs.Add(rpc);
 		return rpc;
 	}
@@ -52,19 +50,40 @@ public class Channel
 	/// Delete the specified remote function call.
 	/// </summary>
 
-	public RFC DeleteRFC (int viewID, short rfcID)
+	public void DeleteRFC (int inID)
 	{
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
 
-			if (r.viewID == viewID && r.rfcID == rfcID)
+			if (r.id == inID)
 			{
 				rfcs.RemoveAt(i);
-				return r;
+				if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
 			}
 		}
-		return null;
+	}
+
+	/// <summary>
+	/// Delete the specified remote function call.
+	/// </summary>
+
+	public void DeleteObjectRFCs (int objectID)
+	{
+		objectID <<= 8;
+
+		for (int i = 0; i < rfcs.size; )
+		{
+			RFC r = rfcs[i];
+
+			if ((r.id & objectID) == objectID)
+			{
+				rfcs.RemoveAt(i);
+				if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+				continue;
+			}
+			++i;
+		}
 	}
 }
 }

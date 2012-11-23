@@ -7,11 +7,11 @@
 public enum Packet
 {
 	/// <summary>
-	/// This is a custom client packet. The next byte determines what kind of packet it is,
-	/// and only the client knows how to handle it.
+	/// This packet indicates that an error has occurred.
+	/// string: Description of the error.
 	/// </summary>
 
-	Custom,
+	Error,
 
 	/// <summary>
 	/// This packet indicates that the connection should be severed.
@@ -62,24 +62,23 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified buffered function.
-	/// int32: View ID.
-	/// int16: RFC ID.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// </summary>
 
 	RequestRemoveRFC,
 
 	/// <summary>
 	/// Instantiate a new object with the specified identifier.
-	/// int16: Object ID.
-	/// byte: 1 if a new View ID is requested, 0 otherwise.
+	/// int16: Object index.
+	/// byte: 1 if a new Object ID is requested, 0 otherwise.
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
 
 	RequestCreate,
 
 	/// <summary>
-	/// Delete the specified Network View.
-	/// int32: View ID.
+	/// Delete the specified Network Object.
+	/// int32: Object ID.
 	/// </summary>
 
 	RequestDestroy,
@@ -168,7 +167,7 @@ public enum Packet
 	/// <summary>
 	/// Create a new persistent entry.
 	/// int16: Object ID.
-	/// int32: Unique Identifier (aka View ID) if requested, 0 otherwise.
+	/// int32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
@@ -176,8 +175,8 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified Unique Identifier and its associated entry.
-	/// int16: Number of views that will follow.
-	/// int32[] Unique Identifiers (aka View IDs).
+	/// int16: Number of objs that will follow.
+	/// int32[] Unique Identifiers (aka Object IDs).
 	/// </summary>
 
 	ResponseDestroy,
@@ -185,7 +184,8 @@ public enum Packet
 	//===================================================================================
 
 	/// <summary>
-	/// Echo the packet to everyone in the room.
+	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -193,30 +193,31 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to everyone in the room and everyone who joins later.
-	/// int32: View ID.
-	/// int16: RFC ID.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
 	ForwardToAllBuffered,
 
 	/// <summary>
-	/// Echo the packet to everyone in the room except the sender.
+	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
 	/// </summary>
 
 	ForwardToOthers,
 
 	/// <summary>
 	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
-	/// int32: View ID.
-	/// int16: RFC ID.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
 	ForwardToOthersBuffered,
 
 	/// <summary>
-	/// Echo the packet to the room's host.
+	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -225,6 +226,7 @@ public enum Packet
 	/// <summary>
 	/// Echo the packet to the specified player.
 	/// int32: Player ID
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 

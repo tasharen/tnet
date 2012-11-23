@@ -39,7 +39,7 @@ public class Server
 
 	protected RandomGenerator mRandom = new RandomGenerator();
 
-	Buffer mOut = new Buffer();
+	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
 
@@ -129,6 +129,7 @@ public class Server
 				}
 				else
 				{
+					// Process up to 100 packets at a time
 					for (int b = 0; b < 100; ++b)
 					{
 						if (ReceivePacket(player, time)) received = true;
@@ -185,7 +186,7 @@ public class Server
 	{
 		if (p != null)
 		{
-			p.Disconnect();
+			p.Release();
 			mPlayers.Remove(p);
 
 			if (p.id != 0)
@@ -243,9 +244,9 @@ public class Server
 
 	protected BinaryWriter BeginSend (Packet type)
 	{
-		mOut = Connection.CreateBuffer();
-		mOut.MarkAsUsed();
-		BinaryWriter writer = mOut.BeginPacket(type);
+		mBuffer = Connection.CreateBuffer();
+		mBuffer.MarkAsUsed();
+		BinaryWriter writer = mBuffer.BeginPacket(type);
 		Console.WriteLine("Sending " + type);
 		return writer;
 	}
@@ -256,9 +257,10 @@ public class Server
 
 	protected void EndSend (Player player)
 	{
-		mOut.EndPacket();
-		player.SendPacket(mOut);
-		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
+		mBuffer.EndPacket();
+		player.SendPacket(mBuffer);
+		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer = null;
 	}
 
 	/// <summary>
@@ -267,14 +269,15 @@ public class Server
 
 	protected void EndSend (Channel channel, Player exclude)
 	{
-		mOut.EndPacket();
+		mBuffer.EndPacket();
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			Player player = channel.players[i];
-			if (player.verified && player != exclude) player.SendPacket(mOut);
+			if (player.verified && player != exclude) player.SendPacket(mBuffer);
 		}
-		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
+		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer = null;
 	}
 
 	/// <summary>
@@ -283,7 +286,7 @@ public class Server
 
 	protected void EndSend ()
 	{
-		mOut.EndPacket();
+		mBuffer.EndPacket();
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
@@ -292,10 +295,11 @@ public class Server
 			for (int b = 0; b < channel.players.size; ++b)
 			{
 				Player player = channel.players[b];
-				if (player.verified) player.SendPacket(mOut);
+				if (player.verified) player.SendPacket(mBuffer);
 			}
 		}
-		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
+		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer = null;
 	}
 
 	/// <summary>
@@ -304,14 +308,14 @@ public class Server
 
 	protected void SendToChannel (Channel channel, Buffer buffer)
 	{
-		mOut.MarkAsUsed();
+		mBuffer.MarkAsUsed();
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			Player player = channel.players[i];
 			if (player.verified) player.SendPacket(buffer);
 		}
-		if (mOut.MarkAsUnused()) Connection.ReleaseBuffer(mOut);
+		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
 	}
 
 	/// <summary>
@@ -501,7 +505,7 @@ public class Server
 				if (clientVersion == Player.version) return true;
 			}
 			Console.WriteLine("Verification failed");
-			player.Disconnect();
+			RemovePlayer(player);
 			return false;
 		}
 
@@ -517,8 +521,13 @@ public class Server
 			case Packet.ForwardToPlayer:
 			{
 				// Forward this packet to the specified player
-				Player tp = GetPlayer(reader.ReadInt32());
-				if (tp != null && tp.socket.Connected) tp.SendPacket(buffer);
+				Player target = GetPlayer(reader.ReadInt32());
+
+				if (target != null && target.socket.Connected)
+				{
+					buffer.position = 0;
+					target.SendPacket(buffer);
+				}
 				break;
 			}
 			case Packet.RequestJoinChannel:
@@ -600,6 +609,8 @@ public class Server
 		{
 			case Packet.ForwardToAll:
 			{
+				buffer.position = 0;
+
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
@@ -610,6 +621,8 @@ public class Server
 			}
 			case Packet.ForwardToOthers:
 			{
+				buffer.position = 0;
+
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
@@ -620,15 +633,14 @@ public class Server
 			}
 			case Packet.ForwardToAllBuffered:
 			{
-				// Save this packet for future users
-				int viewID = reader.ReadInt32();
-				short rfcID = reader.ReadInt16();
+				int target = reader.ReadInt32();
+				buffer.position = 0;
 
 				// Create a copy of this buffer and save it
 				Buffer copy = Connection.CreateBuffer();
 				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
-				player.channel.CreateRFC(viewID, rfcID).buffer = copy;
+				player.channel.CreateRFC(target).buffer = copy;
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -641,15 +653,14 @@ public class Server
 			}
 			case Packet.ForwardToOthersBuffered:
 			{
-				// Save this packet for future users
-				int viewID = reader.ReadInt32();
-				short rfcID = reader.ReadInt16();
+				int target = reader.ReadInt32();
+				buffer.position = 0;
 
 				// Create a copy of this buffer and save it
 				Buffer copy = Connection.CreateBuffer();
 				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
-				player.channel.CreateRFC(viewID, rfcID).buffer = copy;
+				player.channel.CreateRFC(target).buffer = copy;
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -663,16 +674,29 @@ public class Server
 			case Packet.ForwardToHost:
 			{
 				// Forward the packet to the channel's host
+				buffer.position = 0;
 				player.channel.host.SendPacket(buffer);
 				break;
 			}
 			case Packet.RequestCreate:
 			{
 				// Create a new object
-				short objectID = reader.ReadInt16();
+				short objectIndex = reader.ReadInt16();
 
-				// Dynamically created Network Views should always start out being negative
-				int uniqueID = (reader.ReadByte() == 0) ? 0 : --player.channel.viewCounter;
+				// Dynamically created Network Object IDs should always start out being negative
+				int uniqueID = 0;
+
+				if (reader.ReadByte() != 0)
+				{
+					uniqueID = --player.channel.viewCounter;
+
+					// 24 bit precision
+					if (uniqueID < -0xFFFFFF)
+					{
+						player.channel.viewCounter = 0xFFFFFF;
+						uniqueID = 0xFFFFFF;
+					}
+				}
 
 				Buffer copy = null;
 
@@ -686,7 +710,7 @@ public class Server
 					}
 
 					Channel.CreatedObject obj = new Channel.CreatedObject();
-					obj.objectID = objectID;
+					obj.objectID = objectIndex;
 					obj.uniqueID = uniqueID;
 					obj.buffer = copy;
 					player.channel.created.Add(obj);
@@ -694,7 +718,7 @@ public class Server
 
 				// Inform the channel
 				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
-				writer.Write(objectID);
+				writer.Write(objectIndex);
 				writer.Write(uniqueID);
 				if (copy != null) writer.Write(copy.buffer);
 				EndSend(player.channel, null);
@@ -702,14 +726,14 @@ public class Server
 			}
 			case Packet.RequestDestroy:
 			{
-				// Destroy the specified network view
+				// Destroy the specified network object
 				int uniqueID = reader.ReadInt32();
 
 				if (!player.channel.destroyed.Contains(uniqueID))
 				{
 					bool wasCreated = false;
 
-					// Determine if we created this view earlier
+					// Determine if we created this object earlier
 					for (int i = 0; i < player.channel.created.size; ++i)
 					{
 						Channel.CreatedObject obj = player.channel.created[i];
@@ -723,10 +747,13 @@ public class Server
 						}
 					}
 
-					// If the view was not created dynamically, we should remember it
+					// If the object was not created dynamically, we should remember it
 					if (!wasCreated) player.channel.destroyed.Add(uniqueID);
 
-					// Inform all players in the channel that the view should be destroyed
+					// Remove all RFCs associated with this object
+					player.channel.DeleteObjectRFCs(uniqueID);
+
+					// Inform all players in the channel that the object should be destroyed
 					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
 					writer.Write((short)1);
 					writer.Write(uniqueID);
@@ -747,12 +774,7 @@ public class Server
 			case Packet.RequestRemoveRFC:
 			{
 				// Remove the specified remote function call
-				Channel.RFC rfc = player.channel.DeleteRFC(reader.ReadInt32(), reader.ReadInt16());
-				
-				if (rfc != null && rfc.buffer != null)
-				{
-					if (rfc.buffer.MarkAsUnused()) Connection.ReleaseBuffer(rfc.buffer);
-				}
+				player.channel.DeleteRFC(reader.ReadInt32());
 				break;
 			}
 			case Packet.RequestLeaveChannel:

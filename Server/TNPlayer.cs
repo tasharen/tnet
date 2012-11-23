@@ -42,17 +42,5 @@ public class Player : Connection
 	/// </summary>
 
 	public Channel channel;
-
-	/// <summary>
-	/// Start receiving incoming messages.
-	/// </summary>
-
-	public override void StartReceiving ()
-	{
-		if (socket != null && socket.Connected)
-		{
-			base.StartReceiving();
-		}
-	}
 }
 }

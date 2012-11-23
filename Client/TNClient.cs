@@ -11,7 +11,7 @@ namespace TNet
 /// Client-side logic.
 /// </summary>
 
-public class Client
+public class Client : Connection
 {
 	enum Stage
 	{
@@ -27,14 +27,6 @@ public class Client
 
 	public const int version = 1;
 
-	/// <summary>
-	/// List of players in the same channel as the client.
-	/// </summary>
-
-	public BetterList<Player> players = new BetterList<Player>();
-
-	protected Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
-
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
 	public delegate void OnDisconnect ();
@@ -42,9 +34,9 @@ public class Client
 	public delegate void OnPlayerLeft (Player p);
 	public delegate void OnChannelChanged (bool isInChannel, string message);
 	public delegate void OnRenamePlayer (Player p, string previous);
-	public delegate void OnCreate (int objectID, int viewID, BinaryReader reader);
-	public delegate void OnDestroy (int viewID);
-	public delegate void OnCustomPacket (int packetID, BinaryReader reader);
+	public delegate void OnCreate (int objectID, int objID, BinaryReader reader);
+	public delegate void OnDestroy (int objID);
+	public delegate void OnCustomPacket (BinaryReader reader);
 
 	/// <summary>
 	/// Error notification.
@@ -95,7 +87,7 @@ public class Client
 	public OnCreate onCreate;
 
 	/// <summary>
-	/// Notification of the specified view being destroyed.
+	/// Notification of the specified object being destroyed.
 	/// </summary>
 
 	public OnDestroy onDestroy;
@@ -106,19 +98,31 @@ public class Client
 
 	public OnCustomPacket onCustomPacket;
 
-	int mSize = 0;
-	int mPlayerID = 0;
-	string mPlayerName = "";
-	Socket mSocket;
-	Buffer mIn = new Buffer();
-	Buffer mOut = new Buffer();
+	/// <summary>
+	/// List of players in the same channel as the client.
+	/// </summary>
+
+	public BetterList<Player> players = new BetterList<Player>();
+
+	// Same list of players, but in a dictionary format for quick lookup
+	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
+
+	// Current connection stage
 	Stage mStage = Stage.Disconnected;
+
+	// ID of the player and the host
+	int mPlayerID = 0;
+	int mHost = 0;
+	string mPlayerName = "";
+
+	// Current time, time when the last ping was sent out, and time when connection was started
 	long mTime = 0;
 	long mPingTime = 0;
-	long mConnectStart = 0;
-	int mHost = 0;
+
+	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
+	Buffer mBuffer;
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -153,23 +157,22 @@ public class Client
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	public BinaryWriter BeginSend (Packet packet)
+	public BinaryWriter BeginSend (Packet type)
 	{
-		BinaryWriter writer = mOut.BeginPacket(packet);
-		Console.WriteLine("Sending " + packet);
-		return writer;
+		Console.WriteLine("Sending " + type);
+		mBuffer = Connection.CreateBuffer();
+		return mBuffer.BeginPacket(type);
 	}
 
 	/// <summary>
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	public BinaryWriter BeginSend (int packetID)
+	public BinaryWriter BeginSend (byte packetID)
 	{
-		BinaryWriter writer = mOut.BeginPacket();
-		writer.Write((byte)packetID);
-		Console.WriteLine("Sending " + (Packet)packetID);
-		return writer;
+		Console.WriteLine("Sending " + packetID);
+		mBuffer = Connection.CreateBuffer();
+		return mBuffer.BeginPacket(packetID);
 	}
 
 	/// <summary>
@@ -178,40 +181,19 @@ public class Client
 
 	public void EndSend ()
 	{
-		if (mSocket != null)
-		{
-			int size = mOut.EndPacket();
-
-			try
-			{
-				for (int offset = 0; offset < size; )
-				{
-					offset += mSocket.Send(mOut.buffer, offset, size, SocketFlags.None);
-				}
-				Console.WriteLine("...sent " + size + " bytes");
-			}
-			catch (System.Net.Sockets.SocketException ex)
-			{
-				Console.WriteLine(ex.Message);
-				Disconnect();
-			}
-			catch (System.Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-			}
-		}
+		mBuffer.EndPacket();
+		SendPacket(mBuffer);
+		mBuffer = null;
 	}
 
 	/// <summary>
-	/// Connect to the specified server.
+	/// Try to establish a connection with the specified address.
 	/// </summary>
 
 	public void Connect (string addr, int port)
 	{
-		mTime = DateTime.Now.Ticks / 10000;
-		mConnectStart = mTime;
-
 		Disconnect();
+
 		IPAddress destination = null;
 
 		if (!IPAddress.TryParse(addr, out destination))
@@ -220,64 +202,39 @@ public class Client
 			if (ips.Length > 0) destination = ips[0];
 		}
 
-		if (destination != null)
-		{
-			mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			mSocket.Blocking = false;
-
-			SocketAsyncEventArgs args = new SocketAsyncEventArgs();
-			args.UserToken = mSocket;
-			args.RemoteEndPoint = new IPEndPoint(destination, port);
-			args.Completed += new EventHandler<SocketAsyncEventArgs>(OnConnectEvent);
-			mSocket.ConnectAsync(args);
-			mStage = Stage.Connecting;
-		}
-		else if (onConnect != null) onConnect(false, "Invalid address");
+		mStage = Stage.Connecting;
+		address = addr + ":" + port;
+		socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		socket.BeginConnect(destination, port, OnConnectResult, socket);
 	}
 
 	/// <summary>
-	/// Async event: connection established (or failed).
+	/// Connection attempt result.
 	/// </summary>
 
-	void OnConnectEvent (object sender, SocketAsyncEventArgs args)
+	void OnConnectResult (IAsyncResult result)
 	{
-		bool success = (args.SocketError == SocketError.Success);
+		Socket sock = (Socket)result.AsyncState;
 
-		if (onConnect != null)
+		try
 		{
-			if (success)
-			{
-				Console.WriteLine("Connected to " + ((IPEndPoint)mSocket.RemoteEndPoint).ToString());
-
-				// Connection established -- let's verify the protocol version number
-				mStage = Stage.Verifying;
-				BinaryWriter writer = BeginSend(Packet.RequestID);
-				writer.Write(version);
-				EndSend();
-				return;
-			}
-			onConnect(false, args.SocketError.ToString());
+			sock.EndConnect(result);
 		}
-		Console.WriteLine("OnConnectEvent: " + args.SocketError);
-	}
-
-	/// <summary>
-	/// Disconnect from the server.
-	/// </summary>
-
-	public void Disconnect ()
-	{
-		if (mSocket != null)
+		catch (System.Exception ex)
 		{
-			mTime = DateTime.Now.Ticks / 10000;
-
-			if (mSocket.Connected) mSocket.Disconnect(false);
-			mSocket.Close();
-			mSocket = null;
-
-			mStage = Stage.Disconnected;
-			if (onDisconnect != null) onDisconnect();
+			Error(ex.Message);
+			Close(false);
+			return;
 		}
+
+		// We can now receive data
+		mStage = Stage.Verifying;
+		StartReceiving();
+
+		// Request a player ID
+		BinaryWriter writer = BeginSend(Packet.RequestID);
+		writer.Write(version);
+		EndSend();
 	}
 
 	/// <summary>
@@ -339,43 +296,16 @@ public class Client
 	}
 
 	/// <summary>
-	/// Receive a packet from the associated socket.
-	/// </summary>
-
-	BinaryReader ReceivePacket ()
-	{
-		// We must have at least 4 bytes to work with
-		if (mSocket == null || mSocket.Available < 4) return null;
-
-		// Determine the size of the packet
-		if (mSize == 0) mSize = mIn.Receive(mSocket, 4).ReadInt32();
-
-		// If we don't have the entire packet waiting, don't do anything.
-		// TODO: Receive data from the socket, storing it in the "incoming" buffer.
-		if (mSocket.Available < mSize)
-		{
-			Console.WriteLine("Expecting " + mSize + " bytes, have " + mSocket.Available);
-			return null;
-		}
-
-		// Receive the entire packet
-		BinaryReader reader = mIn.Receive(mSocket, mSize);
-		Console.WriteLine("Received " + mSize + " bytes");
-		mSize = 0;
-		return reader;
-	}
-
-	/// <summary>
 	/// Process all incoming packets.
 	/// </summary>
 
 	public void ProcessPackets ()
 	{
-		if (mStage == Stage.Disconnected || mSocket == null) return;
+		if (mStage == Stage.Disconnected) return;
 		mTime = DateTime.Now.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (mStage == Stage.Connected && mCanPing && mPingTime + 3000 < mTime)
+		if (isConnected && mStage == Stage.Connected && mCanPing && mPingTime + 3000 < mTime)
 		{
 			mCanPing = false;
 			mPingTime = mTime;
@@ -383,21 +313,33 @@ public class Client
 			EndSend();
 		}
 
-		BinaryReader reader;
+		Buffer buffer;
 
 		// Read all incoming packets one at a time
-		while ((reader = ReceivePacket()) != null)
+		while ((buffer = ReceivePacket()) != null)
 		{
+			BinaryReader reader = buffer.BeginReading();
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
-			Console.WriteLine("Packet: " + response + " (" + reader.BaseStream.Length + " bytes)");
+			Console.WriteLine("======= " + response + " (" + buffer.size + " bytes)");
 
 			switch (response)
 			{
-				case Packet.Custom:
+				case Packet.ForwardToAll:
+				case Packet.ForwardToOthers:
+				case Packet.ForwardToAllBuffered:
+				case Packet.ForwardToOthersBuffered:
+				case Packet.ForwardToHost:
 				{
-					if (onCustomPacket != null) onCustomPacket(reader.ReadByte(), reader);
+					if (onCustomPacket != null) onCustomPacket(reader);
+					break;
+				}
+				case Packet.ForwardToPlayer:
+				{
+					// Skip the player ID
+					reader.ReadInt32();
+					if (onCustomPacket != null) onCustomPacket(reader);
 					break;
 				}
 				case Packet.ResponsePing:
@@ -423,7 +365,7 @@ public class Client
 						{
 							if (onConnect != null) onConnect(false, "Version mismatch. Server is running version " + serverVersion +
 								", while you have version " + version);
-							Disconnect();
+							Close(true);
 						}
 					}
 					break;
@@ -499,8 +441,8 @@ public class Client
 					if (onCreate != null)
 					{
 						short objectID = reader.ReadInt16();
-						int viewID = reader.ReadInt32();
-						onCreate(objectID, viewID, reader);
+						int objID = reader.ReadInt32();
+						onCreate(objectID, objID, reader);
 					}
 					break;
 				}
@@ -513,21 +455,30 @@ public class Client
 					}
 					break;
 				}
+				case Packet.Error:
+				{
+					if (mStage != Stage.Connected && onConnect != null)
+					{
+						onConnect(false, reader.ReadString());
+					}
+					else if (onError != null)
+					{
+						onError(reader.ReadString());
+					}
+					break;
+				}
+				case Packet.Disconnect:
+				{
+					if (onDisconnect != null) onDisconnect();
+					break;
+				}
 				default:
 				{
 					if (onError != null) onError("Unknown packet ID: " + packetID);
 					break;
 				}
 			}
-		}
-		
-		// No longer connected? Send out a disconnect notification.
-		if (mStage != Stage.Disconnected && !mSocket.Connected)
-		{
-			mStage = Stage.Disconnected;
-			mSocket.Close();
-			mSocket = null;
-			if (onDisconnect != null) onDisconnect();
+			Connection.ReleaseBuffer(buffer);
 		}
 	}
 }

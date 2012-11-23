@@ -33,8 +33,8 @@ public class Connection
 	public long timestamp = 0;
 
 	// Incoming and outgoing queues
-	protected Queue<Buffer> mIn = new Queue<Buffer>();
-	protected Queue<Buffer> mOut = new Queue<Buffer>();
+	Queue<Buffer> mIn = new Queue<Buffer>();
+	Queue<Buffer> mOut = new Queue<Buffer>();
 
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
@@ -81,6 +81,33 @@ public class Connection
 	}
 
 	/// <summary>
+	/// Release the buffers.
+	/// </summary>
+
+	public void Release ()
+	{
+		if (socket != null)
+		{
+			try
+			{
+				socket.Shutdown(SocketShutdown.Both);
+				socket.Close();
+			}
+			catch (System.Exception ex)
+			{
+				Console.WriteLine(ex.Message);
+			}
+			socket = null;
+		}
+
+		lock (mPool)
+		{
+			while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
+			while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
+		}
+	}
+
+	/// <summary>
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
@@ -88,15 +115,51 @@ public class Connection
 	{
 		if (socket != null)
 		{
-			socket.Close();
+			// Send a zero, indicating that the connection should now be severed
+			if (socket.Connected) socket.Send(new byte[] { 0, 0, 0, 0 });
+			Close(true);
+		}
+	}
+
+	/// <summary>
+	/// Close the connection.
+	/// </summary>
+
+	protected void Close (bool notify)
+	{
+		if (socket != null)
+		{
+			try
+			{
+				socket.Shutdown(SocketShutdown.Both);
+				socket.Close();
+			}
+			catch (System.Exception ex)
+			{
+				Console.WriteLine(ex.Message);
+			}
 			socket = null;
 
-			lock (mPool)
+			if (notify)
 			{
-				while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
-				while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
+				Buffer buff = CreateBuffer();
+				buff.BeginWriting(false).Write((byte)Packet.Disconnect);
+				lock (mIn) mIn.Enqueue(buff);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	protected void Error (string error)
+	{
+		Buffer buff = CreateBuffer();
+		BinaryWriter writer = buff.BeginWriting(false);
+		writer.Write((byte)Packet.Error);
+		writer.Write(error);
+		lock (mIn) mIn.Enqueue(buff);
 	}
 
 	/// <summary>
@@ -105,22 +168,27 @@ public class Connection
 
 	public void SendPacket (Buffer buffer)
 	{
-		if (socket.Connected)
+		buffer.MarkAsUsed();
+
+		if (socket != null && socket.Connected)
 		{
 			buffer.BeginReading();
 
 			lock (mOut)
 			{
-				buffer.MarkAsUsed();
 				mOut.Enqueue(buffer);
 
 				if (mOut.Count == 1)
 				{
-					// If it's the first packet, let's send it
+					// If it's the first packet, let's begin the send process
 					socket.BeginSend(buffer.buffer, buffer.position,
-						buffer.size, SocketFlags.None, OnSend, buffer);
+						buffer.size, SocketFlags.None, OnSend, null);
 				}
 			}
+		}
+		else if (buffer.MarkAsUnused())
+		{
+			Connection.ReleaseBuffer(buffer);
 		}
 	}
 
@@ -130,21 +198,32 @@ public class Connection
 
 	void OnSend (IAsyncResult result)
 	{
-		int bytes = socket.EndSend(result);
+		int bytes;
+		
+		try
+		{
+			bytes = socket.EndSend(result);
+		}
+		catch (System.NullReferenceException)
+		{
+			Close(true);
+			return;
+		}
+		catch (System.Exception ex)
+		{
+			bytes = 0;
+			Error(ex.Message);
+			Close(true);
+			return;
+		}
 
 		if (bytes > 0)
 		{
 			Console.WriteLine("...sent " + bytes + " bytes");
-			Buffer finished = (Buffer)result.AsyncState;
 
 			lock (mOut)
 			{
-				//mOut.Dequeue();
-				Buffer deq = mOut.Dequeue();
-
-				// This shouldn't be hit, but just in case...
-				if (deq != finished)
-					Console.WriteLine("WARNING: Unexpected...?");
+				Buffer finished = mOut.Dequeue();
 
 				// Recycle this buffer if it's no longer in use
 				if (finished.MarkAsUnused()) Connection.ReleaseBuffer(finished);
@@ -152,17 +231,17 @@ public class Connection
 				// If there is another packet to send out, let's send it
 				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
 				if (next != null) socket.BeginSend(next.buffer, next.position, next.size,
-					SocketFlags.None, OnSend, next);
+					SocketFlags.None, OnSend, null);
 			}
 		}
-		else Disconnect();
+		else Close(true);
 	}
 
 	/// <summary>
 	/// Start receiving incoming messages.
 	/// </summary>
 
-	public virtual void StartReceiving ()
+	public void StartReceiving ()
 	{
 		if (socket != null && socket.Connected)
 		{
@@ -193,7 +272,6 @@ public class Connection
 
 	void OnReceive (IAsyncResult result)
 	{
-		if (socket == null) return;
 		int bytes = 0;
 
 		try
@@ -202,8 +280,8 @@ public class Connection
 		}
 		catch (System.Exception ex)
 		{
-			Console.WriteLine(ex.Message);
-			Disconnect();
+			Error(ex.Message);
+			Close(true);
 			return;
 		}
 		timestamp = DateTime.Now.Ticks / 10000;
@@ -229,7 +307,14 @@ public class Connection
 				if (mExpected == 0)
 				{
 					mExpected = mReceiveBuffer.PeekInt(mOffset);
-					if (mExpected == 0) break;
+					if (mExpected == -1) break;
+					
+					// 0 indicates a closed connection
+					if (mExpected == 0)
+					{
+						Close(true);
+						return;
+					}
 				}
 
 				// The first 4 bytes of any packet always contain the number of bytes in that packet
@@ -271,7 +356,7 @@ public class Connection
 			// Queue up the next read operation
 			socket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
 		}
-		else Disconnect();
+		else Close(true);
 	}
 }
 }

@@ -59,7 +59,7 @@ public class TNManager : MonoBehaviour
 			client.onChannelChanged = OnChannelChanged;
 			client.onRenamePlayer = OnRenamePlayer;
 			client.onCreate = OnCreateObject;
-			client.onDestroy = OnDestroyView;
+			client.onDestroy = OnDestroyObject;
 			client.onCustomPacket = OnCustomPacket;
 		}
 	}
@@ -89,7 +89,7 @@ public class TNManager : MonoBehaviour
 			{
 				BinaryWriter writer = client.BeginSend(Packet.RequestCreate);
 				writer.Write((short)index);
-				writer.Write(go.GetComponent<TNView>() != null ? (byte)1 : (byte)0);
+				writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
 				writer.Write((byte)0);
 				client.EndSend();
 			}
@@ -116,7 +116,7 @@ public class TNManager : MonoBehaviour
 			{
 				BinaryWriter writer = client.BeginSend(Packet.RequestCreate);
 				writer.Write((short)index);
-				writer.Write(go.GetComponent<TNView>() != null ? (byte)1 : (byte)0);
+				writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
 				writer.Write((byte)1);
 				writer.Write(pos.x);
 				writer.Write(pos.y);
@@ -143,12 +143,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (isConnected)
 		{
-			TNView view = go.GetComponent<TNView>();
+			TNObject obj = go.GetComponent<TNObject>();
 
-			if (view != null)
+			if (obj != null)
 			{
 				BinaryWriter writer = client.BeginSend(Packet.RequestDestroy);
-				writer.Write(view.id);
+				writer.Write(obj.id);
 				client.EndSend();
 				return;
 			}
@@ -160,12 +160,12 @@ public class TNManager : MonoBehaviour
 	/// Remove the specified buffered RFC call.
 	/// </summary>
 
-	public void RemoveBufferedRFC (int viewID, short rfcID)
+	public void RemoveBufferedRFC (int objID, short rfcID)
 	{
 		if (client.isConnected)
 		{
 			BinaryWriter writer = client.BeginSend(Packet.RequestRemoveRFC);
-			writer.Write(viewID);
+			writer.Write(objID);
 			writer.Write(rfcID);
 			client.EndSend();
 		}
@@ -235,7 +235,7 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new object being created.
 	/// </summary>
 
-	void OnCreateObject (int objectID, int viewID, BinaryReader reader)
+	void OnCreateObject (int objectID, int objID, BinaryReader reader)
 	{
 		GameObject go = null;
 
@@ -253,50 +253,48 @@ public class TNManager : MonoBehaviour
 			go = Instantiate(objects[objectID]) as GameObject;
 		}
 		
-		if (go != null && viewID != 0)
+		if (go != null && objID != 0)
 		{
-			TNView view = go.GetComponent<TNView>();
+			TNObject obj = go.GetComponent<TNObject>();
 
-			if (view != null)
+			if (obj != null)
 			{
-				view.id = viewID;
+				obj.id = objID;
 			}
 			else
 			{
-				Debug.LogWarning("The instantiated object has no TNView component. Don't request a ViewID when creating it.", go);
+				Debug.LogWarning("The instantiated object has no TNObject component. Don't request a ObjectID when creating it.", go);
 			}
 		}
 	}
 
 	/// <summary>
-	/// Notification of a network view being destroyed.
+	/// Notification of a network object being destroyed.
 	/// </summary>
 
-	void OnDestroyView (int viewID)
+	void OnDestroyObject (int objID)
 	{
-		TNView view = TNView.Find(viewID);
-		if (view) Destroy(view);
+		TNObject obj = TNObject.Find(objID);
+		if (obj) Destroy(obj);
 	}
 
 	/// <summary>
 	/// If custom functionality is needed, all unrecognized packets will arrive here.
 	/// </summary>
 
-	void OnCustomPacket (int packetID, BinaryReader reader)
+	void OnCustomPacket (BinaryReader reader)
 	{
-		if (packetID == 0)
-		{
-			int viewID = reader.ReadInt32();
-			int funcID = reader.ReadInt16();
+		int val = reader.ReadInt32();
+		int objID = (val >> 8);
+		int funcID = (val & 0xFF);
 
-			if (funcID == 0)
-			{
-				TNView.FindAndExecute(viewID, reader.ReadString(), Tools.Read(reader));
-			}
-			else
-			{
-				TNView.FindAndExecute(viewID, funcID, Tools.Read(reader));
-			}
+		if (funcID == 0)
+		{
+			TNObject.FindAndExecute(objID, reader.ReadString(), Tools.Read(reader));
+		}
+		else
+		{
+			TNObject.FindAndExecute(objID, funcID, Tools.Read(reader));
 		}
 	}
 

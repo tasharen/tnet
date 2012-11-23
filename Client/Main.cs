@@ -27,7 +27,6 @@ public class TNetTest
 				stream.Dispose();
 				
 				BinaryWriter writer = client.BeginSend(Packet.ForwardToAll);
-				writer.Write((byte)Packet.Custom);
 				writer.Write((byte)10);
 				writer.Write(data);
 				client.EndSend();
@@ -47,7 +46,7 @@ public class TNetTest
 		client.onChannelChanged = OnChannelChanged;
 		client.onRenamePlayer = OnRenamePlayer;
 		client.onCreate = OnCreateObject;
-		client.onDestroy = OnDestroyView;
+		client.onDestroy = OnDestroyObject;
 		client.onCustomPacket = OnCustomPacket;
 		client.Connect("127.0.0.1", 5127);
 
@@ -107,18 +106,18 @@ public class TNetTest
 		Console.WriteLine(previous + " is now known as " + p.name);
 	}
 
-	static void OnCreateObject (int objectID, int viewID, BinaryReader reader)
+	static void OnCreateObject (int objectID, int objID, BinaryReader reader)
 	{
-		Console.WriteLine("Create " + objectID + " " + viewID);
+		Console.WriteLine("Create " + objectID + " " + objID);
 	}
 
-	static void OnDestroyView (int viewID)
+	static void OnDestroyObject (int objID)
 	{
-		Console.WriteLine("Destroy " + viewID);
+		Console.WriteLine("Destroy " + objID);
 	}
 
-	static void OnCustomPacket (int packetID, BinaryReader reader)
+	static void OnCustomPacket (BinaryReader reader)
 	{
-		Console.WriteLine("Custom: " + packetID + " (" + reader.BaseStream.Length + " bytes)");
+		Console.WriteLine("Custom (" + reader.BaseStream.Length + " bytes)");
 	}
 }
