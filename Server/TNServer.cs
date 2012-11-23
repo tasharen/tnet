@@ -387,69 +387,24 @@ public class Server
 		if (player.channel == null || player.channel.id != channelID)
 		{
 			Channel channel = CreateChannel(channelID);
-			BinaryWriter writer;
 
-			if (player.channel != null)
+			// Step 1: Inform the channel that a new player is joining
+			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
 			{
-				// Step 1: Inform the channel that the player has joined
-				writer = BeginSend(Packet.ResponsePlayerJoined);
-				{
-					writer.Write(player.id);
-					writer.Write(string.IsNullOrEmpty(player.name) ? "<Guest>" : player.name);
-				}
-				EndSend(player.channel, null);
+				writer.Write(player.id);
+				writer.Write(string.IsNullOrEmpty(player.name) ? "<Guest>" : player.name);
 			}
+			EndSend(channel, null);
 
 			// Add this player to the channel
 			player.channel = channel;
 			channel.players.Add(player);
 
-			// Step 2: Tell the player who else is in the channel
-			writer = BeginSend(Packet.ResponseJoiningChannel);
-			{
-				writer.Write(channelID);
-				writer.Write((short)channel.players.size);
-
-				for (int i = 0; i < channel.players.size; ++i)
-				{
-					Player tp = channel.players[i];
-					writer.Write(tp.id);
-					writer.Write(string.IsNullOrEmpty(tp.name) ? "<Guest>" : tp.name);
-				}
-			}
-			EndSend(player.channel, null);
-
 			// If the channel has no host, this player is automatically hosting
 			if (player.channel.host == null) player.channel.host = player;
 
-			// Step 3: Inform the player of who is hosting
-			writer = BeginSend(Packet.ResponseSetHost);
-			writer.Write(player.channel.host.id);
-			EndSend(player);
-
-			// Step 4: Send the list of objects that have been created
-			for (int i = 0; i < player.channel.created.size; ++i)
-			{
-				Channel.CreatedObject obj = player.channel.created.buffer[i];
-				writer = BeginSend(Packet.ResponseCreate);
-				writer.Write(obj.objectID);
-				writer.Write(obj.uniqueID);
-				writer.Write(obj.buffer.buffer);
-				EndSend(player);
-			}
-
-			// Step 5: Send the list of objects that have been destroyed
-			writer = BeginSend(Packet.ResponseDestroy);
-			writer.Write((short)player.channel.destroyed.size);
-			for (int i = 0; i < player.channel.destroyed.size; ++i)
-				writer.Write((short)player.channel.destroyed.buffer[i]);
-
-			// Step 6: Send all buffered RFCs to the new player
-			for (int i = 0; i < player.channel.rfcs.size; ++i) player.SendPacket(player.channel.rfcs[i].buffer);
-
-			// Step 7: The join process is now complete
-			writer = BeginSend(Packet.ResponseJoinedChannel);
-			EndSend(player);
+			// Everything else gets sent to the player, so it's faster to do it all at once
+			player.FinishJoiningChannel(channelID);
 		}
 	}
 
@@ -641,7 +596,6 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (player.socket.Connected) tp.SendPacket(copy);
 				}
-				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
 			}
 			case Packet.ForwardToOthersBuffered:
@@ -661,7 +615,6 @@ public class Server
 					Player tp = player.channel.players[i];
 					if (tp != player && player.socket.Connected) tp.SendPacket(copy);
 				}
-				if (copy.MarkAsUnused()) Connection.ReleaseBuffer(copy);
 				break;
 			}
 			case Packet.ForwardToHost:

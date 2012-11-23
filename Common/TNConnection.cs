@@ -202,7 +202,7 @@ public class Connection
 	/// Send data one packet at a time.
 	/// </summary>
 
-	void OnSend (IAsyncResult result)
+	protected void OnSend (IAsyncResult result)
 	{
 		int bytes;
 		
@@ -215,10 +215,9 @@ public class Connection
 			Close(true);
 			return;
 		}
-		catch (System.Exception ex)
+		catch (System.Exception)
 		{
 			bytes = 0;
-			//Error(ex.Message);
 			Close(true);
 			return;
 		}
@@ -284,9 +283,8 @@ public class Connection
 		{
 			bytes = socket.EndReceive(result);
 		}
-		catch (System.Exception ex)
+		catch (System.Exception)
 		{
-			//Error(ex.Message);
 			Close(true);
 			return;
 		}

@@ -104,6 +104,7 @@ public class Buffer
 		BinaryWriter w = target.BeginWriting(false);
 		int bytes = size;
 		if (bytes > 0) w.Write(buffer, position, bytes);
+		target.EndWriting();
 	}
 
 	/// <summary>
@@ -128,6 +129,17 @@ public class Buffer
 	}
 
 	/// <summary>
+	/// Begin the writing process, appending from the specified offset.
+	/// </summary>
+
+	public BinaryWriter BeginWriting (int startOffset)
+	{
+		mStream.Seek(startOffset, SeekOrigin.Begin);
+		mWriting = true;
+		return mWriter;
+	}
+
+	/// <summary>
 	/// Finish the writing process, returning the packet's size.
 	/// </summary>
 
@@ -136,6 +148,7 @@ public class Buffer
 		if (mWriting)
 		{
 			mSize = position;
+			mStream.Seek(0, SeekOrigin.Begin);
 			mWriting = false;
 		}
 		return mSize;
@@ -218,6 +231,18 @@ public class Buffer
 	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
 	/// </summary>
 
+	public BinaryWriter BeginPacket (Packet packet, int startOffset)
+	{
+		BinaryWriter writer = BeginWriting(startOffset);
+		writer.Write(0);
+		writer.Write((byte)packet);
+		return writer;
+	}
+
+	/// <summary>
+	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
+	/// </summary>
+
 	public BinaryWriter BeginPacket (byte packetID)
 	{
 		BinaryWriter writer = BeginWriting(false);
@@ -237,6 +262,23 @@ public class Buffer
 			mSize = position;
 			mStream.Seek(0, SeekOrigin.Begin);
 			mWriter.Write(mSize - 4);
+			mStream.Seek(0, SeekOrigin.Begin);
+			mWriting = false;
+		}
+		return mSize;
+	}
+
+	/// <summary>
+	/// Finish writing of the packet, updating (and returning) its size.
+	/// </summary>
+
+	public int EndPacket (int startOffset)
+	{
+		if (mWriting)
+		{
+			mSize = position;
+			mStream.Seek(startOffset, SeekOrigin.Begin);
+			mWriter.Write(mSize - 4 - startOffset);
 			mStream.Seek(0, SeekOrigin.Begin);
 			mWriting = false;
 		}
