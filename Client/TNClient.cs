@@ -13,14 +13,6 @@ namespace TNet
 
 public class Client : Connection
 {
-	enum Stage
-	{
-		Disconnected,
-		Connecting,
-		Verifying,
-		Connected,
-	}
-
 	/// <summary>
 	/// Client protocol version. Must match the server.
 	/// </summary>
@@ -32,6 +24,7 @@ public class Client : Connection
 	public delegate void OnDisconnect ();
 	public delegate void OnPlayerJoined (Player p);
 	public delegate void OnPlayerLeft (Player p);
+	public delegate void OnSetHost (bool hosting);
 	public delegate void OnChannelChanged (bool isInChannel, string message);
 	public delegate void OnRenamePlayer (Player p, string previous);
 	public delegate void OnCreate (int objectID, int objID, BinaryReader reader);
@@ -67,6 +60,12 @@ public class Client : Connection
 	/// </summary>
 
 	public OnPlayerLeft onPlayerLeft;
+
+	/// <summary>
+	/// Notification sent when the channel's host changes.
+	/// </summary>
+
+	public OnSetHost onSetHost;
 
 	/// <summary>
 	/// Notification of joining or leaving a channel. Boolean value indicates presence in the channel.
@@ -107,6 +106,14 @@ public class Client : Connection
 	// Same list of players, but in a dictionary format for quick lookup
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
 
+	enum Stage
+	{
+		Disconnected,
+		Connecting,
+		Verifying,
+		Connected,
+	}
+
 	// Current connection stage
 	Stage mStage = Stage.Disconnected;
 
@@ -128,7 +135,7 @@ public class Client : Connection
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
-	public bool isConnected { get { return mStage == Stage.Connected; } }
+	new public bool isConnected { get { return mStage == Stage.Connected; } }
 
 	/// <summary>
 	/// Whether this player is hosting the game.
@@ -159,7 +166,7 @@ public class Client : Connection
 
 	public BinaryWriter BeginSend (Packet type)
 	{
-		Console.WriteLine("Sending " + type);
+		//Console.WriteLine("Sending " + type);
 		mBuffer = Connection.CreateBuffer();
 		return mBuffer.BeginPacket(type);
 	}
@@ -170,7 +177,7 @@ public class Client : Connection
 
 	public BinaryWriter BeginSend (byte packetID)
 	{
-		Console.WriteLine("Sending " + packetID);
+		//Console.WriteLine("Sending " + packetID);
 		mBuffer = Connection.CreateBuffer();
 		return mBuffer.BeginPacket(packetID);
 	}
@@ -241,13 +248,14 @@ public class Client : Connection
 	/// Join the specified channel.
 	/// </summary>
 
-	public void JoinChannel (int channelID, string password)
+	public void JoinChannel (int channelID, string password, bool persistent)
 	{
 		if (isConnected)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
 			writer.Write(string.IsNullOrEmpty(password) ? "" : password);
+			writer.Write(persistent);
 			EndSend();
 		}
 	}
@@ -322,7 +330,7 @@ public class Client : Connection
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
-			Console.WriteLine("======= " + response + " (" + buffer.size + " bytes)");
+			//Console.WriteLine("======= " + response + " (" + buffer.size + " bytes)");
 
 			switch (response)
 			{
@@ -406,9 +414,20 @@ public class Client : Connection
 					}
 					break;
 				}
+				case Packet.ResponseSetHost:
+				{
+					mHost = reader.ReadInt32();
+					if (onSetHost != null) onSetHost(isHosting);
+					break;
+				}
 				case Packet.ResponseJoinedChannel:
 				{
 					if (onChannelChanged != null) onChannelChanged(true, null);
+					break;
+				}
+				case Packet.ResponseJoinFailed:
+				{
+					if (onChannelChanged != null) onChannelChanged(false, reader.ReadString());
 					break;
 				}
 				case Packet.ResponseLeftChannel:
@@ -418,22 +437,12 @@ public class Client : Connection
 					if (onChannelChanged != null) onChannelChanged(false, null);
 					break;
 				}
-				case Packet.ResponseWrongPassword:
-				{
-					if (onChannelChanged != null) onChannelChanged(false, "Wrong password");
-					break;
-				}
 				case Packet.ResponseRenamePlayer:
 				{
 					Player p = GetPlayer(reader.ReadInt32());
 					string oldName = p.name;
 					if (p != null) p.name = reader.ReadString();
 					if (onRenamePlayer != null) onRenamePlayer(p, oldName);
-					break;
-				}
-				case Packet.ResponseSetHost:
-				{
-					mHost = reader.ReadInt32();
 					break;
 				}
 				case Packet.ResponseCreate:

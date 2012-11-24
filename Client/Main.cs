@@ -27,7 +27,7 @@ public class TNetTest
 				stream.Dispose();
 				
 				BinaryWriter writer = client.BeginSend(Packet.ForwardToAllBuffered);
-				writer.Write((byte)10);
+				writer.Write(0);
 				writer.Write(data);
 				client.EndSend();
 			}
@@ -43,6 +43,7 @@ public class TNetTest
 		client.onDisconnect = OnDisconnect;
 		client.onPlayerJoined = OnPlayerJoined;
 		client.onPlayerLeft = OnPlayerLeft;
+		client.onSetHost = OnSetHost;
 		client.onChannelChanged = OnChannelChanged;
 		client.onRenamePlayer = OnRenamePlayer;
 		client.onCreate = OnCreateObject;
@@ -78,7 +79,7 @@ public class TNetTest
 	static void OnConnect (bool success, string message)
 	{
 		Console.WriteLine("Connected: " + success + " (" + message + ")");
-		client.JoinChannel(123, null);
+		client.JoinChannel(123, null, true);
 	}
 
 	static void OnDisconnect ()
@@ -94,6 +95,11 @@ public class TNetTest
 	static void OnPlayerLeft (Player p)
 	{
 		Console.WriteLine("Player left: " + p.name);
+	}
+
+	static void OnSetHost (bool hosting)
+	{
+		Console.WriteLine("Hosting: " + hosting);
 	}
 
 	static void OnChannelChanged (bool isInChannel, string message)

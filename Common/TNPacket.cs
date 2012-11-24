@@ -34,8 +34,9 @@ public enum Packet
 
 	/// <summary>
 	/// Join the specified channel.
-	/// int32: Channel ID
-	/// string: Channel password
+	/// int32: Channel ID.
+	/// string: Channel password.
+	/// bool: Whether the channel should be persistent (left open even when the last player leaves).
 	/// </summary>
 
 	RequestJoinChannel,
@@ -45,6 +46,12 @@ public enum Packet
 	/// </summary>
 
 	RequestLeaveChannel,
+
+	/// <summary>
+	/// Mark the channel as closed. No further players will be able to join and saved data will be deleted.
+	/// </summary>
+
+	RequestCloseChannel,
 
 	/// <summary>
 	/// Player name change.
@@ -82,6 +89,29 @@ public enum Packet
 	/// </summary>
 
 	RequestDestroy,
+
+	/// <summary>
+	/// Save the specified data.
+	/// string: Filename.
+	/// int32: Size of the data in bytes.
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	RequestSaveFile,
+
+	/// <summary>
+	/// Load the requested data that was saved previously.
+	/// string: Filename.
+	/// </summary>
+
+	RequestLoadFile,
+
+	/// <summary>
+	/// Delete the specified file.
+	/// string: Filename.
+	/// </summary>
+
+	RequestDeleteFile,
 
 	//===================================================================================
 
@@ -144,10 +174,11 @@ public enum Packet
 	ResponseLeftChannel,
 
 	/// <summary>
-	/// Inform the player that the join request failed due to a wrong password.
+	/// Failed to join the requested channel.
+	/// string: Reason.
 	/// </summary>
 
-	ResponseWrongPassword,
+	ResponseJoinFailed,
 
 	/// <summary>
 	/// Change the specified player's name.
@@ -180,6 +211,15 @@ public enum Packet
 	/// </summary>
 
 	ResponseDestroy,
+
+	/// <summary>
+	/// Loaded file response.
+	/// string: Filename.
+	/// int32: Number of bytes to follow.
+	/// byte[]: Data.
+	/// </summary>
+
+	ResponseLoadFile,
 
 	//===================================================================================
 

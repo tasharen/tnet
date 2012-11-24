@@ -115,7 +115,7 @@ public class Connection
 			}
 			catch (System.Exception ex)
 			{
-				Console.WriteLine(ex.Message);
+				Error(ex.Message);
 			}
 			socket = null;
 
@@ -143,7 +143,7 @@ public class Connection
 			}
 			catch (System.Exception ex)
 			{
-				Console.WriteLine(ex.Message);
+				Error(ex.Message);
 			}
 			socket = null;
 		}
@@ -219,16 +219,11 @@ public class Connection
 			return;
 		}
 
-		Console.WriteLine("...sent " + bytes + " bytes");
+		//Console.WriteLine("...sent " + bytes + " bytes");
 
 		lock (mOut)
 		{
 			Buffer finished = mOut.Dequeue();
-
-			if (finished != result.AsyncState)
-			{
-				Console.WriteLine("Wtf?");
-			}
 
 			// Recycle this buffer if it's no longer in use
 			if (finished.MarkAsUnused()) Connection.ReleaseBuffer(finished);
@@ -347,7 +342,7 @@ public class Connection
 					// There is more than one packet. Extract this packet.
 					Buffer temp = Connection.CreateBuffer();
 					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, mExpected);
-					Console.WriteLine("Added packet of size " + mExpected);
+					//Console.WriteLine("Added packet of size " + mExpected);
 
 					// This packet is now ready to be processed
 					temp.MarkAsUsed();

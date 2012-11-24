@@ -59,7 +59,7 @@ public class Server
 		}
 		catch (System.Exception ex)
 		{
-			Error(ex.Message);
+			Error(null, ex.Message);
 			return false;
 		}
 
@@ -153,7 +153,17 @@ public class Server
 	/// Log an error message.
 	/// </summary>
 
-	protected virtual void Error (string error) { Console.WriteLine("ERROR: " + error); }
+	protected virtual void Error (Player p, string error)
+	{
+		if (p != null)
+		{
+			Console.WriteLine(p.address + " ERROR: " + error);
+		}
+		else
+		{
+			Console.WriteLine("ERROR: " + error);
+		}
+	}
 
 	/// <summary>
 	/// Add a new player entry.
@@ -176,6 +186,7 @@ public class Server
 	{
 		if (p != null)
 		{
+			Console.WriteLine(p.address + " has disconnected");
 			p.Release();
 			mPlayers.Remove(p);
 
@@ -209,7 +220,12 @@ public class Server
 		for (int i = 0; i < mChannels.size; ++i)
 		{
 			channel = mChannels[i];
-			if (channel.id == channelID) return channel;
+			
+			if (channel.id == channelID)
+			{
+				if (channel.closed) return null;
+				return channel;
+			}
 		}
 
 		channel = new Channel();
@@ -237,7 +253,7 @@ public class Server
 		mBuffer = Connection.CreateBuffer();
 		mBuffer.MarkAsUsed();
 		BinaryWriter writer = mBuffer.BeginPacket(type);
-		Console.WriteLine("Sending " + type);
+		//Console.WriteLine("Sending " + type);
 		return writer;
 	}
 
@@ -332,32 +348,22 @@ public class Server
 		if (player.channel != null)
 		{
 			// Remove this player from the channel
-			player.channel.players.Remove(player);
-
-			// Inform everyone of this player leaving the channel
-			BinaryWriter writer = BeginSend(Packet.ResponsePlayerLeft);
-			writer.Write(player.id);
-			EndSend(player.channel, null);
+			player.channel.RemovePlayer(player);
 
 			// Are there other players left?
 			if (player.channel.players.size > 0)
 			{
-				// If this player was the host, choose a new host
-				if (player.channel.host == player) SendSetHost(player.channel.players[0]);
-			}
-			// No other players left -- delete this channel
-			else
-			{
-				// Recycle the buffers
-				for (int i = 0; i < player.channel.rfcs.size; ++i)
-				{
-					Channel.RFC r = player.channel.rfcs[i];
+				// Inform everyone of this player leaving the channel
+				BinaryWriter writer = BeginSend(Packet.ResponsePlayerLeft);
+				writer.Write(player.id);
+				EndSend(player.channel, null);
 
-					if (r != null && r.buffer != null)
-					{
-						if (r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
-					}
-				}
+				// If this player was the host, choose a new host
+				if (player.channel.host == null) SendSetHost(player.channel.players[0]);
+			}
+			else if (!player.channel.persistent)
+			{
+				// No other players left -- delete this channel
 				mChannels.Remove(player.channel);
 			}
 			player.channel = null;
@@ -400,9 +406,6 @@ public class Server
 			player.channel = channel;
 			channel.players.Add(player);
 
-			// If the channel has no host, this player is automatically hosting
-			if (player.channel.host == null) player.channel.host = player;
-
 			// Everything else gets sent to the player, so it's faster to do it all at once
 			player.FinishJoiningChannel(channelID);
 		}
@@ -425,7 +428,7 @@ public class Server
 		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
 
-		Console.WriteLine("...packet: " + request + " (" + size + " bytes)");
+		//Console.WriteLine("...packet: " + request + " (" + size + " bytes)");
 
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (!player.verified)
@@ -452,7 +455,7 @@ public class Server
 				// If the version matches, move on to the next packet
 				if (clientVersion == Player.version) return true;
 			}
-			Console.WriteLine("Verification failed");
+			Console.WriteLine(player.address + " has failed the verification step");
 			RemovePlayer(player);
 			return false;
 		}
@@ -483,6 +486,7 @@ public class Server
 				// Join the specified channel
 				int channelID = reader.ReadInt32();
 				string pass = reader.ReadString();
+				bool persist = reader.ReadBoolean();
 
 				if (channelID == -1)
 				{
@@ -499,9 +503,15 @@ public class Server
 				{
 					Channel channel = CreateChannel(channelID);
 
-					if (channel.players.size == 0)
+					if (channel == null)
+					{
+						BeginSend(Packet.ResponseJoinFailed).Write("The requested channel is closed.");
+						EndSend(player);
+					}
+					else if (channel.players.size == 0)
 					{
 						channel.password = pass;
+						channel.persistent = persist;
 						SendLeaveChannel(player);
 						SendJoinChannel(player, channelID);
 					}
@@ -512,7 +522,7 @@ public class Server
 					}
 					else
 					{
-						BeginSend(Packet.ResponseWrongPassword);
+						BeginSend(Packet.ResponseJoinFailed).Write("Wrong password.");
 						EndSend(player);
 					}
 				}
@@ -588,7 +598,7 @@ public class Server
 				Buffer copy = Connection.CreateBuffer();
 				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
-				player.channel.CreateRFC(target).buffer = copy;
+				player.channel.CreateRFC(target, copy);
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -607,7 +617,7 @@ public class Server
 				Buffer copy = Connection.CreateBuffer();
 				copy.MarkAsUsed();
 				buffer.CopyTo(copy);
-				player.channel.CreateRFC(target).buffer = copy;
+				player.channel.CreateRFC(target, copy);
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -717,15 +727,59 @@ public class Server
 				}
 				break;
 			}
+			case Packet.RequestLeaveChannel:
+			{
+				SendLeaveChannel(player);
+				break;
+			}
+			case Packet.RequestCloseChannel:
+			{
+				player.channel.persistent = false;
+				player.channel.closed = true;
+				break;
+			}
 			case Packet.RequestRemoveRFC:
 			{
-				// Remove the specified remote function call
 				player.channel.DeleteRFC(reader.ReadInt32());
+				break;
+			}
+			case Packet.RequestSaveFile:
+			{
+				string fileName = reader.ReadString();
+				int size = reader.ReadInt32();
+				byte[] data = reader.ReadBytes(size);
+				player.channel.SaveFile(fileName, data);
+				break;
+			}
+			case Packet.RequestLoadFile:
+			{
+				string fn = reader.ReadString();
+				byte[] data = player.channel.LoadFile(fn);
+
+				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
+				writer.Write(fn);
+
+				if (data != null)
+				{
+					writer.Write(data.Length);
+					writer.Write(data);
+				}
+				else
+				{
+					writer.Write(0);
+				}
+				EndSend(player);
+				break;
+			}
+			case Packet.RequestDeleteFile:
+			{
+				string fn = reader.ReadString();
+				player.channel.DeleteFile(fn);
 				break;
 			}
 			case Packet.Error:
 			{
-				Error(reader.ReadString());
+				Error(player, reader.ReadString());
 				break;
 			}
 			case Packet.Disconnect:
@@ -748,7 +802,7 @@ public class Server
 
 	protected virtual void OnPacket (Player player, Buffer buffer, BinaryReader reader, int packetID)
 	{
-		Error("Unrecognized packet with ID of " + packetID);
+		Error(player, "Unrecognized packet with ID of " + packetID);
 	}
 }
 }

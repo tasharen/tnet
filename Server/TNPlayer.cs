@@ -69,6 +69,7 @@ public class Player : Connection
 		int offset = buffer.EndPacket();
 
 		// Step 3: Inform the player of who is hosting
+		if (channel.host == null) channel.host = this;
 		buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.host.id);
 		offset = buffer.EndPacket(offset);

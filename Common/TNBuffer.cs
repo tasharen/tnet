@@ -153,27 +153,6 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Receive the specified number of bytes and immediately switch to reading.
-	/// TODO: Eliminate this function, or at least made it use a temporary incoming buffer.
-	/// </summary>
-
-	public BinaryReader Receive (Socket socket, int bytes)
-	{
-		mWriting = true;
-		mStream.SetLength(bytes);
-		mStream.Seek(0, SeekOrigin.Begin);
-
-		for (mSize = 0; mSize < bytes; )
-		{
-			mSize += socket.Receive(buffer, mSize, bytes - mSize, SocketFlags.None);
-		}
-		
-		mStream.Seek(0, SeekOrigin.Begin);
-		mWriting = false;
-		return mReader;
-	}
-
-	/// <summary>
 	/// Begin the reading process.
 	/// </summary>
 
