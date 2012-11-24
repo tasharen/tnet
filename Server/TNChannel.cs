@@ -1,8 +1,5 @@
 ﻿using System;
-
-#if !UNITY_WEB_PLAYER
 using System.IO;
-#endif
 
 namespace TNet
 {
@@ -26,12 +23,6 @@ public class Channel
 		public Buffer buffer;
 	}
 
-	public class FileEntry
-	{
-		public string fileName;
-		public byte[] data;
-	};
-
 	public int id;
 	public string password;
 	public bool persistent = false;
@@ -40,7 +31,6 @@ public class Channel
 	public BetterList<RFC> rfcs = new BetterList<RFC>();
 	public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
 	public BetterList<int> destroyed = new BetterList<int>();
-	public BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
 	public int objectCounter = 0;
 	public Player host;
 
@@ -51,7 +41,18 @@ public class Channel
 	public void RemovePlayer (Player p)
 	{
 		if (p == host) host = null;
-		if (players.Remove(p) && !persistent && players.size == 0) Close();
+
+		if (players.Remove(p) && !persistent && players.size == 0)
+		{
+			closed = true;
+
+			for (int i = 0; i < rfcs.size; ++i)
+			{
+				RFC r = rfcs[i];
+				if (r.buffer != null) r.buffer.Recycle();
+			}
+			rfcs.Clear();
+		}
 	}
 
 	/// <summary>
@@ -122,153 +123,96 @@ public class Channel
 	}
 
 	/// <summary>
-	/// Save the specified file.
+	/// Save the channel's data into the specified file.
 	/// </summary>
 
-	public void SaveFile (string fileName, byte[] data)
+	public void SaveTo (BinaryWriter writer)
 	{
-		bool exists = false;
+		writer.Write(objectCounter);
+		writer.Write(password);
+		writer.Write(persistent);
+		writer.Write(rfcs.size);
 
-		for (int i = 0; i < savedFiles.size; ++i)
+		for (int i = 0; i < rfcs.size; ++i)
 		{
-			FileEntry fi = savedFiles[i];
-
-			if (fi.fileName == fileName)
+			RFC rfc = rfcs[i];
+			writer.Write(rfc.id);
+			writer.Write(rfc.buffer.size);
+			
+			if (rfc.buffer.size > 0)
 			{
-				fi.data = data;
-				exists = true;
-				break;
+				rfc.buffer.BeginReading();
+				writer.Write(rfc.buffer.buffer, rfc.buffer.position, rfc.buffer.size);
 			}
 		}
 
-		if (!exists)
-		{
-			FileEntry fi = new FileEntry();
-			fi.fileName = fileName;
-			fi.data = data;
-			savedFiles.Add(fi);
-		}
-#if !UNITY_WEB_PLAYER
-		try
-		{
-			File.WriteAllBytes(CleanupFilename(fileName), data);
-		}
-		catch (System.Exception ex)
-		{
-			Console.WriteLine(fileName + ": " + ex.Message);
-		}
-#endif
-	}
+		writer.Write(created.size);
 
-	/// <summary>
-	/// Load the specified file.
-	/// </summary>
-
-	public byte[] LoadFile (string fileName)
-	{
-		for (int i = 0; i < savedFiles.size; ++i)
+		for (int i = 0; i < created.size; ++i)
 		{
-			FileEntry fi = savedFiles[i];
-
-			if (fi.fileName == fileName)
+			CreatedObject co = created[i];
+			writer.Write(co.uniqueID);
+			writer.Write(co.objectID);
+			writer.Write(co.buffer.size);
+			
+			if (co.buffer.size > 0)
 			{
-#if !UNITY_WEB_PLAYER
-				if (fi.data == null)
-				{
-					try
-					{
-						fi.data = File.ReadAllBytes(CleanupFilename(fileName));
-					}
-					catch (System.Exception ex)
-					{
-						Console.WriteLine(fileName + ": " + ex.Message);
-					}
-				}
-#endif
-				return fi.data;
+				co.buffer.BeginReading();
+				writer.Write(co.buffer.buffer, co.buffer.position, co.buffer.size);
 			}
 		}
-		return null;
+
+		writer.Write(destroyed.size);
+		for (int i = 0; i < destroyed.size; ++i) writer.Write(destroyed[i]);
 	}
 
 	/// <summary>
-	/// Delete the specified file.
+	/// Load the channel's data from the specified file.
 	/// </summary>
 
-	public void DeleteFile (string fileName)
+	public void LoadFrom (BinaryReader reader)
 	{
-		for (int i = 0; i < savedFiles.size; ++i)
-		{
-			FileEntry fi = savedFiles[i];
-
-			if (fi.fileName == fileName)
-			{
-				savedFiles.RemoveAt(i);
-#if !UNITY_WEB_PLAYER
-				File.Delete(CleanupFilename(fileName));
-#endif
-				break;
-			}
-		}
-	}
-
-#if !UNITY_WEB_PLAYER
-	/// <summary>
-	/// Helper function that cleans up the specified path.
-	/// </summary>
-
-	string CleanupFilename (string path) { return id + "_" + Path.GetFileName(path); }
-
-	/// <summary>
-	/// Close the channel, preventing future join requests.
-	/// </summary>
-
-	public void Close ()
-	{
-		closed = true;
-		for (int i = 0; i < savedFiles.size; ++i) File.Delete(CleanupFilename(savedFiles[i].fileName));
-		savedFiles.Clear();
-
+		// Clear all RFCs, just in case
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
 			if (r.buffer != null) r.buffer.Recycle();
 		}
 		rfcs.Clear();
-	}
-#else
-	public void Close ()
-	{
-		closed = true;
-		savedFiles.Clear();
+		created.Clear();
+		destroyed.Clear();
 
-		for (int i = 0; i < rfcs.size; ++i)
+		objectCounter = reader.ReadInt32();
+		password = reader.ReadString();
+		persistent = reader.ReadBoolean();
+
+		int size = reader.ReadInt32();
+
+		for (int i = 0; i < size; ++i)
 		{
-			RFC r = rfcs[i];
-			if (r.buffer != null) r.buffer.Recycle();
+			RFC rfc = new RFC();
+			rfc.id = reader.ReadInt32();
+			Buffer b = Buffer.Create();
+			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
+			rfc.buffer = b;
+			rfcs.Add(rfc);
 		}
-		rfcs.Clear();
-	}
-#endif
 
-	public void Save ()
-	{
-		//public string password;
-		//public bool persistent = false;
-		//public bool closed = false;
-		//public BetterList<Player> players = new BetterList<Player>();
-		//public BetterList<RFC> rfcs = new BetterList<RFC>();
-		//public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
-		//public BetterList<int> destroyed = new BetterList<int>();
-		//public BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
-		//public int objectCounter = 0;
+		size = reader.ReadInt32();
 
-		Buffer data = Buffer.Create();
-		BinaryWriter writer = data.BeginWriting(false);
+		for (int i = 0; i < size; ++i)
+		{
+			CreatedObject co = new CreatedObject();
+			co.uniqueID = reader.ReadInt32();
+			co.objectID = reader.ReadInt16();
+			Buffer b = Buffer.Create();
+			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
+			co.buffer = b;
+			created.Add(co);
+		}
 
-		// TODO
-
-		data.Recycle(false);
+		size = reader.ReadInt32();
+		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadInt32());
 	}
 }
 }

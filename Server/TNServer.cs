@@ -39,6 +39,14 @@ public class Server
 
 	protected RandomGenerator mRandom = new RandomGenerator();
 
+	public class FileEntry
+	{
+		public string fileName;
+		public byte[] data;
+	};
+
+	BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
+
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
@@ -242,6 +250,193 @@ public class Server
 	{
 		for (int i = 0; i < mChannels.size; ++i) if (mChannels[i].id == id) return true;
 		return false;
+	}
+
+#if !UNITY_WEB_PLAYER
+	/// <summary>
+	/// Clean up the filename, ensuring that there is no funny business going on.
+	/// </summary>
+
+	string CleanupFilename (string fn) { return Path.GetFileName(fn); }
+#endif
+
+	/// <summary>
+	/// Save the specified file.
+	/// </summary>
+
+	public void SaveFile (string fileName, byte[] data)
+	{
+		bool exists = false;
+
+		for (int i = 0; i < savedFiles.size; ++i)
+		{
+			FileEntry fi = savedFiles[i];
+
+			if (fi.fileName == fileName)
+			{
+				fi.data = data;
+				exists = true;
+				break;
+			}
+		}
+
+		if (!exists)
+		{
+			FileEntry fi = new FileEntry();
+			fi.fileName = fileName;
+			fi.data = data;
+			savedFiles.Add(fi);
+		}
+#if !UNITY_WEB_PLAYER
+		try
+		{
+			File.WriteAllBytes(CleanupFilename(fileName), data);
+		}
+		catch (System.Exception ex)
+		{
+			Error(null, fileName + ": " + ex.Message);
+		}
+#endif
+	}
+
+	/// <summary>
+	/// Load the specified file.
+	/// </summary>
+
+	public byte[] LoadFile (string fileName)
+	{
+		for (int i = 0; i < savedFiles.size; ++i)
+		{
+			FileEntry fi = savedFiles[i];
+			if (fi.fileName == fileName) return fi.data;
+		}
+#if !UNITY_WEB_PLAYER
+		string fn = CleanupFilename(fileName);
+
+		if (File.Exists(fn))
+		{
+			try
+			{
+				byte[] bytes = File.ReadAllBytes(fn);
+
+				if (bytes != null)
+				{
+					FileEntry fi = new FileEntry();
+					fi.fileName = fileName;
+					fi.data = bytes;
+					savedFiles.Add(fi);
+					return bytes;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Error(null, fileName + ": " + ex.Message);
+			}
+		}
+#endif
+		return null;
+	}
+
+	/// <summary>
+	/// Delete the specified file.
+	/// </summary>
+
+	public void DeleteFile (string fileName)
+	{
+		for (int i = 0; i < savedFiles.size; ++i)
+		{
+			FileEntry fi = savedFiles[i];
+
+			if (fi.fileName == fileName)
+			{
+				savedFiles.RemoveAt(i);
+#if !UNITY_WEB_PLAYER
+				File.Delete(CleanupFilename(fileName));
+#endif
+				break;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Save the server's current state into the specified file so it can be easily restored later.
+	/// </summary>
+
+	public void SaveTo (string fileName)
+	{
+#if !UNITY_WEB_PLAYER
+		fileName = CleanupFilename(fileName);
+		FileStream stream;
+
+		try
+		{
+			stream = new FileStream(fileName, FileMode.Create);
+		}
+		catch (System.Exception ex)
+		{
+			Error(null, ex.Message);
+			return;
+		}
+		BinaryWriter writer = new BinaryWriter(stream);
+		writer.Write(0);
+		int count = 0;
+
+		for (int i = 0; i < mChannels.size; ++i)
+		{
+			Channel ch = mChannels[i];
+			
+			if (!ch.closed)
+			{
+				writer.Write(ch.id);
+				ch.SaveTo(writer);
+				++count;
+			}
+		}
+
+		if (count > 0)
+		{
+			stream.Seek(0, SeekOrigin.Begin);
+			writer.Write(count);
+		}
+
+		stream.Flush();
+		stream.Dispose();
+#endif
+	}
+
+	/// <summary>
+	/// Load a previously saved server from the specified file.
+	/// </summary>
+
+	public bool LoadFrom (string fileName)
+	{
+#if !UNITY_WEB_PLAYER
+		fileName = CleanupFilename(fileName);
+		if (!File.Exists(fileName)) return false;
+
+		try
+		{
+			FileStream stream = new FileStream(fileName, FileMode.Open);
+			BinaryReader reader = new BinaryReader(stream);
+
+			int channels = reader.ReadInt32();
+
+			for (int i = 0; i < channels; ++i)
+			{
+				int chID = reader.ReadInt32();
+				Channel ch = CreateChannel(chID);
+				ch.LoadFrom(reader);
+			}
+
+			stream.Dispose();
+			return true;
+		}
+		catch (System.Exception ex)
+		{
+			Error(null, ex.Message);
+			return false;
+		}
+#endif
 	}
 
 	/// <summary>
@@ -536,6 +731,38 @@ public class Server
 				EndSend(player.channel, null);
 				break;
 			}
+			case Packet.RequestSaveFile:
+			{
+				string fileName = reader.ReadString();
+				byte[] data = reader.ReadBytes(reader.ReadInt32());
+				SaveFile(fileName, data);
+				break;
+			}
+			case Packet.RequestLoadFile:
+			{
+				string fn = reader.ReadString();
+				byte[] data = LoadFile(fn);
+
+				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
+				writer.Write(fn);
+
+				if (data != null)
+				{
+					writer.Write(data.Length);
+					writer.Write(data);
+				}
+				else
+				{
+					writer.Write(0);
+				}
+				EndSend(player);
+				break;
+			}
+			case Packet.RequestDeleteFile:
+			{
+				DeleteFile(reader.ReadString());
+				break;
+			}
 			default:
 			{
 				// Other packets can only be processed while in a channel
@@ -727,40 +954,6 @@ public class Server
 			case Packet.RequestRemoveRFC:
 			{
 				player.channel.DeleteRFC(reader.ReadInt32());
-				break;
-			}
-			case Packet.RequestSaveFile:
-			{
-				string fileName = reader.ReadString();
-				int size = reader.ReadInt32();
-				byte[] data = reader.ReadBytes(size);
-				player.channel.SaveFile(fileName, data);
-				break;
-			}
-			case Packet.RequestLoadFile:
-			{
-				string fn = reader.ReadString();
-				byte[] data = player.channel.LoadFile(fn);
-
-				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
-				writer.Write(fn);
-
-				if (data != null)
-				{
-					writer.Write(data.Length);
-					writer.Write(data);
-				}
-				else
-				{
-					writer.Write(0);
-				}
-				EndSend(player);
-				break;
-			}
-			case Packet.RequestDeleteFile:
-			{
-				string fn = reader.ReadString();
-				player.channel.DeleteFile(fn);
 				break;
 			}
 			case Packet.Error:

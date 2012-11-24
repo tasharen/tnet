@@ -8,6 +8,7 @@ public class TNetTest
 	{
 		Server server = new Server();
 		server.Start(5127);
+		server.LoadFrom("server.dat");
 
 		for (; ; )
 		{
@@ -21,6 +22,7 @@ public class TNetTest
 			}
 		}
 		Console.WriteLine("Shutting down...");
+		server.SaveTo("server.dat");
 		server.Stop();
 		return 0;
 	}
