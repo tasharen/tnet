@@ -6,7 +6,7 @@ using System.Threading;
 public class TNetTest
 {
 	static Client client;
-	static bool test = false;
+	static int test = 0;
 
 	static void ThreadFunction ()
 	{
@@ -14,11 +14,9 @@ public class TNetTest
 		{
 			client.ProcessPackets();
 
-			if (test)
+			if (test == 1)
 			{
 				Console.WriteLine("Large data test...");
-
-				test = false;
 
 				FileStream stream = new FileStream("../../sig.png", FileMode.Open);
 				byte[] data = new byte[stream.Length];
@@ -31,6 +29,12 @@ public class TNetTest
 				writer.Write(data);
 				client.EndSend();
 			}
+			else if (test == 2)
+			{
+				client.BeginSend(Packet.RequestCloseChannel);
+				client.EndSend();
+			}
+			test = 0;
 			Thread.Sleep(1);
 		}
 	}
@@ -66,7 +70,11 @@ public class TNetTest
 			}
 			else if (command == "s")
 			{
-				test = true;
+				test = 1;
+			}
+			else if (command == "c")
+			{
+				test = 2;
 			}
 		}
 		Console.WriteLine("Shutting down...");
