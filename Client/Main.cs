@@ -8,6 +8,8 @@ public class TNetTest
 	static Client client;
 	static int test = 0;
 
+	// TODO: Now that the server is ready, it's time to work on TNObject in Unity.
+
 	static void ThreadFunction ()
 	{
 		for (; ; )
@@ -52,7 +54,7 @@ public class TNetTest
 		client.onRenamePlayer = OnRenamePlayer;
 		client.onCreate = OnCreateObject;
 		client.onDestroy = OnDestroyObject;
-		client.onCustomPacket = OnCustomPacket;
+		client.onForwardedPacket = OnForwardedPacket;
 		client.Connect("127.0.0.1", 5127);
 
 		Thread thread = new Thread(ThreadFunction);
@@ -130,7 +132,7 @@ public class TNetTest
 		Console.WriteLine("Destroy " + objID);
 	}
 
-	static void OnCustomPacket (BinaryReader reader)
+	static void OnForwardedPacket (BinaryReader reader)
 	{
 		Console.WriteLine("Custom (" + reader.BaseStream.Length + " bytes)");
 	}

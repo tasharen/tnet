@@ -68,9 +68,9 @@ public class TNObject : MonoBehaviour
 	static public TNObject Find (int tnID)
 	{
 		if (mDictionary == null) return null;
-		TNObject tnb = null;
-		mDictionary.TryGetValue(tnID, out tnb);
-		return tnb;
+		TNObject tno = null;
+		mDictionary.TryGetValue(tnID, out tno);
+		return tno;
 	}
 
 	/// <summary>
@@ -87,7 +87,7 @@ public class TNObject : MonoBehaviour
 	/// Get a new unique object identifier.
 	/// </summary>
 
-	int GetUniqueID ()
+	static int GetUniqueID ()
 	{
 		TNObject[] tns = (TNObject[])FindObjectsOfType(typeof(TNObject));
 

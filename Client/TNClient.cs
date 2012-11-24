@@ -29,7 +29,7 @@ public class Client : Connection
 	public delegate void OnRenamePlayer (Player p, string previous);
 	public delegate void OnCreate (int objectID, int objID, BinaryReader reader);
 	public delegate void OnDestroy (int objID);
-	public delegate void OnCustomPacket (BinaryReader reader);
+	public delegate void OnForwardedPacket (BinaryReader reader);
 
 	/// <summary>
 	/// Error notification.
@@ -95,7 +95,7 @@ public class Client : Connection
 	/// Notification of a client packet arriving.
 	/// </summary>
 
-	public OnCustomPacket onCustomPacket;
+	public OnForwardedPacket onForwardedPacket;
 
 	/// <summary>
 	/// List of players in the same channel as the client.
@@ -340,14 +340,14 @@ public class Client : Connection
 				case Packet.ForwardToOthersBuffered:
 				case Packet.ForwardToHost:
 				{
-					if (onCustomPacket != null) onCustomPacket(reader);
+					if (onForwardedPacket != null) onForwardedPacket(reader);
 					break;
 				}
 				case Packet.ForwardToPlayer:
 				{
 					// Skip the player ID
 					reader.ReadInt32();
-					if (onCustomPacket != null) onCustomPacket(reader);
+					if (onForwardedPacket != null) onForwardedPacket(reader);
 					break;
 				}
 				case Packet.ResponsePing:

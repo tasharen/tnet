@@ -60,7 +60,7 @@ public class TNManager : MonoBehaviour
 			client.onRenamePlayer = OnRenamePlayer;
 			client.onCreate = OnCreateObject;
 			client.onDestroy = OnDestroyObject;
-			client.onCustomPacket = OnCustomPacket;
+			client.onForwardedPacket = OnForwardedPacket;
 		}
 	}
 
@@ -282,7 +282,7 @@ public class TNManager : MonoBehaviour
 	/// If custom functionality is needed, all unrecognized packets will arrive here.
 	/// </summary>
 
-	void OnCustomPacket (BinaryReader reader)
+	void OnForwardedPacket (BinaryReader reader)
 	{
 		int val = reader.ReadInt32();
 		int objID = (val >> 8);
