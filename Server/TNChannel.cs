@@ -41,8 +41,8 @@ public class Channel
 	public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
 	public BetterList<int> destroyed = new BetterList<int>();
 	public BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
+	public int objectCounter = 0;
 	public Player host;
-	public int viewCounter = 0;
 
 	/// <summary>
 	/// Remove the specified player from the channel.
@@ -60,7 +60,7 @@ public class Channel
 
 	public void CreateRFC (int inID, Buffer buffer)
 	{
-		if (closed) return;
+		if (closed || buffer == null) return;
 		buffer.MarkAsUsed();
 
 		for (int i = 0; i < rfcs.size; ++i)
@@ -69,10 +69,7 @@ public class Channel
 			
 			if (r.id == inID)
 			{
-				if (r.buffer != null && r.buffer.MarkAsUnused())
-				{
-					Connection.ReleaseBuffer(r.buffer);
-				}
+				if (r.buffer != null) r.buffer.Recycle();
 				r.buffer = buffer;
 				return;
 			}
@@ -97,7 +94,7 @@ public class Channel
 			if (r.id == inID)
 			{
 				rfcs.RemoveAt(i);
-				if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+				r.buffer.Recycle();
 			}
 		}
 	}
@@ -117,7 +114,7 @@ public class Channel
 			if ((r.id & objectID) == objectID)
 			{
 				rfcs.RemoveAt(i);
-				if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+				r.buffer.Recycle();
 				continue;
 			}
 			++i;
@@ -235,7 +232,7 @@ public class Channel
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
-			if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+			if (r.buffer != null) r.buffer.Recycle();
 		}
 		rfcs.Clear();
 	}
@@ -248,10 +245,30 @@ public class Channel
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
-			if (r.buffer != null && r.buffer.MarkAsUnused()) Connection.ReleaseBuffer(r.buffer);
+			if (r.buffer != null) r.buffer.Recycle();
 		}
 		rfcs.Clear();
 	}
 #endif
+
+	public void Save ()
+	{
+		//public string password;
+		//public bool persistent = false;
+		//public bool closed = false;
+		//public BetterList<Player> players = new BetterList<Player>();
+		//public BetterList<RFC> rfcs = new BetterList<RFC>();
+		//public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
+		//public BetterList<int> destroyed = new BetterList<int>();
+		//public BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
+		//public int objectCounter = 0;
+
+		Buffer data = Buffer.Create();
+		BinaryWriter writer = data.BeginWriting(false);
+
+		// TODO
+
+		data.Recycle(false);
+	}
 }
 }

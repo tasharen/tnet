@@ -130,14 +130,14 @@ public class Server
 				// Time out -- disconnect this player
 				if (player.verified)
 				{
-					if (player.timestamp + 5000 < time)
+					if (player.timestamp + 10000 < time)
 					{
 						Console.WriteLine(player.address + " has timed out");
 						RemovePlayer(player);
 						continue;
 					}
 				}
-				else if (player.timestamp + 1000 < time)
+				else if (player.timestamp + 2000 < time)
 				{
 					Console.WriteLine(player.address + " has timed out");
 					RemovePlayer(player);
@@ -250,8 +250,7 @@ public class Server
 
 	protected BinaryWriter BeginSend (Packet type)
 	{
-		mBuffer = Connection.CreateBuffer();
-		mBuffer.MarkAsUsed();
+		mBuffer = Buffer.Create();
 		BinaryWriter writer = mBuffer.BeginPacket(type);
 		//Console.WriteLine("Sending " + type);
 		return writer;
@@ -265,7 +264,7 @@ public class Server
 	{
 		mBuffer.EndPacket();
 		player.SendPacket(mBuffer);
-		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -282,7 +281,7 @@ public class Server
 			Player player = channel.players[i];
 			if (player.verified && player != exclude) player.SendPacket(mBuffer);
 		}
-		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -304,7 +303,7 @@ public class Server
 				if (player.verified) player.SendPacket(mBuffer);
 			}
 		}
-		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -321,7 +320,7 @@ public class Server
 			Player player = channel.players[i];
 			if (player.verified) player.SendPacket(buffer);
 		}
-		if (mBuffer.MarkAsUnused()) Connection.ReleaseBuffer(mBuffer);
+		mBuffer.Recycle();
 	}
 
 	/// <summary>
@@ -421,7 +420,6 @@ public class Server
 		Buffer buffer = player.ReceivePacket();
 		if (buffer == null) return false;
 
-		buffer.MarkAsUsed();
 		BinaryReader reader = buffer.BeginReading();
 		int size = buffer.size;
 
@@ -443,7 +441,7 @@ public class Server
 					player.id = Interlocked.Increment(ref mPlayerCounter);
 					player.verified = true;
 					mDictionary.Add(player.id, player);
-					if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
+					buffer.Recycle();
 				}
 
 				// Send the player their ID
@@ -553,7 +551,7 @@ public class Server
 			}
 		}
 		// We're done with this packet
-		if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
+		buffer.Recycle();
 		return true;
 	}
 
@@ -593,18 +591,13 @@ public class Server
 			{
 				int target = reader.ReadInt32();
 				buffer.position = 0;
-
-				// Create a copy of this buffer and save it
-				Buffer copy = Connection.CreateBuffer();
-				copy.MarkAsUsed();
-				buffer.CopyTo(copy);
-				player.channel.CreateRFC(target, copy);
+				player.channel.CreateRFC(target, buffer);
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (player.socket.Connected) tp.SendPacket(copy);
+					if (player.socket.Connected) tp.SendPacket(buffer);
 				}
 				break;
 			}
@@ -612,18 +605,13 @@ public class Server
 			{
 				int target = reader.ReadInt32();
 				buffer.position = 0;
-
-				// Create a copy of this buffer and save it
-				Buffer copy = Connection.CreateBuffer();
-				copy.MarkAsUsed();
-				buffer.CopyTo(copy);
-				player.channel.CreateRFC(target, copy);
+				player.channel.CreateRFC(target, buffer);
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					Player tp = player.channel.players[i];
-					if (tp != player && player.socket.Connected) tp.SendPacket(copy);
+					if (tp != player && player.socket.Connected) tp.SendPacket(buffer);
 				}
 				break;
 			}
@@ -644,31 +632,28 @@ public class Server
 
 				if (reader.ReadByte() != 0)
 				{
-					uniqueID = --player.channel.viewCounter;
+					uniqueID = --player.channel.objectCounter;
 
 					// 24 bit precision
 					if (uniqueID < -0xFFFFFF)
 					{
-						player.channel.viewCounter = 0xFFFFFF;
+						player.channel.objectCounter = 0xFFFFFF;
 						uniqueID = 0xFFFFFF;
 					}
 				}
 
-				Buffer copy = null;
-
 				// If a unique ID was requested then this call should be persistent
 				if (uniqueID != 0)
 				{
-					if (buffer.size > 0)
-					{
-						copy = Connection.CreateBuffer();
-						buffer.CopyTo(copy);
-					}
-
 					Channel.CreatedObject obj = new Channel.CreatedObject();
 					obj.objectID = objectIndex;
 					obj.uniqueID = uniqueID;
-					obj.buffer = copy;
+
+					if (buffer.size > 0)
+					{
+						obj.buffer = buffer;
+						buffer.MarkAsUsed();
+					}
 					player.channel.created.Add(obj);
 				}
 
@@ -676,7 +661,7 @@ public class Server
 				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
 				writer.Write(objectIndex);
 				writer.Write(uniqueID);
-				if (copy != null) writer.Write(copy.buffer);
+				if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
 				EndSend(player.channel, null);
 				break;
 			}
@@ -697,6 +682,7 @@ public class Server
 						if (obj.uniqueID == uniqueID)
 						{
 							// Remove it
+							if (obj.buffer != null) obj.buffer.Recycle();
 							player.channel.created.RemoveAt(i);
 							wasCreated = true;
 							break;

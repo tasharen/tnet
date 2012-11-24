@@ -49,7 +49,7 @@ public class Player : Connection
 
 	public void FinishJoiningChannel (int channelID)
 	{
-		Buffer buffer = Connection.CreateBuffer();
+		Buffer buffer = Buffer.Create();
 
 		// Step 2: Tell the player who else is in the channel
 		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
@@ -81,7 +81,7 @@ public class Player : Connection
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
-			writer.Write(obj.buffer.buffer);
+			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
 			offset = buffer.EndPacket(offset);
 		}
 
@@ -108,6 +108,7 @@ public class Player : Connection
 
 		// Send the entire buffer
 		SendPacket(buffer);
+		buffer.Recycle();
 	}
 }
 }

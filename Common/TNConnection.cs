@@ -12,8 +12,6 @@ namespace TNet
 
 public class Connection
 {
-	static BetterList<Buffer> mPool = new BetterList<Buffer>();
-
 	/// <summary>
 	/// Socket that is used for communication.
 	/// </summary>
@@ -51,42 +49,6 @@ public class Connection
 	public bool isConnected { get { return socket != null && socket.Connected; } }
 
 	/// <summary>
-	/// Create a new buffer, reusing an old one if possible.
-	/// </summary>
-
-	static public Buffer CreateBuffer ()
-	{
-		Buffer b = null;
-
-		if (mPool.size == 0)
-		{
-			b = new Buffer();
-		}
-		else
-		{
-			lock (mPool)
-			{
-				if (mPool.size != 0) b = mPool.Pop();
-				else b = new Buffer();
-			}
-		}
-		return b;
-	}
-
-	/// <summary>
-	/// Release the specified buffer into the reusable pool.
-	/// </summary>
-
-	static public void ReleaseBuffer (Buffer b)
-	{
-		lock (mPool)
-		{
-			b.Clear();
-			mPool.Add(b);
-		}
-	}
-
-	/// <summary>
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
@@ -106,6 +68,12 @@ public class Connection
 
 	protected void Close (bool notify)
 	{
+		if (mReceiveBuffer != null)
+		{
+			mReceiveBuffer.Recycle();
+			mReceiveBuffer = null;
+		}
+
 		if (socket != null)
 		{
 			try
@@ -121,7 +89,7 @@ public class Connection
 
 			if (notify)
 			{
-				Buffer buff = CreateBuffer();
+				Buffer buff = Buffer.Create();
 				buff.BeginWriting(false).Write((byte)Packet.Disconnect);
 				lock (mIn) mIn.Enqueue(buff);
 			}
@@ -148,11 +116,8 @@ public class Connection
 			socket = null;
 		}
 
-		lock (mPool)
-		{
-			while (mIn.Count != 0) mPool.Add(mIn.Dequeue());
-			while (mOut.Count != 0) mPool.Add(mOut.Dequeue());
-		}
+		Buffer.Recycle(mIn);
+		Buffer.Recycle(mOut);
 	}
 
 	/// <summary>
@@ -161,7 +126,7 @@ public class Connection
 
 	protected void Error (string error)
 	{
-		Buffer buff = CreateBuffer();
+		Buffer buff = Buffer.Create();
 		BinaryWriter writer = buff.BeginWriting(false);
 		writer.Write((byte)Packet.Error);
 		writer.Write(error);
@@ -169,7 +134,7 @@ public class Connection
 	}
 
 	/// <summary>
-	/// Send the specified packet.
+	/// Send the specified packet. Marks the buffer as used.
 	/// </summary>
 
 	public void SendPacket (Buffer buffer)
@@ -192,11 +157,11 @@ public class Connection
 				}
 			}
 		}
-		else if (buffer.MarkAsUnused()) Connection.ReleaseBuffer(buffer);
+		else buffer.Recycle();
 	}
 
 	/// <summary>
-	/// Send data one packet at a time.
+	/// Send completion callback. Recycles the buffer.
 	/// </summary>
 
 	protected void OnSend (IAsyncResult result)
@@ -223,10 +188,8 @@ public class Connection
 
 		lock (mOut)
 		{
-			Buffer finished = mOut.Dequeue();
-
-			// Recycle this buffer if it's no longer in use
-			if (finished.MarkAsUnused()) Connection.ReleaseBuffer(finished);
+			// Recycle this buffer as it's no longer in use
+			mOut.Dequeue().Recycle();
 
 			if (bytes > 0)
 			{
@@ -292,7 +255,7 @@ public class Connection
 			if (mReceiveBuffer == null)
 			{
 				// Create a new packet buffer
-				mReceiveBuffer = Connection.CreateBuffer();
+				mReceiveBuffer = Buffer.Create();
 				mReceiveBuffer.BeginWriting(false).Write(mTemp, 0, bytes);
 			}
 			else
@@ -340,12 +303,11 @@ public class Connection
 					mOffset += 4;
 
 					// There is more than one packet. Extract this packet.
-					Buffer temp = Connection.CreateBuffer();
+					Buffer temp = Buffer.Create();
 					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, mExpected);
 					//Console.WriteLine("Added packet of size " + mExpected);
 
 					// This packet is now ready to be processed
-					temp.MarkAsUsed();
 					lock (mIn) mIn.Enqueue(temp);
 
 					// Skip this packet

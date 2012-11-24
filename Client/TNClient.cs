@@ -167,7 +167,7 @@ public class Client : Connection
 	public BinaryWriter BeginSend (Packet type)
 	{
 		//Console.WriteLine("Sending " + type);
-		mBuffer = Connection.CreateBuffer();
+		mBuffer = Buffer.Create(false);
 		return mBuffer.BeginPacket(type);
 	}
 
@@ -178,7 +178,7 @@ public class Client : Connection
 	public BinaryWriter BeginSend (byte packetID)
 	{
 		//Console.WriteLine("Sending " + packetID);
-		mBuffer = Connection.CreateBuffer();
+		mBuffer = Buffer.Create(false);
 		return mBuffer.BeginPacket(packetID);
 	}
 
@@ -313,7 +313,7 @@ public class Client : Connection
 		mTime = DateTime.Now.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (isConnected && mStage == Stage.Connected && mCanPing && mPingTime + 3000 < mTime)
+		if (isConnected && mStage == Stage.Connected && mCanPing && mPingTime + 4000 < mTime)
 		{
 			mCanPing = false;
 			mPingTime = mTime;
@@ -487,7 +487,7 @@ public class Client : Connection
 					break;
 				}
 			}
-			Connection.ReleaseBuffer(buffer);
+			buffer.Recycle();
 		}
 	}
 }
