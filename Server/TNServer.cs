@@ -385,7 +385,7 @@ public class Server
 		{
 			Channel ch = mChannels[i];
 			
-			if (!ch.closed)
+			if (!ch.closed && ch.persistent)
 			{
 				writer.Write(ch.id);
 				ch.SaveTo(writer);
