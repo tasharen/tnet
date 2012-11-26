@@ -6,6 +6,7 @@ public class Test : MonoBehaviour
 {
 	public string address = "127.0.0.1";
 	public int port = 5127;
+	public GameObject spawnObject;
 
 	void Update ()
 	{
@@ -13,16 +14,27 @@ public class Test : MonoBehaviour
 		{
 			if (TNManager.isConnected)
 			{
-				TNManager.instance.client.Disconnect();
+				TNManager.Disconnect();
 			}
 			else
 			{
-				TNManager.instance.client.Connect(address, port);
+				TNManager.Connect(address, port);
 			}
 		}
 		else if (Input.GetKeyDown(KeyCode.J))
 		{
-			TNManager.instance.client.JoinChannel(123, null, true);
+			if (TNManager.isInChannel)
+			{
+				TNManager.LeaveChannel();
+			}
+			else
+			{
+				TNManager.JoinChannel(123, null, true);
+			}
+		}
+		else if (Input.GetKeyDown(KeyCode.I))
+		{
+			TNManager.Create(spawnObject);
 		}
 	}
 

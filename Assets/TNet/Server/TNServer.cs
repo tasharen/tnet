@@ -103,7 +103,7 @@ public class Server
 		}
 
 		// Remove all connected players
-		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[i]);
+		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
 	}
 
 	/// <summary>

@@ -316,11 +316,11 @@ public class TNObject : MonoBehaviour
 		if (TNManager.isConnected)
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
-			BinaryWriter writer = TNManager.instance.client.BeginSend(packetID);
+			BinaryWriter writer = TNManager.BeginSend(packetID);
 			writer.Write((objID << 8) | rfcID);
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
-			TNManager.instance.client.EndSend();
+			TNManager.EndSend();
 		}
 		else if (target == Target.All || target == Target.AllBuffered)
 		{
@@ -343,12 +343,12 @@ public class TNObject : MonoBehaviour
 	{
 		if (TNManager.isConnected)
 		{
-			BinaryWriter writer = TNManager.instance.client.BeginSend(Packet.ForwardToPlayer);
+			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
 			writer.Write(target.id);
 			writer.Write((objID << 8) | rfcID);
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
-			TNManager.instance.client.EndSend();
+			TNManager.EndSend();
 		}
 	}
 }

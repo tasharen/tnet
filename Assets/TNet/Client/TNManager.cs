@@ -10,83 +10,107 @@ using TNet;
 [AddComponentMenu("TNet/Network Manager")]
 public class TNManager : MonoBehaviour
 {
-	static public TNManager instance;
-
 	/// <summary>
 	/// List of objects that can be instantiated by the network.
 	/// </summary>
 
 	public GameObject[] objects;
 
-	/// <summary>
-	/// Network client.
-	/// </summary>
+	// Network client
+	Client mClient = new Client();
 
-	public Client client = new Client();
+	// Instance pointer
+	static TNManager mInstance;
 
 	/// <summary>
 	/// Whether we're currently connected.
 	/// </summary>
 
-	static public bool isConnected { get { return instance != null && instance.client.isConnected; } }
+	static public bool isConnected { get { return mInstance != null && mInstance.mClient.isConnected; } }
 
 	/// <summary>
 	/// Whether we're currently hosting.
 	/// </summary>
 
-	static public bool isHosting { get { return instance != null && instance.client.isHosting; } }
+	static public bool isHosting { get { return mInstance != null && mInstance.mClient.isHosting; } }
+
+	/// <summary>
+	/// Whether the player is currently in a channel.
+	/// </summary>
+
+	static public bool isInChannel { get { return mInstance != null && mInstance.mClient.isInChannel; } }
 
 	/// <summary>
 	/// Current ping to the server.
 	/// </summary>
 
-	static public int ping { get { return instance != null ? instance.client.ping : 0; } }
+	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
-	/// Ensure that there is only one instance of this class present.
+	/// Get or set the player's name as everyone sees him on the network.
 	/// </summary>
 
-	void Awake ()
+	static public string playerName
 	{
-		if (instance != null)
+		get
 		{
-			Destroy(gameObject);
+			return (mInstance != null) ? mInstance.mClient.name : "";
 		}
-		else
+		set
 		{
-			instance = this;
-			DontDestroyOnLoad(gameObject);
-
-			client.onError = OnError;
-			client.onConnect = OnConnect;
-			client.onDisconnect = OnDisconnect;
-			client.onPlayerJoined = OnPlayerJoined;
-			client.onPlayerLeft = OnPlayerLeft;
-			client.onChannelChanged = OnChannelChanged;
-			client.onRenamePlayer = OnRenamePlayer;
-			client.onCreate = OnCreateObject;
-			client.onDestroy = OnDestroyObject;
-			client.onForwardedPacket = OnForwardedPacket;
+			if (mInstance != null) mInstance.mClient.name = value;
 		}
 	}
 
 	/// <summary>
-	/// Make sure we disconnect on exit.
+	/// Get the player associated with the specified ID.
 	/// </summary>
 
-	void OnDestroy ()
+	static public ClientPlayer GetPlayer (int id)
 	{
-		if (isConnected) client.Disconnect();
+		return (mInstance != null) ? mInstance.mClient.GetPlayer(id) : null;
 	}
 
 	/// <summary>
-	/// Find the index of the specified game object.
+	/// Connect to the specified destination.
 	/// </summary>
 
-	int IndexOf (GameObject go)
+	static public void Connect (string address, int port)
 	{
-		for (int i = 0, imax = objects.Length; i < imax; ++i) if (objects[i] == go) return i;
-		return -1;
+		if (mInstance != null) mInstance.mClient.Connect(address, port);
+	}
+
+	/// <summary>
+	/// Disconnect from the specified destination.
+	/// </summary>
+
+	static public void Disconnect () { if (mInstance != null) mInstance.mClient.Disconnect(); }
+
+	/// <summary>
+	/// Join the specified channel.
+	/// </summary>
+	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
+	/// <param name="password">Password for the channel. First player sets the password.</param>
+	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+
+	static public void JoinChannel (int channelID, string password, bool persistent)
+	{
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, password, persistent);
+	}
+
+	/// <summary>
+	/// Leave the channel we're in.
+	/// </summary>
+
+	static public void LeaveChannel () { if (mInstance != null) mInstance.mClient.LeaveChannel(); }
+
+	/// <summary>
+	/// Change the hosting player.
+	/// </summary>
+
+	static public void SetHost (ClientPlayer player)
+	{
+		if (mInstance != null) mInstance.mClient.SetHost(player);
 	}
 
 	/// <summary>
@@ -94,26 +118,30 @@ public class TNManager : MonoBehaviour
 	/// Note that the object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	public void Create (GameObject go)
+	static public void Create (GameObject go)
 	{
-		int index = IndexOf(go);
+		if (mInstance != null)
+		{
+			int index = mInstance.IndexOf(go);
 
-		if (index != -1)
-		{
-			if (client.isConnected)
+			if (index != -1)
 			{
-				BinaryWriter writer = client.BeginSend(Packet.RequestCreate);
-				writer.Write((short)index);
-				writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
-				writer.Write((byte)0);
-				client.EndSend();
+				if (mInstance.mClient.isConnected)
+				{
+					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+					writer.Write((short)index);
+					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write((byte)0);
+					mInstance.mClient.EndSend();
+					return;
+				}
 			}
-			else Instantiate(go);
+			else
+			{
+				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
+			}
 		}
-		else
-		{
-			Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
-		}
+		Instantiate(go);
 	}
 
 	/// <summary>
@@ -121,40 +149,44 @@ public class TNManager : MonoBehaviour
 	/// Note that the object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	public void Create (GameObject go, Vector3 pos, Quaternion rot)
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot)
 	{
-		int index = IndexOf(go);
+		if (mInstance != null)
+		{
+			int index = mInstance.IndexOf(go);
 
-		if (index != -1)
-		{
-			if (client.isConnected)
+			if (index != -1)
 			{
-				BinaryWriter writer = client.BeginSend(Packet.RequestCreate);
-				writer.Write((short)index);
-				writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
-				writer.Write((byte)1);
-				writer.Write(pos.x);
-				writer.Write(pos.y);
-				writer.Write(pos.z);
-				writer.Write(rot.x);
-				writer.Write(rot.y);
-				writer.Write(rot.z);
-				writer.Write(rot.w);
-				client.EndSend();
+				if (mInstance.mClient.isConnected)
+				{
+					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+					writer.Write((short)index);
+					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write((byte)1);
+					writer.Write(pos.x);
+					writer.Write(pos.y);
+					writer.Write(pos.z);
+					writer.Write(rot.x);
+					writer.Write(rot.y);
+					writer.Write(rot.z);
+					writer.Write(rot.w);
+					mInstance.mClient.EndSend();
+					return;
+				}
 			}
-			else Instantiate(go, pos, rot);
+			else
+			{
+				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
+			}
 		}
-		else
-		{
-			Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
-		}
+		Instantiate(go, pos, rot);
 	}
 
 	/// <summary>
 	/// Destroy the specified game object.
 	/// </summary>
 
-	public void Destroy (GameObject go)
+	static public void Destroy (GameObject go)
 	{
 		if (isConnected)
 		{
@@ -162,9 +194,9 @@ public class TNManager : MonoBehaviour
 
 			if (obj != null)
 			{
-				BinaryWriter writer = client.BeginSend(Packet.RequestDestroy);
+				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestDestroy);
 				writer.Write(obj.id);
-				client.EndSend();
+				mInstance.mClient.EndSend();
 				return;
 			}
 		}
@@ -175,15 +207,79 @@ public class TNManager : MonoBehaviour
 	/// Remove the specified buffered RFC call.
 	/// </summary>
 
-	public void RemoveBufferedRFC (int objID, short rfcID)
+	static public void RemoveBufferedRFC (int objID, short rfcID)
 	{
-		if (client.isConnected)
+		if (mInstance != null && mInstance.mClient.isConnected)
 		{
-			BinaryWriter writer = client.BeginSend(Packet.RequestRemoveRFC);
+			BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestRemoveRFC);
 			writer.Write(objID);
 			writer.Write(rfcID);
-			client.EndSend();
+			mInstance.mClient.EndSend();
 		}
+	}
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	static public BinaryWriter BeginSend (Packet type) { return mInstance.mClient.BeginSend(type); }
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	static public BinaryWriter BeginSend (byte packetID) { return mInstance.mClient.BeginSend(packetID); }
+
+	/// <summary>
+	/// Send the outgoing buffer to the specified player.
+	/// </summary>
+
+	static public void EndSend () { mInstance.mClient.EndSend(); }
+
+#region MonoBehaviour Functions
+
+	/// <summary>
+	/// Ensure that there is only one instance of this class present.
+	/// </summary>
+
+	void Awake ()
+	{
+		if (mInstance != null)
+		{
+			Destroy(gameObject);
+		}
+		else
+		{
+			mInstance = this;
+			DontDestroyOnLoad(gameObject);
+
+			mClient.onError = OnError;
+			mClient.onConnect = OnConnect;
+			mClient.onDisconnect = OnDisconnect;
+			mClient.onPlayerJoined = OnPlayerJoined;
+			mClient.onPlayerLeft = OnPlayerLeft;
+			mClient.onChannelChanged = OnChannelChanged;
+			mClient.onRenamePlayer = OnRenamePlayer;
+			mClient.onCreate = OnCreateObject;
+			mClient.onDestroy = OnDestroyObject;
+			mClient.onForwardedPacket = OnForwardedPacket;
+		}
+	}
+
+	/// <summary>
+	/// Make sure we disconnect on exit.
+	/// </summary>
+
+	void OnDestroy () { if (isConnected) mClient.Disconnect(); }
+
+	/// <summary>
+	/// Find the index of the specified game object.
+	/// </summary>
+
+	int IndexOf (GameObject go)
+	{
+		for (int i = 0, imax = objects.Length; i < imax; ++i) if (objects[i] == go) return i;
+		return -1;
 	}
 
 	/// <summary>
@@ -244,6 +340,18 @@ public class TNManager : MonoBehaviour
 	void OnRenamePlayer (ClientPlayer p, string previous)
 	{
 		Debug.Log(previous + " is now known as " + p.name);
+
+		// TODO: Broadcast() may not be the best solution here as some functions have 2 parameters...
+		// What would be the ideal way to go here? TNManager.onConnect += ?
+		// Broadcasts are still the most elegant solution by far, but how to make it clean?
+
+		// - OnError
+		// - OnConnect
+		// - OnDisconnect
+		// - OnPlayerJoined
+		// - OnPlayerLeft
+		// - OnChannelChanged
+		// - OnRenamePlayer
 	}
 
 	/// <summary>
@@ -317,5 +425,6 @@ public class TNManager : MonoBehaviour
 	/// Process incoming packets in the update function.
 	/// </summary>
 
-	void Update () { client.ProcessPackets(); }
+	void Update () { mClient.ProcessPackets(); }
+#endregion
 }
