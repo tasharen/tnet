@@ -6,3 +6,10 @@
 *.suo
 /bin
 /obj
+*.csproj
+/Library
+*.png
+/Temp
+*.sln
+/Assets/NGUI.meta
+/Assets/NGUI

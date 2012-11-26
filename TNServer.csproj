@@ -39,15 +39,15 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="Common\TNConnection.cs" />
-    <Compile Include="Server\Main.cs" />
-    <Compile Include="Common\BetterList.cs" />
-    <Compile Include="Common\RandomGenerator.cs" />
-    <Compile Include="Common\TNBuffer.cs" />
-    <Compile Include="Common\TNPacket.cs" />
-    <Compile Include="Server\TNChannel.cs" />
-    <Compile Include="Server\TNPlayer.cs" />
-    <Compile Include="Server\TNServer.cs" />
+    <Compile Include="Assets\TNet\Common\TNConnection.cs" />
+    <Compile Include="Assets\TNet\Common\BetterList.cs" />
+    <Compile Include="Assets\TNet\Common\RandomGenerator.cs" />
+    <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
+    <Compile Include="Assets\TNet\Common\TNPacket.cs" />
+    <Compile Include="Assets\TNet\Server\TNChannel.cs" />
+    <Compile Include="Assets\TNet\Server\TNServerPlayer.cs" />
+    <Compile Include="Assets\TNet\Server\TNServer.cs" />
+    <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

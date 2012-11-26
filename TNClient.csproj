@@ -45,18 +45,18 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Client\Main.cs" />
-    <Compile Include="Client\TNClient.cs" />
-    <Compile Include="Client\TNManager.cs" />
-    <Compile Include="Client\TNPlayer.cs" />
-    <Compile Include="Client\TNRFC.cs" />
-    <Compile Include="Client\TNTarget.cs" />
-    <Compile Include="Client\TNTools.cs" />
-    <Compile Include="Client\TNObject.cs" />
-    <Compile Include="Common\BetterList.cs" />
-    <Compile Include="Common\RandomGenerator.cs" />
-    <Compile Include="Common\TNBuffer.cs" />
-    <Compile Include="Common\TNConnection.cs" />
-    <Compile Include="Common\TNPacket.cs" />
+    <Compile Include="TNetTest\ClientMain.cs" />
+    <Compile Include="Assets\TNet\Client\TNClient.cs" />
+    <Compile Include="Assets\TNet\Client\TNManager.cs" />
+    <Compile Include="Assets\TNet\Client\TNClientPlayer.cs" />
+    <Compile Include="Assets\TNet\Client\TNRFC.cs" />
+    <Compile Include="Assets\TNet\Client\TNTarget.cs" />
+    <Compile Include="Assets\TNet\Client\TNTools.cs" />
+    <Compile Include="Assets\TNet\Client\TNObject.cs" />
+    <Compile Include="Assets\TNet\Common\BetterList.cs" />
+    <Compile Include="Assets\TNet\Common\RandomGenerator.cs" />
+    <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
+    <Compile Include="Assets\TNet\Common\TNConnection.cs" />
+    <Compile Include="Assets\TNet\Common\TNPacket.cs" />
   </ItemGroup>
 </Project>
