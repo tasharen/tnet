@@ -141,7 +141,7 @@ public class Client : Connection
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return (mHost == mPlayerID) || (players.size == 0); } }
+	public bool isHosting { get { return !isConnected || (mHost == mPlayerID) && (players.size > 0); } }
 
 	/// <summary>
 	/// Current ping to the server.
@@ -362,7 +362,7 @@ public class Client : Connection
 				}
 				case Packet.ResponsePing:
 				{
-					mPing = (int)(mPingTime - mTime);
+					mPing = (int)(mTime - mPingTime);
 					mCanPing = true;
 					break;
 				}

@@ -37,6 +37,12 @@ public class TNManager : MonoBehaviour
 	static public bool isHosting { get { return instance != null && instance.client.isHosting; } }
 
 	/// <summary>
+	/// Current ping to the server.
+	/// </summary>
+
+	static public int ping { get { return instance != null ? instance.client.ping : 0; } }
+
+	/// <summary>
 	/// Ensure that there is only one instance of this class present.
 	/// </summary>
 

@@ -25,4 +25,11 @@ public class Test : MonoBehaviour
 			TNManager.instance.client.JoinChannel(123, null, true);
 		}
 	}
+
+	void OnGUI ()
+	{
+		GUILayout.Label("Connected: " + TNManager.isConnected);
+		GUILayout.Label("Hosting: " + TNManager.isHosting);
+		GUILayout.Label("Ping: " + TNManager.ping + " ms");
+	}
 }
