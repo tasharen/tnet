@@ -54,6 +54,13 @@ public enum Packet
 	RequestCloseChannel,
 
 	/// <summary>
+	/// Load the specified level.
+	/// string: Level Name.
+	/// </summary>
+
+	RequestLoadLevel,
+
+	/// <summary>
 	/// Player name change.
 	/// string: Player name.
 	/// </summary>
@@ -163,22 +170,17 @@ public enum Packet
 
 	/// <summary>
 	/// Inform the player that they have successfully joined a channel.
+	/// bool: Success or failure.
+	/// string: Error string (if failed).
 	/// </summary>
 
-	ResponseJoinedChannel,
+	ResponseJoinChannel,
 
 	/// <summary>
-	/// Sent when the player leaves the channel.
+	/// Inform the player that they have left the channel they were in.
 	/// </summary>
 
 	ResponseLeftChannel,
-
-	/// <summary>
-	/// Failed to join the requested channel.
-	/// string: Reason.
-	/// </summary>
-
-	ResponseJoinFailed,
 
 	/// <summary>
 	/// Change the specified player's name.
@@ -194,6 +196,13 @@ public enum Packet
 	/// </summary>
 
 	ResponseSetHost,
+
+	/// <summary>
+	/// Load the specified level. Should happen before all buffered calls.
+	/// string: Name of the level.
+	/// </summary>
+
+	ResponseLoadLevel,
 
 	/// <summary>
 	/// Create a new persistent entry.

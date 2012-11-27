@@ -22,10 +22,12 @@ public class Client : Connection
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
 	public delegate void OnDisconnect ();
+	public delegate void OnJoinChannel (bool success, string message);
+	public delegate void OnLeftChannel ();
+	public delegate void OnLoadLevel (string levelName);
 	public delegate void OnPlayerJoined (ClientPlayer p);
 	public delegate void OnPlayerLeft (ClientPlayer p);
 	public delegate void OnSetHost (bool hosting);
-	public delegate void OnChannelChanged (bool isInChannel, string message);
 	public delegate void OnRenamePlayer (ClientPlayer p, string previous);
 	public delegate void OnCreate (int objectID, int objID, BinaryReader reader);
 	public delegate void OnDestroy (int objID);
@@ -50,6 +52,25 @@ public class Client : Connection
 	public OnDisconnect onDisconnect;
 
 	/// <summary>
+	/// Notification sent when attempting to join a channel, indicating a success or failure.
+	/// </summary>
+
+	public OnJoinChannel onJoinChannel;
+
+	/// <summary>
+	/// Notification sent when leaving a channel.
+	/// Also sent just before a disconnect (if inside a channel when it happens).
+	/// </summary>
+
+	public OnLeftChannel onLeftChannel;
+
+	/// <summary>
+	/// Notification sent when changing levels.
+	/// </summary>
+
+	public OnLoadLevel onLoadLevel;
+
+	/// <summary>
 	/// Notification sent when a new player joins the channel.
 	/// </summary>
 
@@ -66,12 +87,6 @@ public class Client : Connection
 	/// </summary>
 
 	public OnSetHost onSetHost;
-
-	/// <summary>
-	/// Notification of joining or leaving a channel. Boolean value indicates presence in the channel.
-	/// </summary>
-
-	public OnChannelChanged onChannelChanged;
 
 	/// <summary>
 	/// Notification of some player changing their name.
@@ -159,7 +174,7 @@ public class Client : Connection
 	/// Name of the player.
 	/// </summary>
 
-	public string name
+	public string playerName
 	{
 		get
 		{
@@ -281,15 +296,17 @@ public class Client : Connection
 	/// </summary>
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
+	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
 
-	public void JoinChannel (int channelID, string password, bool persistent)
+	public void JoinChannel (int channelID, string password, string levelName, bool persistent)
 	{
 		if (isConnected)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
 			writer.Write(string.IsNullOrEmpty(password) ? "" : password);
+			writer.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
 			writer.Write(persistent);
 			EndSend();
 		}
@@ -304,6 +321,19 @@ public class Client : Connection
 		if (isConnected)
 		{
 			BeginSend(Packet.RequestLeaveChannel);
+			EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Switch the current level.
+	/// </summary>
+
+	public void LoadLevel (string levelName)
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestLoadLevel).Write(levelName);
 			EndSend();
 		}
 	}
@@ -397,24 +427,6 @@ public class Client : Connection
 					}
 					break;
 				}
-				case Packet.ResponsePlayerLeft:
-				{
-					ClientPlayer p = GetPlayer(reader.ReadInt32());
-					if (p != null) mDictionary.Remove(p.id);
-					players.Remove(p);
-					if (onPlayerLeft != null) onPlayerLeft(p);
-					break;
-				}
-				case Packet.ResponsePlayerJoined:
-				{
-					ClientPlayer p = new ClientPlayer();
-					p.id = reader.ReadInt32();
-					p.name = reader.ReadString();
-					mDictionary.Add(p.id, p);
-					players.Add(p);
-					if (onPlayerJoined != null) onPlayerJoined(p);
-					break;
-				}
 				case Packet.ResponseJoiningChannel:
 				{
 					mDictionary.Clear();
@@ -434,27 +446,48 @@ public class Client : Connection
 					}
 					break;
 				}
+				case Packet.ResponseLoadLevel:
+				{
+					// Purposely return after loading a level, ensuring that all future callbacks happen after loading
+					if (onLoadLevel != null) onLoadLevel(reader.ReadString());
+					buffer.Recycle();
+					return;
+				}
+				case Packet.ResponsePlayerLeft:
+				{
+					ClientPlayer p = GetPlayer(reader.ReadInt32());
+					if (p != null) mDictionary.Remove(p.id);
+					players.Remove(p);
+					if (onPlayerLeft != null) onPlayerLeft(p);
+					break;
+				}
+				case Packet.ResponsePlayerJoined:
+				{
+					ClientPlayer p = new ClientPlayer();
+					p.id = reader.ReadInt32();
+					p.name = reader.ReadString();
+					mDictionary.Add(p.id, p);
+					players.Add(p);
+					if (onPlayerJoined != null) onPlayerJoined(p);
+					break;
+				}
 				case Packet.ResponseSetHost:
 				{
 					mHost = reader.ReadInt32();
 					if (onSetHost != null) onSetHost(isHosting);
 					break;
 				}
-				case Packet.ResponseJoinedChannel:
+				case Packet.ResponseJoinChannel:
 				{
-					if (onChannelChanged != null) onChannelChanged(true, null);
-					break;
-				}
-				case Packet.ResponseJoinFailed:
-				{
-					if (onChannelChanged != null) onChannelChanged(false, reader.ReadString());
+					bool success = reader.ReadBoolean();
+					if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
 					break;
 				}
 				case Packet.ResponseLeftChannel:
 				{
 					mDictionary.Clear();
 					players.Clear();
-					if (onChannelChanged != null) onChannelChanged(false, null);
+					if (onLeftChannel != null) onLeftChannel();
 					break;
 				}
 				case Packet.ResponseRenamePlayer:
@@ -498,6 +531,9 @@ public class Client : Connection
 				}
 				case Packet.Disconnect:
 				{
+					if (isInChannel && onLeftChannel != null) onLeftChannel();
+					players.Clear();
+					mDictionary.Clear();
 					mStage = Stage.Disconnected;
 					if (onDisconnect != null) onDisconnect();
 					break;

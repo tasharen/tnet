@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TNet;
+using System.Reflection;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
@@ -54,11 +55,30 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return (mInstance != null) ? mInstance.mClient.name : "";
+			return (mInstance != null) ? mInstance.mClient.playerName : "";
 		}
 		set
 		{
-			if (mInstance != null) mInstance.mClient.name = value;
+			if (mInstance != null) mInstance.mClient.playerName = value;
+		}
+	}
+
+	/// <summary>
+	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
+	/// </summary>
+
+	static public void Broadcast (string methodName, params object[] parameters)
+	{
+		MonoBehaviour[] mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
+
+		for (int i = 0, imax = mbs.Length; i < imax; ++i)
+		{
+			MonoBehaviour mb = mbs[i];
+			MethodInfo method = mb.GetType().GetMethod(methodName,
+				BindingFlags.Instance |
+				BindingFlags.NonPublic |
+				BindingFlags.Public);
+			if (method != null) method.Invoke(mb, parameters);
 		}
 	}
 
@@ -91,11 +111,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
+	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
 
-	static public void JoinChannel (int channelID, string password, bool persistent)
+	static public void JoinChannel (int channelID, string password, string levelName, bool persistent)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, password, persistent);
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, password, levelName, persistent);
 	}
 
 	/// <summary>
@@ -103,6 +124,16 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void LeaveChannel () { if (mInstance != null) mInstance.mClient.LeaveChannel(); }
+
+	/// <summary>
+	/// Load the specified level.
+	/// </summary>
+
+	static public void LoadLevel (string levelName)
+	{
+		if (isConnected) mInstance.mClient.LoadLevel(levelName);
+		else Application.LoadLevel(levelName);
+	}
 
 	/// <summary>
 	/// Change the hosting player.
@@ -236,7 +267,7 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend () { mInstance.mClient.EndSend(); }
 
-#region MonoBehaviour Functions
+#region MonoBehaviour Functions -- it's unlikely that you will need to modify these
 
 	/// <summary>
 	/// Ensure that there is only one instance of this class present.
@@ -246,7 +277,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			Destroy(gameObject);
+			GameObject.Destroy(gameObject);
 		}
 		else
 		{
@@ -256,9 +287,11 @@ public class TNManager : MonoBehaviour
 			mClient.onError = OnError;
 			mClient.onConnect = OnConnect;
 			mClient.onDisconnect = OnDisconnect;
+			mClient.onJoinChannel = OnJoinChannel;
+			mClient.onLeftChannel = OnLeftChannel;
+			mClient.onLoadLevel = OnLoadLevel;
 			mClient.onPlayerJoined = OnPlayerJoined;
 			mClient.onPlayerLeft = OnPlayerLeft;
-			mClient.onChannelChanged = OnChannelChanged;
 			mClient.onRenamePlayer = OnRenamePlayer;
 			mClient.onCreate = OnCreateObject;
 			mClient.onDestroy = OnDestroyObject;
@@ -280,78 +313,6 @@ public class TNManager : MonoBehaviour
 	{
 		for (int i = 0, imax = objects.Length; i < imax; ++i) if (objects[i] == go) return i;
 		return -1;
-	}
-
-	/// <summary>
-	/// Error notification.
-	/// </summary>
-
-	void OnError (string err) { Debug.LogError(err); }
-
-	/// <summary>
-	/// Connection result notification.
-	/// </summary>
-
-	void OnConnect (bool success, string message)
-	{
-		Debug.Log("Connected: " + success + "\n" + message);
-	}
-
-	/// <summary>
-	/// Notification that happens when the client gets disconnected from the server.
-	/// </summary>
-
-	void OnDisconnect ()
-	{
-		Debug.Log("Disconnected");
-	}
-
-	/// <summary>
-	/// Notification of a new player joining the channel.
-	/// </summary>
-
-	void OnPlayerJoined (ClientPlayer p)
-	{
-		Debug.Log("Player joined: " + p.name);
-	}
-
-	/// <summary>
-	/// Notification of another player leaving the channel.
-	/// </summary>
-
-	void OnPlayerLeft (ClientPlayer p)
-	{
-		Debug.Log("Player left: " + p.name);
-	}
-
-	/// <summary>
-	/// Notification of changing channels. If 'isInChannel' is 'false', then the player is not in any channel.
-	/// </summary>
-
-	void OnChannelChanged (bool isInChannel, string message)
-	{
-		Debug.Log("Channel: " + isInChannel + "\n" + message);
-	}
-
-	/// <summary>
-	/// Notification of a player being renamed.
-	/// </summary>
-
-	void OnRenamePlayer (ClientPlayer p, string previous)
-	{
-		Debug.Log(previous + " is now known as " + p.name);
-
-		// TODO: Broadcast() may not be the best solution here as some functions have 2 parameters...
-		// What would be the ideal way to go here? TNManager.onConnect += ?
-		// Broadcasts are still the most elegant solution by far, but how to make it clean?
-
-		// - OnError
-		// - OnConnect
-		// - OnDisconnect
-		// - OnPlayerJoined
-		// - OnPlayerLeft
-		// - OnChannelChanged
-		// - OnRenamePlayer
 	}
 
 	/// <summary>
@@ -426,5 +387,69 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	void Update () { mClient.ProcessPackets(); }
+
+#endregion
+#region Callbacks -- Modify these if you don't like the broadcast approach
+
+	/// <summary>
+	/// Error notification.
+	/// </summary>
+
+	void OnError (string err) { Broadcast("OnNetworkError", err); }
+
+	/// <summary>
+	/// Connection result notification.
+	/// </summary>
+
+	void OnConnect (bool success, string message) { Broadcast("OnNetworkConnect", success, message); }
+
+	/// <summary>
+	/// Notification that happens when the client gets disconnected from the server.
+	/// </summary>
+
+	void OnDisconnect () { Broadcast("OnNetworkDisconnect"); }
+
+	/// <summary>
+	/// Notification sent when attempting to join a channel, indicating a success or failure.
+	/// </summary>
+
+	void OnJoinChannel (bool success, string message) { Broadcast("OnNetworkJoinChannel", success, message); }
+
+	/// <summary>
+	/// Notification sent when leaving a channel.
+	/// Also sent just before a disconnect (if inside a channel when it happens).
+	/// </summary>
+
+	void OnLeftChannel () { Broadcast("OnNetworkLeftChannel"); }
+
+	/// <summary>
+	/// Notification sent when a level is changing.
+	/// </summary>
+
+	void OnLoadLevel (string levelName)
+	{
+		if (!string.IsNullOrEmpty(levelName))
+		{
+			Application.LoadLevel(levelName);
+		}
+	}
+
+	/// <summary>
+	/// Notification of a new player joining the channel.
+	/// </summary>
+
+	void OnPlayerJoined (ClientPlayer p) { Broadcast("OnNetworkPlayerJoined", p); }
+
+	/// <summary>
+	/// Notification of another player leaving the channel.
+	/// </summary>
+
+	void OnPlayerLeft (ClientPlayer p) { Broadcast("OnNetworkPlayerLeft", p); }
+
+	/// <summary>
+	/// Notification of a player being renamed.
+	/// </summary>
+
+	void OnRenamePlayer (ClientPlayer p, string previous) { Broadcast("OnNetworkRenamePlayer", p, previous); }
 #endregion
 }

@@ -47,14 +47,14 @@ public class ServerPlayer : Connection
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
-	public void FinishJoiningChannel (int channelID)
+	public void FinishJoiningChannel ()
 	{
 		Buffer buffer = Buffer.Create();
 
 		// Step 2: Tell the player who else is in the channel
 		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
 		{
-			writer.Write(channelID);
+			writer.Write(channel.id);
 			writer.Write((short)channel.players.size);
 
 			for (int i = 0; i < channel.players.size; ++i)
@@ -74,7 +74,12 @@ public class ServerPlayer : Connection
 		writer.Write(channel.host.id);
 		offset = buffer.EndPacket(offset);
 
-		// Step 4: Send the list of objects that have been created
+		// Step 5: Inform the player of what level we're on
+		buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
+		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
+		offset = buffer.EndPacket(offset);
+
+		// Step 6: Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
 		{
 			Channel.CreatedObject obj = channel.created.buffer[i];
@@ -85,14 +90,14 @@ public class ServerPlayer : Connection
 			offset = buffer.EndPacket(offset);
 		}
 
-		// Step 5: Send the list of objects that have been destroyed
+		// Step 7: Send the list of objects that have been destroyed
 		buffer.BeginPacket(Packet.ResponseDestroy, offset);
 		writer.Write((short)channel.destroyed.size);
 		for (int i = 0; i < channel.destroyed.size; ++i)
 			writer.Write((short)channel.destroyed.buffer[i]);
 		offset = buffer.EndPacket(offset);
 
-		// Step 6: Send all buffered RFCs to the new player
+		// Step 8: Send all buffered RFCs to the new player
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
 			Buffer rfcBuff = channel.rfcs[i].buffer;
@@ -102,8 +107,9 @@ public class ServerPlayer : Connection
 			offset = buffer.EndWriting();
 		}
 
-		// Step 7: The join process is now complete
-		buffer.BeginPacket(Packet.ResponseJoinedChannel, offset);
+		// Step 9: The join process is now complete
+		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
+		writer.Write(true);
 		offset = buffer.EndPacket(offset);
 
 		// Send the entire buffer

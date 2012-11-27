@@ -24,7 +24,8 @@ public class Channel
 	}
 
 	public int id;
-	public string password;
+	public string password = "";
+	public string level = "";
 	public bool persistent = false;
 	public bool closed = false;
 	public BetterList<ServerPlayer> players = new BetterList<ServerPlayer>();
@@ -33,6 +34,21 @@ public class Channel
 	public BetterList<int> destroyed = new BetterList<int>();
 	public int objectCounter = 0;
 	public ServerPlayer host;
+
+	/// <summary>
+	/// Reset the channel to its initial state.
+	/// </summary>
+
+	public void Reset ()
+	{
+		for (int i = 0; i < rfcs.size; ++i) rfcs[i].buffer.Recycle();
+		for (int i = 0; i < created.size; ++i) created[i].buffer.Recycle();
+
+		rfcs.Clear();
+		created.Clear();
+		destroyed.Clear();
+		objectCounter = 0;
+	}
 
 	/// <summary>
 	/// Remove the specified player from the channel.
@@ -128,6 +144,7 @@ public class Channel
 
 	public void SaveTo (BinaryWriter writer)
 	{
+		writer.Write(level);
 		writer.Write(objectCounter);
 		writer.Write(password);
 		writer.Write(persistent);
@@ -182,6 +199,7 @@ public class Channel
 		created.Clear();
 		destroyed.Clear();
 
+		level = reader.ReadString();
 		objectCounter = reader.ReadInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();

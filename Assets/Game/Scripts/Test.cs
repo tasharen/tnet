@@ -2,11 +2,15 @@ using UnityEngine;
 using TNet;
 using System.IO;
 
+[RequireComponent(typeof(TNObject))]
 public class Test : MonoBehaviour
 {
 	public string address = "127.0.0.1";
 	public int port = 5127;
 	public GameObject spawnObject;
+
+	//TNObject tno;
+	//void Awake () { tno = GetComponent<TNObject>(); }
 
 	void Update ()
 	{
@@ -29,12 +33,16 @@ public class Test : MonoBehaviour
 			}
 			else
 			{
-				TNManager.JoinChannel(123, null, true);
+				TNManager.JoinChannel(123, null, "Game", true);
 			}
 		}
 		else if (Input.GetKeyDown(KeyCode.I))
 		{
 			TNManager.Create(spawnObject);
+		}
+		else if (Input.GetKeyDown(KeyCode.R))
+		{
+			TNManager.LoadLevel("Red");
 		}
 	}
 
@@ -44,4 +52,73 @@ public class Test : MonoBehaviour
 		GUILayout.Label("Hosting: " + TNManager.isHosting);
 		GUILayout.Label("Ping: " + TNManager.ping + " ms");
 	}
+
+	/// <summary>
+	/// Connection result notification.
+	/// </summary>
+
+	void OnNetworkConnect (bool success, string message)
+	{
+		Debug.Log("Connected: " + success);
+	}
+
+	/// <summary>
+	/// Notification that happens when the client gets disconnected from the server.
+	/// </summary>
+
+	void OnNetworkDisconnect ()
+	{
+		Debug.Log("Disconnected");
+	}
+
+	/// <summary>
+	/// Notification of changing channels. If 'isInChannel' is 'false', then the player is not in any channel.
+	/// </summary>
+
+	void OnNetworkJoinChannel (bool success, string message)
+	{
+		Debug.Log("Joined: " + success);
+	}
+
+	/// <summary>
+	/// Notification of leaving the channel.
+	/// </summary>
+
+	void OnNetworkLeftChannel ()
+	{
+		Application.LoadLevel("Menu");
+	}
+
+	/// <summary>
+	/// Notification of a new player joining the channel.
+	/// </summary>
+
+	void OnNetworkPlayerJoined (ClientPlayer p)
+	{
+		Debug.Log("Player joined: " + p.name);
+	}
+
+	/// <summary>
+	/// Notification of another player leaving the channel.
+	/// </summary>
+
+	void OnNetworkPlayerLeft (ClientPlayer p)
+	{
+		Debug.Log("Player left: " + p.name);
+	}
+
+	/// <summary>
+	/// Notification of a player being renamed.
+	/// </summary>
+
+	void OnNetworkRenamePlayer (ClientPlayer p, string previous)
+	{
+		Debug.Log(previous + " is now known as " + p.name);
+	}
+
+	/// <summary>
+	/// Error notification.
+	/// </summary>
+
+	void OnNetworkError (string err) { Debug.LogError(err); }
 }

@@ -194,6 +194,8 @@ public class Server
 	{
 		if (p != null)
 		{
+			SendLeaveChannel(p, false);
+
 			Console.WriteLine(p.address + " has disconnected");
 			p.Release();
 			mPlayers.Remove(p);
@@ -221,7 +223,7 @@ public class Server
 	/// Create a new channel (or return an existing one).
 	/// </summary>
 
-	protected Channel CreateChannel (int channelID)
+	protected Channel CreateChannel (int channelID, out bool isNew)
 	{
 		Channel channel;
 
@@ -231,6 +233,7 @@ public class Server
 			
 			if (channel.id == channelID)
 			{
+				isNew = false;
 				if (channel.closed) return null;
 				return channel;
 			}
@@ -239,6 +242,7 @@ public class Server
 		channel = new Channel();
 		channel.id = channelID;
 		mChannels.Add(channel);
+		isNew = true;
 		return channel;
 	}
 
@@ -424,8 +428,9 @@ public class Server
 			for (int i = 0; i < channels; ++i)
 			{
 				int chID = reader.ReadInt32();
-				Channel ch = CreateChannel(chID);
-				ch.LoadFrom(reader);
+				bool isNew;
+				Channel ch = CreateChannel(chID, out isNew);
+				if (isNew) ch.LoadFrom(reader);
 			}
 
 			stream.Dispose();
@@ -537,7 +542,7 @@ public class Server
 	/// Leave the channel the player is in.
 	/// </summary>
 
-	protected void SendLeaveChannel (ServerPlayer player)
+	protected void SendLeaveChannel (ServerPlayer player, bool notify)
 	{
 		if (player.channel != null)
 		{
@@ -563,7 +568,7 @@ public class Server
 			player.channel = null;
 
 			// Notify the player that they have left the channel
-			if (player.isConnected)
+			if (notify && player.isConnected)
 			{
 				BeginSend(Packet.ResponseLeftChannel);
 				EndSend(player);
@@ -573,20 +578,13 @@ public class Server
 
 	/// <summary>
 	/// Join the specified channel.
-	/// Step 1: Inform the channel that the player is joining.
-	/// Step 2: Inform the player that they have joined the channel and tell them who else is there.
-	/// Step 3: Inform the player of who's the channel's host.
-	/// Step 4: Send the list of objects that have been created.
-	/// Step 5: Send the list of objects that have been destroyed.
-	/// Step 6: Send all buffered RFC calls to the new player.
-	/// Step 7: Inform the player that the joining process is now complete.
 	/// </summary>
 
-	protected void SendJoinChannel (ServerPlayer player, int channelID)
+	protected void SendJoinChannel (ServerPlayer player, Channel channel)
 	{
-		if (player.channel == null || player.channel.id != channelID)
+		if (player.channel == null || player.channel != channel)
 		{
-			Channel channel = CreateChannel(channelID);
+			player.channel = channel;
 
 			// Step 1: Inform the channel that a new player is joining
 			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
@@ -601,7 +599,7 @@ public class Server
 			channel.players.Add(player);
 
 			// Everything else gets sent to the player, so it's faster to do it all at once
-			player.FinishJoiningChannel(channelID);
+			player.FinishJoiningChannel();
 		}
 	}
 
@@ -679,6 +677,7 @@ public class Server
 				// Join the specified channel
 				int channelID = reader.ReadInt32();
 				string pass = reader.ReadString();
+				string levelName = reader.ReadString();
 				bool persist = reader.ReadBoolean();
 
 				if (channelID == -1)
@@ -694,28 +693,35 @@ public class Server
 
 				if (player.channel == null || player.channel.id != channelID)
 				{
-					Channel channel = CreateChannel(channelID);
+					bool isNew;
+					Channel channel = CreateChannel(channelID, out isNew);
 
 					if (channel == null)
 					{
-						BeginSend(Packet.ResponseJoinFailed).Write("The requested channel is closed.");
+						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+						writer.Write(false);
+						writer.Write("The requested channel is closed.");
 						EndSend(player);
 					}
-					else if (channel.players.size == 0)
+					else if (isNew)
 					{
 						channel.password = pass;
 						channel.persistent = persist;
-						SendLeaveChannel(player);
-						SendJoinChannel(player, channelID);
+						channel.level = levelName;
+
+						SendLeaveChannel(player, false);
+						SendJoinChannel(player, channel);
 					}
 					else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
 					{
-						SendLeaveChannel(player);
-						SendJoinChannel(player, channelID);
+						SendLeaveChannel(player, false);
+						SendJoinChannel(player, channel);
 					}
 					else
 					{
-						BeginSend(Packet.ResponseJoinFailed).Write("Wrong password.");
+						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+						writer.Write(false);
+						writer.Write("Wrong password.");
 						EndSend(player);
 					}
 				}
@@ -770,7 +776,6 @@ public class Server
 			}
 			case Packet.Disconnect:
 			{
-				if (player.channel != null) SendLeaveChannel(player);
 				RemovePlayer(player);
 				break;
 			}
@@ -941,6 +946,20 @@ public class Server
 				}
 				break;
 			}
+			case Packet.RequestLoadLevel:
+			{
+				// Change the currently loaded level
+				if (player.channel.host == player)
+				{
+					player.channel.Reset();
+					player.channel.level = reader.ReadString();
+
+					BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
+					writer.Write(string.IsNullOrEmpty(player.channel.level) ? "" : player.channel.level);
+					EndSend(player.channel, null);
+				}
+				break;
+			}
 			case Packet.RequestSetHost:
 			{
 				// Transfer the host state from one player to another
@@ -953,7 +972,7 @@ public class Server
 			}
 			case Packet.RequestLeaveChannel:
 			{
-				SendLeaveChannel(player);
+				SendLeaveChannel(player, true);
 				break;
 			}
 			case Packet.RequestCloseChannel:
