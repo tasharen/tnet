@@ -346,6 +346,18 @@ public class TNObject : MonoBehaviour
 	public void Send (string rfcName, ClientPlayer target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
 
 	/// <summary>
+	/// Remove a previously saved remote function call.
+	/// </summary>
+
+	public void Remove (string rfcName) { RemoveSavedRFC(id, 0, rfcName); }
+
+	/// <summary>
+	/// Remove a previously saved remote function call.
+	/// </summary>
+
+	public void Remove (byte rfcID) { RemoveSavedRFC(id, rfcID, null); }
+
+	/// <summary>
 	/// Send a new RFC call to the specified target.
 	/// </summary>
 
@@ -363,7 +375,7 @@ public class TNObject : MonoBehaviour
 			Tools.Write(writer, objs);
 			TNManager.EndSend();
 		}
-		else if (target == Target.All || target == Target.AllBuffered)
+		else if (target == Target.All || target == Target.AllSaved)
 		{
 			if (rfcID != 0)
 			{
@@ -377,7 +389,7 @@ public class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Send a new RFC call to the specified player.
+	/// Send a new remote function call to the specified player.
 	/// </summary>
 
 	static void SendRFC (int objID, byte rfcID, string rfcName, ClientPlayer target, params object[] objs)
@@ -389,6 +401,21 @@ public class TNObject : MonoBehaviour
 			writer.Write((objID << 8) | rfcID);
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
+			TNManager.EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Remove a previously saved remote function call.
+	/// </summary>
+
+	static void RemoveSavedRFC (int objID, byte rfcID, string funcName)
+	{
+		if (TNManager.isConnected)
+		{
+			BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
+			writer.Write((objID << 24) | rfcID);
+			if (rfcID == 0) writer.Write(funcName);
 			TNManager.EndSend();
 		}
 	}

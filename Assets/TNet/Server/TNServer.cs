@@ -630,6 +630,7 @@ public class Server
 			if (request == Packet.RequestID)
 			{
 				int clientVersion = reader.ReadInt32();
+				player.name = reader.ReadString();
 				
 				// Version matches? Connection is now verified.
 				if (clientVersion == ServerPlayer.version)
@@ -788,7 +789,14 @@ public class Server
 				// Other packets can only be processed while in a channel
 				if (player.channel != null)
 				{
-					ProcessChannelPacket(player, buffer, reader, request);
+					if ((int)request >= (int)Packet.ForwardToAll)
+					{
+						ProcessForwardPacket(player, buffer, reader, request);
+					}
+					else
+					{
+						ProcessChannelPacket(player, buffer, reader, request);
+					}
 				}
 				else
 				{
@@ -803,69 +811,13 @@ public class Server
 	}
 
 	/// <summary>
-	/// Process a packet from the player.
+	/// Process a packet that's meant to be forwarded.
 	/// </summary>
 
-	void ProcessChannelPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+	void ProcessForwardPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, Packet request)
 	{
 		switch (request)
 		{
-			case Packet.ForwardToAll:
-			{
-				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-				buffer.position = buffer.position - 5;
-
-				// Forward the packet to everyone in the same channel
-				for (int i = 0; i < player.channel.players.size; ++i)
-				{
-					ServerPlayer tp = player.channel.players[i];
-					tp.SendPacket(buffer);
-				}
-				break;
-			}
-			case Packet.ForwardToOthers:
-			{
-				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-				buffer.position = buffer.position - 5;
-
-				// Forward the packet to everyone except the sender
-				for (int i = 0; i < player.channel.players.size; ++i)
-				{
-					ServerPlayer tp = player.channel.players[i];
-					if (tp != player) tp.SendPacket(buffer);
-				}
-				break;
-			}
-			case Packet.ForwardToAllBuffered:
-			{
-				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for target)
-				int target = reader.ReadInt32();
-				buffer.position = buffer.position - 9;
-				player.channel.CreateRFC(target, buffer);
-
-				// Forward the packet to everyone in the same channel
-				for (int i = 0; i < player.channel.players.size; ++i)
-				{
-					ServerPlayer tp = player.channel.players[i];
-					if (player.socket.Connected) tp.SendPacket(buffer);
-				}
-				break;
-			}
-			case Packet.ForwardToOthersBuffered:
-			{
-				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for target)
-				int target = reader.ReadInt32();
-				buffer.position = buffer.position - 9;
-				player.channel.CreateRFC(target, buffer);
-
-				// Forward the packet to everyone except the sender
-				for (int i = 0; i < player.channel.players.size; ++i)
-				{
-					ServerPlayer tp = player.channel.players[i];
-					if (tp != player && player.socket.Connected) tp.SendPacket(buffer);
-				}
-				break;
-			}
 			case Packet.ForwardToHost:
 			{
 				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
@@ -875,6 +827,63 @@ public class Server
 				player.channel.host.SendPacket(buffer);
 				break;
 			}
+			case Packet.ForwardToPlayerBuffered:
+			{
+				// 4 bytes for size, 1 byte for ID
+				int origin = buffer.position - 5;
+
+				// Figure out who the intended recipient is
+				ServerPlayer targetPlayer = GetPlayer(reader.ReadInt32());
+
+				// Save this function call
+				int target = reader.ReadInt32();
+				string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+				buffer.position = origin;
+				player.channel.CreateRFC(target, funcName, buffer);
+
+				// Forward the packet to the target player
+				if (targetPlayer != null && targetPlayer.socket.Connected) targetPlayer.SendPacket(buffer);
+				break;
+			}
+			default:
+			{
+				// We want to exclude the player if the request was to forward to others
+				ServerPlayer exclude = (
+					request == Packet.ForwardToOthers ||
+					request == Packet.ForwardToOthersSaved) ? player : null;
+
+				// 4 bytes for size, 1 byte for ID
+				int origin = buffer.position - 5;
+
+				// If the request should be saved, let's do so
+				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
+				{
+					int target = reader.ReadInt32();
+					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+					buffer.position = origin;
+					player.channel.CreateRFC(target, funcName, buffer);
+				}
+				else buffer.position = origin;
+
+				// Forward the packet to everyone except the sender
+				for (int i = 0; i < player.channel.players.size; ++i)
+				{
+					ServerPlayer tp = player.channel.players[i];
+					if (tp != exclude) tp.SendPacket(buffer);
+				}
+				break;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Process a packet from the player.
+	/// </summary>
+
+	void ProcessChannelPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+	{
+		switch (request)
+		{
 			case Packet.RequestCreate:
 			{
 				// Create a new object
@@ -993,7 +1002,9 @@ public class Server
 			}
 			case Packet.RequestRemoveRFC:
 			{
-				player.channel.DeleteRFC(reader.ReadInt32());
+				int id = reader.ReadInt32();
+				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
+				player.channel.DeleteRFC(id, funcName);
 				break;
 			}
 			default:

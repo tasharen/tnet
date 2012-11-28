@@ -302,6 +302,7 @@ public class Client : Connection
 		// Request a player ID
 		BinaryWriter writer = BeginSend(Packet.RequestID);
 		writer.Write(version);
+		writer.Write(playerName);
 		EndSend();
 	}
 
@@ -399,8 +400,8 @@ public class Client : Connection
 			{
 				case Packet.ForwardToAll:
 				case Packet.ForwardToOthers:
-				case Packet.ForwardToAllBuffered:
-				case Packet.ForwardToOthersBuffered:
+				case Packet.ForwardToAllSaved:
+				case Packet.ForwardToOthersSaved:
 				case Packet.ForwardToHost:
 				{
 					if (onForwardedPacket != null) onForwardedPacket(reader);

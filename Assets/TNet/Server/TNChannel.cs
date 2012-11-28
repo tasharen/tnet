@@ -18,6 +18,7 @@ public class Channel
 	public class RFC
 	{
 		public int id;
+		public string funcName;
 		public Buffer buffer;
 	}
 
@@ -80,7 +81,7 @@ public class Channel
 	/// Create a new buffered remote function call.
 	/// </summary>
 
-	public void CreateRFC (int inID, Buffer buffer)
+	public void CreateRFC (int inID, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
 		buffer.MarkAsUsed();
@@ -89,7 +90,7 @@ public class Channel
 		{
 			RFC r = rfcs[i];
 			
-			if (r.id == inID)
+			if (r.id == inID && r.funcName == funcName)
 			{
 				if (r.buffer != null) r.buffer.Recycle();
 				r.buffer = buffer;
@@ -97,23 +98,24 @@ public class Channel
 			}
 		}
 
-		RFC rpc = new RFC();
-		rpc.id = inID;
-		rpc.buffer = buffer;
-		rfcs.Add(rpc);
+		RFC rfc = new RFC();
+		rfc.id = inID;
+		rfc.buffer = buffer;
+		rfc.funcName = funcName;
+		rfcs.Add(rfc);
 	}
 
 	/// <summary>
 	/// Delete the specified remote function call.
 	/// </summary>
 
-	public void DeleteRFC (int inID)
+	public void DeleteRFC (int inID, string funcName)
 	{
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
 
-			if (r.id == inID)
+			if (r.id == inID && r.funcName == funcName)
 			{
 				rfcs.RemoveAt(i);
 				r.buffer.Recycle();

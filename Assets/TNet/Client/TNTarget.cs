@@ -19,10 +19,9 @@ public enum Target
 
 	/// <summary>
 	/// Echo the packet to everyone in the room and everyone who joins later.
-	/// int16: RFC ID.
 	/// </summary>
 
-	AllBuffered,
+	AllSaved,
 
 	/// <summary>
 	/// Echo the packet to everyone in the room except the sender.
@@ -32,10 +31,9 @@ public enum Target
 
 	/// <summary>
 	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
-	/// int16: RFC ID.
 	/// </summary>
 
-	OthersBuffered,
+	OthersSaved,
 
 	/// <summary>
 	/// Echo the packet to the room's host.

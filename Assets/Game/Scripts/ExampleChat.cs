@@ -15,7 +15,7 @@ using TNet;
 public class ExampleChat : TNBehaviour
 {
 	Rect mRect;
-	string mName = "";
+	string mName = "Guest";
 	string mInput = "";
 
 	struct ChatEntry
@@ -24,15 +24,6 @@ public class ExampleChat : TNBehaviour
 		public Color color;
 	}
 	BetterList<ChatEntry> mChatEntries = new BetterList<ChatEntry>();
-
-	/// <summary>
-	/// We'll be modifying a copy of the player's name.
-	/// </summary>
-
-	void Awake ()
-	{
-		mName = TNManager.playerName;
-	}
 
 	/// <summary>
 	/// Add a new chat entry.
@@ -52,6 +43,8 @@ public class ExampleChat : TNBehaviour
 
 	void OnNetworkJoinChannel (bool success, string error)
 	{
+		mName = TNManager.playerName;
+
 		string text = "Players here: ";
 		BetterList<ClientPlayer> players = TNManager.players;
 		

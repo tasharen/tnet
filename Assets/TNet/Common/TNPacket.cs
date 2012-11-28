@@ -27,6 +27,7 @@ public enum Packet
 	/// <summary>
 	/// This should be the very first packet sent by the client.
 	/// int32: Protocol version.
+	/// string: Player Name.
 	/// </summary>
 
 	RequestID,
@@ -82,6 +83,7 @@ public enum Packet
 	/// <summary>
 	/// Delete the specified buffered function.
 	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function Name (only if RFC ID is 0).
 	/// </summary>
 
 	RequestRemoveRFC,
@@ -251,7 +253,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToAllBuffered,
+	ForwardToAllSaved,
 
 	/// <summary>
 	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
@@ -267,7 +269,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToOthersBuffered,
+	ForwardToOthersSaved,
 
 	/// <summary>
 	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
@@ -285,5 +287,14 @@ public enum Packet
 	/// </summary>
 
 	ForwardToPlayer,
+
+	/// <summary>
+	/// Echo the packet to the specified player and everyone who joins later.
+	/// int32: Player ID
+	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToPlayerBuffered,
 }
 }

@@ -11,7 +11,6 @@ using TNet;
 /// You can see it used in Example 1.
 /// </summary>
 
-[ExecuteInEditMode]
 [RequireComponent(typeof(TNObject))]
 public class ColoredObject : MonoBehaviour
 {
@@ -25,19 +24,17 @@ public class ColoredObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Display 3 buttons. Clicking on each triggers a remote function on all connected players.
+	/// Clicking on the object should change its color.
 	/// </summary>
 
-	void OnGUI ()
+	void OnMouseUpAsButton ()
 	{
-		TNObject tno = GetComponent<TNObject>();
-		Vector3 screenPos = Camera.main.WorldToScreenPoint(transform.position);
-		Rect rect = new Rect(screenPos.x - 40f, Screen.height - (screenPos.y + 20f), 80f, 20f);
+		Color color = Color.red;
 
-		if (GUI.Button(rect, "Red"))	tno.Send("OnColor", Target.AllBuffered, Color.red);
-		rect.y += 20f;
-		if (GUI.Button(rect, "Green"))	tno.Send("OnColor", Target.AllBuffered, Color.green);
-		rect.y += 20f;
-		if (GUI.Button(rect, "Blue"))	tno.Send("OnColor", Target.AllBuffered, Color.blue);
+		if		(renderer.material.color == Color.red)	 color = Color.green;
+		else if (renderer.material.color == Color.green) color = Color.blue;
+
+		TNObject tno = GetComponent<TNObject>();
+		tno.Send("OnColor", Target.AllSaved, color);
 	}
 }

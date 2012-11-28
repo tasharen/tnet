@@ -145,7 +145,11 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (string address, int port)
 	{
-		if (mInstance != null) mInstance.mClient.Connect(address, port);
+		if (mInstance != null)
+		{
+			mInstance.mClient.playerName = mPlayer.name;
+			mInstance.mClient.Connect(address, port);
+		}
 	}
 
 	/// <summary>
@@ -292,21 +296,6 @@ public class TNManager : MonoBehaviour
 			}
 		}
 		Destroy(go);
-	}
-
-	/// <summary>
-	/// Remove the specified buffered RFC call.
-	/// </summary>
-
-	static public void RemoveBufferedRFC (int objID, short rfcID)
-	{
-		if (mInstance != null && mInstance.mClient.isConnected)
-		{
-			BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestRemoveRFC);
-			writer.Write(objID);
-			writer.Write(rfcID);
-			mInstance.mClient.EndSend();
-		}
 	}
 
 	/// <summary>
@@ -510,6 +499,10 @@ public class TNManager : MonoBehaviour
 	/// Notification of a player being renamed.
 	/// </summary>
 
-	void OnRenamePlayer (ClientPlayer p, string previous) { Broadcast("OnNetworkPlayerRenamed", p, previous); }
+	void OnRenamePlayer (ClientPlayer p, string previous)
+	{
+		mPlayer.name = p.name;
+		Broadcast("OnNetworkPlayerRenamed", p, previous);
+	}
 #endregion
 }
