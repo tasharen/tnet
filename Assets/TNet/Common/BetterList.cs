@@ -1,4 +1,9 @@
-﻿using System.Collections.Generic;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System.Collections.Generic;
 
 /// <summary>
 /// This improved version of the System.Collections.Generic.List that doesn't release the buffer on Clear(),

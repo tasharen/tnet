@@ -1,4 +1,9 @@
-﻿namespace TNet
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+namespace TNet
 {
 /// <summary>
 /// Clients send requests to the server and receive responses back. Forwarded calls arrive as-is.

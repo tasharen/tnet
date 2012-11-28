@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 
 namespace TNet
 {

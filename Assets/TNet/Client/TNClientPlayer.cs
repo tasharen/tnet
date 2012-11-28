@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using System.Net.Sockets;
 using System.IO;
 
@@ -12,5 +17,8 @@ public class ClientPlayer
 {
 	public int id = 0;
 	public string name;
+
+	public ClientPlayer () { }
+	public ClientPlayer (string playerName) { name = playerName; }
 }
 }

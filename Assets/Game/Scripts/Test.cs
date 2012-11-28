@@ -108,7 +108,7 @@ public class Test : MonoBehaviour
 	/// Notification of a player being renamed.
 	/// </summary>
 
-	void OnNetworkRenamePlayer (ClientPlayer p, string previous)
+	void OnNetworkPlayerRenamed (ClientPlayer p, string previous)
 	{
 		Debug.Log(previous + " is now known as " + p.name);
 	}

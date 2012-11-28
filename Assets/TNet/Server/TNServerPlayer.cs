@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.IO;
@@ -61,7 +66,7 @@ public class ServerPlayer : Connection
 			{
 				ServerPlayer tp = channel.players[i];
 				writer.Write(tp.id);
-				writer.Write(string.IsNullOrEmpty(tp.name) ? "<Guest>" : tp.name);
+				writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
 			}
 		}
 

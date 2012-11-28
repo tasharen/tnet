@@ -1,4 +1,9 @@
-﻿namespace TNet
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+namespace TNet
 {
 /// <summary>
 /// Helper enum -- the entries should be in the same order as in the Packet enum.

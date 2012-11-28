@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
@@ -590,7 +595,7 @@ public class Server
 			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
 			{
 				writer.Write(player.id);
-				writer.Write(string.IsNullOrEmpty(player.name) ? "<Guest>" : player.name);
+				writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
 			}
 			EndSend(channel, null);
 

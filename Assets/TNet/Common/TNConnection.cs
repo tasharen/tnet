@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;

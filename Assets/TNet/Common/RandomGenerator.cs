@@ -1,3 +1,8 @@
+//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
 /// <summary>
 /// Random number generator.
 /// </summary>

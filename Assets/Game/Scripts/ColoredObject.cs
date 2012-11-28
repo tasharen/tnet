@@ -8,6 +8,7 @@ using TNet;
 
 /// <summary>
 /// This simple script shows how to change the color of an object on all connected clients.
+/// You can see it used in Example 1.
 /// </summary>
 
 [ExecuteInEditMode]

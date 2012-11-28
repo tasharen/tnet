@@ -1,9 +1,19 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using UnityEngine;
 using TNet;
 using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
+
+/// <summary>
+/// Tasharen Network Object makes it possible to easily send and receive remote function calls.
+/// Unity networking calls this type of object a "Network View".
+/// </summary>
 
 [ExecuteInEditMode]
 public class TNObject : MonoBehaviour

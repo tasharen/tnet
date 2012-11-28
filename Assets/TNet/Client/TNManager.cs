@@ -1,4 +1,9 @@
-﻿using System.IO;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 using TNet;
@@ -19,6 +24,12 @@ public class TNManager : MonoBehaviour
 
 	// Network client
 	Client mClient = new Client();
+
+	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
+	static ClientPlayer mPlayer = new ClientPlayer("Guest");
+
+	// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
+	static BetterList<ClientPlayer> mPlayers;
 
 	// Instance pointer
 	static TNManager mInstance;
@@ -48,6 +59,18 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
+	/// The player's unique identifier.
+	/// </summary>
+
+	static public int playerID
+	{
+		get
+		{
+			return (isConnected) ? mInstance.mClient.playerID : mPlayer.id;
+		}
+	}
+
+	/// <summary>
 	/// Get or set the player's name as everyone sees him on the network.
 	/// </summary>
 
@@ -55,11 +78,34 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return (mInstance != null) ? mInstance.mClient.playerName : "";
+			return (isConnected) ? mInstance.mClient.playerName : mPlayer.name;
 		}
 		set
 		{
-			if (mInstance != null) mInstance.mClient.playerName = value;
+			if (playerName != value)
+			{
+				mPlayer.name = value;
+				if (isConnected) mInstance.mClient.playerName = value;
+			}
+		}
+	}
+
+	/// <summary>
+	/// List of players in the same channel as the client.
+	/// </summary>
+
+	static public BetterList<ClientPlayer> players
+	{
+		get
+		{
+			if (isConnected) return mInstance.mClient.players;
+			
+			if (mPlayers == null)
+			{
+				mPlayers = new BetterList<ClientPlayer>();
+				mPlayers.Add(mPlayer);
+			}
+			return mPlayers;
 		}
 	}
 
@@ -88,7 +134,9 @@ public class TNManager : MonoBehaviour
 
 	static public ClientPlayer GetPlayer (int id)
 	{
-		return (mInstance != null) ? mInstance.mClient.GetPlayer(id) : null;
+		if (isConnected) return mInstance.mClient.GetPlayer(id);
+		if (id == mPlayer.id) return mPlayer;
+		return null;
 	}
 
 	/// <summary>
@@ -462,6 +510,6 @@ public class TNManager : MonoBehaviour
 	/// Notification of a player being renamed.
 	/// </summary>
 
-	void OnRenamePlayer (ClientPlayer p, string previous) { Broadcast("OnNetworkRenamePlayer", p, previous); }
+	void OnRenamePlayer (ClientPlayer p, string previous) { Broadcast("OnNetworkPlayerRenamed", p, previous); }
 #endregion
 }

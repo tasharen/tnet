@@ -9,6 +9,11 @@ using TNet;
 /// <summary>
 /// This script provides a main menu for all examples.
 /// The menu is created in Unity's built-in Immediate Mode GUI system.
+/// The menu makes use of the following TNet functions:
+/// - TNManager.Connect
+/// - TNManager.JoinChannel
+/// - TNManager.LeaveChannel
+/// - TNManager.Disconnect
 /// </summary>
 
 [ExecuteInEditMode]

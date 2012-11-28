@@ -1,4 +1,9 @@
-﻿using UnityEngine;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using UnityEngine;
 using System.IO;
 using System;
 

@@ -1,4 +1,9 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
@@ -132,10 +137,8 @@ public class Client : Connection
 	// Current connection stage
 	Stage mStage = Stage.Disconnected;
 
-	// ID of the player and the host
-	int mPlayerID = 0;
+	// ID of the host
 	int mHost = 0;
-	string mPlayerName = "";
 
 	// Current time, time when the last ping was sent out, and time when connection was started
 	long mTime = 0;
@@ -145,6 +148,7 @@ public class Client : Connection
 	int mPing = 0;
 	bool mCanPing = false;
 	Buffer mBuffer;
+	ClientPlayer mPlayer = new ClientPlayer("Guest");
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -156,7 +160,7 @@ public class Client : Connection
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return !isConnected || (mHost == mPlayerID) && (players.size > 0); } }
+	public bool isHosting { get { return !isConnected || (mHost == mPlayer.id) && (players.size > 0); } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
@@ -171,20 +175,26 @@ public class Client : Connection
 	public int ping { get { return mStage == Stage.Connected ? mPing : 0; } }
 
 	/// <summary>
-	/// Name of the player.
+	/// The player's unique identifier.
+	/// </summary>
+
+	public int playerID { get { return mPlayer.id; } }
+
+	/// <summary>
+	/// Name of this player.
 	/// </summary>
 
 	public string playerName
 	{
 		get
 		{
-			return mPlayerName;
+			return mPlayer.name;
 		}
 		set
 		{
-			if (mPlayerName != value)
+			if (mPlayer.name != value)
 			{
-				mPlayerName = value;
+				mPlayer.name = value;
 
 				if (isConnected)
 				{
@@ -202,9 +212,13 @@ public class Client : Connection
 
 	public ClientPlayer GetPlayer (int id)
 	{
-		ClientPlayer player = null;
-		mDictionary.TryGetValue(id, out player);
-		return player;
+		if (isConnected)
+		{
+			ClientPlayer player = null;
+			mDictionary.TryGetValue(id, out player);
+			return player;
+		}
+		return (mPlayer.id == id) ? mPlayer : null;
 	}
 
 	/// <summary>
@@ -410,7 +424,7 @@ public class Client : Connection
 					if (mStage == Stage.Verifying)
 					{
 						int serverVersion = reader.ReadInt32();
-						mPlayerID = reader.ReadInt32();
+						mPlayer.id = reader.ReadInt32();
 
 						if (serverVersion == version)
 						{
