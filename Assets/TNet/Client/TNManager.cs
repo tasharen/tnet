@@ -107,16 +107,28 @@ public class TNManager : MonoBehaviour
 	static public void Disconnect () { if (mInstance != null) mInstance.mClient.Disconnect(); }
 
 	/// <summary>
+	/// Join the specified channel. This channel will be marked as persistent, meaning it will
+	/// stay open even when the last player leaves, unless explicitly closed first.
+	/// </summary>
+	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
+	/// <param name="levelName">Level that will be loaded first.</param>
+
+	static public void JoinChannel (int channelID, string levelName)
+	{
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, true, null);
+	}
+
+	/// <summary>
 	/// Join the specified channel.
 	/// </summary>
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
-	/// <param name="password">Password for the channel. First player sets the password.</param>
 	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	static public void JoinChannel (int channelID, string password, string levelName, bool persistent)
+	static public void JoinChannel (int channelID, string levelName, bool persistent, string password)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, password, levelName, persistent);
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, persistent, password);
 	}
 
 	/// <summary>

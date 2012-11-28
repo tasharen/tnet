@@ -162,7 +162,7 @@ public class Client : Connection
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return players.size > 0; } }
+	public bool isInChannel { get { return !isConnected || players.size > 0; } }
 
 	/// <summary>
 	/// Current ping to the server.
@@ -295,11 +295,11 @@ public class Client : Connection
 	/// Join the specified channel.
 	/// </summary>
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
-	/// <param name="password">Password for the channel. First player sets the password.</param>
 	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	public void JoinChannel (int channelID, string password, string levelName, bool persistent)
+	public void JoinChannel (int channelID, string levelName, bool persistent, string password)
 	{
 		if (isConnected)
 		{

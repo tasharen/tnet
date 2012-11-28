@@ -99,10 +99,20 @@ static public class Tools
 				bw.Write(c.b);
 				bw.Write(c.a);
 			}
+			else if (type == typeof(Color))
+			{
+				Color c = (Color)obj;
+				bw.Write('k');
+				bw.Write(c.r);
+				bw.Write(c.g);
+				bw.Write(c.b);
+				bw.Write(c.a);
+			}
 			else if (type == typeof(DateTime))
 			{
 				DateTime time = (DateTime)obj;
-				bw.Write(time.Ticks);
+				bw.Write('l');
+				bw.Write((Int64)time.Ticks);
 			}
 			else if (type == typeof(bool[]))
 			{
@@ -174,7 +184,8 @@ static public class Tools
 				case 'h': data[i] = new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
 				case 'i': data[i] = new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
 				case 'j': data[i] = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte()); break;
-				case 'k': data[i] = new DateTime(reader.ReadInt64()); break;
+				case 'k': data[i] = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'l': data[i] = new DateTime(reader.ReadInt64()); break;
 				case 'A':
 				{
 					int elements = reader.ReadInt32();

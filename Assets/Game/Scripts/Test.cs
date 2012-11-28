@@ -9,9 +9,6 @@ public class Test : MonoBehaviour
 	public int port = 5127;
 	public GameObject spawnObject;
 
-	//TNObject tno;
-	//void Awake () { tno = GetComponent<TNObject>(); }
-
 	void Update ()
 	{
 		if (Input.GetKeyDown(KeyCode.C))
@@ -33,7 +30,7 @@ public class Test : MonoBehaviour
 			}
 			else
 			{
-				TNManager.JoinChannel(123, null, "Game", true);
+				TNManager.JoinChannel(123, "Game");
 			}
 		}
 		else if (Input.GetKeyDown(KeyCode.I))

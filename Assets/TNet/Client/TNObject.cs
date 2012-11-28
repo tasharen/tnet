@@ -74,10 +74,20 @@ public class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Register the object with the lists.
+	/// Helper function that returns the game object's hierarchy in a human-readable format.
 	/// </summary>
 
-	void Awake () { Register(); }
+	static public string GetHierarchy (GameObject obj)
+	{
+		string path = obj.name;
+
+		while (obj.transform.parent != null)
+		{
+			obj = obj.transform.parent.gameObject;
+			path = obj.name + "/" + path;
+		}
+		return "\"" + path + "\"";
+	}
 
 #if UNITY_EDITOR
 	// Last used ID
@@ -100,7 +110,26 @@ public class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Re-register the object.
+	/// Make sure that this object's ID is actually unique.
+	/// </summary>
+
+	void UniqueCheck ()
+	{
+		if (Find(id) != null)
+		{
+			if (Application.isPlaying)
+			{
+				Debug.LogError("Network ID " + id + " is already in use by " +
+					GetHierarchy(Find(id).gameObject) +
+					".\nPlease make sure that the network IDs are unique.", this);
+			}
+			id = GetUniqueID();
+		}
+	}
+
+	/// <summary>
+	/// This usually happens after scripts get recompiled.
+	/// When this happens, static variables are erased, so the list of objects has to be rebuilt.
 	/// </summary>
 
 	void OnEnable ()
@@ -108,20 +137,16 @@ public class TNObject : MonoBehaviour
 		if (!Application.isPlaying)
 		{
 			Unregister();
-			
-			if (id == 0)
-			{
-				id = GetUniqueID();
-			}
-			else if (Find(id) != null)
-			{
-				Debug.LogWarning("Network ID " + id + " already exists. Assigning a new one.", this);
-				id = GetUniqueID();
-			}
 			Register();
 		}
 	}
 #endif
+
+	/// <summary>
+	/// Register the object with the lists.
+	/// </summary>
+
+	void Awake () { Register(); }
 
 	/// <summary>
 	/// Remove this object from the list.
@@ -137,6 +162,9 @@ public class TNObject : MonoBehaviour
 	{
 		if (!mIsRegistered)
 		{
+#if UNITY_EDITOR
+			UniqueCheck();
+#endif
 			mDictionary[id] = this;
 			mList.Add(this);
 			mIsRegistered = true;
@@ -287,25 +315,25 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void RFC (byte rfcID, Target target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+	public void Send (byte rfcID, Target target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void RFC (string rfcName, Target target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+	public void Send (string rfcName, Target target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void RFC (byte rfcID, ClientPlayer target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+	public void Send (byte rfcID, ClientPlayer target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void RFC (string rfcName, ClientPlayer target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+	public void Send (string rfcName, ClientPlayer target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
 
 	/// <summary>
 	/// Send a new RFC call to the specified target.
@@ -313,6 +341,9 @@ public class TNObject : MonoBehaviour
 
 	static void SendRFC (int objID, byte rfcID, string rfcName, Target target, params object[] objs)
 	{
+#if UNITY_EDITOR
+		if (!Application.isPlaying) return;
+#endif
 		if (TNManager.isConnected)
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
