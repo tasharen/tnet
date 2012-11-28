@@ -618,13 +618,11 @@ public class Server
 		Buffer buffer = player.ReceivePacket();
 		if (buffer == null) return false;
 
+		// Begin the reading process
 		BinaryReader reader = buffer.BeginReading();
-		//int size = buffer.size;
 
 		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
-
-		//Console.WriteLine("...packet: " + request + " (" + size + " bytes)");
 
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (!player.verified)
@@ -672,7 +670,8 @@ public class Server
 
 				if (target != null && target.socket.Connected)
 				{
-					buffer.position = 0;
+					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
+					buffer.position = buffer.position - 5;
 					target.SendPacket(buffer);
 				}
 				break;
@@ -813,7 +812,8 @@ public class Server
 		{
 			case Packet.ForwardToAll:
 			{
-				buffer.position = 0;
+				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
+				buffer.position = buffer.position - 5;
 
 				// Forward the packet to everyone in the same channel
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -825,7 +825,8 @@ public class Server
 			}
 			case Packet.ForwardToOthers:
 			{
-				buffer.position = 0;
+				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
+				buffer.position = buffer.position - 5;
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
@@ -837,8 +838,9 @@ public class Server
 			}
 			case Packet.ForwardToAllBuffered:
 			{
+				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for target)
 				int target = reader.ReadInt32();
-				buffer.position = 0;
+				buffer.position = buffer.position - 9;
 				player.channel.CreateRFC(target, buffer);
 
 				// Forward the packet to everyone in the same channel
@@ -851,8 +853,9 @@ public class Server
 			}
 			case Packet.ForwardToOthersBuffered:
 			{
+				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for target)
 				int target = reader.ReadInt32();
-				buffer.position = 0;
+				buffer.position = buffer.position - 9;
 				player.channel.CreateRFC(target, buffer);
 
 				// Forward the packet to everyone except the sender
@@ -865,8 +868,10 @@ public class Server
 			}
 			case Packet.ForwardToHost:
 			{
+				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
+				buffer.position = buffer.position - 5;
+
 				// Forward the packet to the channel's host
-				buffer.position = 0;
 				player.channel.host.SendPacket(buffer);
 				break;
 			}
