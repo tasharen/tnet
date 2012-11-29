@@ -66,7 +66,7 @@ public class Server
 
 		try
 		{
-			mListener = new TcpListener(IPAddress.Loopback, port);
+			mListener = new TcpListener(IPAddress.Any, port);
 			mListener.Start(10);
 			//mListener.BeginAcceptSocket(OnAccept, null);
 		}
