@@ -59,19 +59,19 @@ public class ExampleMenu : MonoBehaviour
 
 	void ShowConnectMenu ()
 	{
-		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 60f, 200f, 120f);
+		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 60f, 200f, 170f);
 
 		GUILayout.BeginArea(rect);
 		{
 			GUILayout.Label("Tasharen Networking Example");
 			address = GUILayout.TextField(address, GUILayout.Width(200f));
 
-			if (GUILayout.Button("Connect"))
+			if (GUILayout.Button("Connect", GUILayout.Height(30f)))
 			{
 				// We want to connect to the specified destination when the button is clicked on.
 				// "OnNetworkConnect" function will be called sometime later with the result.
 				TNManager.Connect(address, port);
-				mError = "";
+				mError = "Connecting...";
 			}
 
 			if (!string.IsNullOrEmpty(mError))

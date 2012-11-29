@@ -97,6 +97,19 @@ public class ExampleChat : TNBehaviour
 	}
 
 	/// <summary>
+	/// Send the typed message to the server and clear the text.
+	/// </summary>
+
+	void Send ()
+	{
+		if (!string.IsNullOrEmpty(mInput))
+		{
+			tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
+			mInput = "";
+		}
+	}
+
+	/// <summary>
 	/// This function draws the chat window.
 	/// </summary>
 
@@ -131,10 +144,8 @@ public class ExampleChat : TNBehaviour
 			}
 			else if (ctrl == "Chat Input")
 			{
-				// Enter key pressed while typing a chat message -- send it to the server
-				tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
+				Send();
 				GUI.FocusControl("Chat Window");
-				mInput = "";
 			}
 			else
 			{
@@ -151,7 +162,13 @@ public class ExampleChat : TNBehaviour
 	void OnGUIWindow (int id)
 	{
 		GUI.SetNextControlName("Chat Input");
-		mInput = GUI.TextField(new Rect(6f, mRect.height - 30f, 388f, 24f), mInput);
+		mInput = GUI.TextField(new Rect(6f, mRect.height - 30f, 328f, 24f), mInput);
+
+		if (GUI.Button(new Rect(334f, mRect.height - 31f, 60f, 26f), "Send"))
+		{
+			Send();
+			GUI.FocusControl("Chat Window");
+		}
 
 		GUI.BeginGroup(new Rect(2f, 20f, 382f, 254f));
 		{
