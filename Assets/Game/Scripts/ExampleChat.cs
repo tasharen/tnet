@@ -23,7 +23,7 @@ public class ExampleChat : TNBehaviour
 		public string text;
 		public Color color;
 	}
-	BetterList<ChatEntry> mChatEntries = new BetterList<ChatEntry>();
+	List<ChatEntry> mChatEntries = new List<ChatEntry>();
 
 	/// <summary>
 	/// Add a new chat entry.
@@ -46,7 +46,7 @@ public class ExampleChat : TNBehaviour
 		mName = TNManager.playerName;
 
 		string text = "Players here: ";
-		BetterList<ClientPlayer> players = TNManager.players;
+		List<ClientPlayer> players = TNManager.players;
 		
 		for (int i = 0; i < players.size; ++i)
 		{

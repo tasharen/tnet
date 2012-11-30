@@ -53,8 +53,7 @@
     <Compile Include="Assets\TNet\Client\TNTarget.cs" />
     <Compile Include="Assets\TNet\Client\TNTools.cs" />
     <Compile Include="Assets\TNet\Client\TNObject.cs" />
-    <Compile Include="Assets\TNet\Common\BetterList.cs" />
-    <Compile Include="Assets\TNet\Common\RandomGenerator.cs" />
+    <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
     <Compile Include="Assets\TNet\Common\TNConnection.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />

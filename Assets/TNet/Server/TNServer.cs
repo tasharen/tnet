@@ -24,7 +24,7 @@ public class Server
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 
-	protected BetterList<ServerPlayer> mPlayers = new BetterList<ServerPlayer>();
+	protected List<ServerPlayer> mPlayers = new List<ServerPlayer>();
 
 	/// <summary>
 	/// Dictionary list of players for easy access by ID.
@@ -36,13 +36,13 @@ public class Server
 	/// List of all the active channels.
 	/// </summary>
 
-	protected BetterList<Channel> mChannels = new BetterList<Channel>();
+	protected List<Channel> mChannels = new List<Channel>();
 
 	/// <summary>
 	/// Random number generator.
 	/// </summary>
 
-	protected RandomGenerator mRandom = new RandomGenerator();
+	protected Random mRandom = new Random();
 
 	public class FileEntry
 	{
@@ -50,7 +50,7 @@ public class Server
 		public byte[] data;
 	};
 
-	BetterList<FileEntry> savedFiles = new BetterList<FileEntry>();
+	List<FileEntry> savedFiles = new List<FileEntry>();
 
 	Buffer mBuffer;
 	TcpListener mListener;
@@ -687,12 +687,12 @@ public class Server
 
 				if (channelID == -1)
 				{
-					channelID = mRandom.Range(1, 100000000);
+					channelID = mRandom.Next(100000000);
 
 					for (int i = 0; i < 1000; ++i)
 					{
 						if (!ChannelExists(channelID)) break;
-						channelID = mRandom.Range(1, 100000000);
+						channelID = mRandom.Next(100000000);
 					}
 				}
 

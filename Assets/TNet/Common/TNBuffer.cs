@@ -17,7 +17,7 @@ namespace TNet
 
 public class Buffer
 {
-	static BetterList<Buffer> mPool = new BetterList<Buffer>();
+	static List<Buffer> mPool = new List<Buffer>();
 
 	MemoryStream mStream;
 	BinaryWriter mWriter;
@@ -163,7 +163,7 @@ public class Buffer
 	/// Recycle an entire list of buffers.
 	/// </summary>
 
-	static public void Recycle (BetterList<Buffer> list)
+	static public void Recycle (List<Buffer> list)
 	{
 		lock (mPool)
 		{

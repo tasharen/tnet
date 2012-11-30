@@ -121,7 +121,7 @@ public class Client : Connection
 	/// List of players in the same channel as the client.
 	/// </summary>
 
-	public BetterList<ClientPlayer> players = new BetterList<ClientPlayer>();
+	public List<ClientPlayer> players = new List<ClientPlayer>();
 
 	// Same list of players, but in a dictionary format for quick lookup
 	Dictionary<int, ClientPlayer> mDictionary = new Dictionary<int, ClientPlayer>();

@@ -4,11 +4,10 @@
 //------------------------------------------
 
 using System;
+using System.IO;
+using System.Reflection;
 using UnityEngine;
 using TNet;
-using System.Reflection;
-using System.Collections.Generic;
-using System.IO;
 
 /// <summary>
 /// Tasharen Network Object makes it possible to easily send and receive remote function calls.
@@ -45,13 +44,14 @@ public class TNObject : MonoBehaviour
 	}
 
 	// List of network objs to iterate through
-	static BetterList<TNObject> mList = new BetterList<TNObject>();
+	static List<TNObject> mList = new List<TNObject>();
 
 	// List of network objs to quickly look up
-	static Dictionary<int, TNObject> mDictionary = new Dictionary<int, TNObject>();
+	static System.Collections.Generic.Dictionary<int, TNObject> mDictionary =
+		new System.Collections.Generic.Dictionary<int, TNObject>();
 
 	// List of delayed calls -- calls that could not execute at the time of the call
-	static BetterList<DelayedCall> mDelayed = new BetterList<DelayedCall>();
+	static List<DelayedCall> mDelayed = new List<DelayedCall>();
 
 	/// <summary>
 	/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
@@ -66,7 +66,7 @@ public class TNObject : MonoBehaviour
 	[HideInInspector] public bool rebuildMethodList = true;
 
 	// Cached RFC functions
-	BetterList<CachedRFC> mRFCs = new BetterList<CachedRFC>();
+	List<CachedRFC> mRFCs = new List<CachedRFC>();
 
 	// Whether the object has been registered with the lists
 	bool mIsRegistered = false;

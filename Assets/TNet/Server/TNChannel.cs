@@ -34,10 +34,10 @@ public class Channel
 	public string level = "";
 	public bool persistent = false;
 	public bool closed = false;
-	public BetterList<ServerPlayer> players = new BetterList<ServerPlayer>();
-	public BetterList<RFC> rfcs = new BetterList<RFC>();
-	public BetterList<CreatedObject> created = new BetterList<CreatedObject>();
-	public BetterList<int> destroyed = new BetterList<int>();
+	public List<ServerPlayer> players = new List<ServerPlayer>();
+	public List<RFC> rfcs = new List<RFC>();
+	public List<CreatedObject> created = new List<CreatedObject>();
+	public List<int> destroyed = new List<int>();
 	public int objectCounter = 0;
 	public ServerPlayer host;
 

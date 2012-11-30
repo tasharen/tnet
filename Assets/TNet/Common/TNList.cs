@@ -3,17 +3,17 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using System.Collections.Generic;
-
+namespace TNet
+{
 /// <summary>
 /// This improved version of the System.Collections.Generic.List that doesn't release the buffer on Clear(),
 /// resulting in better performance and less garbage collection.
 /// </summary>
 
-public class BetterList<T>
+public class List<T>
 {
 	/// <summary>
-	/// Direct access to the buffer. Note that you should not use its 'Length' parameter, but instead use BetterList.size.
+	/// Direct access to the buffer. Note that you should not use its 'Length' parameter, but instead use List.size.
 	/// </summary>
 
 	public T[] buffer;
@@ -28,7 +28,7 @@ public class BetterList<T>
 	/// For 'foreach' functionality.
 	/// </summary>
 
-	public IEnumerator<T> GetEnumerator ()
+	public System.Collections.Generic.IEnumerator<T> GetEnumerator ()
 	{
 		if (buffer != null)
 		{
@@ -139,7 +139,8 @@ public class BetterList<T>
 	{
 		if (buffer != null)
 		{
-			EqualityComparer<T> comp = EqualityComparer<T>.Default;
+			System.Collections.Generic.EqualityComparer<T> comp =
+				System.Collections.Generic.EqualityComparer<T>.Default;
 
 			for (int i = 0; i < size; ++i)
 			{
@@ -214,4 +215,5 @@ public class BetterList<T>
 			}
 		}
 	}
+}
 }

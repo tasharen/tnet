@@ -1,16 +1,12 @@
-﻿#if !UNITY_EDITOR
-
-using System;
+﻿using System;
 using TNet;
 using System.IO;
 using System.Threading;
 
-public class TNetTest
+public class ClientMain
 {
 	static Client client;
 	static int test = 0;
-
-	// TODO: Now that the server is ready, it's time to work on TNObject in Unity.
 
 	static void ThreadFunction ()
 	{
@@ -28,7 +24,7 @@ public class TNetTest
 				stream.Close();
 				stream.Dispose();
 				
-				BinaryWriter writer = client.BeginSend(Packet.ForwardToAllBuffered);
+				BinaryWriter writer = client.BeginSend(Packet.ForwardToAllSaved);
 				writer.Write(0);
 				writer.Write(data);
 				client.EndSend();
@@ -52,7 +48,7 @@ public class TNetTest
 		client.onPlayerJoined = OnPlayerJoined;
 		client.onPlayerLeft = OnPlayerLeft;
 		client.onSetHost = OnSetHost;
-		client.onChannelChanged = OnChannelChanged;
+		client.onJoinChannel = OnJoinChannel;
 		client.onRenamePlayer = OnRenamePlayer;
 		client.onCreate = OnCreateObject;
 		client.onDestroy = OnDestroyObject;
@@ -91,7 +87,7 @@ public class TNetTest
 	static void OnConnect (bool success, string message)
 	{
 		Console.WriteLine("Connected: " + success + " (" + message + ")");
-		client.JoinChannel(123, null, true);
+		client.JoinChannel(123, "Some Level", true, null);
 	}
 
 	static void OnDisconnect ()
@@ -114,7 +110,7 @@ public class TNetTest
 		Console.WriteLine("Hosting: " + hosting);
 	}
 
-	static void OnChannelChanged (bool isInChannel, string message)
+	static void OnJoinChannel (bool isInChannel, string message)
 	{
 		Console.WriteLine("Channel: " + isInChannel + " (" + message + ")");
 	}
@@ -139,4 +135,3 @@ public class TNetTest
 		Console.WriteLine("Custom (" + reader.BaseStream.Length + " bytes)");
 	}
 }
-#endif

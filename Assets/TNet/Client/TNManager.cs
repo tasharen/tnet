@@ -4,7 +4,6 @@
 //------------------------------------------
 
 using System.IO;
-using System.Collections.Generic;
 using UnityEngine;
 using TNet;
 using System.Reflection;
@@ -29,7 +28,7 @@ public class TNManager : MonoBehaviour
 	static ClientPlayer mPlayer = new ClientPlayer("Guest");
 
 	// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
-	static BetterList<ClientPlayer> mPlayers;
+	static List<ClientPlayer> mPlayers;
 
 	// Instance pointer
 	static TNManager mInstance;
@@ -94,7 +93,7 @@ public class TNManager : MonoBehaviour
 	/// List of players in the same channel as the client.
 	/// </summary>
 
-	static public BetterList<ClientPlayer> players
+	static public List<ClientPlayer> players
 	{
 		get
 		{
@@ -102,7 +101,7 @@ public class TNManager : MonoBehaviour
 			
 			if (mPlayers == null)
 			{
-				mPlayers = new BetterList<ClientPlayer>();
+				mPlayers = new List<ClientPlayer>();
 				mPlayers.Add(mPlayer);
 			}
 			return mPlayers;
