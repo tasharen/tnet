@@ -296,20 +296,20 @@ public class Connection
 				}
 				else if (available > mExpected)
 				{
-					// Skip the size
-					mOffset += 4;
-
-					// There is more than one packet. Extract this packet.
+					// There is more than one packet. Extract this packet fully.
+					int realPacketSize = mExpected + 4;
 					Buffer temp = Buffer.Create();
-					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, mExpected);
-					//Console.WriteLine("Added packet of size " + mExpected);
+					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realPacketSize);
+
+					// Reset the position to the beginning of the packet
+					temp.BeginReading(4);
 
 					// This packet is now ready to be processed
 					lock (mIn) mIn.Enqueue(temp);
 
 					// Skip this packet
 					available -= mExpected;
-					mOffset += mExpected;
+					mOffset += realPacketSize;
 					mExpected = 0;
 				}
 				else break;

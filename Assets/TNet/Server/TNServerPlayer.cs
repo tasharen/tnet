@@ -96,11 +96,14 @@ public class ServerPlayer : Connection
 		}
 
 		// Step 7: Send the list of objects that have been destroyed
-		buffer.BeginPacket(Packet.ResponseDestroy, offset);
-		writer.Write((short)channel.destroyed.size);
-		for (int i = 0; i < channel.destroyed.size; ++i)
-			writer.Write((short)channel.destroyed.buffer[i]);
-		offset = buffer.EndPacket(offset);
+		if (channel.destroyed.size != 0)
+		{
+			buffer.BeginPacket(Packet.ResponseDestroy, offset);
+			writer.Write((short)channel.destroyed.size);
+			for (int i = 0; i < channel.destroyed.size; ++i)
+				writer.Write((short)channel.destroyed.buffer[i]);
+			offset = buffer.EndPacket(offset);
+		}
 
 		// Step 8: Send all buffered RFCs to the new player
 		for (int i = 0; i < channel.rfcs.size; ++i)

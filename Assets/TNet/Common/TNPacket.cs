@@ -90,7 +90,7 @@ public enum Packet
 
 	/// <summary>
 	/// Instantiate a new object with the specified identifier.
-	/// int16: Object index.
+	/// int16: Index of the object being created (within a static list of prefabs on the client).
 	/// byte: 1 if a new Object ID is requested, 0 otherwise.
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
@@ -213,7 +213,7 @@ public enum Packet
 
 	/// <summary>
 	/// Create a new persistent entry.
-	/// int16: Object ID.
+	/// int16: Index of the object being created (within a static list of prefabs on the client).
 	/// int32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
@@ -222,7 +222,7 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified Unique Identifier and its associated entry.
-	/// int16: Number of objs that will follow.
+	/// int16: Number of objects that will follow.
 	/// int32[] Unique Identifiers (aka Object IDs).
 	/// </summary>
 

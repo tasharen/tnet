@@ -855,6 +855,11 @@ public class Server
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
 
+				if (origin < 0)
+				{
+					Console.WriteLine("Wtf?");
+				}
+
 				// If the request should be saved, let's do so
 				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 				{

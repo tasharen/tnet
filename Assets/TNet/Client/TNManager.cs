@@ -295,7 +295,7 @@ public class TNManager : MonoBehaviour
 				return;
 			}
 		}
-		Destroy(go);
+		GameObject.Destroy(go);
 	}
 
 	/// <summary>
@@ -393,6 +393,7 @@ public class TNManager : MonoBehaviour
 			if (obj != null)
 			{
 				obj.id = objID;
+				obj.Register();
 			}
 			else
 			{
@@ -408,7 +409,7 @@ public class TNManager : MonoBehaviour
 	void OnDestroyObject (int objID)
 	{
 		TNObject obj = TNObject.Find(objID);
-		if (obj) Destroy(obj);
+		if (obj) GameObject.Destroy(obj.gameObject);
 	}
 
 	/// <summary>

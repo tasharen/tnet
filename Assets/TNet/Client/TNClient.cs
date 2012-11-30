@@ -394,8 +394,6 @@ public class Client : Connection
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
-			//Console.WriteLine("======= " + response + " (" + buffer.size + " bytes)");
-
 			switch (response)
 			{
 				case Packet.ForwardToAll:
@@ -517,9 +515,9 @@ public class Client : Connection
 				{
 					if (onCreate != null)
 					{
-						short objectID = reader.ReadInt16();
+						short index = reader.ReadInt16();
 						int objID = reader.ReadInt32();
-						onCreate(objectID, objID, reader);
+						onCreate(index, objID, reader);
 					}
 					break;
 				}

@@ -156,7 +156,7 @@ public class TNObject : MonoBehaviour
 	/// Register the object with the lists.
 	/// </summary>
 
-	void Awake () { Register(); }
+	void Start () { Register(); }
 
 	/// <summary>
 	/// Remove this object from the list.
@@ -168,9 +168,9 @@ public class TNObject : MonoBehaviour
 	/// Register the network object with the lists.
 	/// </summary>
 
-	void Register ()
+	public void Register ()
 	{
-		if (!mIsRegistered)
+		if (!mIsRegistered && TNManager.isConnected)
 		{
 #if UNITY_EDITOR
 			UniqueCheck();

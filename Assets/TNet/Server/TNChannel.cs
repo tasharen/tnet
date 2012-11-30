@@ -129,13 +129,11 @@ public class Channel
 
 	public void DeleteObjectRFCs (int objectID)
 	{
-		objectID <<= 8;
-
 		for (int i = 0; i < rfcs.size; )
 		{
 			RFC r = rfcs[i];
 
-			if ((r.id & objectID) == objectID)
+			if ((r.id >> 8) == objectID)
 			{
 				rfcs.RemoveAt(i);
 				r.buffer.Recycle();
