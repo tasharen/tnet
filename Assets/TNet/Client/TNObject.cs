@@ -125,9 +125,9 @@ public class TNObject : MonoBehaviour
 
 	void UniqueCheck ()
 	{
-		if (Find(id) != null)
+		if (id == 0 || Find(id) != null)
 		{
-			if (Application.isPlaying)
+			if (Application.isPlaying && TNManager.isConnected)
 			{
 				Debug.LogError("Network ID " + id + " is already in use by " +
 					GetHierarchy(Find(id).gameObject) +
@@ -170,7 +170,7 @@ public class TNObject : MonoBehaviour
 
 	public void Register ()
 	{
-		if (!mIsRegistered && TNManager.isConnected)
+		if (!mIsRegistered)
 		{
 #if UNITY_EDITOR
 			UniqueCheck();

@@ -8,7 +8,7 @@ using TNet;
 
 /// <summary>
 /// This example script shows how to create a chat window powered by the Tasharen Network framework.
-/// You can see it used in Example 2.
+/// You can see it used in Example Chat.
 /// </summary>
 
 [ExecuteInEditMode]

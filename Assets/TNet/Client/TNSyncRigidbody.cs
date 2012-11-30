@@ -94,5 +94,28 @@ public class TNSyncRigidbody : TNBehaviour
 		mTrans.rotation = Quaternion.Euler(rot);
 		mRb.velocity = vel;
 		mRb.angularVelocity = ang;
+		UpdateInterval();
+	}
+
+	/// <summary>
+	/// It's a good idea to send an update when a collision occurs.
+	/// </summary>
+
+	void OnCollisionEnter () { if (TNManager.isHosting) SendUpdate(); }
+
+	/// <summary>
+	/// Send out an update to everyone on the network.
+	/// </summary>
+
+	public void SendUpdate ()
+	{
+		if (TNManager.isConnected)
+		{
+			UpdateInterval();
+			mWasSleeping = false;
+			mLastPos = mTrans.position;
+			mLastRot = mTrans.rotation.eulerAngles;
+			tno.Send(1, Target.OthersSaved, mLastPos, mLastRot, mRb.velocity, mRb.angularVelocity);
+		}
 	}
 }

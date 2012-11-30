@@ -63,7 +63,7 @@ public class ExampleMenu : MonoBehaviour
 
 		GUILayout.BeginArea(rect);
 		{
-			GUILayout.Label("Tasharen Networking Example");
+			GUILayout.Label("Server Address");
 			address = GUILayout.TextField(address, GUILayout.Width(200f));
 
 			if (GUILayout.Button("Connect", GUILayout.Height(30f)))

@@ -8,7 +8,7 @@ using UnityEngine;
 /// <summary>
 /// This script shows how to create objects dynamically over the network.
 /// The same Create call will work perfectly fine even if you're not currently connected.
-/// This script is attached to the floor in Example 3.
+/// This script is attached to the floor in Example 2.
 /// </summary>
 
 public class ExampleCreate : MonoBehaviour
