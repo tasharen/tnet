@@ -3,6 +3,8 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
+#define TNDEBUG
+
 using UnityEngine;
 using TNet;
 
@@ -59,7 +61,11 @@ public class TNSyncRigidbody : TNBehaviour
 		if (frequency > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isConnected)
 		{
 			bool isSleeping = mRb.IsSleeping();
-			if (isSleeping && mWasSleeping) return;
+			if (isSleeping && mWasSleeping)
+			{
+				renderer.material.color = Color.blue;
+				return;
+			}
 
 			UpdateInterval();
 
@@ -70,7 +76,9 @@ public class TNSyncRigidbody : TNBehaviour
 			{
 				mLastPos = pos;
 				mLastRot = rot;
-
+#if TNDEBUG
+				renderer.material.color = Color.red;
+#endif
 				// Send the update. Note that we're using an RFC ID here instead of the function name.
 				// Using an ID speeds up the function lookup time and reduces the size of the packet.
 				// Since the target is "OthersSaved", even players that join later will receive this update.
@@ -90,6 +98,9 @@ public class TNSyncRigidbody : TNBehaviour
 	[RFC(1)]
 	void Sync (Vector3 pos, Vector3 rot, Vector3 vel, Vector3 ang)
 	{
+#if TNDEBUG
+		renderer.material.color = Color.green;
+#endif
 		mTrans.position = pos;
 		mTrans.rotation = Quaternion.Euler(rot);
 		mRb.velocity = vel;
@@ -115,6 +126,9 @@ public class TNSyncRigidbody : TNBehaviour
 			mWasSleeping = false;
 			mLastPos = mTrans.position;
 			mLastRot = mTrans.rotation.eulerAngles;
+#if TNDEBUG
+			renderer.material.color = Color.red;
+#endif
 			tno.Send(1, Target.OthersSaved, mLastPos, mLastRot, mRb.velocity, mRb.angularVelocity);
 		}
 	}

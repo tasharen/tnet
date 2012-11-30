@@ -14,8 +14,8 @@ namespace TNet
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class RFC : Attribute
 {
-	public int id = 0;
+	public byte id = 0;
 	public RFC () { }
-	public RFC (int rid) { id = rid; }
+	public RFC (byte rid) { id = rid; }
 }
 }

@@ -17,15 +17,16 @@ public class Channel
 {
 	public class RFC
 	{
-		public int id;
+		// Object ID (24 bytes), RFC ID (8 bytes)
+		public uint id;
 		public string funcName;
 		public Buffer buffer;
 	}
 
 	public class CreatedObject
 	{
-		public short objectID;
-		public int uniqueID;
+		public ushort objectID;
+		public uint uniqueID;
 		public Buffer buffer;
 	}
 
@@ -37,8 +38,8 @@ public class Channel
 	public List<ServerPlayer> players = new List<ServerPlayer>();
 	public List<RFC> rfcs = new List<RFC>();
 	public List<CreatedObject> created = new List<CreatedObject>();
-	public List<int> destroyed = new List<int>();
-	public int objectCounter = 0;
+	public List<uint> destroyed = new List<uint>();
+	public uint objectCounter = 0xFFFFFF;
 	public ServerPlayer host;
 
 	/// <summary>
@@ -53,7 +54,7 @@ public class Channel
 		rfcs.Clear();
 		created.Clear();
 		destroyed.Clear();
-		objectCounter = 0;
+		objectCounter = 0xFFFFFF;
 	}
 
 	/// <summary>
@@ -81,7 +82,7 @@ public class Channel
 	/// Create a new buffered remote function call.
 	/// </summary>
 
-	public void CreateRFC (int inID, string funcName, Buffer buffer)
+	public void CreateRFC (uint inID, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
 		buffer.MarkAsUsed();
@@ -109,7 +110,7 @@ public class Channel
 	/// Delete the specified remote function call.
 	/// </summary>
 
-	public void DeleteRFC (int inID, string funcName)
+	public void DeleteRFC (uint inID, string funcName)
 	{
 		for (int i = 0; i < rfcs.size; ++i)
 		{
@@ -127,7 +128,7 @@ public class Channel
 	/// Delete the specified remote function call.
 	/// </summary>
 
-	public void DeleteObjectRFCs (int objectID)
+	public void DeleteObjectRFCs (uint objectID)
 	{
 		for (int i = 0; i < rfcs.size; )
 		{
@@ -205,7 +206,7 @@ public class Channel
 		destroyed.Clear();
 
 		level = reader.ReadString();
-		objectCounter = reader.ReadInt32();
+		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();
 
@@ -214,7 +215,7 @@ public class Channel
 		for (int i = 0; i < size; ++i)
 		{
 			RFC rfc = new RFC();
-			rfc.id = reader.ReadInt32();
+			rfc.id = reader.ReadUInt32();
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 			rfc.buffer = b;
@@ -226,8 +227,8 @@ public class Channel
 		for (int i = 0; i < size; ++i)
 		{
 			CreatedObject co = new CreatedObject();
-			co.uniqueID = reader.ReadInt32();
-			co.objectID = reader.ReadInt16();
+			co.uniqueID = reader.ReadUInt32();
+			co.objectID = reader.ReadUInt16();
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 			co.buffer = b;
@@ -235,7 +236,7 @@ public class Channel
 		}
 
 		size = reader.ReadInt32();
-		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadInt32());
+		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadUInt32());
 	}
 }
 }

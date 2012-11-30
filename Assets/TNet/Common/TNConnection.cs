@@ -284,7 +284,7 @@ public class Connection
 				if (available == mExpected)
 				{
 					// Reset the position to the beginning of the packet
-					mReceiveBuffer.BeginReading(mOffset + 4);
+					mReceiveBuffer.BeginReading(mOffset += 4);
 
 					// This packet is now ready to be processed
 					lock (mIn) mIn.Enqueue(mReceiveBuffer);
@@ -297,9 +297,9 @@ public class Connection
 				else if (available > mExpected)
 				{
 					// There is more than one packet. Extract this packet fully.
-					int realPacketSize = mExpected + 4;
+					int realSize = mExpected + 4;
 					Buffer temp = Buffer.Create();
-					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realPacketSize);
+					temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realSize);
 
 					// Reset the position to the beginning of the packet
 					temp.BeginReading(4);
@@ -309,7 +309,7 @@ public class Connection
 
 					// Skip this packet
 					available -= mExpected;
-					mOffset += realPacketSize;
+					mOffset += realSize;
 					mExpected = 0;
 				}
 				else break;

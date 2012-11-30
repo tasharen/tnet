@@ -82,7 +82,7 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified buffered function.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// string: Function Name (only if RFC ID is 0).
 	/// </summary>
 
@@ -90,7 +90,7 @@ public enum Packet
 
 	/// <summary>
 	/// Instantiate a new object with the specified identifier.
-	/// int16: Index of the object being created (within a static list of prefabs on the client).
+	/// ushort: Index of the object being created (within a static list of prefabs on the client).
 	/// byte: 1 if a new Object ID is requested, 0 otherwise.
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
@@ -99,7 +99,7 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified Network Object.
-	/// int32: Object ID.
+	/// uint32: Object ID.
 	/// </summary>
 
 	RequestDestroy,
@@ -213,8 +213,8 @@ public enum Packet
 
 	/// <summary>
 	/// Create a new persistent entry.
-	/// int16: Index of the object being created (within a static list of prefabs on the client).
-	/// int32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
+	/// ushort: Index of the object being created (within a static list of prefabs on the client).
+	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
@@ -222,8 +222,8 @@ public enum Packet
 
 	/// <summary>
 	/// Delete the specified Unique Identifier and its associated entry.
-	/// int16: Number of objects that will follow.
-	/// int32[] Unique Identifiers (aka Object IDs).
+	/// ushort: Number of objects that will follow.
+	/// uint32[] Unique Identifiers (aka Object IDs).
 	/// </summary>
 
 	ResponseDestroy,

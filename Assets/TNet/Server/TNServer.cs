@@ -836,7 +836,7 @@ public class Server
 				ServerPlayer targetPlayer = GetPlayer(reader.ReadInt32());
 
 				// Save this function call
-				int target = reader.ReadInt32();
+				uint target = reader.ReadUInt32();
 				string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
 				buffer.position = origin;
 				player.channel.CreateRFC(target, funcName, buffer);
@@ -855,15 +855,10 @@ public class Server
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
 
-				if (origin < 0)
-				{
-					Console.WriteLine("Wtf?");
-				}
-
 				// If the request should be saved, let's do so
 				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 				{
-					int target = reader.ReadInt32();
+					uint target = reader.ReadUInt32();
 					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
 					buffer.position = origin;
 					player.channel.CreateRFC(target, funcName, buffer);
@@ -892,17 +887,17 @@ public class Server
 			case Packet.RequestCreate:
 			{
 				// Create a new object
-				short objectIndex = reader.ReadInt16();
+				ushort objectIndex = reader.ReadUInt16();
 
 				// Dynamically created Network Object IDs should always start out being negative
-				int uniqueID = 0;
+				uint uniqueID = 0;
 
 				if (reader.ReadByte() != 0)
 				{
 					uniqueID = --player.channel.objectCounter;
 
 					// 24 bit precision
-					if (uniqueID < -0xFFFFFF)
+					if (uniqueID < 32767)
 					{
 						player.channel.objectCounter = 0xFFFFFF;
 						uniqueID = 0xFFFFFF;
@@ -935,39 +930,39 @@ public class Server
 			case Packet.RequestDestroy:
 			{
 				// Destroy the specified network object
-				int uniqueID = reader.ReadInt32();
+				uint uniqueID = reader.ReadUInt32();
 
-				if (!player.channel.destroyed.Contains(uniqueID))
+				// If this object has already been destroyed, ignore this packet
+				if (player.channel.destroyed.Contains(uniqueID)) break;
+				bool wasCreated = false;
+
+				// Determine if we created this object earlier
+				for (int i = 0; i < player.channel.created.size; ++i)
 				{
-					bool wasCreated = false;
-
-					// Determine if we created this object earlier
-					for (int i = 0; i < player.channel.created.size; ++i)
+					Channel.CreatedObject obj = player.channel.created[i];
+					
+					if (obj.uniqueID == uniqueID)
 					{
-						Channel.CreatedObject obj = player.channel.created[i];
-						
-						if (obj.uniqueID == uniqueID)
-						{
-							// Remove it
-							if (obj.buffer != null) obj.buffer.Recycle();
-							player.channel.created.RemoveAt(i);
-							wasCreated = true;
-							break;
-						}
+						// Remove it
+						if (obj.buffer != null) obj.buffer.Recycle();
+						player.channel.created.RemoveAt(i);
+						wasCreated = true;
+						break;
 					}
-
-					// If the object was not created dynamically, we should remember it
-					if (!wasCreated) player.channel.destroyed.Add(uniqueID);
-
-					// Remove all RFCs associated with this object
-					player.channel.DeleteObjectRFCs(uniqueID);
-
-					// Inform all players in the channel that the object should be destroyed
-					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
-					writer.Write((short)1);
-					writer.Write(uniqueID);
-					EndSend(player.channel, null);
 				}
+
+				// If the object was not created dynamically, we should remember it
+				if (!wasCreated)
+					player.channel.destroyed.Add(uniqueID);
+
+				// Remove all RFCs associated with this object
+				player.channel.DeleteObjectRFCs(uniqueID);
+
+				// Inform all players in the channel that the object should be destroyed
+				BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+				writer.Write((ushort)1);
+				writer.Write(uniqueID);
+				EndSend(player.channel, null);
 				break;
 			}
 			case Packet.RequestLoadLevel:
@@ -1007,7 +1002,7 @@ public class Server
 			}
 			case Packet.RequestRemoveRFC:
 			{
-				int id = reader.ReadInt32();
+				uint id = reader.ReadUInt32();
 				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
 				player.channel.DeleteRFC(id, funcName);
 				break;

@@ -223,7 +223,7 @@ public class TNManager : MonoBehaviour
 				if (mInstance.mClient.isConnected)
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-					writer.Write((short)index);
+					writer.Write((ushort)index);
 					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
 					writer.Write((byte)0);
 					mInstance.mClient.EndSend();
@@ -254,7 +254,7 @@ public class TNManager : MonoBehaviour
 				if (mInstance.mClient.isConnected)
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-					writer.Write((short)index);
+					writer.Write((ushort)index);
 					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
 					writer.Write((byte)1);
 					writer.Write(pos.x);
@@ -367,7 +367,7 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new object being created.
 	/// </summary>
 
-	void OnCreateObject (int objectID, int objID, BinaryReader reader)
+	void OnCreateObject (int index, uint objectID, BinaryReader reader)
 	{
 		GameObject go = null;
 
@@ -378,20 +378,20 @@ public class TNManager : MonoBehaviour
 			Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 			Quaternion rot = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
 				reader.ReadSingle(), reader.ReadSingle());
-			go = Instantiate(objects[objectID], pos, rot) as GameObject;
+			go = Instantiate(objects[index], pos, rot) as GameObject;
 		}
 		else
 		{
-			go = Instantiate(objects[objectID]) as GameObject;
+			go = Instantiate(objects[index]) as GameObject;
 		}
 		
-		if (go != null && objID != 0)
+		if (go != null && objectID != 0)
 		{
 			TNObject obj = go.GetComponent<TNObject>();
 
 			if (obj != null)
 			{
-				obj.id = objID;
+				obj.id = (int)objectID;
 				obj.Register();
 			}
 			else
@@ -405,7 +405,7 @@ public class TNManager : MonoBehaviour
 	/// Notification of a network object being destroyed.
 	/// </summary>
 
-	void OnDestroyObject (int objID)
+	void OnDestroyObject (uint objID)
 	{
 		TNObject obj = TNObject.Find(objID);
 		if (obj) GameObject.Destroy(obj.gameObject);
@@ -417,9 +417,9 @@ public class TNManager : MonoBehaviour
 
 	void OnForwardedPacket (BinaryReader reader)
 	{
-		int val = reader.ReadInt32();
-		int objID = (val >> 8);
-		int funcID = (val & 0xFF);
+		uint val = reader.ReadUInt32();
+		uint objID = (val >> 8);
+		byte funcID = (byte)(val & 0xFF);
 
 		if (funcID == 0)
 		{

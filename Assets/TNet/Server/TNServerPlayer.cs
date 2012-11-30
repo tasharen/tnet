@@ -99,9 +99,9 @@ public class ServerPlayer : Connection
 		if (channel.destroyed.size != 0)
 		{
 			buffer.BeginPacket(Packet.ResponseDestroy, offset);
-			writer.Write((short)channel.destroyed.size);
+			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
-				writer.Write((short)channel.destroyed.buffer[i]);
+				writer.Write(channel.destroyed.buffer[i]);
 			offset = buffer.EndPacket(offset);
 		}
 

@@ -24,8 +24,8 @@ public class TNObject : MonoBehaviour
 
 	class DelayedCall
 	{
-		public int objID;
-		public int funcID;
+		public uint objID;
+		public byte funcID;
 		public string funcName;
 		public object[] parameters;
 	}
@@ -38,7 +38,7 @@ public class TNObject : MonoBehaviour
 
 	struct CachedRFC
 	{
-		public int id;
+		public byte rfcID;
 		public object obj;
 		public MethodInfo func;
 	}
@@ -47,14 +47,15 @@ public class TNObject : MonoBehaviour
 	static List<TNObject> mList = new List<TNObject>();
 
 	// List of network objs to quickly look up
-	static System.Collections.Generic.Dictionary<int, TNObject> mDictionary =
-		new System.Collections.Generic.Dictionary<int, TNObject>();
+	static System.Collections.Generic.Dictionary<uint, TNObject> mDictionary =
+		new System.Collections.Generic.Dictionary<uint, TNObject>();
 
 	// List of delayed calls -- calls that could not execute at the time of the call
 	static List<DelayedCall> mDelayed = new List<DelayedCall>();
 
 	/// <summary>
 	/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
+	/// The ID is supposed to be a 'uint', but Unity is not able to serialize 'uint' types. Sigh.
 	/// </summary>
 
 	public int id = 0;
@@ -75,7 +76,7 @@ public class TNObject : MonoBehaviour
 	/// Retrieve the Tasharen Network Object by ID.
 	/// </summary>
 
-	static public TNObject Find (int tnID)
+	static public TNObject Find (uint tnID)
 	{
 		if (mDictionary == null) return null;
 		TNObject tno = null;
@@ -114,7 +115,7 @@ public class TNObject : MonoBehaviour
 		for (int i = 0, imax = tns.Length; i < imax; ++i)
 		{
 			TNObject ts = tns[i];
-			if (ts != null) mLastID = Mathf.Max(ts.id, mLastID);
+			if (ts != null && ts.id > mLastID) mLastID = ts.id;
 		}
 		return ++mLastID;
 	}
@@ -125,13 +126,23 @@ public class TNObject : MonoBehaviour
 
 	void UniqueCheck ()
 	{
-		if (id == 0 || Find(id) != null)
+		TNObject tobj = Find((uint)id);
+
+		if (id == 0 || tobj != null)
 		{
 			if (Application.isPlaying && TNManager.isConnected)
 			{
-				Debug.LogError("Network ID " + id + " is already in use by " +
-					GetHierarchy(Find(id).gameObject) +
-					".\nPlease make sure that the network IDs are unique.", this);
+				if (tobj != null)
+				{
+					Debug.LogError("Network ID " + id + " is already in use by " +
+						GetHierarchy(tobj.gameObject) +
+						".\nPlease make sure that the network IDs are unique.", this);
+				}
+				else
+				{
+					Debug.LogError("Network ID of 0 is used by " + GetHierarchy(gameObject) +
+						"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
+				}
 			}
 			id = GetUniqueID();
 		}
@@ -175,7 +186,7 @@ public class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 			UniqueCheck();
 #endif
-			mDictionary[id] = this;
+			mDictionary[(uint)id] = this;
 			mList.Add(this);
 			mIsRegistered = true;
 		}
@@ -189,7 +200,7 @@ public class TNObject : MonoBehaviour
 	{
 		if (mIsRegistered)
 		{
-			if (mDictionary != null) mDictionary.Remove(id);
+			if (mDictionary != null) mDictionary.Remove((uint)id);
 			if (mList != null) mList.Remove(this);
 			mIsRegistered = false;
 		}
@@ -199,7 +210,7 @@ public class TNObject : MonoBehaviour
 	/// Invoke the function specified by the ID.
 	/// </summary>
 
-	public bool Execute (int funcID, params object[] parameters)
+	public bool Execute (byte funcID, params object[] parameters)
 	{
 		if (rebuildMethodList) RebuildMethodList();
 
@@ -209,7 +220,7 @@ public class TNObject : MonoBehaviour
 		{
 			CachedRFC ent = mRFCs[i];
 
-			if (ent.id == funcID)
+			if (ent.rfcID == funcID)
 			{
 				retVal = true;
 				ent.func.Invoke(ent.obj, parameters);
@@ -245,7 +256,7 @@ public class TNObject : MonoBehaviour
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 	/// </summary>
 
-	static public void FindAndExecute (int objID, int funcID, params object[] parameters)
+	static public void FindAndExecute (uint objID, byte funcID, params object[] parameters)
 	{
 		TNObject obj = TNObject.Find(objID);
 
@@ -267,7 +278,7 @@ public class TNObject : MonoBehaviour
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 	/// </summary>
 
-	static public void FindAndExecute (int objID, string funcName, params object[] parameters)
+	static public void FindAndExecute (uint objID, string funcName, params object[] parameters)
 	{
 		TNObject obj = TNObject.Find(objID);
 
@@ -314,7 +325,7 @@ public class TNObject : MonoBehaviour
 					ent.func = methods[b];
 
 					RFC tnc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
-					ent.id = tnc.id;
+					ent.rfcID = tnc.id;
 					mRFCs.Add(ent);
 				}
 			}
@@ -325,43 +336,55 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Target target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+	public void Send (byte rfcID, Target target, params object[] objs)
+	{
+		SendRFC((uint)id, rfcID, null, target, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Target target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+	public void Send (string rfcName, Target target, params object[] objs)
+	{
+		SendRFC((uint)id, 0, rfcName, target, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, ClientPlayer target, params object[] objs) { SendRFC(id, rfcID, null, target, objs); }
+	public void Send (byte rfcID, ClientPlayer target, params object[] objs)
+	{
+		SendRFC((uint)id, rfcID, null, target, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, ClientPlayer target, params object[] objs) { SendRFC(id, 0, rfcName, target, objs); }
+	public void Send (string rfcName, ClientPlayer target, params object[] objs)
+	{
+		SendRFC((uint)id, 0, rfcName, target, objs);
+	}
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (string rfcName) { RemoveSavedRFC(id, 0, rfcName); }
+	public void Remove (string rfcName) { RemoveSavedRFC((uint)id, 0, rfcName); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (byte rfcID) { RemoveSavedRFC(id, rfcID, null); }
+	public void Remove (byte rfcID) { RemoveSavedRFC((uint)id, rfcID, null); }
 
 	/// <summary>
 	/// Send a new RFC call to the specified target.
 	/// </summary>
 
-	static void SendRFC (int objID, byte rfcID, string rfcName, Target target, params object[] objs)
+	static void SendRFC (uint objID, byte rfcID, string rfcName, Target target, params object[] objs)
 	{
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
@@ -392,7 +415,7 @@ public class TNObject : MonoBehaviour
 	/// Send a new remote function call to the specified player.
 	/// </summary>
 
-	static void SendRFC (int objID, byte rfcID, string rfcName, ClientPlayer target, params object[] objs)
+	static void SendRFC (uint objID, byte rfcID, string rfcName, ClientPlayer target, params object[] objs)
 	{
 		if (TNManager.isConnected)
 		{
@@ -409,7 +432,7 @@ public class TNObject : MonoBehaviour
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	static void RemoveSavedRFC (int objID, byte rfcID, string funcName)
+	static void RemoveSavedRFC (uint objID, byte rfcID, string funcName)
 	{
 		if (TNManager.isConnected)
 		{

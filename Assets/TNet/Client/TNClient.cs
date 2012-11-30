@@ -34,8 +34,8 @@ public class Client : Connection
 	public delegate void OnPlayerLeft (ClientPlayer p);
 	public delegate void OnSetHost (bool hosting);
 	public delegate void OnRenamePlayer (ClientPlayer p, string previous);
-	public delegate void OnCreate (int objectID, int objID, BinaryReader reader);
-	public delegate void OnDestroy (int objID);
+	public delegate void OnCreate (int index, uint objID, BinaryReader reader);
+	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
 
 	/// <summary>
@@ -516,7 +516,7 @@ public class Client : Connection
 					if (onCreate != null)
 					{
 						short index = reader.ReadInt16();
-						int objID = reader.ReadInt32();
+						uint objID = reader.ReadUInt32();
 						onCreate(index, objID, reader);
 					}
 					break;
@@ -525,8 +525,8 @@ public class Client : Connection
 				{
 					if (onDestroy != null)
 					{
-						int count = reader.ReadInt16();
-						for (int i = 0; i < count; ++i) onDestroy(reader.ReadInt32());
+						int count = reader.ReadUInt16();
+						for (int i = 0; i < count; ++i) onDestroy(reader.ReadUInt32());
 					}
 					break;
 				}
