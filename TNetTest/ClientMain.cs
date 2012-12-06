@@ -120,12 +120,12 @@ public class ClientMain
 		Console.WriteLine(previous + " is now known as " + p.name);
 	}
 
-	static void OnCreateObject (int objectID, int objID, BinaryReader reader)
+	static void OnCreateObject (int objectID, uint objID, BinaryReader reader)
 	{
 		Console.WriteLine("Create " + objectID + " " + objID);
 	}
 
-	static void OnDestroyObject (int objID)
+	static void OnDestroyObject (uint objID)
 	{
 		Console.WriteLine("Destroy " + objID);
 	}

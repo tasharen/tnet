@@ -3,6 +3,8 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
+#if !UNITY_WEBPLAYER
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -1025,3 +1027,4 @@ public class Server
 	}
 }
 }
+#endif
