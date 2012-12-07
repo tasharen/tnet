@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -15,6 +15,7 @@ using TNet;
 /// </summary>
 
 [ExecuteInEditMode]
+[AddComponentMenu("TNet/Network Object")]
 public class TNObject : MonoBehaviour
 {
 	/// <summary>

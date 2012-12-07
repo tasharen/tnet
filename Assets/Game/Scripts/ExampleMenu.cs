@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright ï¿½ 2012 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -59,7 +59,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void ShowConnectMenu ()
 	{
-		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 60f, 200f, 170f);
+		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 100f, 200f, 300f);
 
 		GUILayout.BeginArea(rect);
 		{
@@ -73,6 +73,30 @@ public class ExampleMenu : MonoBehaviour
 				TNManager.Connect(address, port);
 				mError = "Connecting...";
 			}
+
+			GUILayout.Space(30f);
+
+			if (TNServerInstance.isActive)
+			{
+				GUI.backgroundColor = Color.red;
+
+				if (GUILayout.Button("Stop the Server", GUILayout.Height(30f)))
+				{
+					// Stop the server, saving all the data
+					TNServerInstance.Stop("server.dat");
+				}
+			}
+			else
+			{
+				GUI.backgroundColor = Color.green;
+
+				if (GUILayout.Button("Start the Server", GUILayout.Height(30f)))
+				{
+					// Start the server, loading the saved data if possible
+					TNServerInstance.Start(port, "server.dat");
+				}
+			}
+			GUI.backgroundColor = Color.white;
 
 			if (!string.IsNullOrEmpty(mError))
 			{

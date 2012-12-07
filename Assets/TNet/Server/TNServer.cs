@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -59,6 +59,18 @@ public class Server
 	Thread mThread;
 
 	/// <summary>
+	/// Whether the server is currently actively serving players.
+	/// </summary>
+
+	public bool isActive { get { return mThread != null; } }
+
+	/// <summary>
+	/// Whether the server is listening for incoming connections.
+	/// </summary>
+
+	public bool isListening { get { return mListener != null; } }
+
+	/// <summary>
 	/// Start listening to incoming connections on the specified port.
 	/// </summary>
 
@@ -95,6 +107,9 @@ public class Server
 
 	public void Stop ()
 	{
+		// Stop listening to incoming connections
+		MakePrivate();
+
 		// Stop the worker thread
 		if (mThread != null)
 		{
@@ -102,15 +117,21 @@ public class Server
 			mThread = null;
 		}
 
-		// Stop listening to incoming connections
+		// Remove all connected players
+		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
+	}
+
+	/// <summary>
+	/// Stop listening to incoming connections but keep the server running.
+	/// </summary>
+
+	public void MakePrivate ()
+	{
 		if (mListener != null)
 		{
 			mListener.Stop();
 			mListener = null;
 		}
-
-		// Remove all connected players
-		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
 	}
 
 	/// <summary>
@@ -376,6 +397,7 @@ public class Server
 	public void SaveTo (string fileName)
 	{
 #if !UNITY_WEB_PLAYER
+		if (mListener == null) return;
 		fileName = CleanupFilename(fileName);
 		FileStream stream;
 
