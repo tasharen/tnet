@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using TNet;
+using System.IO;
 
 /// <summary>
 /// Tasharen Network server tailored for Unity.
@@ -34,6 +35,12 @@ public class TNServerInstance : MonoBehaviour
 			return mInstance;
 		}
 	}
+
+	/// <summary>
+	/// Server name is static and always available.
+	/// </summary>
+
+	static public string serverName = "Server";
 
 	/// <summary>
 	/// Whether the server instance is currently active.
@@ -109,4 +116,13 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public void MakePrivate () { if (mInstance != null) mInstance.mServer.MakePrivate(); }
+
+	/// <summary>
+	/// Overwrite this function with whatever you wish to send with your broadcasts.
+	/// </summary>
+
+	virtual protected void OnBroadcast (BinaryWriter writer)
+	{
+		writer.Write(localAddress);
+	}
 }

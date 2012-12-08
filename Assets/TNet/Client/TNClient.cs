@@ -16,24 +16,18 @@ namespace TNet
 /// Client-side logic.
 /// </summary>
 
-public class Client : Connection
+public class Client
 {
-	/// <summary>
-	/// Client protocol version. Must match the server.
-	/// </summary>
-
-	public const int version = 1;
-
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
 	public delegate void OnDisconnect ();
 	public delegate void OnJoinChannel (bool success, string message);
 	public delegate void OnLeftChannel ();
 	public delegate void OnLoadLevel (string levelName);
-	public delegate void OnPlayerJoined (ClientPlayer p);
-	public delegate void OnPlayerLeft (ClientPlayer p);
+	public delegate void OnPlayerJoined (Player p);
+	public delegate void OnPlayerLeft (Player p);
 	public delegate void OnSetHost (bool hosting);
-	public delegate void OnRenamePlayer (ClientPlayer p, string previous);
+	public delegate void OnRenamePlayer (Player p, string previous);
 	public delegate void OnCreate (int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
@@ -117,15 +111,6 @@ public class Client : Connection
 
 	public OnForwardedPacket onForwardedPacket;
 
-	/// <summary>
-	/// List of players in the same channel as the client.
-	/// </summary>
-
-	public List<ClientPlayer> players = new List<ClientPlayer>();
-
-	// Same list of players, but in a dictionary format for quick lookup
-	Dictionary<int, ClientPlayer> mDictionary = new Dictionary<int, ClientPlayer>();
-
 	enum Stage
 	{
 		Disconnected,
@@ -137,6 +122,21 @@ public class Client : Connection
 	// Current connection stage
 	Stage mStage = Stage.Disconnected;
 
+	/// <summary>
+	/// List of players in the same channel as the client.
+	/// </summary>
+
+	public List<Player> players = new List<Player>();
+
+	// Same list of players, but in a dictionary format for quick lookup
+	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
+
+	// TCP connection is used for communication with the server.
+	TcpTool mTcp = new TcpTool();
+
+	// UDP can be used for communication with everyone on the same LAN. For example: local server discovery.
+	UdpTool mUdp = new UdpTool();
+
 	// ID of the host
 	int mHost = 0;
 
@@ -147,38 +147,47 @@ public class Client : Connection
 	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
-	Buffer mBuffer;
-	ClientPlayer mPlayer = new ClientPlayer("Guest");
+	string mLastAddress;
+
+	// Temporary, not important
+	static Buffer mBuffer;
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
-	new public bool isConnected { get { return mStage == Stage.Connected; } }
+	public bool isConnected { get { return mStage == Stage.Connected; } }
 
 	/// <summary>
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return !isConnected || (mHost == mPlayer.id) && (players.size > 0); } }
+	public bool isHosting { get { return !mTcp.isConnected || (mHost == mTcp.id) && (players.size > 0); } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return !isConnected || players.size > 0; } }
+	public bool isInChannel { get { return !mTcp.isConnected || players.size > 0; } }
 
 	/// <summary>
 	/// Current ping to the server.
 	/// </summary>
 
-	public int ping { get { return mStage == Stage.Connected ? mPing : 0; } }
+	public int ping { get { return isConnected ? mPing : 0; } }
+
+	/// <summary>
+	/// Last address to broadcast the packet. Set when processing the packet. If null, then the packet arrived via the active connection (TCP).
+	/// If the return value is not null, then the last packet arrived via a LAN broadcast (UDP).
+	/// </summary>
+
+	public string lastAddress { get { return mLastAddress; } }
 
 	/// <summary>
 	/// The player's unique identifier.
 	/// </summary>
 
-	public int playerID { get { return mPlayer.id; } }
+	public int playerID { get { return mTcp.id; } }
 
 	/// <summary>
 	/// Name of this player.
@@ -188,13 +197,13 @@ public class Client : Connection
 	{
 		get
 		{
-			return mPlayer.name;
+			return mTcp.name;
 		}
 		set
 		{
-			if (mPlayer.name != value)
+			if (mTcp.name != value)
 			{
-				mPlayer.name = value;
+				mTcp.name = value;
 
 				if (isConnected)
 				{
@@ -210,15 +219,15 @@ public class Client : Connection
 	/// Retrieve a player by their ID.
 	/// </summary>
 
-	public ClientPlayer GetPlayer (int id)
+	public Player GetPlayer (int id)
 	{
 		if (isConnected)
 		{
-			ClientPlayer player = null;
+			Player player = null;
 			mDictionary.TryGetValue(id, out player);
 			return player;
 		}
-		return (mPlayer.id == id) ? mPlayer : null;
+		return (mTcp.id == id) ? mTcp : null;
 	}
 
 	/// <summary>
@@ -227,7 +236,6 @@ public class Client : Connection
 
 	public BinaryWriter BeginSend (Packet type)
 	{
-		//Console.WriteLine("Sending " + type);
 		mBuffer = Buffer.Create(false);
 		return mBuffer.BeginPacket(type);
 	}
@@ -238,19 +246,30 @@ public class Client : Connection
 
 	public BinaryWriter BeginSend (byte packetID)
 	{
-		//Console.WriteLine("Sending " + packetID);
 		mBuffer = Buffer.Create(false);
 		return mBuffer.BeginPacket(packetID);
 	}
 
 	/// <summary>
-	/// Send the outgoing buffer to the specified player.
+	/// Send the outgoing buffer.
 	/// </summary>
 
 	public void EndSend ()
 	{
 		mBuffer.EndPacket();
-		SendPacket(mBuffer);
+		mTcp.SendPacket(mBuffer);
+		mBuffer = null;
+	}
+
+	/// <summary>
+	/// Broadcast the outgoing buffer to the entire LAN via UDP.
+	/// </summary>
+
+	public void EndSend (int port)
+	{
+		mBuffer.EndPacket();
+		mUdp.Send(port, mBuffer);
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -260,51 +279,46 @@ public class Client : Connection
 
 	public void Connect (string addr, int port)
 	{
-		Disconnect();
-
-		IPAddress destination = null;
-
-		if (!IPAddress.TryParse(addr, out destination))
-		{
-			IPAddress[] ips = Dns.GetHostAddresses(addr);
-			if (ips.Length > 0) destination = ips[0];
-		}
-
 		mStage = Stage.Connecting;
-		address = addr + ":" + port;
-		socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		socket.BeginConnect(destination, port, OnConnectResult, socket);
+		mTcp.Connect(addr, port, OnConnectResult);
 	}
+
+	/// <summary>
+	/// Disconnect from the server.
+	/// </summary>
+
+	public void Disconnect () { mTcp.Disconnect(); }
 
 	/// <summary>
 	/// Connection attempt result.
 	/// </summary>
 
-	void OnConnectResult (IAsyncResult result)
+	void OnConnectResult (bool success)
 	{
-		Socket sock = (Socket)result.AsyncState;
-
-		try
+		if (success)
 		{
-			sock.EndConnect(result);
-		}
-		catch (System.Exception ex)
-		{
-			Error(ex.Message);
-			Close(false);
-			return;
-		}
+			mStage = Stage.Verifying;
 
-		// We can now receive data
-		mStage = Stage.Verifying;
-		StartReceiving();
-
-		// Request a player ID
-		BinaryWriter writer = BeginSend(Packet.RequestID);
-		writer.Write(version);
-		writer.Write(playerName);
-		EndSend();
+			// Request a player ID
+			BinaryWriter writer = BeginSend(Packet.RequestID);
+			writer.Write(Player.version);
+			writer.Write(mTcp.name);
+			EndSend();
+		}
+		else mStage = Stage.Disconnected;
 	}
+
+	/// <summary>
+	/// Start listening to LAN broadcasts incoming on the specified port.
+	/// </summary>
+
+	public bool Start (int port) { return mUdp.Start(port); }
+
+	/// <summary>
+	/// Stop listening to incoming broadcasts.
+	/// </summary>
+
+	public void Stop () { mUdp.Stop(); }
 
 	/// <summary>
 	/// Join the specified channel.
@@ -357,7 +371,7 @@ public class Client : Connection
 	/// Change the hosting player.
 	/// </summary>
 
-	public void SetHost (ClientPlayer player)
+	public void SetHost (Player player)
 	{
 		if (isConnected && isHosting)
 		{
@@ -388,8 +402,17 @@ public class Client : Connection
 		Buffer buffer;
 
 		// Read all incoming packets one at a time
-		while ((buffer = ReceivePacket()) != null)
+		for (;;)
 		{
+			buffer = mTcp.ReceivePacket();
+
+			if (buffer == null)
+			{
+				buffer = mUdp.ReceivePacket(out mLastAddress);
+				if (buffer == null) return;
+			}
+			else mLastAddress = null;
+
 			BinaryReader reader = buffer.BeginReading();
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
@@ -423,9 +446,9 @@ public class Client : Connection
 					if (mStage == Stage.Verifying)
 					{
 						int serverVersion = reader.ReadInt32();
-						mPlayer.id = reader.ReadInt32();
+						mTcp.id = reader.ReadInt32();
 
-						if (serverVersion == version)
+						if (serverVersion == Player.version)
 						{
 							mCanPing = true;
 							mStage = Stage.Connected;
@@ -434,8 +457,8 @@ public class Client : Connection
 						else
 						{
 							if (onConnect != null) onConnect(false, "Version mismatch. Server is running version " + serverVersion +
-								", while you have version " + version);
-							Close(true);
+								", while you have version " + Player.version);
+							mTcp.Close(true);
 						}
 					}
 					break;
@@ -451,7 +474,7 @@ public class Client : Connection
 
 					for (int i = 0; i < count; ++i)
 					{
-						ClientPlayer p = new ClientPlayer();
+						Player p = new Player();
 						p.id = reader.ReadInt32();
 						p.name = reader.ReadString();
 						mDictionary.Add(p.id, p);
@@ -468,7 +491,7 @@ public class Client : Connection
 				}
 				case Packet.ResponsePlayerLeft:
 				{
-					ClientPlayer p = GetPlayer(reader.ReadInt32());
+					Player p = GetPlayer(reader.ReadInt32());
 					if (p != null) mDictionary.Remove(p.id);
 					players.Remove(p);
 					if (onPlayerLeft != null) onPlayerLeft(p);
@@ -476,7 +499,7 @@ public class Client : Connection
 				}
 				case Packet.ResponsePlayerJoined:
 				{
-					ClientPlayer p = new ClientPlayer();
+					Player p = new Player();
 					p.id = reader.ReadInt32();
 					p.name = reader.ReadString();
 					mDictionary.Add(p.id, p);
@@ -505,7 +528,7 @@ public class Client : Connection
 				}
 				case Packet.ResponseRenamePlayer:
 				{
-					ClientPlayer p = GetPlayer(reader.ReadInt32());
+					Player p = GetPlayer(reader.ReadInt32());
 					string oldName = p.name;
 					if (p != null) p.name = reader.ReadString();
 					if (onRenamePlayer != null) onRenamePlayer(p, oldName);

@@ -16,31 +16,13 @@ namespace TNet
 /// Class containing information about connected players.
 /// </summary>
 
-public class ServerPlayer : Connection
+public class ServerPlayer : TcpTool
 {
-	/// <summary>
-	/// Server protocol version. Must match the client.
-	/// </summary>
-
-	public const int version = 1;
-
-	/// <summary>
-	/// Connection ID.
-	/// </summary>
-
-	public int id = 0;
-
 	/// <summary>
 	/// Whether the connection has been verified to use the correct protocol version.
 	/// </summary>
 
 	public bool verified = false;
-
-	/// <summary>
-	/// Player's name.
-	/// </summary>
-
-	public string name;
 
 	/// <summary>
 	/// Channel that the player is currently in.

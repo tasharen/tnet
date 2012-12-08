@@ -15,7 +15,7 @@ namespace TNet
 /// Common network communication-based logic: sending and receiving of data.
 /// </summary>
 
-public class Connection
+public class TcpTool : Player
 {
 	/// <summary>
 	/// Socket that is used for communication.
@@ -35,6 +35,9 @@ public class Connection
 
 	public long timestamp = 0;
 
+	public delegate void OnConnect (bool success);
+	OnConnect mOnConnect;
+
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();
 	Queue<Buffer> mOut = new Queue<Buffer>();
@@ -46,6 +49,9 @@ public class Connection
 	Buffer mReceiveBuffer;
 	int mExpected = 0;
 	int mOffset = 0;
+	
+	// Static as it's temporary
+	static Buffer mBuffer;
 
 	/// <summary>
 	/// Whether the connection is currently active.
@@ -60,10 +66,87 @@ public class Connection
 	public void Disconnect () { if (socket != null) Close(socket.Connected); }
 
 	/// <summary>
+	/// Try to establish a connection with the specified address.
+	/// </summary>
+
+	public void Connect (string addr, int port, OnConnect callback)
+	{
+		Disconnect();
+		mOnConnect = callback;
+
+		IPAddress destination = null;
+
+		if (!IPAddress.TryParse(addr, out destination))
+		{
+			IPAddress[] ips = Dns.GetHostAddresses(addr);
+			if (ips.Length > 0) destination = ips[0];
+		}
+
+		address = addr + ":" + port;
+		socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		socket.BeginConnect(destination, port, OnConnectResult, socket);
+	}
+
+	/// <summary>
+	/// Connection attempt result.
+	/// </summary>
+
+	void OnConnectResult (IAsyncResult result)
+	{
+		Socket sock = (Socket)result.AsyncState;
+
+		try
+		{
+			sock.EndConnect(result);
+		}
+		catch (System.Exception ex)
+		{
+			mOnConnect(false);
+			Error(ex.Message);
+			Close(false);
+			return;
+		}
+
+		mOnConnect(true);
+		StartReceiving();
+	}
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	public BinaryWriter BeginSend (Packet type)
+	{
+		mBuffer = Buffer.Create(false);
+		return mBuffer.BeginPacket(type);
+	}
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	public BinaryWriter BeginSend (byte packetID)
+	{
+		mBuffer = Buffer.Create(false);
+		return mBuffer.BeginPacket(packetID);
+	}
+
+	/// <summary>
+	/// Send the outgoing buffer.
+	/// </summary>
+
+	public void EndSend ()
+	{
+		mBuffer.EndPacket();
+		SendPacket(mBuffer);
+		mBuffer = null;
+	}
+
+	/// <summary>
 	/// Close the connection.
 	/// </summary>
 
-	protected void Close (bool notify)
+	public void Close (bool notify)
 	{
 		if (mReceiveBuffer != null)
 		{
@@ -121,7 +204,7 @@ public class Connection
 	/// Add an error packet to the incoming queue.
 	/// </summary>
 
-	protected void Error (string error)
+	public void Error (string error)
 	{
 		Buffer buff = Buffer.Create();
 		BinaryWriter writer = buff.BeginWriting(false);
@@ -161,7 +244,7 @@ public class Connection
 	/// Send completion callback. Recycles the buffer.
 	/// </summary>
 
-	protected void OnSend (IAsyncResult result)
+	void OnSend (IAsyncResult result)
 	{
 		int bytes;
 		

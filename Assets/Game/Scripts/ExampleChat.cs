@@ -46,7 +46,7 @@ public class ExampleChat : TNBehaviour
 		mName = TNManager.playerName;
 
 		string text = "Players here: ";
-		List<ClientPlayer> players = TNManager.players;
+		List<Player> players = TNManager.players;
 		
 		for (int i = 0; i < players.size; ++i)
 		{
@@ -61,7 +61,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnNetworkPlayerJoined (ClientPlayer p)
+	void OnNetworkPlayerJoined (Player p)
 	{
 		AddToChat(p.name + " has joined the channel.", Color.grey);
 	}
@@ -70,7 +70,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnNetworkPlayerLeft (ClientPlayer p)
+	void OnNetworkPlayerLeft (Player p)
 	{
 		AddToChat(p.name + " has left the channel.", Color.grey);
 	}
@@ -79,7 +79,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a player changing their name.
 	/// </summary>
 
-	void OnNetworkPlayerRenamed (ClientPlayer p, string previous)
+	void OnNetworkPlayerRenamed (Player p, string previous)
 	{
 		AddToChat(previous + " is now known as " + p.name, Color.grey);
 	}
@@ -91,7 +91,7 @@ public class ExampleChat : TNBehaviour
 	[RFC] void OnChat (int playerID, string text)
 	{
 		// Figure out who sent the message and add their name to the text
-		ClientPlayer player = TNManager.GetPlayer(playerID);
+		Player player = TNManager.GetPlayer(playerID);
 		Color color = (player.id == TNManager.playerID) ? Color.green : Color.white;
 		AddToChat("[" + player.name + "]: " + text, color);
 	}

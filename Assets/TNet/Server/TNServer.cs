@@ -59,6 +59,7 @@ public class Server
 	Thread mThread;
 	string mLocalAddress;
 	int mListenerPort = 0;
+	long mTime = 0;
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -70,7 +71,13 @@ public class Server
 	/// Whether the server is listening for incoming connections.
 	/// </summary>
 
-	public bool isListening { get { return mListener != null; } }
+	public bool isListening { get { return (mListener != null); } }
+
+	/// <summary>
+	/// Port used for listening to incoming connections. Set when the server is started.
+	/// </summary>
+
+	public int listeningPort { get { return (mListener != null) ? mListenerPort : 0; } }
 
 	/// <summary>
 	/// How many players are currently connected to the server.
@@ -176,7 +183,7 @@ public class Server
 			}
 
 			bool received = false;
-			long time = DateTime.Now.Ticks / 10000;
+			mTime = DateTime.Now.Ticks / 10000;
 
 			for (int i = 0; i < mPlayers.size; )
 			{
@@ -185,21 +192,21 @@ public class Server
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100; ++b)
 				{
-					if (ReceivePacket(player, time)) received = true;
+					if (ReceivePacket(player, mTime)) received = true;
 					else break;
 				}
 
 				// Time out -- disconnect this player
 				if (player.verified)
 				{
-					if (player.timestamp + 10000 < time)
+					if (player.timestamp + 10000 < mTime)
 					{
 						Console.WriteLine(player.address + " has timed out");
 						RemovePlayer(player);
 						continue;
 					}
 				}
-				else if (player.timestamp + 2000 < time)
+				else if (player.timestamp + 2000 < mTime)
 				{
 					Console.WriteLine(player.address + " has timed out");
 					RemovePlayer(player);

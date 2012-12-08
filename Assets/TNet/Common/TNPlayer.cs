@@ -1,0 +1,39 @@
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
+using System.Net.Sockets;
+using System.IO;
+
+namespace TNet
+{
+/// <summary>
+/// Class containing basic information about a remote player.
+/// </summary>
+
+public class Player
+{
+	/// <summary>
+	/// Protocol version.
+	/// </summary>
+
+	public const int version = 1;
+
+	/// <summary>
+	/// All players have a unique identifier given by the server.
+	/// </summary>
+
+	public int id = 0;
+
+	/// <summary>
+	/// All players have a name that they chose for themselves.
+	/// </summary>
+
+	public string name;
+
+	public Player () { }
+	public Player (string playerName) { name = playerName; }
+}
+}

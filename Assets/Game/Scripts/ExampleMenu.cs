@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using TNet;
+using System.IO;
 
 /// <summary>
 /// This script provides a main menu for all examples.
@@ -22,75 +23,12 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonWidth = 150f;
 	const float buttonHeight = 30f;
 	const int listenPort = 5127;
-	const int announcerServerPort = 5128;
-	const int announcerClientPort = 5129;
 
 	public string address = "127.0.0.1";
-	public bool useAnnouncements = true;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 
 	string mError = "";
-	Announcer mAnnouncerServer = new Announcer();
-	Announcer mAnnouncerClient = new Announcer();
-
-	/// <summary>
-	/// If we want to use announcements, start listening for them in case some server is already active.
-	/// </summary>
-
-	void Start ()
-	{
-		if (useAnnouncements && Application.isPlaying)
-		{
-			mAnnouncerClient.Start(announcerClientPort, true);
-			StartCoroutine(ReceiveServerAnnouncements());
-		}
-	}
-
-	/// <summary>
-	/// Send out periodic server announcements.
-	/// </summary>
-
-	System.Collections.IEnumerator SendServerAnnouncements ()
-	{
-		for (; ; )
-		{
-			if (!TNServerInstance.isActive || !mAnnouncerServer.isActive) break;
-
-			// Write our address into the packet so that the 
-			Buffer buffer = Buffer.Create();
-			string addr = TNServerInstance.localAddress;
-			buffer.BeginPacket().Write(addr);
-			buffer.EndPacket();
-			mAnnouncerServer.Broadcast(buffer, announcerClientPort);
-
-			// Wait a bit so that we aren't spamming the channel
-			yield return new WaitForSeconds(1f);
-		}
-	}
-
-	/// <summary>
-	/// Listen to incoming server announcements.
-	/// </summary>
-
-	System.Collections.IEnumerator ReceiveServerAnnouncements ()
-	{
-		for (; ; )
-		{
-			if (!mAnnouncerClient.isActive) break;
-
-			Buffer buffer = mAnnouncerClient.Receive();
-
-			if (buffer != null)
-			{
-				// Read the server's address that was saved above and copy it into the address field.
-				// TODO: A more elegant solution would be to show a list of known servers instead.
-				address = buffer.BeginReading().ReadString();
-				buffer.Recycle(false);
-			}
-			yield return new WaitForSeconds(0.1f);
-		}
-	}
 
 	/// <summary>
 	/// Show the GUI for the examples.
@@ -145,9 +83,6 @@ public class ExampleMenu : MonoBehaviour
 
 				if (GUILayout.Button("Stop the Server", GUILayout.Height(30f)))
 				{
-					// Don't announce the server anymore
-					mAnnouncerServer.Stop();
-
 					// Stop the server, saving all the data
 					TNServerInstance.Stop("server.dat");
 				}
@@ -160,13 +95,6 @@ public class ExampleMenu : MonoBehaviour
 				{
 					// Start the server, loading the saved data if possible
 					TNServerInstance.Start(listenPort, "server.dat");
-
-					// Let's announce our server periodically to everyone on the network
-					if (useAnnouncements)
-					{
-						mAnnouncerServer.Start(announcerServerPort, true);
-						StartCoroutine(SendServerAnnouncements());
-					}
 				}
 			}
 			GUI.backgroundColor = Color.white;

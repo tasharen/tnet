@@ -3,7 +3,6 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using System;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
@@ -310,7 +309,7 @@ public class TNObject : MonoBehaviour
 		for (int i = 0, imax = mbs.Length; i < imax; ++i)
 		{
 			MonoBehaviour mb = mbs[i];
-			Type type = mb.GetType();
+			System.Type type = mb.GetType();
 
 			MethodInfo[] methods = type.GetMethods(
 				BindingFlags.Public |
@@ -355,7 +354,7 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, ClientPlayer target, params object[] objs)
+	public void Send (byte rfcID, Player target, params object[] objs)
 	{
 		SendRFC((uint)id, rfcID, null, target, objs);
 	}
@@ -364,10 +363,22 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, ClientPlayer target, params object[] objs)
+	public void Send (string rfcName, Player target, params object[] objs)
 	{
 		SendRFC((uint)id, 0, rfcName, target, objs);
 	}
+
+	/// <summary>
+	/// Send a broadcast to the entire LAN. Does not require an active connection.
+	/// </summary>
+
+	public void BroadcastToLAN (byte rfcID, params object[] objs) { BroadcastToLAN((uint)id, rfcID, null, objs); }
+
+	/// <summary>
+	/// Send a broadcast to the entire LAN. Does not require an active connection.
+	/// </summary>
+
+	public void BroadcastToLAN (string rfcName, params object[] objs) { BroadcastToLAN((uint)id, 0, rfcName, objs); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
@@ -416,7 +427,7 @@ public class TNObject : MonoBehaviour
 	/// Send a new remote function call to the specified player.
 	/// </summary>
 
-	static void SendRFC (uint objID, byte rfcID, string rfcName, ClientPlayer target, params object[] objs)
+	static void SendRFC (uint objID, byte rfcID, string rfcName, Player target, params object[] objs)
 	{
 		if (TNManager.isConnected)
 		{
@@ -426,6 +437,24 @@ public class TNObject : MonoBehaviour
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
 			TNManager.EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Broadcast a remote function call to all players on the network.
+	/// </summary>
+
+	static void BroadcastToLAN (uint objID, byte rfcID, string rfcName, params object[] objs)
+	{
+		if (TNServerInstance.isActive)
+		{
+			Buffer buffer = Buffer.Create();
+			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+			writer.Write((objID << 8) | rfcID);
+			if (rfcID == 0) writer.Write(rfcName);
+			Tools.Write(writer, objs);
+			TNManager.EndSend(5128);
+			buffer.Recycle();
 		}
 	}
 

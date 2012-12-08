@@ -13,14 +13,14 @@ using System.Net;
 namespace TNet
 {
 /// <summary>
-/// Announcer class makes it possible to broadcast messages to players on the same network prior to establishing a connection.
-/// TODO: Why not move this logic into client/server? Client will listen for broadcast ID packets. Server will send them.
+/// UDP class makes it possible to broadcast messages to players on the same network prior to establishing a connection.
 /// </summary>
 
-public class Announcer
+public class UdpTool
 {
 	int mPort = 0;
-	Socket mSocket;
+	Socket mSender;
+	Socket mReceiver;
 	Buffer mReceiveBuffer;
 
 	// Buffer used for receiving incoming data
@@ -29,37 +29,25 @@ public class Announcer
 	// Incoming message queue
 	Queue<Buffer> mBuffers = new Queue<Buffer>();
 	EndPoint mAddress = new IPEndPoint(IPAddress.Any, 0);
+	Buffer mBuffer;
 
 	/// <summary>
 	/// Whether we can send or receive through the announcer.
 	/// </summary>
 
-	public bool isActive { get { return mSocket != null; } }
-
-	/// <summary>
-	/// Add an error packet to the incoming queue.
-	/// </summary>
-
-	void Error (string error)
-	{
-		Buffer buffer = Buffer.Create();
-		BinaryWriter writer = buffer.BeginWriting(false);
-		writer.Write((byte)Packet.Error);
-		writer.Write(error);
-		lock (mBuffers) mBuffers.Enqueue(buffer);
-	}
+	public bool isActive { get { return mReceiver != null; } }
 
 	/// <summary>
 	/// Start listening for incoming messages on the specified port.
 	/// </summary>
 
-	public bool Start (int port, bool canReceive)
+	public bool Start (int port)
 	{
 		Stop();
 
 		mPort = port;
-		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		mReceiver = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+		mReceiver.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 			
 		if (port != 0)
 		{
@@ -67,12 +55,11 @@ public class Announcer
 
 			try
 			{
-				mSocket.Bind(endPoint);
-				if (canReceive) mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
+				mReceiver.Bind(endPoint);
+				mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex.Message);
 				UnityEngine.Debug.Log(ex.Message);
 				return false;
 			}
@@ -86,10 +73,10 @@ public class Announcer
 
 	public void Stop ()
 	{
-		if (mSocket != null)
+		if (mReceiver != null)
 		{
-			mSocket.Close();
-			mSocket = null;
+			mReceiver.Close();
+			mReceiver = null;
 		}
 		Buffer.Recycle(mBuffers);
 	}
@@ -104,7 +91,8 @@ public class Announcer
 
 		try
 		{
-			bytes = mSocket.EndReceiveFrom(result, ref mAddress);
+			bytes = mReceiver.EndReceiveFrom(result, ref mAddress);
+			//UnityEngine.Debug.Log(((IPEndPoint)mAddress).Address.ToString());
 		}
 		catch (System.Exception)
 		{
@@ -112,19 +100,20 @@ public class Announcer
 			return;
 		}
 
-		if (bytes > 0)
+		if (bytes > 4)
 		{
-			// Read the packet and skip past its size. Note that it would be safer to buffer it like TNet.Connection does,
-			// but UDP packets are generally short and unimportant, so in this case we don't really care.
-
+			// Read the packet. UDP packets always arrive whole. They don't get fragmented like TCP.
 			Buffer buffer = Buffer.Create();
-			buffer.BeginWriting(false).Write(mTemp, 0, bytes);
+			BinaryWriter writer = buffer.BeginWriting(false);
+
+			IPEndPoint ip = (IPEndPoint)mAddress;
+			writer.Write(ip.Address.ToString() + ":" + ip.Port);
+			writer.Write(mTemp, 0, bytes);
 			buffer.BeginReading();
-			buffer.position = 4;
 			lock (mBuffers) mBuffers.Enqueue(buffer);
 
 			// Queue up the next receive operation
-			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
+			mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
 		}
 	}
 
@@ -132,25 +121,63 @@ public class Announcer
 	/// Extract the first incoming packet.
 	/// </summary>
 
-	public Buffer Receive ()
+	public Buffer ReceivePacket (out string address)
 	{
-		if (mBuffers.Count == 0) return null;
-		lock (mBuffers) return mBuffers.Dequeue();
+		if (mBuffers.Count != 0)
+		{
+			Buffer buffer;
+			lock (mBuffers) buffer = mBuffers.Dequeue();
+
+			if (buffer != null)
+			{
+				BinaryReader reader = buffer.BeginReading();
+				address = reader.ReadString();
+				reader.ReadInt32(); // Skip past the packet's size
+				return buffer;
+			}
+		}
+		address = null;
+		return null;
 	}
 
 	/// <summary>
-	/// Send the specified packet to everyone listening to the specified port on the network.
+	/// Begin the broadcast operation.
 	/// </summary>
 
-	public void Broadcast (Buffer buffer, int port)
+	public BinaryWriter BeginSend (Packet packet)
 	{
-		if (mSocket != null)
+		mBuffer = Buffer.Create();
+		return mBuffer.BeginPacket(packet);
+	}
+
+	/// <summary>
+	/// Finish the broadcast operation and send the accumulated buffer to the entire LAN.
+	/// </summary>
+
+	public void EndSend (int port)
+	{
+		if (mBuffer != null)
 		{
-			buffer.MarkAsUsed();
-			buffer.BeginReading();
-			mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
-			buffer.MarkAsUnused();
+			mBuffer.EndPacket();
+
+			if (mSender == null)
+			{
+				mSender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+				mSender.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+			}
+			mSender.SendTo(mBuffer.buffer, mBuffer.position, mBuffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
+			mBuffer.Recycle();
+			mBuffer = null;
 		}
+	}
+
+	/// <summary>
+	/// Send the specified buffer to the entire LAN.
+	/// </summary>
+
+	public void Send (int port, Buffer buffer)
+	{
+		mSender.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
 	}
 }
 }

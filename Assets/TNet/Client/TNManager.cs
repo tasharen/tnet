@@ -25,13 +25,19 @@ public class TNManager : MonoBehaviour
 	Client mClient = new Client();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
-	static ClientPlayer mPlayer = new ClientPlayer("Guest");
+	static Player mPlayer = new Player("Guest");
 
 	// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
-	static List<ClientPlayer> mPlayers;
+	static List<Player> mPlayers;
 
 	// Instance pointer
 	static TNManager mInstance;
+
+	/// <summary>
+	/// TNet Client used for communication.
+	/// </summary>
+
+	static public Client client { get { return (mInstance != null) ? mInstance.mClient : null; } }
 
 	/// <summary>
 	/// Whether we're currently connected.
@@ -93,7 +99,7 @@ public class TNManager : MonoBehaviour
 	/// List of players in the same channel as the client.
 	/// </summary>
 
-	static public List<ClientPlayer> players
+	static public List<Player> players
 	{
 		get
 		{
@@ -101,7 +107,7 @@ public class TNManager : MonoBehaviour
 			
 			if (mPlayers == null)
 			{
-				mPlayers = new List<ClientPlayer>();
+				mPlayers = new List<Player>();
 				mPlayers.Add(mPlayer);
 			}
 			return mPlayers;
@@ -112,7 +118,7 @@ public class TNManager : MonoBehaviour
 	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
 	/// </summary>
 
-	static public void Broadcast (string methodName, params object[] parameters)
+	static void Broadcast (string methodName, params object[] parameters)
 	{
 		MonoBehaviour[] mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
 
@@ -131,7 +137,7 @@ public class TNManager : MonoBehaviour
 	/// Get the player associated with the specified ID.
 	/// </summary>
 
-	static public ClientPlayer GetPlayer (int id)
+	static public Player GetPlayer (int id)
 	{
 		if (isConnected) return mInstance.mClient.GetPlayer(id);
 		if (id == mPlayer.id) return mPlayer;
@@ -217,7 +223,7 @@ public class TNManager : MonoBehaviour
 	/// Change the hosting player.
 	/// </summary>
 
-	static public void SetHost (ClientPlayer player)
+	static public void SetHost (Player player)
 	{
 		if (mInstance != null) mInstance.mClient.SetHost(player);
 	}
@@ -325,10 +331,16 @@ public class TNManager : MonoBehaviour
 	static public BinaryWriter BeginSend (byte packetID) { return mInstance.mClient.BeginSend(packetID); }
 
 	/// <summary>
-	/// Send the outgoing buffer to the specified player.
+	/// Send the outgoing buffer.
 	/// </summary>
 
 	static public void EndSend () { mInstance.mClient.EndSend(); }
+
+	/// <summary>
+	/// Broadcast the packet to everyone on the LAN.
+	/// </summary>
+
+	static public void EndSend (int port) { mInstance.mClient.EndSend(port); }
 
 #region MonoBehaviour Functions -- it's unlikely that you will need to modify these
 
@@ -502,19 +514,19 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnPlayerJoined (ClientPlayer p) { Broadcast("OnNetworkPlayerJoined", p); }
+	void OnPlayerJoined (Player p) { Broadcast("OnNetworkPlayerJoined", p); }
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnPlayerLeft (ClientPlayer p) { Broadcast("OnNetworkPlayerLeft", p); }
+	void OnPlayerLeft (Player p) { Broadcast("OnNetworkPlayerLeft", p); }
 
 	/// <summary>
 	/// Notification of a player being renamed.
 	/// </summary>
 
-	void OnRenamePlayer (ClientPlayer p, string previous)
+	void OnRenamePlayer (Player p, string previous)
 	{
 		mPlayer.name = p.name;
 		Broadcast("OnNetworkPlayerRenamed", p, previous);
