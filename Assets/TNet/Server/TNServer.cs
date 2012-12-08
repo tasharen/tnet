@@ -57,6 +57,8 @@ public class Server
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
+	string mLocalAddress;
+	int mListenerPort = 0;
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -71,16 +73,40 @@ public class Server
 	public bool isListening { get { return mListener != null; } }
 
 	/// <summary>
+	/// How many players are currently connected to the server.
+	/// </summary>
+
+	public int playerCount { get { return isActive ? mPlayers.size : 0; } }
+
+	/// <summary>
+	/// Server's local address on the network. For example: 192.168.1.10
+	/// </summary>
+
+	public string localAddress
+	{
+		get
+		{
+			if (mLocalAddress == null)
+			{
+				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+				mLocalAddress = ips[0].ToString() + ":" + mListenerPort;
+			}
+			return mLocalAddress;
+		}
+	}
+
+	/// <summary>
 	/// Start listening to incoming connections on the specified port.
 	/// </summary>
 
-	public bool Start (int port)
+	public bool Start (int listenPort)
 	{
 		Stop();
 
 		try
 		{
-			mListener = new TcpListener(IPAddress.Any, port);
+			mListenerPort = listenPort;
+			mListener = new TcpListener(IPAddress.Any, listenPort);
 			mListener.Start(10);
 			//mListener.BeginAcceptSocket(OnAccept, null);
 		}

@@ -152,6 +152,21 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Connect to the specified destination with the address and port specified as "255.255.255.255:255".
+	/// </summary>
+
+	static public void Connect (string address)
+	{
+		if (mInstance != null)
+		{
+			string[] split = address.Split(new char[] { ':' });
+			int port = 5127;
+			if (split.Length > 1) int.TryParse(split[1], out port);
+			Connect(split[0], port);
+		}
+	}
+
+	/// <summary>
 	/// Disconnect from the specified destination.
 	/// </summary>
 

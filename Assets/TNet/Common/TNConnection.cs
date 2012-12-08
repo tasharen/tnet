@@ -57,7 +57,7 @@ public class Connection
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public void Disconnect () { if (socket != null) Close(true); }
+	public void Disconnect () { if (socket != null) Close(socket.Connected); }
 
 	/// <summary>
 	/// Close the connection.
@@ -167,7 +167,7 @@ public class Connection
 		
 		try
 		{
-			bytes = socket.EndSend(result);
+			bytes = (socket.SocketType == SocketType.Dgram) ? socket.EndSendTo(result) : socket.EndSend(result);
 		}
 		catch (System.NullReferenceException)
 		{

@@ -48,6 +48,18 @@ public class TNServerInstance : MonoBehaviour
 	static public bool isListening { get { return (mInstance != null) && mInstance.mServer.isListening; } }
 
 	/// <summary>
+	/// How many players are currently connected to the server.
+	/// </summary>
+
+	static public int playerCount { get { return (mInstance != null) ? mInstance.mServer.playerCount : 0; } }
+
+	/// <summary>
+	/// Server's local address on the network. For example: 192.168.1.10
+	/// </summary>
+
+	static public string localAddress { get { return (mInstance != null) ? mInstance.mServer.localAddress : "0.0.0.0:0"; } }
+
+	/// <summary>
 	/// Start a local server instance listening to the specified port.
 	/// </summary>
 
