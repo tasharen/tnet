@@ -3,8 +3,6 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-#if !UNITY_WEBPLAYER
-
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -224,14 +222,13 @@ public class Server
 
 	protected virtual void Error (ServerPlayer p, string error)
 	{
-		if (p != null)
-		{
-			Console.WriteLine(p.address + " ERROR: " + error);
-		}
-		else
-		{
-			Console.WriteLine("ERROR: " + error);
-		}
+#if UNITY_EDITOR
+		if (p != null) UnityEngine.Debug.LogError(error + " (" + p.address + ")");
+		else UnityEngine.Debug.LogError(error);
+#else
+		if (p != null) Console.WriteLine(p.address + " ERROR: " + error);
+		else Console.WriteLine("ERROR: " + error);
+#endif
 	}
 
 	/// <summary>
@@ -317,7 +314,7 @@ public class Server
 		return false;
 	}
 
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 	/// <summary>
 	/// Clean up the filename, ensuring that there is no funny business going on.
 	/// </summary>
@@ -352,7 +349,7 @@ public class Server
 			fi.data = data;
 			savedFiles.Add(fi);
 		}
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 		try
 		{
 			File.WriteAllBytes(CleanupFilename(fileName), data);
@@ -375,7 +372,7 @@ public class Server
 			FileEntry fi = savedFiles[i];
 			if (fi.fileName == fileName) return fi.data;
 		}
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 		string fn = CleanupFilename(fileName);
 
 		if (File.Exists(fn))
@@ -415,7 +412,7 @@ public class Server
 			if (fi.fileName == fileName)
 			{
 				savedFiles.RemoveAt(i);
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 				File.Delete(CleanupFilename(fileName));
 #endif
 				break;
@@ -429,7 +426,7 @@ public class Server
 
 	public void SaveTo (string fileName)
 	{
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 		if (mListener == null) return;
 		fileName = CleanupFilename(fileName);
 		FileStream stream;
@@ -476,7 +473,7 @@ public class Server
 
 	public bool LoadFrom (string fileName)
 	{
-#if !UNITY_WEB_PLAYER
+#if !UNITY_WEBPLAYER
 		fileName = CleanupFilename(fileName);
 		if (!File.Exists(fileName)) return false;
 
@@ -501,9 +498,9 @@ public class Server
 		catch (System.Exception ex)
 		{
 			Error(null, ex.Message);
-			return false;
 		}
 #endif
+		return false;
 	}
 
 	/// <summary>
@@ -1082,4 +1079,3 @@ public class Server
 	}
 }
 }
-#endif

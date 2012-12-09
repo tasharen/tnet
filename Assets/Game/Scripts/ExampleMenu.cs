@@ -26,13 +26,17 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonHeight = 40f;
 
 	public int listenPort = 5127;
-	public string address = "127.0.0.1";
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
 	public GUIStyle text;
 	public GUIStyle input;
 
+#if UNITY_WEBPLAYER
+	string mAddress = "server.tasharen.com";
+#else
+	string mAddress = "127.0.0.1";
+#endif
 	string mMessage = "";
 	float mAlpha = 0f;
 
@@ -86,13 +90,13 @@ public class ExampleMenu : MonoBehaviour
 		GUILayout.BeginArea(rect);
 		{
 			GUILayout.Label("Server Address", text);
-			address = GUILayout.TextField(address, input, GUILayout.Width(200f));
+			mAddress = GUILayout.TextField(mAddress, input, GUILayout.Width(200f));
 
 			if (GUILayout.Button("Connect", button))
 			{
 				// We want to connect to the specified destination when the button is clicked on.
 				// "OnNetworkConnect" function will be called sometime later with the result.
-				TNManager.Connect(address);
+				TNManager.Connect(mAddress);
 				mMessage = "Connecting...";
 			}
 
@@ -113,9 +117,13 @@ public class ExampleMenu : MonoBehaviour
 
 				if (GUILayout.Button("Start a Local Server", button))
 				{
+#if UNITY_WEBPLAYER
+					mMessage = "Can't host from the Web Player due to Unity's security restrictions";
+#else
 					// Start a local server, loading the saved data if possible
 					TNServerInstance.Start(listenPort, "server.dat");
 					mMessage = "Server started";
+#endif
 				}
 			}
 			GUI.backgroundColor = Color.white;

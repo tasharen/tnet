@@ -3,7 +3,7 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-#define TNDEBUG
+//#define TNDEBUG
 
 using UnityEngine;
 using TNet;
@@ -27,7 +27,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// usage with a frequency of 10.
 	/// </summary>
 
-	public int frequency = 10;
+	public int updatesPerSecond = 10;
 
 	Transform mTrans;
 	Rigidbody mRb;
@@ -50,7 +50,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// Update the timer, offsetting the time by the update frequency.
 	/// </summary>
 
-	void UpdateInterval () { mNext = Time.time + (frequency > 0 ? (1f / frequency) : 0f); }
+	void UpdateInterval () { mNext = Time.time + (updatesPerSecond > 0 ? (1f / updatesPerSecond) : 0f); }
 
 	/// <summary>
 	/// Only the host should be sending out updates. Everyone else should be simply observing the changes.
@@ -58,12 +58,15 @@ public class TNSyncRigidbody : TNBehaviour
 
 	void FixedUpdate ()
 	{
-		if (frequency > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isConnected)
+		if (updatesPerSecond > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isConnected)
 		{
 			bool isSleeping = mRb.IsSleeping();
+
 			if (isSleeping && mWasSleeping)
 			{
+#if TNDEBUG
 				renderer.material.color = Color.blue;
+#endif
 				return;
 			}
 

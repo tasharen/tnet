@@ -132,10 +132,10 @@ public class Client
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
 
 	// TCP connection is used for communication with the server.
-	TcpTool mTcp = new TcpTool();
+	TcpProtocol mTcp = new TcpProtocol();
 
 	// UDP can be used for communication with everyone on the same LAN. For example: local server discovery.
-	UdpTool mUdp = new UdpTool();
+	UdpProtocol mUdp = new UdpProtocol();
 
 	// ID of the host
 	int mHost = 0;

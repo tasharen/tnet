@@ -12,10 +12,10 @@ using System.Net;
 namespace TNet
 {
 /// <summary>
-/// Common network communication-based logic: sending and receiving of data.
+/// Common network communication-based logic: sending and receiving of data via TCP.
 /// </summary>
 
-public class TcpTool : Player
+public class TcpProtocol : Player
 {
 	/// <summary>
 	/// Socket that is used for communication.
@@ -263,8 +263,6 @@ public class TcpTool : Player
 			Close(true);
 			return;
 		}
-
-		//Console.WriteLine("...sent " + bytes + " bytes");
 
 		lock (mOut)
 		{

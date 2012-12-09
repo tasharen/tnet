@@ -36,12 +36,13 @@ public class TNServerList : TNBehaviour
 
 	void Start ()
 	{
+		// Can't host in the web player due to Unity's security policy
+#if !UNITY_WEBPLAYER
 		// Start listening for packets broadcast on the specified port
 		TNManager.Start(broadcastPort);
-
-		// Start a pair of co-routines that will be updating the list
-		StartCoroutine(RemoveExpiredEntries());
 		StartCoroutine(BroadcastServerInfo());
+#endif
+		StartCoroutine(RemoveExpiredEntries());
 	}
 
 	/// <summary>

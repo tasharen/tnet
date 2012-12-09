@@ -16,7 +16,7 @@ namespace TNet
 /// Class containing information about connected players.
 /// </summary>
 
-public class ServerPlayer : TcpTool
+public class ServerPlayer : TcpProtocol
 {
 	/// <summary>
 	/// Whether the connection has been verified to use the correct protocol version.

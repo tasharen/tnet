@@ -54,7 +54,7 @@ public class ExampleChat : TNBehaviour
 			text += players[i].name;
 			if (players[i].id == TNManager.playerID) text += " (you)";
 		}
-		AddToChat(text, Color.grey);
+		AddToChat(text, Color.black);
 	}
 
 	/// <summary>
@@ -63,7 +63,7 @@ public class ExampleChat : TNBehaviour
 
 	void OnNetworkPlayerJoined (Player p)
 	{
-		AddToChat(p.name + " has joined the channel.", Color.grey);
+		AddToChat(p.name + " has joined the channel.", Color.black);
 	}
 
 	/// <summary>
@@ -72,7 +72,7 @@ public class ExampleChat : TNBehaviour
 
 	void OnNetworkPlayerLeft (Player p)
 	{
-		AddToChat(p.name + " has left the channel.", Color.grey);
+		AddToChat(p.name + " has left the channel.", Color.black);
 	}
 
 	/// <summary>
@@ -81,7 +81,7 @@ public class ExampleChat : TNBehaviour
 
 	void OnNetworkPlayerRenamed (Player p, string previous)
 	{
-		AddToChat(previous + " is now known as " + p.name, Color.grey);
+		AddToChat(previous + " is now known as " + p.name, Color.black);
 	}
 
 	/// <summary>

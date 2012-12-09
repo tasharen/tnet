@@ -16,7 +16,7 @@ namespace TNet
 /// UDP class makes it possible to broadcast messages to players on the same network prior to establishing a connection.
 /// </summary>
 
-public class UdpTool
+public class UdpProtocol
 {
 	int mPort = 0;
 	Socket mSender;
@@ -58,9 +58,14 @@ public class UdpTool
 				mReceiver.Bind(endPoint);
 				mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
+#if UNITY_EDITOR
 			catch (System.Exception ex)
 			{
-				UnityEngine.Debug.Log(ex.Message);
+				UnityEngine.Debug.LogError(ex.Message);
+#else
+			catch (System.Exception)
+			{
+#endif
 				return false;
 			}
 		}
@@ -145,12 +150,16 @@ public class UdpTool
 
 	public void Send (int port, Buffer buffer)
 	{
+#if UNITY_WEBPLAYER
+		UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player");
+#else
 		if (mSender == null)
 		{
 			mSender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 			mSender.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 		}
 		mSender.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
+#endif
 	}
 }
 }
