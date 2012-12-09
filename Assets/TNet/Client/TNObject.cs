@@ -372,13 +372,13 @@ public class TNObject : MonoBehaviour
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
 	/// </summary>
 
-	public void BroadcastToLAN (byte rfcID, params object[] objs) { BroadcastToLAN((uint)id, rfcID, null, objs); }
+	public void BroadcastToLAN (int port, byte rfcID, params object[] objs) { BroadcastToLAN(port, (uint)id, rfcID, null, objs); }
 
 	/// <summary>
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
 	/// </summary>
 
-	public void BroadcastToLAN (string rfcName, params object[] objs) { BroadcastToLAN((uint)id, 0, rfcName, objs); }
+	public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, (uint)id, 0, rfcName, objs); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
@@ -444,18 +444,15 @@ public class TNObject : MonoBehaviour
 	/// Broadcast a remote function call to all players on the network.
 	/// </summary>
 
-	static void BroadcastToLAN (uint objID, byte rfcID, string rfcName, params object[] objs)
+	static void BroadcastToLAN (int port, uint objID, byte rfcID, string rfcName, params object[] objs)
 	{
-		if (TNServerInstance.isActive)
-		{
-			Buffer buffer = Buffer.Create();
-			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
-			writer.Write((objID << 8) | rfcID);
-			if (rfcID == 0) writer.Write(rfcName);
-			Tools.Write(writer, objs);
-			TNManager.EndSend(5128);
-			buffer.Recycle();
-		}
+		Buffer buffer = Buffer.Create();
+		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+		writer.Write((objID << 8) | rfcID);
+		if (rfcID == 0) writer.Write(rfcName);
+		Tools.Write(writer, objs);
+		TNManager.EndSend(port);
+		buffer.Recycle();
 	}
 
 	/// <summary>

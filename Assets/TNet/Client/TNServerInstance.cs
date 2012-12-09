@@ -55,6 +55,12 @@ public class TNServerInstance : MonoBehaviour
 	static public bool isListening { get { return (mInstance != null) && mInstance.mServer.isListening; } }
 
 	/// <summary>
+	/// Port used for listening to incoming connections.
+	/// </summary>
+
+	static public int listeningPort { get { return (mInstance != null) ? mInstance.mServer.listeningPort : 0; } }
+
+	/// <summary>
 	/// How many players are currently connected to the server.
 	/// </summary>
 

@@ -28,8 +28,8 @@ public class UdpTool
 
 	// Incoming message queue
 	Queue<Buffer> mBuffers = new Queue<Buffer>();
-	EndPoint mAddress = new IPEndPoint(IPAddress.Any, 0);
-	Buffer mBuffer;
+	Queue<string> mAddresses = new Queue<string>();
+	EndPoint mEndPoint = new IPEndPoint(IPAddress.Any, 0);
 
 	/// <summary>
 	/// Whether we can send or receive through the announcer.
@@ -56,7 +56,7 @@ public class UdpTool
 			try
 			{
 				mReceiver.Bind(endPoint);
-				mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
+				mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
 			catch (System.Exception ex)
 			{
@@ -79,6 +79,7 @@ public class UdpTool
 			mReceiver = null;
 		}
 		Buffer.Recycle(mBuffers);
+		mAddresses.Clear();
 	}
 
 	/// <summary>
@@ -91,8 +92,7 @@ public class UdpTool
 
 		try
 		{
-			bytes = mReceiver.EndReceiveFrom(result, ref mAddress);
-			//UnityEngine.Debug.Log(((IPEndPoint)mAddress).Address.ToString());
+			bytes = mReceiver.EndReceiveFrom(result, ref mEndPoint);
 		}
 		catch (System.Exception)
 		{
@@ -106,14 +106,18 @@ public class UdpTool
 			Buffer buffer = Buffer.Create();
 			BinaryWriter writer = buffer.BeginWriting(false);
 
-			IPEndPoint ip = (IPEndPoint)mAddress;
-			writer.Write(ip.Address.ToString() + ":" + ip.Port);
+			IPEndPoint ip = (IPEndPoint)mEndPoint;
 			writer.Write(mTemp, 0, bytes);
-			buffer.BeginReading();
-			lock (mBuffers) mBuffers.Enqueue(buffer);
+			buffer.BeginReading(4);
+			
+			lock (mBuffers)
+			{
+				mBuffers.Enqueue(buffer);
+				mAddresses.Enqueue(ip.Address.ToString() + ":" + ip.Port);
+			}
 
 			// Queue up the next receive operation
-			mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mAddress, OnReceive, null);
+			mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 	}
 
@@ -125,50 +129,14 @@ public class UdpTool
 	{
 		if (mBuffers.Count != 0)
 		{
-			Buffer buffer;
-			lock (mBuffers) buffer = mBuffers.Dequeue();
-
-			if (buffer != null)
+			lock (mBuffers)
 			{
-				BinaryReader reader = buffer.BeginReading();
-				address = reader.ReadString();
-				reader.ReadInt32(); // Skip past the packet's size
-				return buffer;
+				address = mAddresses.Dequeue();
+				return mBuffers.Dequeue();
 			}
 		}
 		address = null;
 		return null;
-	}
-
-	/// <summary>
-	/// Begin the broadcast operation.
-	/// </summary>
-
-	public BinaryWriter BeginSend (Packet packet)
-	{
-		mBuffer = Buffer.Create();
-		return mBuffer.BeginPacket(packet);
-	}
-
-	/// <summary>
-	/// Finish the broadcast operation and send the accumulated buffer to the entire LAN.
-	/// </summary>
-
-	public void EndSend (int port)
-	{
-		if (mBuffer != null)
-		{
-			mBuffer.EndPacket();
-
-			if (mSender == null)
-			{
-				mSender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-				mSender.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-			}
-			mSender.SendTo(mBuffer.buffer, mBuffer.position, mBuffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
-			mBuffer.Recycle();
-			mBuffer = null;
-		}
 	}
 
 	/// <summary>
@@ -177,6 +145,11 @@ public class UdpTool
 
 	public void Send (int port, Buffer buffer)
 	{
+		if (mSender == null)
+		{
+			mSender = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			mSender.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		}
 		mSender.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, port));
 	}
 }

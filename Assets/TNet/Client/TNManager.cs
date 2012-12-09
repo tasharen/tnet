@@ -64,6 +64,13 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
+	/// Last address to broadcast the packet. Set when processing the packet. If null, then the packet arrived via the active connection (TCP).
+	/// If the return value is not null, then the last packet arrived via a LAN broadcast (UDP).
+	/// </summary>
+
+	static public string lastAddress { get { return (mInstance != null) ? mInstance.mClient.lastAddress : null; } }
+
+	/// <summary>
 	/// The player's unique identifier.
 	/// </summary>
 
@@ -143,6 +150,18 @@ public class TNManager : MonoBehaviour
 		if (id == mPlayer.id) return mPlayer;
 		return null;
 	}
+
+	/// <summary>
+	/// Start listening for incoming UDP packets on the specified port.
+	/// </summary>
+
+	static public bool Start (int port) { return (mInstance != null) ? mInstance.mClient.Start(port) : false; }
+
+	/// <summary>
+	/// Stop listening to incoming UDP packets.
+	/// </summary>
+
+	static public void Stop () { if (mInstance != null) mInstance.mClient.Stop(); }
 
 	/// <summary>
 	/// Connect to the specified destination.

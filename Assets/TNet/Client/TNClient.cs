@@ -387,7 +387,6 @@ public class Client
 
 	public void ProcessPackets ()
 	{
-		if (mStage == Stage.Disconnected) return;
 		mTime = DateTime.Now.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.

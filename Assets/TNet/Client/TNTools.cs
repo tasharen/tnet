@@ -238,5 +238,32 @@ static public class Tools
 		}
 		return data;
 	}
+
+	/// <summary>
+	/// Mathf.Lerp(from, to, Time.deltaTime * strength) is not framerate-independent. This function is.
+	/// </summary>
+
+	static public float SpringLerp (float from, float to, float strength, float deltaTime)
+	{
+		if (deltaTime > 1f) deltaTime = 1f;
+		int ms = Mathf.RoundToInt(deltaTime * 1000f);
+		deltaTime = 0.001f * strength;
+		for (int i = 0; i < ms; ++i) from = Mathf.Lerp(from, to, deltaTime);
+		return from;
+	}
+
+	/// <summary>
+	/// Pad the specified rectangle, returning an enlarged rectangle.
+	/// </summary>
+
+	static public Rect PadRect (Rect rect, float padding)
+	{
+		Rect r = rect;
+		r.xMin -= padding;
+		r.xMax += padding;
+		r.yMin -= padding;
+		r.yMax += padding;
+		return r;
+	}
 }
 }

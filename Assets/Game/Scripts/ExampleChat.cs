@@ -118,18 +118,20 @@ public class ExampleChat : TNBehaviour
 		float cx = Screen.width * 0.5f;
 		float cy = Screen.height * 0.5f;
 
-		GUI.Label(new Rect(cx - 140f, cy - 200f, 80f, 24f), "Nickname");
-		GUI.SetNextControlName("Nickname");
-		mName = GUI.TextField(new Rect(cx - 70f, cy - 200f, 120f, 24f), mName);
+		GUI.Box(new Rect(Screen.width * 0.5f - 270f, Screen.height * 0.5f - 200f, 540f, 410f), "");
 
-		if (GUI.Button(new Rect(cx + 60f, cy - 200f, 80f, 24f), "Change"))
+		GUI.Label(new Rect(cx - 140f, cy - 170f, 80f, 24f), "Nickname");
+		GUI.SetNextControlName("Nickname");
+		mName = GUI.TextField(new Rect(cx - 70f, cy - 170f, 120f, 24f), mName);
+
+		if (GUI.Button(new Rect(cx + 60f, cy - 170f, 80f, 24f), "Change"))
 		{
 			// Change the player's name when the button gets clicked.
 			TNManager.playerName = mName;
 		}
 
 		GUI.SetNextControlName("Chat Window");
-		mRect = new Rect(cx - 200f, cy - 150f, 400f, 300f);
+		mRect = new Rect(cx - 200f, cy - 120f, 400f, 300f);
 		GUI.Window(0, mRect, OnGUIWindow, "Chat Window");
 
 		if (Event.current.keyCode == KeyCode.Return && Event.current.type == EventType.KeyUp)

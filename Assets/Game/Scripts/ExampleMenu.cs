@@ -15,6 +15,8 @@ using System.IO;
 /// - TNManager.JoinChannel
 /// - TNManager.LeaveChannel
 /// - TNManager.Disconnect
+/// - TNServerInstance.Start
+/// - TNServerInstance.Stop
 /// </summary>
 
 [ExecuteInEditMode]
@@ -22,13 +24,27 @@ public class ExampleMenu : MonoBehaviour
 {
 	const float buttonWidth = 150f;
 	const float buttonHeight = 30f;
-	const int listenPort = 5127;
 
+	public int listenPort = 5127;
 	public string address = "127.0.0.1";
 	public string mainMenu = "Example Menu";
 	public string[] examples;
+	public GUIStyle button;
+	public GUIStyle text;
+	public GUIStyle input;
 
-	string mError = "";
+	string mMessage = "";
+	float mAlpha = 0f;
+
+	/// <summary>
+	/// Adjust the server list's alpha based on whether it should be shown or not.
+	/// </summary>
+
+	void Update ()
+	{
+		float target = (TNServerList.list.size == 0) ? 0f : 1f;
+		mAlpha = Tools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
+	}
 
 	/// <summary>
 	/// Show the GUI for the examples.
@@ -38,19 +54,19 @@ public class ExampleMenu : MonoBehaviour
 	{
 		if (!TNManager.isConnected)
 		{
-			ShowConnectMenu();
+			DrawConnectMenu();
 		}
 		else
 		{
 			if (!Application.isPlaying || Application.loadedLevelName == mainMenu)
 			{
-				ShowSelectionMenu();
+				DrawSelectionMenu();
 			}
 			else if (TNManager.isInChannel)
 			{
-				ShowExampleMenu();
+				DrawExampleMenu();
 			}
-			ShowDisconnectButton();
+			DrawDisconnectButton();
 		}
 	}
 
@@ -58,55 +74,61 @@ public class ExampleMenu : MonoBehaviour
 	/// This menu is shown if the client has not yet connected to the server.
 	/// </summary>
 
-	void ShowConnectMenu ()
+	void DrawConnectMenu ()
 	{
-		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 100f, 200f, 300f);
+		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f - mAlpha * 120f, Screen.height * 0.5f - 100f, 200f, 220f);
+
+		// Show a half-transparent box around the upcoming UI
+		GUI.color = new Color(1f, 1f, 1f, 0.5f);
+		GUI.Box(Tools.PadRect(rect, 8f), "");
+		GUI.color = Color.white;
 
 		GUILayout.BeginArea(rect);
 		{
-			GUILayout.Label("Server Address");
-			address = GUILayout.TextField(address, GUILayout.Width(200f));
+			GUILayout.Label("Server Address", text);
+			address = GUILayout.TextField(address, input, GUILayout.Width(200f));
 
-			if (GUILayout.Button("Connect", GUILayout.Height(30f)))
+			if (GUILayout.Button("Connect", button))
 			{
 				// We want to connect to the specified destination when the button is clicked on.
 				// "OnNetworkConnect" function will be called sometime later with the result.
 				TNManager.Connect(address);
-				mError = "Connecting...";
+				mMessage = "Connecting...";
 			}
-
-			GUILayout.Space(30f);
 
 			if (TNServerInstance.isActive)
 			{
 				GUI.backgroundColor = Color.red;
 
-				if (GUILayout.Button("Stop the Server", GUILayout.Height(30f)))
+				if (GUILayout.Button("Stop the Server", button))
 				{
 					// Stop the server, saving all the data
 					TNServerInstance.Stop("server.dat");
+					mMessage = "Server stopped";
 				}
 			}
 			else
 			{
 				GUI.backgroundColor = Color.green;
 
-				if (GUILayout.Button("Start the Server", GUILayout.Height(30f)))
+				if (GUILayout.Button("Start a Local Server", button))
 				{
-					// Start the server, loading the saved data if possible
+					// Start a local server, loading the saved data if possible
 					TNServerInstance.Start(listenPort, "server.dat");
+					mMessage = "Server started";
 				}
 			}
 			GUI.backgroundColor = Color.white;
 
-			if (!string.IsNullOrEmpty(mError))
-			{
-				GUI.color = Color.yellow;
-				GUILayout.Label(mError);
-				GUI.color = Color.white;
-			}
+			if (!string.IsNullOrEmpty(mMessage)) GUILayout.Label(mMessage, text);
 		}
 		GUILayout.EndArea();
+
+		if (mAlpha > 0.01f)
+		{
+			rect.x = rect.x + (Screen.width - rect.xMin - rect.xMax) * mAlpha;
+			DrawServerList(rect);
+		}
 	}
 
 	/// <summary>
@@ -117,13 +139,13 @@ public class ExampleMenu : MonoBehaviour
 	/// You can call TNManager.JoinChannel here if you like, but in this example we let the player choose.
 	/// </summary>
 
-	void OnNetworkConnect (bool success, string message) { mError = message; }
+	void OnNetworkConnect (bool success, string message) { mMessage = message; }
 
 	/// <summary>
 	/// This menu is shown when a connection has been established and the player has not yet joined any channel.
 	/// </summary>
 
-	void ShowSelectionMenu ()
+	void DrawSelectionMenu ()
 	{
 		int count = examples.Length;
 
@@ -136,7 +158,7 @@ public class ExampleMenu : MonoBehaviour
 		{
 			string sceneName = examples[i];
 
-			if (GUI.Button(rect, sceneName))
+			if (GUI.Button(rect, sceneName, button))
 			{
 				// When a button is clicked, join the specified channel.
 				// Whoever creates the channel also sets the scene that will be loaded by everyone who joins.
@@ -153,11 +175,11 @@ public class ExampleMenu : MonoBehaviour
 	/// This menu is shown if the player has joined a channel.
 	/// </summary>
 
-	void ShowExampleMenu ()
+	void DrawExampleMenu ()
 	{
 		Rect rect = new Rect(0f, Screen.height - buttonHeight, buttonWidth, buttonHeight);
-		
-		if (GUI.Button(rect, "Return to Main Menu"))
+
+		if (GUI.Button(rect, "Main Menu", button))
 		{
 			// Leaving the channel will cause the "OnNetworkLeftChannel" to be sent out.
 			TNManager.LeaveChannel();
@@ -178,16 +200,46 @@ public class ExampleMenu : MonoBehaviour
 	/// The disconnect button is only shown if we are currently connected.
 	/// </summary>
 
-	void ShowDisconnectButton ()
+	void DrawDisconnectButton ()
 	{
 		Rect rect = new Rect(Screen.width - buttonWidth, Screen.height - buttonHeight, buttonWidth, buttonHeight);
 
-		if (GUI.Button(rect, "Disconnect"))
+		if (GUI.Button(rect, "Disconnect", button))
 		{
 			// Disconnecting while in some channel will cause "OnNetworkLeftChannel" to be sent out first,
 			// followed by "OnNetworkDisconnect". Disconnecting while not in a channel will only trigger
 			// "OnNetworkDisconnect".
 			TNManager.Disconnect();
 		}
+	}
+
+	/// <summary>
+	/// Draw the list of known LAN servers.
+	/// </summary>
+
+	void DrawServerList (Rect rect)
+	{
+		GUI.color = new Color(1f, 1f, 1f, mAlpha * mAlpha * 0.5f);
+		GUI.Box(Tools.PadRect(rect, 8f), "");
+		GUI.color = new Color(1f, 1f, 1f, mAlpha * mAlpha);
+
+		GUILayout.BeginArea(rect);
+		{
+			GUILayout.Label("LAN Server List", text);
+
+			// Server list example script automatically collects servers that have recently announced themselves
+			for (int i = 0; i < TNServerList.list.size; ++i)
+			{
+				TNServerList.Entry ent = TNServerList.list[i];
+
+				if (GUILayout.Button(ent.address, button))
+				{
+					TNManager.Connect(ent.address);
+					mMessage = "Connecting...";
+				}
+			}
+		}
+		GUILayout.EndArea();
+		GUI.color = Color.white;
 	}
 }
