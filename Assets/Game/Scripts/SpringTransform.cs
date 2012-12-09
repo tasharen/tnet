@@ -47,7 +47,7 @@ public class SpringTransform : MonoBehaviour
 	}
 
 	void OnEnable () { if (mStarted) Reset(); }
-	void Start () { if (!TNManager.isConnected) Reset(); }
+	void Start () { Reset(); }
 	void OnNetworkJoinChannel (bool success, string error) { Reset(); }
 
 	/// <summary>
