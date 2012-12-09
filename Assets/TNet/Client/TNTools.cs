@@ -6,6 +6,7 @@
 using UnityEngine;
 using System.IO;
 using System;
+using System.Reflection;
 
 namespace TNet
 {
@@ -15,6 +16,40 @@ namespace TNet
 
 static public class Tools
 {
+	/// <summary>
+	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
+	/// </summary>
+
+	static public void Broadcast (string methodName, params object[] parameters)
+	{
+		MonoBehaviour[] mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
+
+		for (int i = 0, imax = mbs.Length; i < imax; ++i)
+		{
+			MonoBehaviour mb = mbs[i];
+			MethodInfo method = mb.GetType().GetMethod(methodName,
+				BindingFlags.Instance |
+				BindingFlags.NonPublic |
+				BindingFlags.Public);
+
+			if (method != null)
+			{
+#if UNITY_EDITOR
+				try
+				{
+					method.Invoke(mb, parameters);
+				}
+				catch (System.Exception ex)
+				{
+					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")");
+				}
+#else
+				method.Invoke(mb, parameters);
+#endif
+			}
+		}
+	}
+
 	/// <summary>
 	/// Write the array of objects into the specified writer.
 	/// </summary>

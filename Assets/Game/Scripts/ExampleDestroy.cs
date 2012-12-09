@@ -31,7 +31,7 @@ public class ExampleDestroy : MonoBehaviour
 		}
 	}
 
-	void OnMouseUpAsButton ()
+	void OnClick ()
 	{
 		TNManager.Destroy(gameObject);
 	}

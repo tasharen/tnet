@@ -21,6 +21,12 @@ public class SpringTransform : MonoBehaviour
 
 	public float springStrength = 16f;
 
+	/// <summary>
+	/// Whether this script's effect will be ignored on the hosting player.
+	/// </summary>
+
+	public bool ignoreOnHost = true;
+
 	bool mStarted = false;
 	bool mWasHosting = false;
 	Transform mParent;
@@ -58,7 +64,7 @@ public class SpringTransform : MonoBehaviour
 	{
 		if (!mStarted) return;
 
-		if (TNManager.isHosting)
+		if (ignoreOnHost && TNManager.isHosting)
 		{
 			if (!mWasHosting)
 			{

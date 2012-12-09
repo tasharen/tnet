@@ -19,7 +19,7 @@ public class ExampleCreate : MonoBehaviour
 	/// Raycast into the screen to determine where we've clicked and create a new object above that position.
 	/// </summary>
 
-	void OnMouseUpAsButton ()
+	void OnClick ()
 	{
 		Vector3 pos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
 		Ray ray = Camera.main.ScreenPointToRay(pos);

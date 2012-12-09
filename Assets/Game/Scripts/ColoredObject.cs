@@ -27,7 +27,7 @@ public class ColoredObject : MonoBehaviour
 	/// Clicking on the object should change its color.
 	/// </summary>
 
-	void OnMouseUpAsButton ()
+	void OnClick ()
 	{
 		Color color = Color.red;
 

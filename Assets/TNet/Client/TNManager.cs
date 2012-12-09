@@ -6,7 +6,6 @@
 using System.IO;
 using UnityEngine;
 using TNet;
-using System.Reflection;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
@@ -49,13 +48,13 @@ public class TNManager : MonoBehaviour
 	/// Whether we're currently hosting.
 	/// </summary>
 
-	static public bool isHosting { get { return mInstance != null && mInstance.mClient.isHosting; } }
+	static public bool isHosting { get { return mInstance == null || mInstance.mClient.isHosting; } }
 
 	/// <summary>
 	/// Whether the player is currently in a channel.
 	/// </summary>
 
-	static public bool isInChannel { get { return mInstance != null && mInstance.mClient.isInChannel; } }
+	static public bool isInChannel { get { return mInstance == null || mInstance.mClient.isInChannel; } }
 
 	/// <summary>
 	/// Current ping to the server.
@@ -118,40 +117,6 @@ public class TNManager : MonoBehaviour
 				mPlayers.Add(mPlayer);
 			}
 			return mPlayers;
-		}
-	}
-
-	/// <summary>
-	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
-	/// </summary>
-
-	static void Broadcast (string methodName, params object[] parameters)
-	{
-		MonoBehaviour[] mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
-
-		for (int i = 0, imax = mbs.Length; i < imax; ++i)
-		{
-			MonoBehaviour mb = mbs[i];
-			MethodInfo method = mb.GetType().GetMethod(methodName,
-				BindingFlags.Instance |
-				BindingFlags.NonPublic |
-				BindingFlags.Public);
-			
-			if (method != null)
-			{
-#if UNITY_EDITOR
-				try
-				{
-					method.Invoke(mb, parameters);
-				}
-				catch (System.Exception ex)
-				{
-					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")");
-				}
-#else
-				method.Invoke(mb, parameters);
-#endif
-			}
 		}
 	}
 
@@ -505,32 +470,32 @@ public class TNManager : MonoBehaviour
 	/// Error notification.
 	/// </summary>
 
-	void OnError (string err) { Broadcast("OnNetworkError", err); }
+	void OnError (string err) { Tools.Broadcast("OnNetworkError", err); }
 
 	/// <summary>
 	/// Connection result notification.
 	/// </summary>
 
-	void OnConnect (bool success, string message) { Broadcast("OnNetworkConnect", success, message); }
+	void OnConnect (bool success, string message) { Tools.Broadcast("OnNetworkConnect", success, message); }
 
 	/// <summary>
 	/// Notification that happens when the client gets disconnected from the server.
 	/// </summary>
 
-	void OnDisconnect () { Broadcast("OnNetworkDisconnect"); }
+	void OnDisconnect () { Tools.Broadcast("OnNetworkDisconnect"); }
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message) { Broadcast("OnNetworkJoinChannel", success, message); }
+	void OnJoinChannel (bool success, string message) { Tools.Broadcast("OnNetworkJoinChannel", success, message); }
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel () { Broadcast("OnNetworkLeftChannel"); }
+	void OnLeftChannel () { Tools.Broadcast("OnNetworkLeftChannel"); }
 
 	/// <summary>
 	/// Notification sent when a level is changing.
@@ -548,13 +513,13 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnPlayerJoined (Player p) { Broadcast("OnNetworkPlayerJoined", p); }
+	void OnPlayerJoined (Player p) { Tools.Broadcast("OnNetworkPlayerJoined", p); }
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnPlayerLeft (Player p) { Broadcast("OnNetworkPlayerLeft", p); }
+	void OnPlayerLeft (Player p) { Tools.Broadcast("OnNetworkPlayerLeft", p); }
 
 	/// <summary>
 	/// Notification of a player being renamed.
@@ -563,7 +528,7 @@ public class TNManager : MonoBehaviour
 	void OnRenamePlayer (Player p, string previous)
 	{
 		mPlayer.name = p.name;
-		Broadcast("OnNetworkPlayerRenamed", p, previous);
+		Tools.Broadcast("OnNetworkPlayerRenamed", p, previous);
 	}
 #endregion
 }
