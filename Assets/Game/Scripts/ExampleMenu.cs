@@ -23,7 +23,7 @@ using System.IO;
 public class ExampleMenu : MonoBehaviour
 {
 	const float buttonWidth = 150f;
-	const float buttonHeight = 30f;
+	const float buttonHeight = 40f;
 
 	public int listenPort = 5127;
 	public string address = "127.0.0.1";
@@ -167,7 +167,6 @@ public class ExampleMenu : MonoBehaviour
 			}
 			rect.y += buttonHeight;
 		}
-
 		rect.y += 20f;
 	}
 
