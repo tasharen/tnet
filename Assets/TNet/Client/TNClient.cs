@@ -302,7 +302,7 @@ public class Client
 			// Request a player ID
 			BinaryWriter writer = BeginSend(Packet.RequestID);
 			writer.Write(Player.version);
-			writer.Write(mTcp.name);
+            writer.Write((mTcp.name != null) ? mTcp.name : "Guest");
 			EndSend();
 		}
 		else mStage = Stage.Disconnected;

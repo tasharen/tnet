@@ -95,12 +95,12 @@ public class ClientMain
 		Console.WriteLine("Disconnected");
 	}
 
-	static void OnPlayerJoined (ClientPlayer p)
+	static void OnPlayerJoined (Player p)
 	{
 		Console.WriteLine("Player joined: " + p.name);
 	}
 
-	static void OnPlayerLeft (ClientPlayer p)
+	static void OnPlayerLeft (Player p)
 	{
 		Console.WriteLine("Player left: " + p.name);
 	}
@@ -115,7 +115,7 @@ public class ClientMain
 		Console.WriteLine("Channel: " + isInChannel + " (" + message + ")");
 	}
 
-	static void OnRenamePlayer (ClientPlayer p, string previous)
+	static void OnRenamePlayer (Player p, string previous)
 	{
 		Console.WriteLine(previous + " is now known as " + p.name);
 	}

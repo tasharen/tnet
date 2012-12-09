@@ -31,7 +31,7 @@ public class Player
 	/// All players have a name that they chose for themselves.
 	/// </summary>
 
-	public string name;
+	public string name = "Guest";
 
 	public Player () { }
 	public Player (string playerName) { name = playerName; }

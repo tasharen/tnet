@@ -45,17 +45,32 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\TNet\Client\TNBehaviour.cs" />
+    <Compile Include="Assets\TNet\Client\TNClient.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Client\TNManager.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Client\TNObject.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Client\TNRFC.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Client\TNSyncRigidbody.cs" />
+    <Compile Include="Assets\TNet\Client\TNTarget.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Client\TNTools.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
+    <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
+    <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="TNetTest\ClientMain.cs" />
-    <Compile Include="Assets\TNet\Client\TNClient.cs" />
-    <Compile Include="Assets\TNet\Client\TNManager.cs" />
-    <Compile Include="Assets\TNet\Client\TNClientPlayer.cs" />
-    <Compile Include="Assets\TNet\Client\TNRFC.cs" />
-    <Compile Include="Assets\TNet\Client\TNTarget.cs" />
-    <Compile Include="Assets\TNet\Client\TNTools.cs" />
-    <Compile Include="Assets\TNet\Client\TNObject.cs" />
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
-    <Compile Include="Assets\TNet\Common\TNConnection.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
   </ItemGroup>
 </Project>
