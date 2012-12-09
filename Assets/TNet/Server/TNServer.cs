@@ -174,7 +174,7 @@ public class Server
 		for (; ; )
 		{
 			// Add all pending connections
-			while (mListener.Pending())
+            while (mListener != null && mListener.Pending())
 			{
 				ServerPlayer p = AddPlayer(mListener.AcceptSocket());
 				Console.WriteLine(p.address + " has connected");

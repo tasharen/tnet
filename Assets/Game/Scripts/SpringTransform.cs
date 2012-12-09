@@ -48,7 +48,7 @@ public class SpringTransform : MonoBehaviour
 
 	void OnEnable () { if (mStarted) Reset(); }
 	void Start () { if (!TNManager.isConnected) Reset(); }
-	void OnNetworkJoinChannel () { Reset(); }
+	void OnNetworkJoinChannel (bool success, string error) { Reset(); }
 
 	/// <summary>
 	/// Update the position and rotation, smoothly interpolating it to the target destination using spring logic.
@@ -56,6 +56,8 @@ public class SpringTransform : MonoBehaviour
 
 	void LateUpdate ()
 	{
+		if (!mStarted) return;
+
 		if (TNManager.isHosting)
 		{
 			if (!mWasHosting)

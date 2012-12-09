@@ -21,7 +21,6 @@ public class UdpProtocol
 	int mPort = 0;
 	Socket mSender;
 	Socket mReceiver;
-	Buffer mReceiveBuffer;
 
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];

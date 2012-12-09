@@ -39,10 +39,12 @@
   </Target>
   -->
   <ItemGroup>
-    <Compile Include="Assets\TNet\Common\TNConnection.cs" />
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
+    <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
+    <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
+    <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="Assets\TNet\Server\TNChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNServerPlayer.cs" />
     <Compile Include="Assets\TNet\Server\TNServer.cs" />

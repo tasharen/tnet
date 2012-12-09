@@ -136,7 +136,22 @@ public class TNManager : MonoBehaviour
 				BindingFlags.Instance |
 				BindingFlags.NonPublic |
 				BindingFlags.Public);
-			if (method != null) method.Invoke(mb, parameters);
+			
+			if (method != null)
+			{
+#if UNITY_EDITOR
+				try
+				{
+					method.Invoke(mb, parameters);
+				}
+				catch (System.Exception ex)
+				{
+					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")");
+				}
+#else
+				method.Invoke(mb, parameters);
+#endif
+			}
 		}
 	}
 
