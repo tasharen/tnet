@@ -184,6 +184,12 @@ public class Client
 	public string lastAddress { get { return mLastAddress; } }
 
 	/// <summary>
+	/// Return the local player.
+	/// </summary>
+
+	public Player player { get { return mTcp; } }
+
+	/// <summary>
 	/// The player's unique identifier.
 	/// </summary>
 
@@ -221,13 +227,15 @@ public class Client
 
 	public Player GetPlayer (int id)
 	{
+		if (id == mTcp.id) return mTcp;
+
 		if (isConnected)
 		{
 			Player player = null;
 			mDictionary.TryGetValue(id, out player);
 			return player;
 		}
-		return (mTcp.id == id) ? mTcp : null;
+		return null;
 	}
 
 	/// <summary>

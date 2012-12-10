@@ -13,8 +13,8 @@ using TNet;
 [RequireComponent(typeof(Camera))]
 public class TouchHandler : MonoBehaviour
 {
-	static public Vector2 worldPos;
-	static public Vector3 screenPos;
+	static public Vector3 worldPos;
+	static public Vector2 screenPos;
 
 	public LayerMask eventReceiverMask = -1;
 
@@ -90,12 +90,13 @@ public class TouchHandler : MonoBehaviour
 
 	void SendDrag (Vector2 pos)
 	{
-		Vector2 delta = pos - worldPos;
+		Vector2 delta = pos - screenPos;
 
 		if (delta.sqrMagnitude > 0.001f)
 		{
+			Raycast(pos);
 			mGo.SendMessage("OnDrag", delta, SendMessageOptions.DontRequireReceiver);
-			worldPos = pos;
+			screenPos = pos;
 		}
 	}
 

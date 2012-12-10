@@ -223,7 +223,18 @@ public class TNObject : MonoBehaviour
 			if (ent.rfcID == funcID)
 			{
 				retVal = true;
+#if UNITY_EDITOR
+				try
+				{
+					ent.func.Invoke(ent.obj, parameters);
+				}
+				catch (System.Exception ex)
+				{
+					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")");
+				}
+#else
 				ent.func.Invoke(ent.obj, parameters);
+#endif
 			}
 		}
 		return retVal;
@@ -246,7 +257,18 @@ public class TNObject : MonoBehaviour
 			if (ent.func.Name == funcName)
 			{
 				retVal = true;
+#if UNITY_EDITOR
+				try
+				{
+					ent.func.Invoke(ent.obj, parameters);
+				}
+				catch (System.Exception ex)
+				{
+					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + funcName + ")");
+				}
+#else
 				ent.func.Invoke(ent.obj, parameters);
+#endif
 			}
 		}
 		return retVal;

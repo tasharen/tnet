@@ -1063,7 +1063,10 @@ public class Server
 			}
 			default:
 			{
-				OnPacket(player, buffer, reader, (int)request);
+				if ((int)request > (int)Packet.ForwardToPlayerBuffered)
+				{
+					OnPacket(player, buffer, reader, (int)request);
+				}
 				break;
 			}
 		}

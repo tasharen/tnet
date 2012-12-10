@@ -25,7 +25,7 @@ public class Player
 	/// All players have a unique identifier given by the server.
 	/// </summary>
 
-	public int id = 0;
+	public int id = 1;
 
 	/// <summary>
 	/// All players have a name that they chose for themselves.
