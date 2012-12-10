@@ -61,7 +61,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnNetworkPlayerJoined (Player p)
+	void OnNetworkPlayerJoin (Player p)
 	{
 		AddToChat(p.name + " has joined the channel.", Color.black);
 	}
@@ -70,7 +70,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnNetworkPlayerLeft (Player p)
+	void OnNetworkPlayerLeave (Player p)
 	{
 		AddToChat(p.name + " has left the channel.", Color.black);
 	}

@@ -188,7 +188,7 @@ public class ExampleMenu : MonoBehaviour
 
 		if (GUI.Button(rect, "Main Menu", button))
 		{
-			// Leaving the channel will cause the "OnNetworkLeftChannel" to be sent out.
+			// Leaving the channel will cause the "OnNetworkLeaveChannel" to be sent out.
 			TNManager.LeaveChannel();
 		}
 	}
@@ -198,7 +198,7 @@ public class ExampleMenu : MonoBehaviour
 	/// This message is also sent out when we get disconnected.
 	/// </summary>
 
-	void OnNetworkLeftChannel ()
+	void OnNetworkLeaveChannel ()
 	{
 		Application.LoadLevel(mainMenu);
 	}
@@ -213,7 +213,7 @@ public class ExampleMenu : MonoBehaviour
 
 		if (GUI.Button(rect, "Disconnect", button))
 		{
-			// Disconnecting while in some channel will cause "OnNetworkLeftChannel" to be sent out first,
+			// Disconnecting while in some channel will cause "OnNetworkLeaveChannel" to be sent out first,
 			// followed by "OnNetworkDisconnect". Disconnecting while not in a channel will only trigger
 			// "OnNetworkDisconnect".
 			TNManager.Disconnect();

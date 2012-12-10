@@ -57,6 +57,18 @@ public class TNManager : MonoBehaviour
 	static public bool isInChannel { get { return mInstance == null || mInstance.mClient.isInChannel; } }
 
 	/// <summary>
+	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
+	/// Enabling this flag will improve latency at the cost of increased bandwidth.
+	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
+	/// </summary>
+
+	static public bool improveLatency
+	{
+		get { return (mInstance != null) ? mInstance.mClient.improveLatency : false; }
+		set { if (mInstance != null) mInstance.mClient.improveLatency = value; }
+	}
+
+	/// <summary>
 	/// Current ping to the server.
 	/// </summary>
 
@@ -501,7 +513,7 @@ public class TNManager : MonoBehaviour
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel () { Tools.Broadcast("OnNetworkLeftChannel"); }
+	void OnLeftChannel () { Tools.Broadcast("OnNetworkLeaveChannel"); }
 
 	/// <summary>
 	/// Notification sent when a level is changing.
@@ -519,13 +531,13 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnPlayerJoined (Player p) { Tools.Broadcast("OnNetworkPlayerJoined", p); }
+	void OnPlayerJoined (Player p) { Tools.Broadcast("OnNetworkPlayerJoin", p); }
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnPlayerLeft (Player p) { Tools.Broadcast("OnNetworkPlayerLeft", p); }
+	void OnPlayerLeft (Player p) { Tools.Broadcast("OnNetworkPlayerLeave", p); }
 
 	/// <summary>
 	/// Notification of a player being renamed.

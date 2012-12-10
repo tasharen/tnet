@@ -41,7 +41,7 @@ static public class Tools
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")");
+					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")", mb);
 				}
 #else
 				method.Invoke(mb, parameters);

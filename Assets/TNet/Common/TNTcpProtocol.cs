@@ -18,12 +18,6 @@ namespace TNet
 public class TcpProtocol : Player
 {
 	/// <summary>
-	/// Socket that is used for communication.
-	/// </summary>
-
-	public Socket socket;
-
-	/// <summary>
 	/// IP address of the target we're connected to.
 	/// </summary>
 
@@ -37,6 +31,7 @@ public class TcpProtocol : Player
 
 	public delegate void OnConnect (bool success);
 	OnConnect mOnConnect;
+	Socket mSocket;
 
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();
@@ -49,21 +44,65 @@ public class TcpProtocol : Player
 	Buffer mReceiveBuffer;
 	int mExpected = 0;
 	int mOffset = 0;
+	bool mImproveLatency = false;
 	
 	// Static as it's temporary
 	static Buffer mBuffer;
 
 	/// <summary>
+	/// Socket that is used for communication.
+	/// </summary>
+	/// 
+	public Socket socket
+	{
+		get
+		{
+			return mSocket;
+		}
+		set
+		{
+			if (mSocket != value)
+			{
+				Disconnect();
+				mSocket = value;
+				SetSocketOptions();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
+	/// Enabling this flag will improve latency at the cost of increased bandwidth.
+	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
+	/// </summary>
+
+	public bool improveLatency
+	{
+		get
+		{
+			return mImproveLatency;
+		}
+		set
+		{
+			if (mImproveLatency != value)
+			{
+				mImproveLatency = value;
+				SetSocketOptions();
+			}
+		}
+	}
+
+	/// <summary>
 	/// Whether the connection is currently active.
 	/// </summary>
 
-	public bool isConnected { get { return socket != null && socket.Connected; } }
+	public bool isConnected { get { return mSocket != null && mSocket.Connected; } }
 
 	/// <summary>
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public void Disconnect () { if (socket != null) Close(socket.Connected); }
+	public void Disconnect () { if (mSocket != null) Close(mSocket.Connected); }
 
 	/// <summary>
 	/// Try to establish a connection with the specified address.
@@ -83,8 +122,8 @@ public class TcpProtocol : Player
 		}
 
 		address = addr + ":" + port;
-		socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		socket.BeginConnect(destination, port, OnConnectResult, socket);
+		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		mSocket.BeginConnect(destination, port, OnConnectResult, mSocket);
 	}
 
 	/// <summary>
@@ -107,8 +146,21 @@ public class TcpProtocol : Player
 			return;
 		}
 
+		SetSocketOptions();
 		mOnConnect(true);
 		StartReceiving();
+	}
+
+	/// <summary>
+	/// Set socket options to the currently saved values.
+	/// </summary>
+
+	void SetSocketOptions ()
+	{
+		if (mSocket != null)
+		{
+			mSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, mImproveLatency);
+		}
 	}
 
 	/// <summary>
@@ -154,18 +206,18 @@ public class TcpProtocol : Player
 			mReceiveBuffer = null;
 		}
 
-		if (socket != null)
+		if (mSocket != null)
 		{
 			try
 			{
-				if (socket.Connected) socket.Shutdown(SocketShutdown.Both);
-				socket.Close();
+				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
+				mSocket.Close();
 			}
 			catch (System.Exception ex)
 			{
 				Error(ex.Message);
 			}
-			socket = null;
+			mSocket = null;
 
 			if (notify)
 			{
@@ -182,18 +234,18 @@ public class TcpProtocol : Player
 
 	public void Release ()
 	{
-		if (socket != null)
+		if (mSocket != null)
 		{
 			try
 			{
-				if (socket.Connected) socket.Shutdown(SocketShutdown.Both);
-				socket.Close();
+				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
+				mSocket.Close();
 			}
 			catch (System.Exception ex)
 			{
 				Error(ex.Message);
 			}
-			socket = null;
+			mSocket = null;
 		}
 
 		Buffer.Recycle(mIn);
@@ -221,7 +273,7 @@ public class TcpProtocol : Player
 	{
 		buffer.MarkAsUsed();
 
-		if (socket != null && socket.Connected)
+		if (mSocket != null && mSocket.Connected)
 		{
 			buffer.BeginReading();
 
@@ -232,7 +284,7 @@ public class TcpProtocol : Player
 				if (mOut.Count == 1)
 				{
 					// If it's the first packet, let's begin the send process
-					socket.BeginSend(buffer.buffer, buffer.position,
+					mSocket.BeginSend(buffer.buffer, buffer.position,
 						buffer.size, SocketFlags.None, OnSend, buffer);
 				}
 			}
@@ -250,7 +302,7 @@ public class TcpProtocol : Player
 		
 		try
 		{
-			bytes = (socket.SocketType == SocketType.Dgram) ? socket.EndSendTo(result) : socket.EndSend(result);
+			bytes = (mSocket.SocketType == SocketType.Dgram) ? mSocket.EndSendTo(result) : mSocket.EndSend(result);
 		}
 		catch (System.NullReferenceException)
 		{
@@ -273,7 +325,7 @@ public class TcpProtocol : Player
 			{
 				// If there is another packet to send out, let's send it
 				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
-				if (next != null) socket.BeginSend(next.buffer, next.position, next.size,
+				if (next != null) mSocket.BeginSend(next.buffer, next.position, next.size,
 					SocketFlags.None, OnSend, next);
 			}
 			else Close(true);
@@ -286,16 +338,16 @@ public class TcpProtocol : Player
 
 	public void StartReceiving ()
 	{
-		if (socket != null && socket.Connected)
+		if (mSocket != null && mSocket.Connected)
 		{
 			// Save the timestamp
 			timestamp = DateTime.Now.Ticks / 10000;
 
 			// Save the address
-			address = ((IPEndPoint)socket.RemoteEndPoint).ToString();
+			address = ((IPEndPoint)mSocket.RemoteEndPoint).ToString();
 
 			// Queue up the read operation
-			socket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
 		}
 	}
 
@@ -319,7 +371,7 @@ public class TcpProtocol : Player
 
 		try
 		{
-			bytes = socket.EndReceive(result);
+			bytes = mSocket.EndReceive(result);
 		}
 		catch (System.Exception)
 		{
@@ -396,7 +448,7 @@ public class TcpProtocol : Player
 				else break;
 			}
 			// Queue up the next read operation
-			socket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
 		}
 		else Close(true);
 	}

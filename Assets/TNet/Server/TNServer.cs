@@ -711,24 +711,21 @@ public class Server
 
 		switch (request)
 		{
+			case Packet.Error:
+			{
+				Error(player, reader.ReadString());
+				break;
+			}
+			case Packet.Disconnect:
+			{
+				RemovePlayer(player);
+				break;
+			}
 			case Packet.RequestPing:
 			{
 				// Respond with a ping back
 				BeginSend(Packet.ResponsePing);
 				EndSend(player);
-				break;
-			}
-			case Packet.ForwardToPlayer:
-			{
-				// Forward this packet to the specified player
-				ServerPlayer target = GetPlayer(reader.ReadInt32());
-
-				if (target != null && target.socket.Connected)
-				{
-					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-					buffer.position = buffer.position - 5;
-					target.SendPacket(buffer);
-				}
 				break;
 			}
 			case Packet.RequestJoinChannel:
@@ -828,14 +825,22 @@ public class Server
 				DeleteFile(reader.ReadString());
 				break;
 			}
-			case Packet.Error:
+			case Packet.RequestImproveLatency:
 			{
-				Error(player, reader.ReadString());
+				player.improveLatency = reader.ReadBoolean();
 				break;
 			}
-			case Packet.Disconnect:
+			case Packet.ForwardToPlayer:
 			{
-				RemovePlayer(player);
+				// Forward this packet to the specified player
+				ServerPlayer target = GetPlayer(reader.ReadInt32());
+
+				if (target != null && target.isConnected)
+				{
+					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
+					buffer.position = buffer.position - 5;
+					target.SendPacket(buffer);
+				}
 				break;
 			}
 			default:
@@ -852,7 +857,7 @@ public class Server
 						ProcessChannelPacket(player, buffer, reader, request);
 					}
 				}
-				else
+				else if ((int)request > (int)Packet.ForwardToPlayerBuffered)
 				{
 					OnPacket(player, buffer, reader, (int)request);
 				}
@@ -896,7 +901,7 @@ public class Server
 				player.channel.CreateRFC(target, funcName, buffer);
 
 				// Forward the packet to the target player
-				if (targetPlayer != null && targetPlayer.socket.Connected) targetPlayer.SendPacket(buffer);
+				if (targetPlayer != null && targetPlayer.isConnected) targetPlayer.SendPacket(buffer);
 				break;
 			}
 			default:
@@ -1063,10 +1068,7 @@ public class Server
 			}
 			default:
 			{
-				if ((int)request > (int)Packet.ForwardToPlayerBuffered)
-				{
-					OnPacket(player, buffer, reader, (int)request);
-				}
+				OnPacket(player, buffer, reader, (int)request);
 				break;
 			}
 		}

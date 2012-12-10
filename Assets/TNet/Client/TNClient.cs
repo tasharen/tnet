@@ -153,6 +153,31 @@ public class Client
 	static Buffer mBuffer;
 
 	/// <summary>
+	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
+	/// Enabling this flag will improve latency at the cost of increased bandwidth.
+	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
+	/// </summary>
+
+	public bool improveLatency
+	{
+		get
+		{
+			return mTcp.improveLatency;
+		}
+		set
+		{
+			if (mTcp.improveLatency != value)
+			{
+				mTcp.improveLatency = value;
+
+				// Notify the server as well so that the server does the same
+				BeginSend(Packet.RequestImproveLatency).Write(value);
+				EndSend();
+			}
+		}
+	}
+
+	/// <summary>
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
