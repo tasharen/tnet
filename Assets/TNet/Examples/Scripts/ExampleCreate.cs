@@ -16,23 +16,14 @@ public class ExampleCreate : MonoBehaviour
 	public GameObject objectToCreate;
 
 	/// <summary>
-	/// Raycast into the screen to determine where we've clicked and create a new object above that position.
+	/// Create a new object above the clicked position
 	/// </summary>
 
 	void OnClick ()
 	{
-		Vector3 pos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
-		Ray ray = Camera.main.ScreenPointToRay(pos);
-		RaycastHit hit;
-
-		if (Physics.Raycast(ray, out hit, 100f, -1))
-		{
-			pos = hit.point;
-			pos.y += 3f;
-			Quaternion rot = Quaternion.Euler(Random.value * 180f, Random.value * 180f, Random.value * 180f);
-
-			// Create a new object above the clicked position
-			TNManager.Create(objectToCreate, pos, rot);
-		}
+		Vector3 pos = TouchHandler.worldPos;
+		pos.y += 3f;
+		Quaternion rot = Quaternion.Euler(Random.value * 180f, Random.value * 180f, Random.value * 180f);
+		TNManager.Create(objectToCreate, pos, rot);
 	}
 }
