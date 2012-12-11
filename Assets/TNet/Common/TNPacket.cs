@@ -134,6 +134,12 @@ public enum Packet
 
 	RequestImproveLatency,
 
+	/// <summary>
+	/// Request the list of open channels from the server.
+	/// </summary>
+	
+	RequestChannelList,
+
 	//===================================================================================
 
 	/// <summary>
@@ -243,6 +249,19 @@ public enum Packet
 	/// </summary>
 
 	ResponseLoadFile,
+
+	/// <summary>
+	/// List open channels on the server.
+	/// int32: number of channels to follow
+	/// For each channel:
+	/// int32: ID
+	/// int32: Number of players
+	/// bool: Has a password
+	/// bool: Is persistent
+	/// string: Level
+	/// </summary>
+
+	ResponseChannelList,
 
 	//===================================================================================
 

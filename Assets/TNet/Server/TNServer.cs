@@ -830,6 +830,24 @@ public class Server
 				player.improveLatency = reader.ReadBoolean();
 				break;
 			}
+			case Packet.RequestChannelList:
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseChannelList);
+
+				writer.Write(mChannels.size);
+
+				for (int i = 0; i < mChannels.size; ++i)
+				{
+					Channel ch = mChannels[i];
+					writer.Write(ch.id);
+					writer.Write(ch.players.size);
+					writer.Write(!string.IsNullOrEmpty(ch.password));
+					writer.Write(ch.persistent);
+					writer.Write(ch.level);
+				}
+				EndSend(player);
+				break;
+			}
 			case Packet.ForwardToPlayer:
 			{
 				// Forward this packet to the specified player
