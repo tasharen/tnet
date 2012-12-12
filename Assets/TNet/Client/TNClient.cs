@@ -111,17 +111,6 @@ public class Client
 
 	public OnForwardedPacket onForwardedPacket;
 
-	enum Stage
-	{
-		Disconnected,
-		Connecting,
-		Verifying,
-		Connected,
-	}
-
-	// Current connection stage
-	Stage mStage = Stage.Disconnected;
-
 	/// <summary>
 	/// List of players in the same channel as the client.
 	/// </summary>
@@ -181,7 +170,7 @@ public class Client
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
-	public bool isConnected { get { return mStage == Stage.Connected; } }
+	public bool isConnected { get { return mTcp.isConnected; } }
 
 	/// <summary>
 	/// Whether this player is hosting the game.
@@ -290,7 +279,7 @@ public class Client
 	public void EndSend ()
 	{
 		mBuffer.EndPacket();
-		mTcp.SendPacket(mBuffer);
+		mTcp.SendPacket(mBuffer, false);
 		mBuffer = null;
 	}
 
@@ -310,36 +299,13 @@ public class Client
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (string addr, int port)
-	{
-		mStage = Stage.Connecting;
-		mTcp.Connect(addr, port, OnConnectResult);
-	}
+	public void Connect (string addr, int port) { mTcp.Connect(addr, port); }
 
 	/// <summary>
 	/// Disconnect from the server.
 	/// </summary>
 
 	public void Disconnect () { mTcp.Disconnect(); }
-
-	/// <summary>
-	/// Connection attempt result.
-	/// </summary>
-
-	void OnConnectResult (bool success)
-	{
-		if (success)
-		{
-			mStage = Stage.Verifying;
-
-			// Request a player ID
-			BinaryWriter writer = BeginSend(Packet.RequestID);
-			writer.Write(Player.version);
-			writer.Write((mTcp.name != null) ? mTcp.name : "Guest");
-			EndSend();
-		}
-		else mStage = Stage.Disconnected;
-	}
 
 	/// <summary>
 	/// Start listening to LAN broadcasts incoming on the specified port.
@@ -423,7 +389,7 @@ public class Client
 		mTime = DateTime.Now.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (isConnected && mStage == Stage.Connected && mCanPing && mPingTime + 4000 < mTime)
+		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mTime)
 		{
 			mCanPing = false;
 			mPingTime = mTime;
@@ -475,22 +441,19 @@ public class Client
 				}
 				case Packet.ResponseID:
 				{
-					if (mStage == Stage.Verifying)
+					if (mTcp.stage == ConnectedProtocol.Stage.Verifying)
 					{
 						int serverVersion = reader.ReadInt32();
-						mTcp.id = reader.ReadInt32();
 
-						if (serverVersion == Player.version)
+						if (mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
 						{
 							mCanPing = true;
-							mStage = Stage.Connected;
 							if (onConnect != null) onConnect(true, null);
 						}
-						else
+						else if (onConnect != null)
 						{
-							if (onConnect != null) onConnect(false, "Version mismatch. Server is running version " + serverVersion +
-								", while you have version " + Player.version);
-							mTcp.Close(true);
+							onConnect(false, "Version mismatch. Server is running version " +
+								serverVersion + ", while you have version " + Player.version);
 						}
 					}
 					break;
@@ -587,7 +550,7 @@ public class Client
 				}
 				case Packet.Error:
 				{
-					if (mStage != Stage.Connected && onConnect != null)
+					if (mTcp.stage != ConnectedProtocol.Stage.Connected && onConnect != null)
 					{
 						onConnect(false, reader.ReadString());
 					}
@@ -602,7 +565,7 @@ public class Client
 					if (isInChannel && onLeftChannel != null) onLeftChannel();
 					players.Clear();
 					mDictionary.Clear();
-					mStage = Stage.Disconnected;
+					mTcp.Close(false);
 					if (onDisconnect != null) onDisconnect();
 					break;
 				}

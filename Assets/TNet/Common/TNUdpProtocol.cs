@@ -50,11 +50,9 @@ public class UdpProtocol
 			
 		if (port != 0)
 		{
-			EndPoint endPoint = new IPEndPoint(IPAddress.Any, mPort);
-
 			try
 			{
-				mReceiver.Bind(endPoint);
+				mReceiver.Bind(new IPEndPoint(IPAddress.Any, mPort));
 				mReceiver.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
 #if UNITY_EDITOR
