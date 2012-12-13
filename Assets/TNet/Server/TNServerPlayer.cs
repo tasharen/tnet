@@ -19,12 +19,6 @@ namespace TNet
 public class ServerPlayer : TcpProtocol
 {
 	/// <summary>
-	/// Whether the connection has been verified to use the correct protocol version.
-	/// </summary>
-
-	public bool verified = false;
-
-	/// <summary>
 	/// Channel that the player is currently in.
 	/// </summary>
 

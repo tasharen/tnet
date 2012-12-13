@@ -57,18 +57,6 @@ public class TNManager : MonoBehaviour
 	static public bool isInChannel { get { return mInstance == null || mInstance.mClient.isInChannel; } }
 
 	/// <summary>
-	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
-	/// Enabling this flag will improve latency at the cost of increased bandwidth.
-	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
-	/// </summary>
-
-	static public bool improveLatency
-	{
-		get { return (mInstance != null) ? mInstance.mClient.improveLatency : false; }
-		set { if (mInstance != null) mInstance.mClient.improveLatency = value; }
-	}
-
-	/// <summary>
 	/// Current ping to the server.
 	/// </summary>
 

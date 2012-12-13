@@ -19,7 +19,7 @@ public abstract class ConnectedProtocol : Player
 {
 	public enum Stage
 	{
-		Disconnected,
+		NotConnected,
 		Connecting,
 		Verifying,
 		Connected,
@@ -29,7 +29,7 @@ public abstract class ConnectedProtocol : Player
 	/// Current connection stage.
 	/// </summary>
 
-	public Stage stage = Stage.Disconnected;
+	public Stage stage = Stage.NotConnected;
 
 	/// <summary>
 	/// IP address of the target we're connected to.
@@ -57,12 +57,6 @@ public abstract class ConnectedProtocol : Player
 	
 	// Static as it's temporary
 	static Buffer mBuffer;
-
-	/// <summary>
-	/// Socket that is used for communication.
-	/// </summary>
-
-	public abstract Socket socket { get; set; }
 
 	/// <summary>
 	/// Whether the connection is currently active.
@@ -173,7 +167,7 @@ public abstract class ConnectedProtocol : Player
 			mReceiveBuffer.Recycle();
 			mReceiveBuffer = null;
 		}
-		stage = Stage.Disconnected;
+		stage = Stage.NotConnected;
 	}
 
 	/// <summary>
@@ -209,13 +203,19 @@ public abstract class ConnectedProtocol : Player
 	/// Send the specified packet. Marks the buffer as used.
 	/// </summary>
 
-	public abstract void SendPacket (Buffer buffer, bool immediate);
+	protected abstract void SendPacket (Buffer buffer, bool immediate);
 
 	/// <summary>
-	/// Start receiving incoming messages.
+	/// Start receiving incoming messages on the current socket.
 	/// </summary>
 
-	public abstract void StartReceiving ();
+	public void StartReceiving () { StartReceiving(null); }
+
+	/// <summary>
+	/// Start receiving incoming messages on the specified socket
+	/// </summary>
+
+	public abstract void StartReceiving (Socket socket);
 
 	/// <summary>
 	/// Extract the first incoming packet.

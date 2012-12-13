@@ -18,50 +18,6 @@ namespace TNet
 public class TcpProtocol : ConnectedProtocol
 {
 	Socket mSocket;
-	bool mImproveLatency = false;
-
-	/// <summary>
-	/// Socket that is used for communication.
-	/// </summary>
-
-	public override Socket socket
-	{
-		get
-		{
-			return mSocket;
-		}
-		set
-		{
-			if (mSocket != value)
-			{
-				Disconnect();
-				mSocket = value;
-				SetSocketOptions();
-			}
-		}
-	}
-
-	/// <summary>
-	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
-	/// Enabling this flag will improve latency at the cost of increased bandwidth.
-	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
-	/// </summary>
-
-	public bool improveLatency
-	{
-		get
-		{
-			return mImproveLatency;
-		}
-		set
-		{
-			if (mImproveLatency != value)
-			{
-				mImproveLatency = value;
-				SetSocketOptions();
-			}
-		}
-	}
 
 	/// <summary>
 	/// Try to establish a connection with the specified address.
@@ -104,7 +60,6 @@ public class TcpProtocol : ConnectedProtocol
 			return;
 		}
 
-		SetSocketOptions();
 		SendVerification(true);
 		StartReceiving();
 	}
@@ -114,18 +69,6 @@ public class TcpProtocol : ConnectedProtocol
 	/// </summary>
 
 	public override void Disconnect () { if (mSocket != null) Close(mSocket.Connected); }
-
-	/// <summary>
-	/// Set socket options to the currently saved values.
-	/// </summary>
-
-	void SetSocketOptions ()
-	{
-		if (mSocket != null)
-		{
-			mSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, mImproveLatency);
-		}
-	}
 
 	/// <summary>
 	/// Close the connection.
@@ -142,10 +85,11 @@ public class TcpProtocol : ConnectedProtocol
 				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
 				mSocket.Close();
 			}
-			catch (System.Exception ex)
-			{
-				Error(ex.Message);
-			}
+#if UNITY_EDITOR
+			catch (System.Exception ex) { UnityEngine.Debug.LogWarning(ex.Message); }
+#else
+			catch (System.Exception) {}
+#endif
 			mSocket = null;
 
 			if (notify)
@@ -170,10 +114,11 @@ public class TcpProtocol : ConnectedProtocol
 				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
 				mSocket.Close();
 			}
-			catch (System.Exception ex)
-			{
-				Error(ex.Message);
-			}
+#if UNITY_EDITOR
+			catch (System.Exception ex) { UnityEngine.Debug.LogWarning("Release: " + ex.Message); }
+#else
+			catch (System.Exception) {}
+#endif
 			mSocket = null;
 		}
 
@@ -184,7 +129,7 @@ public class TcpProtocol : ConnectedProtocol
 	/// Send the specified packet. Marks the buffer as used.
 	/// </summary>
 
-	public override void SendPacket (Buffer buffer, bool immediate)
+	protected override void SendPacket (Buffer buffer, bool immediate)
 	{
 		buffer.MarkAsUsed();
 
@@ -195,7 +140,6 @@ public class TcpProtocol : ConnectedProtocol
 			if (immediate)
 			{
 				mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
-				buffer.Recycle();
 			}
 			else
 			{
@@ -206,13 +150,13 @@ public class TcpProtocol : ConnectedProtocol
 					if (mOut.Count == 1)
 					{
 						// If it's the first packet, let's begin the send process
-						mSocket.BeginSend(buffer.buffer, buffer.position,
-							buffer.size, SocketFlags.None, OnSend, buffer);
+						mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
 					}
 				}
+				return;
 			}
 		}
-		else buffer.Recycle();
+		buffer.Recycle();
 	}
 
 	/// <summary>
@@ -232,10 +176,18 @@ public class TcpProtocol : ConnectedProtocol
 			Close(true);
 			return;
 		}
-		catch (System.Exception)
+		catch (System.Exception ex)
 		{
 			bytes = 0;
 			Close(true);
+			Error(ex.Message);
+			return;
+		}
+
+		if (bytes == 0)
+		{
+			Buffer buffer = (Buffer)result.AsyncState;
+			mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
 			return;
 		}
 
@@ -259,10 +211,19 @@ public class TcpProtocol : ConnectedProtocol
 	/// Start receiving incoming messages.
 	/// </summary>
 
-	public override void StartReceiving ()
+	public override void StartReceiving (Socket socket)
 	{
+		if (socket != null)
+		{
+			Close(false);
+			mSocket = socket;
+		}
+
 		if (mSocket != null && mSocket.Connected)
 		{
+			// We are not verifying the connection
+			stage = Stage.Verifying;
+
 			// Save the timestamp
 			timestamp = DateTime.Now.Ticks / 10000;
 
@@ -280,24 +241,24 @@ public class TcpProtocol : ConnectedProtocol
 
 	void OnReceive (IAsyncResult result)
 	{
+		if (stage == Stage.NotConnected) return;
+
 		int bytes = 0;
 
 		try
 		{
 			bytes = mSocket.EndReceive(result);
 		}
-		catch (System.Exception)
+		catch (System.Exception ex)
 		{
 			Close(true);
+			Error(ex.Message);
 			return;
 		}
 		timestamp = DateTime.Now.Ticks / 10000;
 
-		if (bytes > 0)
+		if (bytes > 0 && OnReceive(bytes))
 		{
-			// Process the data
-			OnReceive(bytes);
-
 			// Queue up the next read operation
 			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
 		}

@@ -24,26 +24,6 @@ public class RudpProtocol : ConnectedProtocol
 	EndPoint mRemote = new IPEndPoint(IPAddress.None, 0);
 
 	/// <summary>
-	/// Socket that is used for communication.
-	/// </summary>
-
-	public override Socket socket
-	{
-		get
-		{
-			return mSocket;
-		}
-		set
-		{
-			if (mSocket != value)
-			{
-				Disconnect();
-				mSocket = value;
-			}
-		}
-	}
-
-	/// <summary>
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
@@ -88,8 +68,14 @@ public class RudpProtocol : ConnectedProtocol
 	/// Start receiving for incoming data.
 	/// </summary>
 
-	public override void StartReceiving ()
+	public override void StartReceiving (Socket socket)
 	{
+		if (socket != null)
+		{
+			Close(false);
+			mSocket = socket;
+		}
+
 		if (mSocket != null)
 		{
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
@@ -108,8 +94,14 @@ public class RudpProtocol : ConnectedProtocol
 		{
 			bytes = mSocket.EndReceiveFrom(result, ref mEndPoint);
 		}
+#if UNITY_EDITOR
+		catch (System.Exception ex)
+		{
+			UnityEngine.Debug.LogWarning(ex.Message);
+#else
 		catch (System.Exception)
 		{
+#endif
 			if (mSocket != null)
 			{
 				mSocket.Close();
@@ -126,7 +118,7 @@ public class RudpProtocol : ConnectedProtocol
 			Buffer buffer = Buffer.Create();
 			BinaryWriter writer = buffer.BeginWriting(false);
 
-			IPEndPoint ip = (IPEndPoint)mEndPoint;
+			//IPEndPoint ip = (IPEndPoint)mEndPoint;
 			writer.Write(mTemp, 0, bytes);
 			buffer.BeginReading(4);
 
@@ -182,7 +174,7 @@ public class RudpProtocol : ConnectedProtocol
 	/// Send the specified packet to the connected client.
 	/// </summary>
 
-	public override void SendPacket (Buffer buffer, bool immediate)
+	protected override void SendPacket (Buffer buffer, bool immediate)
 	{
 		throw new NotImplementedException();
 	}

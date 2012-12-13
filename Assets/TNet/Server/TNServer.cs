@@ -195,8 +195,9 @@ public class Server
 				}
 
 				// Time out -- disconnect this player
-				if (player.verified)
+				if (player.stage == ConnectedProtocol.Stage.Connected)
 				{
+					// Up to 10 seconds can go without a single packet before the player is removed
 					if (player.timestamp + 10000 < mTime)
 					{
 						Console.WriteLine(player.address + " has timed out");
@@ -238,8 +239,7 @@ public class Server
 	protected ServerPlayer AddPlayer (Socket socket)
 	{
 		ServerPlayer player = new ServerPlayer();
-		player.socket = socket;
-		player.StartReceiving();
+		player.StartReceiving(socket);
 		mPlayers.Add(player);
 		return player;
 	}
@@ -538,7 +538,7 @@ public class Server
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			ServerPlayer player = channel.players[i];
-			if (player.verified && player != exclude) player.SendPacket(mBuffer);
+			if (player.stage != ConnectedProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
 		}
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -559,7 +559,7 @@ public class Server
 			for (int b = 0; b < channel.players.size; ++b)
 			{
 				ServerPlayer player = channel.players[b];
-				if (player.verified) player.SendPacket(mBuffer);
+				if (player.stage == ConnectedProtocol.Stage.Connected) player.SendPacket(mBuffer);
 			}
 		}
 		mBuffer.Recycle();
@@ -577,7 +577,7 @@ public class Server
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			ServerPlayer player = channel.players[i];
-			if (player.verified) player.SendPacket(buffer);
+			if (player.stage == ConnectedProtocol.Stage.Connected) player.SendPacket(buffer);
 		}
 		mBuffer.Recycle();
 	}
@@ -679,7 +679,7 @@ public class Server
 		Packet request = (Packet)reader.ReadByte();
 
 		// If the player has not yet been verified, the first packet must be an ID request
-		if (!player.verified)
+		if (player.stage == ConnectedProtocol.Stage.Verifying)
 		{
 			if (request == Packet.RequestID)
 			{
@@ -690,7 +690,7 @@ public class Server
 				if (clientVersion == ServerPlayer.version)
 				{
 					player.id = Interlocked.Increment(ref mPlayerCounter);
-					player.verified = true;
+					player.stage = ConnectedProtocol.Stage.Connected;
 					mDictionary.Add(player.id, player);
 					buffer.Recycle();
 				}
@@ -823,11 +823,6 @@ public class Server
 			case Packet.RequestDeleteFile:
 			{
 				DeleteFile(reader.ReadString());
-				break;
-			}
-			case Packet.RequestImproveLatency:
-			{
-				player.improveLatency = reader.ReadBoolean();
 				break;
 			}
 			case Packet.RequestChannelList:

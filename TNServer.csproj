@@ -40,6 +40,7 @@
   -->
   <ItemGroup>
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
+    <Compile Include="Assets\TNet\Common\TNConnectedProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
