@@ -538,7 +538,7 @@ public class Server
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			ServerPlayer player = channel.players[i];
-			if (player.stage != TcpProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
+			if (player.stage == TcpProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
 		}
 		mBuffer.Recycle();
 		mBuffer = null;

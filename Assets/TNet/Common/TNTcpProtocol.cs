@@ -55,6 +55,7 @@ public class TcpProtocol : Player
 	int mExpected = 0;
 	int mOffset = 0;
 	Socket mSocket;
+	bool mNoDelay = false;
 
 	// Static as it's temporary
 	static Buffer mBuffer;
@@ -64,6 +65,28 @@ public class TcpProtocol : Player
 	/// </summary>
 
 	public bool isConnected { get { return stage == Stage.Connected; } }
+
+	/// <summary>
+	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
+	/// Enabling this flag will improve latency at the cost of increased bandwidth.
+	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
+	/// </summary>
+
+	public bool noDelay
+	{
+		get
+		{
+			return mNoDelay;
+		}
+		set
+		{
+			if (mNoDelay != value)
+			{
+				mNoDelay = value;
+				mSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, mNoDelay);
+			}
+		}
+	}
 
 	/// <summary>
 	/// Try to establish a connection with the specified address.
@@ -102,31 +125,18 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			Error(ex.Message);
-			SendVerification(false);
+			Close(false);
 			return;
 		}
 
-		SendVerification(true);
+		stage = Stage.Verifying;
+
+		// Request a player ID
+		BinaryWriter writer = BeginSend(Packet.RequestID);
+		writer.Write(Player.version);
+		writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+		EndSend();
 		StartReceiving();
-	}
-
-	/// <summary>
-	/// Start the protocol verification process.
-	/// </summary>
-
-	void SendVerification (bool success)
-	{
-		if (success)
-		{
-			stage = Stage.Verifying;
-
-			// Request a player ID
-			BinaryWriter writer = BeginSend(Packet.RequestID);
-			writer.Write(Player.version);
-			writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-			EndSend();
-		}
-		else Close(false);
 	}
 
 	/// <summary>
@@ -175,6 +185,8 @@ public class TcpProtocol : Player
 
 	public void Release ()
 	{
+		stage = Stage.NotConnected;
+
 		if (mSocket != null)
 		{
 			try
