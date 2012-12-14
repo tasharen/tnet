@@ -16,7 +16,7 @@ public class TNServerInstance : MonoBehaviour
 {
 	static TNServerInstance mInstance;
 
-	Server mServer = new Server();
+	TcpServer mServer = new TcpServer();
 
 	/// <summary>
 	/// Instance access is internal only as all the functions are static for convenience purposes.

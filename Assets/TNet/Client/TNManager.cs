@@ -21,7 +21,7 @@ public class TNManager : MonoBehaviour
 	public GameObject[] objects;
 
 	// Network client
-	Client mClient = new Client();
+	TcpClient mClient = new TcpClient();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 	static Player mPlayer = new Player("Guest");
@@ -36,7 +36,7 @@ public class TNManager : MonoBehaviour
 	/// TNet Client used for communication.
 	/// </summary>
 
-	static public Client client { get { return (mInstance != null) ? mInstance.mClient : null; } }
+	static public TcpClient client { get { return (mInstance != null) ? mInstance.mClient : null; } }
 
 	/// <summary>
 	/// Whether we're currently connected.
