@@ -825,6 +825,11 @@ public class Server
 				DeleteFile(reader.ReadString());
 				break;
 			}
+			case Packet.RequestNoDelay:
+			{
+				player.noDelay = reader.ReadBoolean();
+				break;
+			}
 			case Packet.RequestChannelList:
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseChannelList);

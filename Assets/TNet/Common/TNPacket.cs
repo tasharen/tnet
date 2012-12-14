@@ -128,6 +128,13 @@ public enum Packet
 	RequestDeleteFile,
 
 	/// <summary>
+	/// Improve latency of the established connection at the expense of network traffic.
+	/// bool: Whether to improve it (enable NO_DELAY)
+	/// </summary>
+
+	RequestNoDelay,
+
+	/// <summary>
 	/// Request the list of open channels from the server.
 	/// </summary>
 	

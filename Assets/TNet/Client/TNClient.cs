@@ -165,7 +165,24 @@ public class Client
 	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
 	/// </summary>
 
-	public bool noDelay { get { return mTcp.noDelay; } set { mTcp.noDelay = value; } }
+	public bool noDelay
+	{
+		get
+		{
+			return mTcp.noDelay;
+		}
+		set
+		{
+			if (mTcp.noDelay != value)
+			{
+				mTcp.noDelay = value;
+				
+				// Notify the server as well so that the server does the same
+				BeginSend(Packet.RequestNoDelay).Write(value);
+				EndSend();
+			}
+		}
+	}
 
 	/// <summary>
 	/// Current ping to the server.
