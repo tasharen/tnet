@@ -3,7 +3,7 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using System;
+/*using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
@@ -22,6 +22,9 @@ public class RudpProtocol : ConnectedProtocol
 	int mPort = 0;
 	EndPoint mEndPoint = new IPEndPoint(IPAddress.Any, 0);
 	EndPoint mRemote = new IPEndPoint(IPAddress.None, 0);
+
+	// The index of the last packet to arrive successfully with all previous packets to arrive successfully as well
+	//ushort mLastFullSequenceID = 0;
 
 	/// <summary>
 	/// Try to establish a connection with the specified address.
@@ -53,14 +56,9 @@ public class RudpProtocol : ConnectedProtocol
 			writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
 			EndSend();
 		}
-#if UNITY_EDITOR
 		catch (System.Exception ex)
 		{
-			UnityEngine.Debug.LogError(ex.Message);
-#else
-		catch (System.Exception)
-		{
-#endif
+			Error(ex.Message);
 		}
 	}
 
@@ -88,6 +86,19 @@ public class RudpProtocol : ConnectedProtocol
 
 	void OnReceive (IAsyncResult result)
 	{
+		// TODO:
+		// rUDP can completely replace TCP as it makes NAT punchthrough trivial.
+		// Each socket would need to keep a bunch of "source" lists though.
+		// Packet arrives -- add it to the list associated with its IP:port. When processing packets,
+		// process each list as if it was a separate connection.
+
+		// UDP port 1234 sends a packet to a remote client's port 2345 (it gets blocked).
+		// Remote client on port 2345 sends a packet to this client's 1234 (it may go through).
+		// Neither are actively listening.
+		// Both close the sockets.
+		// Bind TCP listener to 1234.
+		// Remote client binds a TCP socket to port 2345 and tries to connect to 1234. Connection succeeds.
+
 		int bytes = 0;
 
 		try
@@ -180,3 +191,4 @@ public class RudpProtocol : ConnectedProtocol
 	}
 }
 }
+*/

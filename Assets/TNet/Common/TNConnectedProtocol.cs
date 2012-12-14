@@ -3,7 +3,7 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using System;
+/*using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
@@ -231,7 +231,7 @@ public abstract class ConnectedProtocol : Player
 	/// See if the received packet can be processed and split it up into different ones.
 	/// </summary>
 
-	protected bool OnReceive (int bytes)
+	protected bool ProcessBuffer (int bytes)
 	{
 		if (mReceiveBuffer == null)
 		{
@@ -301,4 +301,4 @@ public abstract class ConnectedProtocol : Player
 		return true;
 	}
 }
-}
+}*/

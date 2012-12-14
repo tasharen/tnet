@@ -195,7 +195,7 @@ public class Server
 				}
 
 				// Time out -- disconnect this player
-				if (player.stage == ConnectedProtocol.Stage.Connected)
+				if (player.stage == TcpProtocol.Stage.Connected)
 				{
 					// Up to 10 seconds can go without a single packet before the player is removed
 					if (player.timestamp + 10000 < mTime)
@@ -538,7 +538,7 @@ public class Server
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			ServerPlayer player = channel.players[i];
-			if (player.stage != ConnectedProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
+			if (player.stage != TcpProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
 		}
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -559,7 +559,7 @@ public class Server
 			for (int b = 0; b < channel.players.size; ++b)
 			{
 				ServerPlayer player = channel.players[b];
-				if (player.stage == ConnectedProtocol.Stage.Connected) player.SendPacket(mBuffer);
+				if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(mBuffer);
 			}
 		}
 		mBuffer.Recycle();
@@ -577,7 +577,7 @@ public class Server
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			ServerPlayer player = channel.players[i];
-			if (player.stage == ConnectedProtocol.Stage.Connected) player.SendPacket(buffer);
+			if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(buffer);
 		}
 		mBuffer.Recycle();
 	}
@@ -679,7 +679,7 @@ public class Server
 		Packet request = (Packet)reader.ReadByte();
 
 		// If the player has not yet been verified, the first packet must be an ID request
-		if (player.stage == ConnectedProtocol.Stage.Verifying)
+		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
 			if (request == Packet.RequestID)
 			{
@@ -690,7 +690,7 @@ public class Server
 				if (clientVersion == ServerPlayer.version)
 				{
 					player.id = Interlocked.Increment(ref mPlayerCounter);
-					player.stage = ConnectedProtocol.Stage.Connected;
+					player.stage = TcpProtocol.Stage.Connected;
 					mDictionary.Add(player.id, player);
 					buffer.Recycle();
 				}

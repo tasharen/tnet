@@ -15,15 +15,61 @@ namespace TNet
 /// Common network communication-based logic: sending and receiving of data via TCP.
 /// </summary>
 
-public class TcpProtocol : ConnectedProtocol
+public class TcpProtocol : Player
 {
+	public enum Stage
+	{
+		NotConnected,
+		Connecting,
+		Verifying,
+		Connected,
+	}
+
+	/// <summary>
+	/// Current connection stage.
+	/// </summary>
+
+	public Stage stage = Stage.NotConnected;
+
+	/// <summary>
+	/// IP address of the target we're connected to.
+	/// </summary>
+
+	public string address;
+
+	/// <summary>
+	/// Timestamp of when we received the last message.
+	/// </summary>
+
+	public long timestamp = 0;
+
+	// Incoming and outgoing queues
+	Queue<Buffer> mIn = new Queue<Buffer>();
+	Queue<Buffer> mOut = new Queue<Buffer>();
+
+	// Buffer used for receiving incoming data
+	byte[] mTemp = new byte[8192];
+
+	// Current incoming buffer
+	Buffer mReceiveBuffer;
+	int mExpected = 0;
+	int mOffset = 0;
 	Socket mSocket;
+
+	// Static as it's temporary
+	static Buffer mBuffer;
+
+	/// <summary>
+	/// Whether the connection is currently active.
+	/// </summary>
+
+	public bool isConnected { get { return stage == Stage.Connected; } }
 
 	/// <summary>
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public override void Connect (string addr, int port)
+	public void Connect (string addr, int port)
 	{
 		Disconnect();
 
@@ -65,18 +111,43 @@ public class TcpProtocol : ConnectedProtocol
 	}
 
 	/// <summary>
+	/// Start the protocol verification process.
+	/// </summary>
+
+	void SendVerification (bool success)
+	{
+		if (success)
+		{
+			stage = Stage.Verifying;
+
+			// Request a player ID
+			BinaryWriter writer = BeginSend(Packet.RequestID);
+			writer.Write(Player.version);
+			writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+			EndSend();
+		}
+		else Close(false);
+	}
+
+	/// <summary>
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public override void Disconnect () { if (mSocket != null) Close(mSocket.Connected); }
+	public void Disconnect () { if (mSocket != null) Close(mSocket.Connected); }
 
 	/// <summary>
 	/// Close the connection.
 	/// </summary>
 
-	public override void Close (bool notify)
+	public void Close (bool notify)
 	{
-		base.Close(notify);
+		stage = Stage.NotConnected;
+
+		if (mReceiveBuffer != null)
+		{
+			mReceiveBuffer.Recycle();
+			mReceiveBuffer = null;
+		}
 
 		if (mSocket != null)
 		{
@@ -85,11 +156,8 @@ public class TcpProtocol : ConnectedProtocol
 				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
 				mSocket.Close();
 			}
-#if UNITY_EDITOR
-			catch (System.Exception ex) { UnityEngine.Debug.LogWarning(ex.Message); }
-#else
 			catch (System.Exception) {}
-#endif
+
 			mSocket = null;
 
 			if (notify)
@@ -105,7 +173,7 @@ public class TcpProtocol : ConnectedProtocol
 	/// Release the buffers.
 	/// </summary>
 
-	public override void Release ()
+	public void Release ()
 	{
 		if (mSocket != null)
 		{
@@ -114,22 +182,49 @@ public class TcpProtocol : ConnectedProtocol
 				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
 				mSocket.Close();
 			}
-#if UNITY_EDITOR
-			catch (System.Exception ex) { UnityEngine.Debug.LogWarning("Release: " + ex.Message); }
-#else
 			catch (System.Exception) {}
-#endif
 			mSocket = null;
 		}
 
-		base.Release();
+		Buffer.Recycle(mIn);
+		Buffer.Recycle(mOut);
+	}
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	public BinaryWriter BeginSend (Packet type)
+	{
+		mBuffer = Buffer.Create(false);
+		return mBuffer.BeginPacket(type);
+	}
+
+	/// <summary>
+	/// Begin sending a new packet to the server.
+	/// </summary>
+
+	public BinaryWriter BeginSend (byte packetID)
+	{
+		mBuffer = Buffer.Create(false);
+		return mBuffer.BeginPacket(packetID);
+	}
+
+	/// Send the outgoing buffer.
+	/// </summary>
+
+	public void EndSend ()
+	{
+		mBuffer.EndPacket();
+		SendPacket(mBuffer);
+		mBuffer = null;
 	}
 
 	/// <summary>
 	/// Send the specified packet. Marks the buffer as used.
 	/// </summary>
 
-	protected override void SendPacket (Buffer buffer, bool immediate)
+	public void SendPacket (Buffer buffer)
 	{
 		buffer.MarkAsUsed();
 
@@ -137,26 +232,18 @@ public class TcpProtocol : ConnectedProtocol
 		{
 			buffer.BeginReading();
 
-			if (immediate)
+			lock (mOut)
 			{
-				mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
-			}
-			else
-			{
-				lock (mOut)
-				{
-					mOut.Enqueue(buffer);
+				mOut.Enqueue(buffer);
 
-					if (mOut.Count == 1)
-					{
-						// If it's the first packet, let's begin the send process
-						mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
-					}
+				if (mOut.Count == 1)
+				{
+					// If it's the first packet, let's begin the send process
+					mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
 				}
-				return;
 			}
 		}
-		buffer.Recycle();
+		else buffer.Recycle();
 	}
 
 	/// <summary>
@@ -165,16 +252,12 @@ public class TcpProtocol : ConnectedProtocol
 
 	void OnSend (IAsyncResult result)
 	{
+		if (stage == Stage.NotConnected) return;
 		int bytes;
 		
 		try
 		{
 			bytes = (mSocket.SocketType == SocketType.Dgram) ? mSocket.EndSendTo(result) : mSocket.EndSend(result);
-		}
-		catch (System.NullReferenceException)
-		{
-			Close(true);
-			return;
 		}
 		catch (System.Exception ex)
 		{
@@ -208,10 +291,16 @@ public class TcpProtocol : ConnectedProtocol
 	}
 
 	/// <summary>
-	/// Start receiving incoming messages.
+	/// Start receiving incoming messages on the current socket.
 	/// </summary>
 
-	public override void StartReceiving (Socket socket)
+	public void StartReceiving () { StartReceiving(null); }
+
+	/// <summary>
+	/// Start receiving incoming messages on the specified socket (for example socket accepted via Listen).
+	/// </summary>
+
+	public void StartReceiving (Socket socket)
 	{
 		if (socket != null)
 		{
@@ -236,13 +325,22 @@ public class TcpProtocol : ConnectedProtocol
 	}
 
 	/// <summary>
+	/// Extract the first incoming packet.
+	/// </summary>
+
+	public Buffer ReceivePacket ()
+	{
+		if (mIn.Count == 0) return null;
+		lock (mIn) return mIn.Dequeue();
+	}
+
+	/// <summary>
 	/// Receive incoming data.
 	/// </summary>
 
 	void OnReceive (IAsyncResult result)
 	{
 		if (stage == Stage.NotConnected) return;
-
 		int bytes = 0;
 
 		try
@@ -257,12 +355,119 @@ public class TcpProtocol : ConnectedProtocol
 		}
 		timestamp = DateTime.Now.Ticks / 10000;
 
-		if (bytes > 0 && OnReceive(bytes))
+		if (bytes > 0 && ProcessBuffer(bytes))
 		{
 			// Queue up the next read operation
 			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
 		}
 		else Close(true);
+	}
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	public void Error (string error)
+	{
+		Buffer buff = Buffer.Create();
+		BinaryWriter writer = buff.BeginWriting(false);
+		writer.Write((byte)Packet.Error);
+		writer.Write(error);
+		lock (mIn) mIn.Enqueue(buff);
+	}
+
+	/// <summary>
+	/// Verify the server's version -- it must match the client.
+	/// </summary>
+
+	public bool VerifyVersion (int clientVersion, int clientID)
+	{
+		if (clientVersion == version)
+		{
+			id = clientID;
+			stage = Stage.Connected;
+			return true;
+		}
+		else
+		{
+			id = 0;
+			Close(false);
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// See if the received packet can be processed and split it up into different ones.
+	/// </summary>
+
+	bool ProcessBuffer (int bytes)
+	{
+		if (mReceiveBuffer == null)
+		{
+			// Create a new packet buffer
+			mReceiveBuffer = Buffer.Create();
+			mReceiveBuffer.BeginWriting(false).Write(mTemp, 0, bytes);
+		}
+		else
+		{
+			// Append this data to the end of the last used buffer
+			mReceiveBuffer.BeginWriting(true).Write(mTemp, 0, bytes);
+		}
+
+		for (int available = mReceiveBuffer.size - mOffset; available >= 4; )
+		{
+			// Figure out the expected size of the packet
+			if (mExpected == 0)
+			{
+				mExpected = mReceiveBuffer.PeekInt(mOffset);
+				if (mExpected == -1) break;
+
+				// 0 indicates a closed connection
+				if (mExpected == 0)
+				{
+					Close(true);
+					return false;
+				}
+			}
+
+			// The first 4 bytes of any packet always contain the number of bytes in that packet
+			available -= 4;
+
+			// If the entire packet is present
+			if (available == mExpected)
+			{
+				// Reset the position to the beginning of the packet
+				mReceiveBuffer.BeginReading(mOffset += 4);
+
+				// This packet is now ready to be processed
+				lock (mIn) mIn.Enqueue(mReceiveBuffer);
+
+				mReceiveBuffer = null;
+				mExpected = 0;
+				mOffset = 0;
+				break;
+			}
+			else if (available > mExpected)
+			{
+				// There is more than one packet. Extract this packet fully.
+				int realSize = mExpected + 4;
+				Buffer temp = Buffer.Create();
+				temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realSize);
+
+				// Reset the position to the beginning of the packet
+				temp.BeginReading(4);
+
+				// This packet is now ready to be processed
+				lock (mIn) mIn.Enqueue(temp);
+
+				// Skip this packet
+				available -= mExpected;
+				mOffset += realSize;
+				mExpected = 0;
+			}
+			else break;
+		}
+		return true;
 	}
 }
 }

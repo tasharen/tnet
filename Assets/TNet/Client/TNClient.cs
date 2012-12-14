@@ -416,7 +416,7 @@ public class Client
 				}
 				case Packet.ResponseID:
 				{
-					if (mTcp.stage == ConnectedProtocol.Stage.Verifying)
+					if (mTcp.stage == TcpProtocol.Stage.Verifying)
 					{
 						int serverVersion = reader.ReadInt32();
 
@@ -525,7 +525,7 @@ public class Client
 				}
 				case Packet.Error:
 				{
-					if (mTcp.stage != ConnectedProtocol.Stage.Connected && onConnect != null)
+					if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
 					{
 						onConnect(false, reader.ReadString());
 					}
