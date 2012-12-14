@@ -16,7 +16,7 @@ namespace TNet
 /// Server-side logic.
 /// </summary>
 
-public class Server
+public class TcpServer
 {
 	static int mPlayerCounter = 0;
 
@@ -24,19 +24,19 @@ public class Server
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 
-	protected List<ServerPlayer> mPlayers = new List<ServerPlayer>();
+	protected List<TcpPlayer> mPlayers = new List<TcpPlayer>();
 
 	/// <summary>
 	/// Dictionary list of players for easy access by ID.
 	/// </summary>
 
-	protected Dictionary<int, ServerPlayer> mDictionary = new Dictionary<int, ServerPlayer>();
+	protected Dictionary<int, TcpPlayer> mDictionary = new Dictionary<int, TcpPlayer>();
 
 	/// <summary>
 	/// List of all the active channels.
 	/// </summary>
 
-	protected List<Channel> mChannels = new List<Channel>();
+	protected List<TcpChannel> mChannels = new List<TcpChannel>();
 
 	/// <summary>
 	/// Random number generator.
@@ -176,7 +176,7 @@ public class Server
 			// Add all pending connections
 			while (mListener != null && mListener.Pending())
 			{
-				ServerPlayer p = AddPlayer(mListener.AcceptSocket());
+				TcpPlayer p = AddPlayer(mListener.AcceptSocket());
 				Console.WriteLine(p.address + " has connected");
 			}
 
@@ -185,7 +185,7 @@ public class Server
 
 			for (int i = 0; i < mPlayers.size; )
 			{
-				ServerPlayer player = mPlayers[i];
+				TcpPlayer player = mPlayers[i];
 
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100; ++b)
@@ -221,7 +221,7 @@ public class Server
 	/// Log an error message.
 	/// </summary>
 
-	protected virtual void Error (ServerPlayer p, string error)
+	protected virtual void Error (TcpPlayer p, string error)
 	{
 #if UNITY_EDITOR
 		if (p != null) UnityEngine.Debug.LogError(error + " (" + p.address + ")");
@@ -236,9 +236,9 @@ public class Server
 	/// Add a new player entry.
 	/// </summary>
 
-	protected ServerPlayer AddPlayer (Socket socket)
+	protected TcpPlayer AddPlayer (Socket socket)
 	{
-		ServerPlayer player = new ServerPlayer();
+		TcpPlayer player = new TcpPlayer();
 		player.StartReceiving(socket);
 		mPlayers.Add(player);
 		return player;
@@ -248,7 +248,7 @@ public class Server
 	/// Remove the specified player.
 	/// </summary>
 
-	protected void RemovePlayer (ServerPlayer p)
+	protected void RemovePlayer (TcpPlayer p)
 	{
 		if (p != null)
 		{
@@ -270,9 +270,9 @@ public class Server
 	/// Retrieve a player by their ID.
 	/// </summary>
 
-	protected ServerPlayer GetPlayer (int id)
+	protected TcpPlayer GetPlayer (int id)
 	{
-		ServerPlayer p = null;
+		TcpPlayer p = null;
 		mDictionary.TryGetValue(id, out p);
 		return p;
 	}
@@ -281,9 +281,9 @@ public class Server
 	/// Create a new channel (or return an existing one).
 	/// </summary>
 
-	protected Channel CreateChannel (int channelID, out bool isNew)
+	protected TcpChannel CreateChannel (int channelID, out bool isNew)
 	{
-		Channel channel;
+		TcpChannel channel;
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
@@ -297,7 +297,7 @@ public class Server
 			}
 		}
 
-		channel = new Channel();
+		channel = new TcpChannel();
 		channel.id = channelID;
 		mChannels.Add(channel);
 		isNew = true;
@@ -446,7 +446,7 @@ public class Server
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
-			Channel ch = mChannels[i];
+			TcpChannel ch = mChannels[i];
 			
 			if (!ch.closed && ch.persistent)
 			{
@@ -488,7 +488,7 @@ public class Server
 			{
 				int chID = reader.ReadInt32();
 				bool isNew;
-				Channel ch = CreateChannel(chID, out isNew);
+				TcpChannel ch = CreateChannel(chID, out isNew);
 				if (isNew) ch.LoadFrom(reader);
 			}
 
@@ -519,7 +519,7 @@ public class Server
 	/// Send the outgoing buffer to the specified player.
 	/// </summary>
 
-	protected void EndSend (ServerPlayer player)
+	protected void EndSend (TcpPlayer player)
 	{
 		mBuffer.EndPacket();
 		player.SendPacket(mBuffer);
@@ -531,13 +531,13 @@ public class Server
 	/// Send the outgoing buffer to all players in the specified channel.
 	/// </summary>
 
-	protected void EndSend (Channel channel, ServerPlayer exclude)
+	protected void EndSend (TcpChannel channel, TcpPlayer exclude)
 	{
 		mBuffer.EndPacket();
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
-			ServerPlayer player = channel.players[i];
+			TcpPlayer player = channel.players[i];
 			if (player.stage == TcpProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
 		}
 		mBuffer.Recycle();
@@ -554,11 +554,11 @@ public class Server
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
-			Channel channel = mChannels[i];
+			TcpChannel channel = mChannels[i];
 
 			for (int b = 0; b < channel.players.size; ++b)
 			{
-				ServerPlayer player = channel.players[b];
+				TcpPlayer player = channel.players[b];
 				if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(mBuffer);
 			}
 		}
@@ -570,13 +570,13 @@ public class Server
 	/// Send the outgoing buffer to all players in the specified channel.
 	/// </summary>
 
-	protected void SendToChannel (Channel channel, Buffer buffer)
+	protected void SendToChannel (TcpChannel channel, Buffer buffer)
 	{
 		mBuffer.MarkAsUsed();
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
-			ServerPlayer player = channel.players[i];
+			TcpPlayer player = channel.players[i];
 			if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(buffer);
 		}
 		mBuffer.Recycle();
@@ -586,7 +586,7 @@ public class Server
 	/// Have the specified player assume control of the channel.
 	/// </summary>
 
-	protected void SendSetHost (ServerPlayer player)
+	protected void SendSetHost (TcpPlayer player)
 	{
 		if (player.channel != null && player.channel.host != player)
 		{
@@ -601,7 +601,7 @@ public class Server
 	/// Leave the channel the player is in.
 	/// </summary>
 
-	protected void SendLeaveChannel (ServerPlayer player, bool notify)
+	protected void SendLeaveChannel (TcpPlayer player, bool notify)
 	{
 		if (player.channel != null)
 		{
@@ -639,7 +639,7 @@ public class Server
 	/// Join the specified channel.
 	/// </summary>
 
-	protected void SendJoinChannel (ServerPlayer player, Channel channel)
+	protected void SendJoinChannel (TcpPlayer player, TcpChannel channel)
 	{
 		if (player.channel == null || player.channel != channel)
 		{
@@ -667,7 +667,7 @@ public class Server
 	/// Returns 'true' if a packet was received, 'false' otherwise.
 	/// </summary>
 
-	bool ReceivePacket (ServerPlayer player, long time)
+	bool ReceivePacket (TcpPlayer player, long time)
 	{
 		Buffer buffer = player.ReceivePacket();
 		if (buffer == null) return false;
@@ -687,7 +687,7 @@ public class Server
 				player.name = reader.ReadString();
 				
 				// Version matches? Connection is now verified.
-				if (clientVersion == ServerPlayer.version)
+				if (clientVersion == TcpPlayer.version)
 				{
 					player.id = Interlocked.Increment(ref mPlayerCounter);
 					player.stage = TcpProtocol.Stage.Connected;
@@ -697,12 +697,12 @@ public class Server
 
 				// Send the player their ID
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(ServerPlayer.version);
+				writer.Write(TcpPlayer.version);
 				writer.Write(player.id);
 				EndSend(player);
 
 				// If the version matches, move on to the next packet
-				if (clientVersion == ServerPlayer.version) return true;
+				if (clientVersion == TcpPlayer.version) return true;
 			}
 			Console.WriteLine(player.address + " has failed the verification step");
 			RemovePlayer(player);
@@ -750,7 +750,7 @@ public class Server
 				if (player.channel == null || player.channel.id != channelID)
 				{
 					bool isNew;
-					Channel channel = CreateChannel(channelID, out isNew);
+					TcpChannel channel = CreateChannel(channelID, out isNew);
 
 					if (channel == null)
 					{
@@ -838,7 +838,7 @@ public class Server
 
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					Channel ch = mChannels[i];
+					TcpChannel ch = mChannels[i];
 					writer.Write(ch.id);
 					writer.Write(ch.players.size);
 					writer.Write(!string.IsNullOrEmpty(ch.password));
@@ -851,7 +851,7 @@ public class Server
 			case Packet.ForwardToPlayer:
 			{
 				// Forward this packet to the specified player
-				ServerPlayer target = GetPlayer(reader.ReadInt32());
+				TcpPlayer target = GetPlayer(reader.ReadInt32());
 
 				if (target != null && target.isConnected)
 				{
@@ -891,7 +891,7 @@ public class Server
 	/// Process a packet that's meant to be forwarded.
 	/// </summary>
 
-	void ProcessForwardPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request)
 	{
 		switch (request)
 		{
@@ -910,7 +910,7 @@ public class Server
 				int origin = buffer.position - 5;
 
 				// Figure out who the intended recipient is
-				ServerPlayer targetPlayer = GetPlayer(reader.ReadInt32());
+				TcpPlayer targetPlayer = GetPlayer(reader.ReadInt32());
 
 				// Save this function call
 				uint target = reader.ReadUInt32();
@@ -925,7 +925,7 @@ public class Server
 			default:
 			{
 				// We want to exclude the player if the request was to forward to others
-				ServerPlayer exclude = (
+				TcpPlayer exclude = (
 					request == Packet.ForwardToOthers ||
 					request == Packet.ForwardToOthersSaved) ? player : null;
 
@@ -945,7 +945,7 @@ public class Server
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
-					ServerPlayer tp = player.channel.players[i];
+					TcpPlayer tp = player.channel.players[i];
 					if (tp != exclude) tp.SendPacket(buffer);
 				}
 				break;
@@ -957,7 +957,7 @@ public class Server
 	/// Process a packet from the player.
 	/// </summary>
 
-	void ProcessChannelPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+	void ProcessChannelPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request)
 	{
 		switch (request)
 		{
@@ -984,7 +984,7 @@ public class Server
 				// If a unique ID was requested then this call should be persistent
 				if (uniqueID != 0)
 				{
-					Channel.CreatedObject obj = new Channel.CreatedObject();
+					TcpChannel.CreatedObject obj = new TcpChannel.CreatedObject();
 					obj.objectID = objectIndex;
 					obj.uniqueID = uniqueID;
 
@@ -1016,7 +1016,7 @@ public class Server
 				// Determine if we created this object earlier
 				for (int i = 0; i < player.channel.created.size; ++i)
 				{
-					Channel.CreatedObject obj = player.channel.created[i];
+					TcpChannel.CreatedObject obj = player.channel.created[i];
 					
 					if (obj.uniqueID == uniqueID)
 					{
@@ -1061,7 +1061,7 @@ public class Server
 				// Transfer the host state from one player to another
 				if (player.channel.host == player)
 				{
-					ServerPlayer newHost = GetPlayer(reader.ReadInt32());
+					TcpPlayer newHost = GetPlayer(reader.ReadInt32());
 					if (newHost != null && newHost.channel == player.channel) SendSetHost(newHost);
 				}
 				break;
@@ -1096,7 +1096,7 @@ public class Server
 	/// If custom functionality is needed, all unrecognized packets will arrive here.
 	/// </summary>
 
-	protected virtual void OnPacket (ServerPlayer player, Buffer buffer, BinaryReader reader, int packetID)
+	protected virtual void OnPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, int packetID)
 	{
 		Error(player, "Unrecognized packet with ID of " + packetID);
 	}

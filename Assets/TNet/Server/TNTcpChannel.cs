@@ -13,7 +13,7 @@ namespace TNet
 /// All information broadcast by players is visible by others in the same channel.
 /// </summary>
 
-public class Channel
+public class TcpChannel
 {
 	public class RFC
 	{
@@ -35,12 +35,12 @@ public class Channel
 	public string level = "";
 	public bool persistent = false;
 	public bool closed = false;
-	public List<ServerPlayer> players = new List<ServerPlayer>();
+	public List<TcpPlayer> players = new List<TcpPlayer>();
 	public List<RFC> rfcs = new List<RFC>();
 	public List<CreatedObject> created = new List<CreatedObject>();
 	public List<uint> destroyed = new List<uint>();
 	public uint objectCounter = 0xFFFFFF;
-	public ServerPlayer host;
+	public TcpPlayer host;
 
 	/// <summary>
 	/// Reset the channel to its initial state.
@@ -61,7 +61,7 @@ public class Channel
 	/// Remove the specified player from the channel.
 	/// </summary>
 
-	public void RemovePlayer (ServerPlayer p)
+	public void RemovePlayer (TcpPlayer p)
 	{
 		if (p == host) host = null;
 

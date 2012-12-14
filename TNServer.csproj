@@ -40,15 +40,14 @@
   -->
   <ItemGroup>
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
-    <Compile Include="Assets\TNet\Common\TNConnectedProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
-    <Compile Include="Assets\TNet\Server\TNChannel.cs" />
-    <Compile Include="Assets\TNet\Server\TNServerPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNServer.cs" />
+    <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
+    <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
+    <Compile Include="Assets\TNet\Server\TNTcpServer.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>

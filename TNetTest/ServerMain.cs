@@ -6,7 +6,7 @@ public class TNetTest
 {
 	static int Main ()
 	{
-		Server server = new Server();
+		TcpServer server = new TcpServer();
 		server.Start(5127);
 		server.LoadFrom("server.dat");
 

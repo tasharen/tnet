@@ -16,13 +16,13 @@ namespace TNet
 /// Class containing information about connected players.
 /// </summary>
 
-public class ServerPlayer : TcpProtocol
+public class TcpPlayer : TcpProtocol
 {
 	/// <summary>
 	/// Channel that the player is currently in.
 	/// </summary>
 
-	public Channel channel;
+	public TcpChannel channel;
 
 	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
@@ -40,7 +40,7 @@ public class ServerPlayer : TcpProtocol
 
 			for (int i = 0; i < channel.players.size; ++i)
 			{
-				ServerPlayer tp = channel.players[i];
+				TcpPlayer tp = channel.players[i];
 				writer.Write(tp.id);
 				writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
 			}
@@ -63,7 +63,7 @@ public class ServerPlayer : TcpProtocol
 		// Step 6: Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
 		{
-			Channel.CreatedObject obj = channel.created.buffer[i];
+			TcpChannel.CreatedObject obj = channel.created.buffer[i];
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
