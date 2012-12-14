@@ -160,6 +160,14 @@ public class Client
 	public bool isInChannel { get { return !mTcp.isConnected || players.size > 0; } }
 
 	/// <summary>
+	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
+	/// Enabling this flag will improve latency at the cost of increased bandwidth.
+	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
+	/// </summary>
+
+	public bool noDelay { get { return mTcp.noDelay; } set { mTcp.noDelay = value; } }
+
+	/// <summary>
 	/// Current ping to the server.
 	/// </summary>
 
