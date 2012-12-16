@@ -32,10 +32,10 @@ public class TcpProtocol : Player
 	public Stage stage = Stage.NotConnected;
 
 	/// <summary>
-	/// IP address of the target we're connected to.
+	/// IP end point of whomever we're connected to.
 	/// </summary>
 
-	public string address;
+	public IPEndPoint tcpEndPoint;
 
 	/// <summary>
 	/// Timestamp of when we received the last message.
@@ -89,25 +89,27 @@ public class TcpProtocol : Player
 	}
 
 	/// <summary>
+	/// Connected target's address.
+	/// </summary>
+
+	public string address { get { return (tcpEndPoint != null) ? tcpEndPoint.ToString() : "0.0.0.0:0"; } }
+
+	/// <summary>
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (string addr, int port)
+	public void Connect (IPEndPoint ip)
 	{
 		Disconnect();
+		tcpEndPoint = ip;
 
-		IPAddress destination = null;
-
-		if (!IPAddress.TryParse(addr, out destination))
+		if (tcpEndPoint != null)
 		{
-			IPAddress[] ips = Dns.GetHostAddresses(addr);
-			if (ips.Length > 0) destination = ips[0];
+			stage = Stage.Connecting;
+			mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
 		}
-
-		stage = Stage.Connecting;
-		address = addr + ":" + port;
-		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		mSocket.BeginConnect(destination, port, OnConnectResult, mSocket);
+		else Error("Unable to resolve the specified address");
 	}
 
 	/// <summary>
@@ -172,9 +174,10 @@ public class TcpProtocol : Player
 
 			if (notify)
 			{
-				Buffer buff = Buffer.Create();
-				buff.BeginWriting(false).Write((byte)Packet.Disconnect);
-				lock (mIn) mIn.Enqueue(buff);
+				Buffer buffer = Buffer.Create();
+				buffer.BeginTcpPacket(Packet.Disconnect);
+				buffer.EndTcpPacketWithOffset(4);
+				lock (mIn) mIn.Enqueue(buffer);
 			}
 		}
 	}
@@ -209,7 +212,7 @@ public class TcpProtocol : Player
 	public BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginPacket(type);
+		return mBuffer.BeginTcpPacket(type);
 	}
 
 	/// <summary>
@@ -219,7 +222,7 @@ public class TcpProtocol : Player
 	public BinaryWriter BeginSend (byte packetID)
 	{
 		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginPacket(packetID);
+		return mBuffer.BeginTcpPacket(packetID);
 	}
 
 	/// Send the outgoing buffer.
@@ -227,8 +230,8 @@ public class TcpProtocol : Player
 
 	public void EndSend ()
 	{
-		mBuffer.EndPacket();
-		SendPacket(mBuffer);
+		mBuffer.EndTcpPacket();
+		SendTcpPacket(mBuffer);
 		mBuffer = null;
 	}
 
@@ -236,7 +239,7 @@ public class TcpProtocol : Player
 	/// Send the specified packet. Marks the buffer as used.
 	/// </summary>
 
-	public void SendPacket (Buffer buffer)
+	public void SendTcpPacket (Buffer buffer)
 	{
 		buffer.MarkAsUsed();
 
@@ -269,7 +272,7 @@ public class TcpProtocol : Player
 		
 		try
 		{
-			bytes = (mSocket.SocketType == SocketType.Dgram) ? mSocket.EndSendTo(result) : mSocket.EndSend(result);
+			bytes = mSocket.EndSend(result);
 		}
 		catch (System.Exception ex)
 		{
@@ -279,16 +282,9 @@ public class TcpProtocol : Player
 			return;
 		}
 
-		if (bytes == 0)
-		{
-			Buffer buffer = (Buffer)result.AsyncState;
-			mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
-			return;
-		}
-
 		lock (mOut)
 		{
-			// Recycle this buffer as it's no longer in use
+			// The buffer has been sent and can now be safely recycled
 			mOut.Dequeue().Recycle();
 
 			if (bytes > 0)
@@ -329,7 +325,7 @@ public class TcpProtocol : Player
 			timestamp = DateTime.Now.Ticks / 10000;
 
 			// Save the address
-			address = ((IPEndPoint)mSocket.RemoteEndPoint).ToString();
+			tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
 
 			// Queue up the read operation
 			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
@@ -379,13 +375,17 @@ public class TcpProtocol : Player
 	/// Add an error packet to the incoming queue.
 	/// </summary>
 
-	public void Error (string error)
+	public void Error (string error) { Error(Buffer.Create(), error); }
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	void Error (Buffer buffer, string error)
 	{
-		Buffer buff = Buffer.Create();
-		BinaryWriter writer = buff.BeginWriting(false);
-		writer.Write((byte)Packet.Error);
-		writer.Write(error);
-		lock (mIn) mIn.Enqueue(buff);
+		buffer.BeginTcpPacket(Packet.Error).Write(error);
+		buffer.EndTcpPacketWithOffset(4);
+		lock (mIn) mIn.Enqueue(buffer);
 	}
 
 	/// <summary>
@@ -434,7 +434,6 @@ public class TcpProtocol : Player
 				mExpected = mReceiveBuffer.PeekInt(mOffset);
 				if (mExpected == -1) break;
 
-				// 0 indicates a closed connection
 				if (mExpected == 0)
 				{
 					Close(true);
@@ -449,7 +448,7 @@ public class TcpProtocol : Player
 			if (available == mExpected)
 			{
 				// Reset the position to the beginning of the packet
-				mReceiveBuffer.BeginReading(mOffset += 4);
+				mReceiveBuffer.BeginReading(mOffset + 4);
 
 				// This packet is now ready to be processed
 				lock (mIn) mIn.Enqueue(mReceiveBuffer);
@@ -464,9 +463,9 @@ public class TcpProtocol : Player
 				// There is more than one packet. Extract this packet fully.
 				int realSize = mExpected + 4;
 				Buffer temp = Buffer.Create();
-				temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realSize);
 
-				// Reset the position to the beginning of the packet
+				// Extract the packet and move past its size component
+				temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realSize);
 				temp.BeginReading(4);
 
 				// This packet is now ready to be processed

@@ -53,7 +53,8 @@ public class ClientMain
 		client.onCreate = OnCreateObject;
 		client.onDestroy = OnDestroyObject;
 		client.onForwardedPacket = OnForwardedPacket;
-		client.Connect("127.0.0.1", 5127);
+		//client.Start(5129);
+		client.Connect("127.0.0.1", 5137);
 
 		Thread thread = new Thread(ThreadFunction);
 		thread.Start();
@@ -76,6 +77,14 @@ public class ClientMain
 			{
 				test = 2;
 			}
+			else if (command == "j")
+			{
+				client.JoinChannel(123, "Some Level", true, null);
+			}
+			else if (command == "l")
+			{
+				client.LeaveChannel();
+			}
 		}
 		Console.WriteLine("Shutting down...");
 		client.Disconnect();
@@ -87,7 +96,6 @@ public class ClientMain
 	static void OnConnect (bool success, string message)
 	{
 		Console.WriteLine("Connected: " + success + " (" + message + ")");
-		client.JoinChannel(123, "Some Level", true, null);
 	}
 
 	static void OnDisconnect ()

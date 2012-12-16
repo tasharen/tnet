@@ -6,6 +6,7 @@
 using System.IO;
 using UnityEngine;
 using TNet;
+using System.Net;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
@@ -71,11 +72,12 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
-	/// Last address to broadcast the packet. Set when processing the packet. If null, then the packet arrived via the active connection (TCP).
-	/// If the return value is not null, then the last packet arrived via a LAN broadcast (UDP).
+	/// Address from which the packet was received. Only available during packet processing callbacks.
+	/// If null, then the packet arrived via the active connection (TCP).
+	/// If the return value is not null, then the last packet arrived via UDP.
 	/// </summary>
 
-	static public string lastAddress { get { return (mInstance != null) ? mInstance.mClient.lastAddress : null; } }
+	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSource : null; } }
 
 	/// <summary>
 	/// The player's unique identifier.
@@ -347,13 +349,20 @@ public class TNManager : MonoBehaviour
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	static public void EndSend () { mInstance.mClient.EndSend(); }
+	static public void EndSend () { mInstance.mClient.EndSend(false); }
+
+	/// <summary>
+	/// Send the outgoing buffer.
+	/// </summary>
+
+	static public void EndSend (bool reliable) { mInstance.mClient.EndSend(reliable); }
 
 	/// <summary>
 	/// Broadcast the packet to everyone on the LAN.
 	/// </summary>
 
 	static public void EndSend (int port) { mInstance.mClient.EndSend(port); }
+
 
 #region MonoBehaviour Functions -- it's unlikely that you will need to modify these
 

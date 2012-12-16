@@ -12,6 +12,12 @@ namespace TNet
 public enum Packet
 {
 	/// <summary>
+	/// Empty packet. Can be used to keep the connection alive.
+	/// </summary>
+
+	Empty,
+
+	/// <summary>
 	/// This packet indicates that an error has occurred.
 	/// string: Description of the error.
 	/// </summary>
@@ -37,6 +43,13 @@ public enum Packet
 	/// </summary>
 
 	RequestPing,
+
+	/// <summary>
+	/// Set the remote UDP port for unreliable packets.
+	/// ushort: port.
+	/// </summary>
+
+	RequestSetUDP,
 
 	/// <summary>
 	/// Join the specified channel.
@@ -140,13 +153,15 @@ public enum Packet
 	
 	RequestChannelList,
 
-	//===================================================================================
-
 	/// <summary>
-	/// Response to a ping request.
+	/// NAT punch-through request, should arrive via UDP.
+	/// string: address.
+	/// ushort: port.
 	/// </summary>
 
-	ResponsePing,
+	RequestNAT,
+
+	//===================================================================================
 
 	/// <summary>
 	/// Always the first packet to arrive from the server.
@@ -156,6 +171,19 @@ public enum Packet
 	/// </summary>
 
 	ResponseID,
+
+	/// <summary>
+	/// Response to a ping request.
+	/// </summary>
+
+	ResponsePing,
+
+	/// <summary>
+	/// Set a UDP port used for communication.
+	/// ushort: port. (0 means disabled)
+	/// </summary>
+
+	ResponseSetUDP,
 
 	/// <summary>
 	/// Inform everyone of this player leaving the channel.
@@ -200,7 +228,7 @@ public enum Packet
 	/// Inform the player that they have left the channel they were in.
 	/// </summary>
 
-	ResponseLeftChannel,
+	ResponseLeaveChannel,
 
 	/// <summary>
 	/// Change the specified player's name.
@@ -262,6 +290,14 @@ public enum Packet
 	/// </summary>
 
 	ResponseChannelList,
+
+	/// <summary>
+	/// NAT facilitator-sent request indicating that the player should try to establish a connection with the remote player.
+	/// string: address.
+	/// int: port.
+	/// </summary>
+
+	ResponseNAT,
 
 	//===================================================================================
 

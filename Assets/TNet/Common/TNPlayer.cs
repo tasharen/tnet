@@ -6,6 +6,7 @@
 using System;
 using System.Net.Sockets;
 using System.IO;
+using System.Net;
 
 namespace TNet
 {
@@ -35,5 +36,34 @@ public class Player
 
 	public Player () { }
 	public Player (string playerName) { name = playerName; }
+
+	/// <summary>
+	/// Helper function that resolves the remote address.
+	/// </summary>
+
+	static public IPAddress ResolveAddress (string address)
+	{
+		IPAddress ip;
+		if (IPAddress.TryParse(address, out ip))
+			return ip;
+
+		IPAddress[] ips = Dns.GetHostAddresses(address);
+
+		for (int i = 0; i < ips.Length; ++i)
+			if (!IPAddress.IsLoopback(ips[i]))
+				return ips[i];
+
+		return null;
+	}
+
+	/// <summary>
+	/// Given the specified address and port, get the end point class.
+	/// </summary>
+
+	static public IPEndPoint ResolveEndPoint (string address, int port)
+	{
+		IPAddress ad = ResolveAddress(address);
+		return (ad != null) ? new IPEndPoint(ad, port) : null;
+	}
 }
 }

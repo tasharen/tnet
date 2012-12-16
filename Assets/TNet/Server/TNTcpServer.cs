@@ -30,7 +30,13 @@ public class TcpServer
 	/// Dictionary list of players for easy access by ID.
 	/// </summary>
 
-	protected Dictionary<int, TcpPlayer> mDictionary = new Dictionary<int, TcpPlayer>();
+	protected Dictionary<int, TcpPlayer> mDictionaryID = new Dictionary<int, TcpPlayer>();
+
+	/// <summary>
+	/// Dictionary list of players for easy access by ID.
+	/// </summary>
+
+	protected Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
 
 	/// <summary>
 	/// List of all the active channels.
@@ -58,6 +64,7 @@ public class TcpServer
 	string mLocalAddress;
 	int mListenerPort = 0;
 	long mTime = 0;
+	UdpProtocol mUdp = new UdpProtocol();
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -104,14 +111,16 @@ public class TcpServer
 	/// Start listening to incoming connections on the specified port.
 	/// </summary>
 
-	public bool Start (int listenPort)
+	public bool Start (int tcpPort, int udpPort)
 	{
 		Stop();
 
+		if (udpPort != 0) mUdp.Start(udpPort);
+
 		try
 		{
-			mListenerPort = listenPort;
-			mListener = new TcpListener(IPAddress.Any, listenPort);
+			mListenerPort = tcpPort;
+			mListener = new TcpListener(IPAddress.Any, tcpPort);
 			mListener.Start(10);
 			//mListener.BeginAcceptSocket(OnAccept, null);
 		}
@@ -140,6 +149,7 @@ public class TcpServer
 	{
 		// Stop listening to incoming connections
 		MakePrivate();
+		mUdp.Stop();
 
 		// Stop the worker thread
 		if (mThread != null)
@@ -182,7 +192,17 @@ public class TcpServer
 
 			bool received = false;
 			mTime = DateTime.Now.Ticks / 10000;
+			Datagram dg = null;
 
+			// Process datagrams first
+			while ((dg = mUdp.ReceiveDatagram()) != null)
+			{
+				TcpPlayer player = GetPlayer(dg.endPoint);
+				if (player != null) ProcessPacket(dg.buffer, player, mTime, false);
+				dg.Recycle();
+			}
+
+			// Process player connections next
 			for (int i = 0; i < mPlayers.size; )
 			{
 				TcpPlayer player = mPlayers[i];
@@ -190,8 +210,10 @@ public class TcpServer
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100; ++b)
 				{
-					if (ReceivePacket(player, mTime)) received = true;
-					else break;
+					Buffer buffer = player.ReceivePacket();
+					if (buffer == null || !ProcessPacket(buffer, player, mTime, true)) break;
+					buffer.Recycle();
+					received = true;
 				}
 
 				// Time out -- disconnect this player
@@ -260,8 +282,14 @@ public class TcpServer
 
 			if (p.id != 0)
 			{
-				mDictionary.Remove(p.id);
+				mDictionaryID.Remove(p.id);
 				p.id = 0;
+			}
+
+			if (p.udpEndPoint != null)
+			{
+				mDictionaryEP.Remove(p.udpEndPoint);
+				p.udpEndPoint = null;
 			}
 		}
 	}
@@ -273,8 +301,30 @@ public class TcpServer
 	protected TcpPlayer GetPlayer (int id)
 	{
 		TcpPlayer p = null;
-		mDictionary.TryGetValue(id, out p);
+		mDictionaryID.TryGetValue(id, out p);
 		return p;
+	}
+
+	/// <summary>
+	/// Retrieve a player by their UDP end point.
+	/// </summary>
+
+	protected TcpPlayer GetPlayer (IPEndPoint ip)
+	{
+		TcpPlayer p = null;
+		mDictionaryEP.TryGetValue(ip, out p);
+		return p;
+	}
+
+	/// <summary>
+	/// Change the player's UDP end point and update the local dictionary.
+	/// </summary>
+
+	protected void SetPlayerUdpEndPoint (TcpPlayer player, IPEndPoint udp)
+	{
+		if (player.udpEndPoint != null) mDictionaryEP.Remove(player.udpEndPoint);
+		player.udpEndPoint = udp;
+		if (udp != null) mDictionaryEP[udp] = player;
 	}
 
 	/// <summary>
@@ -510,8 +560,7 @@ public class TcpServer
 	protected BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create();
-		BinaryWriter writer = mBuffer.BeginPacket(type);
-		//Console.WriteLine("Sending " + type);
+		BinaryWriter writer = mBuffer.BeginTcpPacket(type);
 		return writer;
 	}
 
@@ -521,24 +570,25 @@ public class TcpServer
 
 	protected void EndSend (TcpPlayer player)
 	{
-		mBuffer.EndPacket();
-		player.SendPacket(mBuffer);
+		mBuffer.EndTcpPacket();
+		player.SendTcpPacket(mBuffer);
 		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
 	/// <summary>
 	/// Send the outgoing buffer to all players in the specified channel.
+	/// TODO: Reliable/not
 	/// </summary>
 
 	protected void EndSend (TcpChannel channel, TcpPlayer exclude)
 	{
-		mBuffer.EndPacket();
+		mBuffer.EndTcpPacket();
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			TcpPlayer player = channel.players[i];
-			if (player.stage == TcpProtocol.Stage.Connected && player != exclude) player.SendPacket(mBuffer);
+			if (player.stage == TcpProtocol.Stage.Connected && player != exclude) player.SendTcpPacket(mBuffer);
 		}
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -550,7 +600,7 @@ public class TcpServer
 
 	protected void EndSend ()
 	{
-		mBuffer.EndPacket();
+		mBuffer.EndTcpPacket();
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
@@ -559,7 +609,7 @@ public class TcpServer
 			for (int b = 0; b < channel.players.size; ++b)
 			{
 				TcpPlayer player = channel.players[b];
-				if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(mBuffer);
+				if (player.stage == TcpProtocol.Stage.Connected) player.SendTcpPacket(mBuffer);
 			}
 		}
 		mBuffer.Recycle();
@@ -577,7 +627,7 @@ public class TcpServer
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			TcpPlayer player = channel.players[i];
-			if (player.stage == TcpProtocol.Stage.Connected) player.SendPacket(buffer);
+			if (player.stage == TcpProtocol.Stage.Connected) player.SendTcpPacket(buffer);
 		}
 		mBuffer.Recycle();
 	}
@@ -629,7 +679,7 @@ public class TcpServer
 			// Notify the player that they have left the channel
 			if (notify && player.isConnected)
 			{
-				BeginSend(Packet.ResponseLeftChannel);
+				BeginSend(Packet.ResponseLeaveChannel);
 				EndSend(player);
 			}
 		}
@@ -667,16 +717,19 @@ public class TcpServer
 	/// Returns 'true' if a packet was received, 'false' otherwise.
 	/// </summary>
 
-	bool ReceivePacket (TcpPlayer player, long time)
+	bool ProcessPacket (Buffer buffer, TcpPlayer player, long time, bool reliable)
 	{
-		Buffer buffer = player.ReceivePacket();
-		if (buffer == null) return false;
-
 		// Begin the reading process
 		BinaryReader reader = buffer.BeginReading();
 
 		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
+
+//#if UNITY_EDITOR
+//        UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
+//#else
+//        Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
+//#endif
 
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
@@ -691,7 +744,7 @@ public class TcpServer
 				{
 					player.id = Interlocked.Increment(ref mPlayerCounter);
 					player.stage = TcpProtocol.Stage.Connected;
-					mDictionary.Add(player.id, player);
+					mDictionaryID.Add(player.id, player);
 					buffer.Recycle();
 				}
 
@@ -711,6 +764,10 @@ public class TcpServer
 
 		switch (request)
 		{
+			case Packet.Empty:
+			{
+				break;
+			}
 			case Packet.Error:
 			{
 				Error(player, reader.ReadString());
@@ -726,6 +783,26 @@ public class TcpServer
 				// Respond with a ping back
 				BeginSend(Packet.ResponsePing);
 				EndSend(player);
+				break;
+			}
+			case Packet.RequestSetUDP:
+			{
+				int port = reader.ReadUInt16();
+
+				if (port != 0)
+				{
+					IPAddress ip = new IPAddress(player.tcpEndPoint.Address.GetAddressBytes());
+					SetPlayerUdpEndPoint(player, new IPEndPoint(ip, port));
+				}
+				else SetPlayerUdpEndPoint(player, null);
+
+				// Let the player know if we are hosting an active UDP connection
+				ushort udp = mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0;
+				BeginSend(Packet.ResponseSetUDP).Write(udp);
+				EndSend(player);
+
+				// Send an empty packet to the target player to open up UDP for communication
+				if (player.udpEndPoint != null) mUdp.SendEmptyPacket(player.udpEndPoint);
 				break;
 			}
 			case Packet.RequestJoinChannel:
@@ -857,33 +934,31 @@ public class TcpServer
 				{
 					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
 					buffer.position = buffer.position - 5;
-					target.SendPacket(buffer);
+					target.SendTcpPacket(buffer);
 				}
 				break;
 			}
 			default:
 			{
-				// Other packets can only be processed while in a channel
-				if (player.channel != null)
+				if ((int)request > (int)Packet.ForwardToPlayerBuffered)
 				{
+					OnPacket(player, buffer, reader, (int)request);
+				}
+				else if (player.channel != null)
+				{
+					// Other packets can only be processed while in a channel
 					if ((int)request >= (int)Packet.ForwardToAll)
 					{
-						ProcessForwardPacket(player, buffer, reader, request);
+						ProcessForwardPacket(player, buffer, reader, request, reliable);
 					}
 					else
 					{
 						ProcessChannelPacket(player, buffer, reader, request);
 					}
 				}
-				else if ((int)request > (int)Packet.ForwardToPlayerBuffered)
-				{
-					OnPacket(player, buffer, reader, (int)request);
-				}
 				break;
 			}
 		}
-		// We're done with this packet
-		buffer.Recycle();
 		return true;
 	}
 
@@ -891,8 +966,11 @@ public class TcpServer
 	/// Process a packet that's meant to be forwarded.
 	/// </summary>
 
-	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 	{
+		// We can't send unreliable packets if UDP is not active
+		if (!mUdp.isActive) reliable = true;
+
 		switch (request)
 		{
 			case Packet.ForwardToHost:
@@ -901,7 +979,14 @@ public class TcpServer
 				buffer.position = buffer.position - 5;
 
 				// Forward the packet to the channel's host
-				player.channel.host.SendPacket(buffer);
+				if (reliable || player.channel.host.udpEndPoint == null)
+				{
+					player.channel.host.SendTcpPacket(buffer);
+				}
+				else
+				{
+					mUdp.Send(player.channel.host.udpEndPoint, buffer);
+				}
 				break;
 			}
 			case Packet.ForwardToPlayerBuffered:
@@ -919,7 +1004,17 @@ public class TcpServer
 				player.channel.CreateRFC(target, funcName, buffer);
 
 				// Forward the packet to the target player
-				if (targetPlayer != null && targetPlayer.isConnected) targetPlayer.SendPacket(buffer);
+				if (targetPlayer != null && targetPlayer.isConnected)
+				{
+					if (reliable || targetPlayer.udpEndPoint == null)
+					{
+						targetPlayer.SendTcpPacket(buffer);
+					}
+					else
+					{
+						mUdp.Send(targetPlayer.udpEndPoint, buffer);
+					}
+				}
 				break;
 			}
 			default:
@@ -946,7 +1041,18 @@ public class TcpServer
 				for (int i = 0; i < player.channel.players.size; ++i)
 				{
 					TcpPlayer tp = player.channel.players[i];
-					if (tp != exclude) tp.SendPacket(buffer);
+					
+					if (tp != exclude)
+					{
+						if (reliable || tp.udpEndPoint == null)
+						{
+							tp.SendTcpPacket(buffer);
+						}
+						else
+						{
+							mUdp.Send(tp.udpEndPoint, buffer);
+						}
+					}
 				}
 				break;
 			}

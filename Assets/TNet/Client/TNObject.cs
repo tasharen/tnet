@@ -358,37 +358,49 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Target target, params object[] objs)
-	{
-		SendRFC((uint)id, rfcID, null, target, objs);
-	}
+	public void Send (byte rfcID, Target target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Target target, params object[] objs)
-	{
-		SendRFC((uint)id, 0, rfcName, target, objs);
-	}
+	public void Send (string rfcName, Target target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Player target, params object[] objs)
-	{
-		SendRFC((uint)id, rfcID, null, target, objs);
-	}
+	public void Send (byte rfcID, Player target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Player target, params object[] objs)
-	{
-		SendRFC((uint)id, 0, rfcName, target, objs);
-	}
+	public void Send (string rfcName, Player target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, true, objs); }
+
+	/// <summary>
+	/// Send a remote function call via UDP (if possible).
+	/// </summary>
+
+	public void SendQuickly (byte rfcID, Target target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, false, objs); }
+
+	/// <summary>
+	/// Send a remote function call via UDP (if possible).
+	/// </summary>
+
+	public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, false, objs); }
+
+	/// <summary>
+	/// Send a remote function call via UDP (if possible).
+	/// </summary>
+
+	public void SendQuickly (byte rfcID, Player target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, false, objs); }
+
+	/// <summary>
+	/// Send a remote function call via UDP (if possible).
+	/// </summary>
+
+	public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, false, objs); }
 
 	/// <summary>
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
@@ -418,7 +430,7 @@ public class TNObject : MonoBehaviour
 	/// Send a new RFC call to the specified target.
 	/// </summary>
 
-	static void SendRFC (uint objID, byte rfcID, string rfcName, Target target, params object[] objs)
+	static void SendRFC (uint objID, byte rfcID, string rfcName, Target target, bool reliable, params object[] objs)
 	{
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
@@ -449,7 +461,7 @@ public class TNObject : MonoBehaviour
 	/// Send a new remote function call to the specified player.
 	/// </summary>
 
-	static void SendRFC (uint objID, byte rfcID, string rfcName, Player target, params object[] objs)
+	static void SendRFC (uint objID, byte rfcID, string rfcName, Player target, bool reliable, params object[] objs)
 	{
 		if (TNManager.isConnected)
 		{
@@ -458,7 +470,7 @@ public class TNObject : MonoBehaviour
 			writer.Write((objID << 8) | rfcID);
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
-			TNManager.EndSend();
+			TNManager.EndSend(reliable);
 		}
 	}
 
@@ -468,13 +480,11 @@ public class TNObject : MonoBehaviour
 
 	static void BroadcastToLAN (int port, uint objID, byte rfcID, string rfcName, params object[] objs)
 	{
-		Buffer buffer = Buffer.Create();
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write((objID << 8) | rfcID);
 		if (rfcID == 0) writer.Write(rfcName);
 		Tools.Write(writer, objs);
 		TNManager.EndSend(port);
-		buffer.Recycle();
 	}
 
 	/// <summary>

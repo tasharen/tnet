@@ -25,6 +25,12 @@ public class TcpPlayer : TcpProtocol
 	public TcpChannel channel;
 
 	/// <summary>
+	/// UDP end point if the player has one open.
+	/// </summary>
+
+	public IPEndPoint udpEndPoint;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
@@ -33,7 +39,7 @@ public class TcpPlayer : TcpProtocol
 		Buffer buffer = Buffer.Create();
 
 		// Step 2: Tell the player who else is in the channel
-		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
+		BinaryWriter writer = buffer.BeginTcpPacket(Packet.ResponseJoiningChannel);
 		{
 			writer.Write(channel.id);
 			writer.Write((short)channel.players.size);
@@ -47,38 +53,38 @@ public class TcpPlayer : TcpProtocol
 		}
 
 		// End the first packet, but remember where it ended
-		int offset = buffer.EndPacket();
+		int offset = buffer.EndTcpPacket();
 
 		// Step 3: Inform the player of who is hosting
 		if (channel.host == null) channel.host = this;
-		buffer.BeginPacket(Packet.ResponseSetHost, offset);
+		buffer.BeginTcpPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.host.id);
-		offset = buffer.EndPacket(offset);
+		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Step 5: Inform the player of what level we're on
-		buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
+		buffer.BeginTcpPacket(Packet.ResponseLoadLevel, offset);
 		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
-		offset = buffer.EndPacket(offset);
+		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Step 6: Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
 		{
 			TcpChannel.CreatedObject obj = channel.created.buffer[i];
-			buffer.BeginPacket(Packet.ResponseCreate, offset);
+			buffer.BeginTcpPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Step 7: Send the list of objects that have been destroyed
 		if (channel.destroyed.size != 0)
 		{
-			buffer.BeginPacket(Packet.ResponseDestroy, offset);
+			buffer.BeginTcpPacket(Packet.ResponseDestroy, offset);
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Step 8: Send all buffered RFCs to the new player
@@ -92,12 +98,12 @@ public class TcpPlayer : TcpProtocol
 		}
 
 		// Step 9: The join process is now complete
-		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
+		buffer.BeginTcpPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(true);
-		offset = buffer.EndPacket(offset);
+		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Send the entire buffer
-		SendPacket(buffer);
+		SendTcpPacket(buffer);
 		buffer.Recycle();
 	}
 }

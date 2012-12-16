@@ -15,6 +15,7 @@ namespace TNet
 public sealed class RFC : Attribute
 {
 	public byte id = 0;
+
 	public RFC () { }
 	public RFC (byte rid) { id = rid; }
 }

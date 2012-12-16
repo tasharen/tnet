@@ -46,9 +46,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\TNet\Client\TNBehaviour.cs" />
-    <Compile Include="Assets\TNet\Client\TNClient.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="Assets\TNet\Client\TNManager.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -62,9 +59,11 @@
     <Compile Include="Assets\TNet\Client\TNTarget.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Assets\TNet\Client\TNTcpClient.cs" />
     <Compile Include="Assets\TNet\Client\TNTools.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Assets\TNet\Common\TNDatagram.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />

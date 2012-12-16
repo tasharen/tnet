@@ -81,7 +81,12 @@ public class DraggedObject : TNBehaviour
 		if (mOwner == TNManager.player)
 		{
 			mTarget = TouchHandler.worldPos;
-			tno.Send(3, Target.OthersSaved, mTarget);
+
+			// Here we send the function via "SendQuickly", which is faster than regular "Send"
+			// as it goes via UDP instead of TCP whenever possible. The downside of this approach
+			// is that there is up to a 4% chance that the packet will get lost. However since
+			// this update is sent so frequently, we simply don't care.
+			tno.SendQuickly(3, Target.OthersSaved, mTarget);
 		}
 	}
 

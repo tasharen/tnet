@@ -112,6 +112,12 @@ public class TcpClient
 	public OnForwardedPacket onForwardedPacket;
 
 	/// <summary>
+	/// NAT punch-through facilitator address.
+	/// </summary>
+
+	//public IPEndPoint natFacilitator;
+
+	/// <summary>
 	/// List of players in the same channel as the client.
 	/// </summary>
 
@@ -136,7 +142,18 @@ public class TcpClient
 	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
-	string mLastAddress;
+
+	// Server's UDP address
+	IPEndPoint mServerUdpEndPoint;
+
+	// Source of the UDP packet (available during callbacks)
+	IPEndPoint mPacketSource;
+
+	// Connection attempt address (used for NAT)
+	IPEndPoint mConnectTarget;
+
+	// Whether we've tried NAT punch-through
+	//bool mTriedNAT = false;
 
 	// Temporary, not important
 	static Buffer mBuffer;
@@ -158,6 +175,12 @@ public class TcpClient
 	/// </summary>
 
 	public bool isInChannel { get { return !mTcp.isConnected || players.size > 0; } }
+
+	/// <summary>
+	/// Source of the last packet.
+	/// </summary>
+
+	public IPEndPoint packetSource { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -189,13 +212,6 @@ public class TcpClient
 	/// </summary>
 
 	public int ping { get { return isConnected ? mPing : 0; } }
-
-	/// <summary>
-	/// Last address to broadcast the packet. Set when processing the packet. If null, then the packet arrived via the active connection (TCP).
-	/// If the return value is not null, then the last packet arrived via a LAN broadcast (UDP).
-	/// </summary>
-
-	public string lastAddress { get { return mLastAddress; } }
 
 	/// <summary>
 	/// Return the local player.
@@ -258,8 +274,8 @@ public class TcpClient
 
 	public BinaryWriter BeginSend (Packet type)
 	{
-		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginPacket(type);
+		mBuffer = Buffer.Create();
+		return mBuffer.BeginTcpPacket(type);
 	}
 
 	/// <summary>
@@ -268,8 +284,8 @@ public class TcpClient
 
 	public BinaryWriter BeginSend (byte packetID)
 	{
-		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginPacket(packetID);
+		mBuffer = Buffer.Create();
+		return mBuffer.BeginTcpPacket(packetID);
 	}
 
 	/// <summary>
@@ -278,8 +294,32 @@ public class TcpClient
 
 	public void EndSend ()
 	{
-		mBuffer.EndPacket();
-		mTcp.SendPacket(mBuffer);
+		mBuffer.EndTcpPacket();
+		mTcp.SendTcpPacket(mBuffer);
+		mBuffer.Recycle();
+		mBuffer = null;
+	}
+
+	/// <summary>
+	/// Send the outgoing buffer.
+	/// </summary>
+
+	public void EndSend (bool reliable)
+	{
+		mBuffer.EndTcpPacket();
+
+		if (reliable || mServerUdpEndPoint == null || !mUdp.isActive)
+		{
+			mTcp.SendTcpPacket(mBuffer);
+			mBuffer.Recycle();
+		}
+		else
+		{
+			mBuffer.EndTcpPacket();
+			Datagram dg = Datagram.Create(mBuffer);
+			dg.endPoint = mServerUdpEndPoint;
+			mUdp.Send(dg);
+		}
 		mBuffer = null;
 	}
 
@@ -289,9 +329,19 @@ public class TcpClient
 
 	public void EndSend (int port)
 	{
-		mBuffer.EndPacket();
+		mBuffer.EndTcpPacket();
 		mUdp.Send(port, mBuffer);
-		mBuffer.Recycle();
+		mBuffer = null;
+	}
+
+	/// <summary>
+	/// Send this packet to a remote UDP listener.
+	/// </summary>
+
+	public void EndSend (IPEndPoint target)
+	{
+		mBuffer.EndTcpPacket();
+		mUdp.Send(target, mBuffer);
 		mBuffer = null;
 	}
 
@@ -299,7 +349,12 @@ public class TcpClient
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (string addr, int port) { mTcp.Connect(addr, port); }
+	public void Connect (string addr, int port)
+	{
+		//mTriedNAT = false;
+		mConnectTarget = Player.ResolveEndPoint(addr, port);
+		if (mConnectTarget != null) mTcp.Connect(mConnectTarget);
+	}
 
 	/// <summary>
 	/// Disconnect from the server.
@@ -308,16 +363,36 @@ public class TcpClient
 	public void Disconnect () { mTcp.Disconnect(); }
 
 	/// <summary>
-	/// Start listening to LAN broadcasts incoming on the specified port.
+	/// Start listening to incoming UDP packets on the specified port.
 	/// </summary>
 
-	public bool Start (int port) { return mUdp.Start(port); }
+	public bool Start (int port)
+	{
+		if (mUdp.Start(port))
+		{
+			if (isConnected)
+			{
+				BeginSend(Packet.RequestSetUDP).Write((ushort)port);
+				EndSend();
+			}
+			return true;
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Stop listening to incoming broadcasts.
 	/// </summary>
 
-	public void Stop () { mUdp.Stop(); }
+	public void Stop ()
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestSetUDP).Write((ushort)0);
+			EndSend();
+		}
+		mUdp.Stop();
+	}
 
 	/// <summary>
 	/// Join the specified channel.
@@ -397,26 +472,40 @@ public class TcpClient
 			EndSend();
 		}
 
-		Buffer buffer;
+		Buffer buffer = null;
+		Datagram dg = null;
+		bool keepGoing = true;
 
 		// Read all incoming packets one at a time
-		for (;;)
+		while (keepGoing)
 		{
-			buffer = mTcp.ReceivePacket();
+			dg = mUdp.ReceiveDatagram();
 
-			if (buffer == null)
+			if (dg == null)
 			{
-				buffer = mUdp.ReceivePacket(out mLastAddress);
+				buffer = mTcp.ReceivePacket();
 				if (buffer == null) return;
 			}
-			else mLastAddress = null;
+			else
+			{
+				buffer = dg.buffer;
+				mPacketSource = dg.endPoint;
+			}
 
 			BinaryReader reader = buffer.BeginReading();
+			if (buffer.size == 0) continue;
 			int packetID = reader.ReadByte();
 			Packet response = (Packet)packetID;
 
+//#if !UNITY_EDITOR
+//            Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
+//#else
+//            UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
+//#endif
+
 			switch (response)
 			{
+				case Packet.Empty: break;
 				case Packet.ForwardToAll:
 				case Packet.ForwardToOthers:
 				case Packet.ForwardToAllSaved:
@@ -447,6 +536,13 @@ public class TcpClient
 
 						if (mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
 						{
+							if (mUdp.isActive)
+							{
+								// If we have a UDP listener active, tell the server
+								BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0);
+								EndSend();
+							}
+							
 							mCanPing = true;
 							if (onConnect != null) onConnect(true, null);
 						}
@@ -455,6 +551,19 @@ public class TcpClient
 							onConnect(false, "Version mismatch. Server is running version " +
 								serverVersion + ", while you have version " + Player.version);
 						}
+					}
+					break;
+				}
+				case Packet.ResponseSetUDP:
+				{
+					// The server has a new port for UDP traffic
+					ushort port = reader.ReadUInt16();
+					mServerUdpEndPoint = (port != 0) ? new IPEndPoint(new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes()), port) : null;
+					
+					if (mServerUdpEndPoint != null && mUdp.isActive)
+					{
+						// Send an empty packet to the server, opening up the communication channel
+						mUdp.SendEmptyPacket(mServerUdpEndPoint);
 					}
 					break;
 				}
@@ -481,8 +590,8 @@ public class TcpClient
 				{
 					// Purposely return after loading a level, ensuring that all future callbacks happen after loading
 					if (onLoadLevel != null) onLoadLevel(reader.ReadString());
-					buffer.Recycle();
-					return;
+					keepGoing = false;
+					break;
 				}
 				case Packet.ResponsePlayerLeft:
 				{
@@ -514,7 +623,7 @@ public class TcpClient
 					if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
 					break;
 				}
-				case Packet.ResponseLeftChannel:
+				case Packet.ResponseLeaveChannel:
 				{
 					mDictionary.Clear();
 					players.Clear();
@@ -548,11 +657,31 @@ public class TcpClient
 					}
 					break;
 				}
+				//case Packet.ResponseNAT:
+				//{
+				//    // TODO: Share the TCP socket, create a new socket on the same port, and try the connect here.
+				//    IPEndPoint ip = Player.ResolveEndPoint(reader.ReadString(), reader.ReadInt16());
+				//    if (ip != null) mTcp.Connect(ip);
+				//    break;
+				//}
 				case Packet.Error:
 				{
 					if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
 					{
-						onConnect(false, reader.ReadString());
+						// Direct TCP connection failed: try to go via the NAT punch-through facilitator
+						//if (!mTriedNAT && natFacilitator != null && mConnectTarget != null && mUdp.isActive)
+						//{
+						//    mTriedNAT = true;
+						//    BinaryWriter writer = BeginSend(Packet.RequestNAT);
+						//    writer.Write(mTcp.target.Address.ToString());
+						//    writer.Write((ushort)mTcp.target.Port);
+						//    EndSend(natFacilitator);
+						//    mTcp.Connect(mConnectTarget);
+						//}
+						//else
+						{
+							onConnect(false, reader.ReadString());
+						}
 					}
 					else if (onError != null)
 					{
@@ -575,7 +704,13 @@ public class TcpClient
 					break;
 				}
 			}
-			buffer.Recycle();
+
+			if (dg != null)
+			{
+				dg.Recycle();
+				mPacketSource = null;
+			}
+			else buffer.Recycle();
 		}
 	}
 }

@@ -7,6 +7,7 @@ using UnityEngine;
 using TNet;
 using System.IO;
 using System.Collections;
+using System.Net;
 
 /// <summary>
 /// Example script showing how to use the BroadcastToLAN functionality to share a list of servers.
@@ -104,12 +105,10 @@ public class TNServerList : TNBehaviour
 	[RFC]
 	void OnServerInfo (string serverName, int port)
 	{
-		if (TNManager.lastAddress != null)
+		if (TNManager.packetSource != null)
 		{
-			// The port where this packet came from is not very useful as it's that of the UDP socket.
-			string address = TNManager.lastAddress.Split(new char[] { ':' })[0] + ":" + port;
-
-			Entry ent = Get(address);
+			IPEndPoint src = TNManager.packetSource;
+			Entry ent = Get(src.Address.ToString() + ":" + src.Port);
 			ent.name = serverName;
 			ent.expiration = Time.time + 10f;
 		}

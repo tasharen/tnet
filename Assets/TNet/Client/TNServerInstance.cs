@@ -76,7 +76,7 @@ public class TNServerInstance : MonoBehaviour
 	/// Start a local server instance listening to the specified port.
 	/// </summary>
 
-	static public bool Start (int port) { return instance.mServer.Start(port); }
+	static public bool Start (int port) { return instance.mServer.Start(port, 0); }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port and loading the saved data from the specified file.
@@ -84,7 +84,7 @@ public class TNServerInstance : MonoBehaviour
 
 	static public bool Start (int port, string fileName)
 	{
-		if (instance.mServer.Start(port))
+		if (instance.mServer.Start(port, 0))
 		{
 			instance.mServer.LoadFrom(fileName);
 			return true;

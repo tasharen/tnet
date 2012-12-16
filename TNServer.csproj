@@ -40,6 +40,7 @@
   -->
   <ItemGroup>
     <Compile Include="Assets\TNet\Common\TNBuffer.cs" />
+    <Compile Include="Assets\TNet\Common\TNDatagram.cs" />
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
@@ -48,6 +49,8 @@
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpServer.cs" />
+    <Compile Include="Assets\TNet\Server\TNUdpPlayer.cs" />
+    <Compile Include="Assets\TNet\Server\TNUdpServer.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>
