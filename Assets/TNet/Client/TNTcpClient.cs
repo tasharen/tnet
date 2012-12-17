@@ -177,6 +177,12 @@ public class TcpClient
 	public bool isInChannel { get { return !mTcp.isConnected || players.size > 0; } }
 
 	/// <summary>
+	/// Port used to listen for incoming UDP packets. Set via Start().
+	/// </summary>
+
+	public int listeningPort { get { return mUdp.listeningPort; } }
+
+	/// <summary>
 	/// Source of the last packet.
 	/// </summary>
 
@@ -364,13 +370,13 @@ public class TcpClient
 	/// Start listening to incoming UDP packets on the specified port.
 	/// </summary>
 
-	public bool Start (int port)
+	public bool StartUDP (int udpPort)
 	{
-		if (mUdp.Start(port))
+		if (mUdp.Start(udpPort))
 		{
 			if (isConnected)
 			{
-				BeginSend(Packet.RequestSetUDP).Write((ushort)port);
+				BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
 				EndSend();
 			}
 			return true;
@@ -382,14 +388,17 @@ public class TcpClient
 	/// Stop listening to incoming broadcasts.
 	/// </summary>
 
-	public void Stop ()
+	public void StopUDP ()
 	{
-		if (isConnected)
+		if (mUdp.isActive)
 		{
-			BeginSend(Packet.RequestSetUDP).Write((ushort)0);
-			EndSend();
+			if (isConnected)
+			{
+				BeginSend(Packet.RequestSetUDP).Write((ushort)0);
+				EndSend();
+			}
+			mUdp.Stop();
 		}
-		mUdp.Stop();
 	}
 
 	/// <summary>
@@ -500,10 +509,10 @@ public class TcpClient
 		int packetID = reader.ReadByte();
 		Packet response = (Packet)packetID;
 
-//#if !UNITY_EDITOR
-//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
+//#if !UNITY_EDITOR // DEBUG
+//		if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
 //#else
-//        if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
+//		if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
 //#endif
 
 		switch (response)
@@ -542,7 +551,7 @@ public class TcpClient
 						if (mUdp.isActive)
 						{
 							// If we have a UDP listener active, tell the server
-							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0);
+							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0);
 							EndSend();
 						}
 						

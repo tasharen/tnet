@@ -72,6 +72,12 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
+	/// Listening port for incoming UDP packets. Set via TNManager.Start().
+	/// </summary>
+
+	static public int listeningPort { get { return mInstance != null ? mInstance.mClient.listeningPort : 0; } }
+
+	/// <summary>
 	/// Address from which the packet was received. Only available during packet processing callbacks.
 	/// If null, then the packet arrived via the active connection (TCP).
 	/// If the return value is not null, then the last packet arrived via UDP.
@@ -151,13 +157,13 @@ public class TNManager : MonoBehaviour
 	/// Start listening for incoming UDP packets on the specified port.
 	/// </summary>
 
-	static public bool Start (int port) { return (mInstance != null) ? mInstance.mClient.Start(port) : false; }
+	static public bool StartUDP (int udpPort) { return (mInstance != null) ? mInstance.mClient.StartUDP(udpPort) : false; }
 
 	/// <summary>
 	/// Stop listening to incoming UDP packets.
 	/// </summary>
 
-	static public void Stop () { if (mInstance != null) mInstance.mClient.Stop(); }
+	static public void StopUDP () { if (mInstance != null) mInstance.mClient.StopUDP(); }
 
 	/// <summary>
 	/// Connect to the specified destination.

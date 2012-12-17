@@ -55,7 +55,7 @@ public class TNServerInstance : MonoBehaviour
 	static public bool isListening { get { return (mInstance != null) && mInstance.mServer.isListening; } }
 
 	/// <summary>
-	/// Port used for listening to incoming connections.
+	/// Port used to listen for incoming TCP connections.
 	/// </summary>
 
 	static public int listeningPort { get { return (mInstance != null) ? mInstance.mServer.listeningPort : 0; } }
@@ -76,15 +76,21 @@ public class TNServerInstance : MonoBehaviour
 	/// Start a local server instance listening to the specified port.
 	/// </summary>
 
-	static public bool Start (int port) { return instance.mServer.Start(port, 0); }
+	static public bool Start (int tcpPort) { return instance.mServer.Start(tcpPort, 0); }
+
+	/// <summary>
+	/// Start a local server instance listening to the specified port.
+	/// </summary>
+
+	static public bool Start (int tcpPort, int udpPort) { return instance.mServer.Start(tcpPort, udpPort); }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port and loading the saved data from the specified file.
 	/// </summary>
 
-	static public bool Start (int port, string fileName)
+	static public bool Start (int tcpPort, int udpPort, string fileName)
 	{
-		if (instance.mServer.Start(port, 0))
+		if (instance.mServer.Start(tcpPort, udpPort))
 		{
 			instance.mServer.LoadFrom(fileName);
 			return true;
@@ -122,13 +128,4 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public void MakePrivate () { if (mInstance != null) mInstance.mServer.MakePrivate(); }
-
-	/// <summary>
-	/// Overwrite this function with whatever you wish to send with your broadcasts.
-	/// </summary>
-
-	virtual protected void OnBroadcast (BinaryWriter writer)
-	{
-		writer.Write(localAddress);
-	}
 }

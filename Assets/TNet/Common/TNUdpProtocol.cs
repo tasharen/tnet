@@ -42,13 +42,13 @@ public class UdpProtocol
 	/// Whether we can send or receive through the UDP socket.
 	/// </summary>
 
-	public bool isActive { get { return mSocket != null; } }
+	public bool isActive { get { return mPort != 0; } }
 
 	/// <summary>
 	/// Port used for listening.
 	/// </summary>
 
-	public int listenerPort { get { return mPort; } }
+	public int listeningPort { get { return mPort; } }
 
 	/// <summary>
 	/// Stop listening for incoming packets.
@@ -56,6 +56,8 @@ public class UdpProtocol
 
 	public void Stop ()
 	{
+		mPort = 0;
+
 		if (mSocket != null)
 		{
 			mSocket.Close();
@@ -75,14 +77,21 @@ public class UdpProtocol
 	/// Start listening for incoming messages on the specified port.
 	/// </summary>
 
+#if UNITY_FLASH
+	// UDP is not supported by Flash.
+	public bool Start (int port) { return false; }
+#else
 	public bool Start (int port)
 	{
 		Stop();
+		if (port == 0) return false;
 
 		mPort = port;
 		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+#if !UNITY_WEBPLAYER
+		// Web player doesn't seem to support broadcasts
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-			
+#endif	
 		if (port != 0)
 		{
 			try
@@ -91,18 +100,14 @@ public class UdpProtocol
 				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
 #if UNITY_EDITOR
-			catch (System.Exception ex)
-			{
-				UnityEngine.Debug.LogError(ex.Message);
+			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); return false; }
 #else
-			catch (System.Exception)
-			{
+			catch (System.Exception) { return false; }
 #endif
-				return false;
-			}
 		}
 		return true;
 	}
+#endif // UNITY_FLASH
 
 	/// <summary>
 	/// Receive incoming data.
@@ -191,8 +196,10 @@ public class UdpProtocol
 	public void Broadcast (Buffer buffer, int port)
 	{
 		buffer.MarkAsUsed();
-#if UNITY_WEBPLAYER
-		UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player");
+#if UNITY_WEBPLAYER || UNITY_FLASH
+ #if UNITY_EDITOR
+		UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player or Flash");
+ #endif
 #else
 		if (mBroadcaster == null)
 		{

@@ -111,17 +111,24 @@ public class TcpServer
 	/// Start listening to incoming connections on the specified port.
 	/// </summary>
 
+	public bool Start (int tcpPort) { return Start(tcpPort, 0); }
+
+	/// <summary>
+	/// Start listening to incoming connections on the specified port.
+	/// </summary>
+
 	public bool Start (int tcpPort, int udpPort)
 	{
 		Stop();
 
-		if (udpPort != 0) mUdp.Start(udpPort);
-
+#if UNITY_EDITOR
+		UnityEngine.Debug.Log(tcpPort + " " + udpPort);
+#endif
 		try
 		{
 			mListenerPort = tcpPort;
 			mListener = new TcpListener(IPAddress.Any, tcpPort);
-			mListener.Start(10);
+			mListener.Start(50);
 			//mListener.BeginAcceptSocket(OnAccept, null);
 		}
 		catch (System.Exception ex)
@@ -130,6 +137,7 @@ public class TcpServer
 			return false;
 		}
 
+		if (udpPort != 0) mUdp.Start(udpPort);
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 		return true;
@@ -147,16 +155,20 @@ public class TcpServer
 
 	public void Stop ()
 	{
-		// Stop listening to incoming connections
-		MakePrivate();
-		mUdp.Stop();
-
 		// Stop the worker thread
 		if (mThread != null)
 		{
 			mThread.Abort();
 			mThread = null;
 		}
+
+		// Stop listening
+		if (mListener != null)
+		{
+			mListener.Stop();
+			mListener = null;
+		}
+		mUdp.Stop();
 
 		// Remove all connected players
 		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
@@ -166,14 +178,7 @@ public class TcpServer
 	/// Stop listening to incoming connections but keep the server running.
 	/// </summary>
 
-	public void MakePrivate ()
-	{
-		if (mListener != null)
-		{
-			mListener.Stop();
-			mListener = null;
-		}
-	}
+	public void MakePrivate () { mListenerPort = 0; }
 
 	/// <summary>
 	/// Thread that will be processing incoming data.
@@ -183,11 +188,27 @@ public class TcpServer
 	{
 		for (; ; )
 		{
-			// Add all pending connections
-			while (mListener != null && mListener.Pending())
+			// Stop the listener if the port is 0 (MakePrivate() was called)
+			if (mListenerPort == 0)
 			{
-				TcpPlayer p = AddPlayer(mListener.AcceptSocket());
-				Console.WriteLine(p.address + " has connected");
+				if (mListener != null)
+				{
+					mListener.Stop();
+					mListener = null;
+				}
+			}
+			else
+			{
+				// Add all pending connections
+				while (mListener != null && mListener.Pending())
+				{
+#if STANDALONE
+					TcpPlayer p = AddPlayer(mListener.AcceptSocket());
+					Console.WriteLine(p.address + " has connected");
+#else
+					AddPlayer(mListener.AcceptSocket());
+#endif
+				}
 			}
 
 			bool received = false;
@@ -221,14 +242,18 @@ public class TcpServer
 					// Up to 10 seconds can go without a single packet before the player is removed
 					if (player.timestamp + 10000 < mTime)
 					{
+#if STANDALONE
 						Console.WriteLine(player.address + " has timed out");
+#endif
 						RemovePlayer(player);
 						continue;
 					}
 				}
 				else if (player.timestamp + 2000 < mTime)
 				{
+#if STANDALONE
 					Console.WriteLine(player.address + " has timed out");
+#endif
 					RemovePlayer(player);
 					continue;
 				}
@@ -247,7 +272,7 @@ public class TcpServer
 #if UNITY_EDITOR
 		if (p != null) UnityEngine.Debug.LogError(error + " (" + p.address + ")");
 		else UnityEngine.Debug.LogError(error);
-#else
+#elif STANDALONE
 		if (p != null) Console.WriteLine(p.address + " ERROR: " + error);
 		else Console.WriteLine("ERROR: " + error);
 #endif
@@ -274,8 +299,9 @@ public class TcpServer
 		if (p != null)
 		{
 			SendLeaveChannel(p, false);
-
+#if STANDALONE
 			Console.WriteLine(p.address + " has disconnected");
+#endif
 			p.Release();
 			mPlayers.Remove(p);
 
@@ -759,10 +785,10 @@ public class TcpServer
 		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
 
-//#if UNITY_EDITOR
-//        if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
+//#if UNITY_EDITOR // DEBUG
+//		if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
 //#else
-//        if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
+//		if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
 //#endif
 
 		// If the player has not yet been verified, the first packet must be an ID request
@@ -790,7 +816,9 @@ public class TcpServer
 				// If the version matches, move on to the next packet
 				if (clientVersion == TcpPlayer.version) return true;
 			}
+#if STANDALONE
 			Console.WriteLine(player.address + " has failed the verification step");
+#endif
 			RemovePlayer(player);
 			return false;
 		}
@@ -830,7 +858,7 @@ public class TcpServer
 				else SetPlayerUdpEndPoint(player, null);
 
 				// Let the player know if we are hosting an active UDP connection
-				ushort udp = mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0;
+				ushort udp = mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0;
 				BeginSend(Packet.ResponseSetUDP).Write(udp);
 				EndSend(true, player);
 

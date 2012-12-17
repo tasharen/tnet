@@ -25,7 +25,8 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonWidth = 150f;
 	const float buttonHeight = 40f;
 
-	public int listenPort = 5127;
+	public int tcpPort = 5127;
+	public int udpPort = 5128;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -39,6 +40,18 @@ public class ExampleMenu : MonoBehaviour
 #endif
 	string mMessage = "";
 	float mAlpha = 0f;
+
+	/// <summary>
+	/// Start listening for incoming UDP packets right away. This is so that we are able to receive LAN broadcasts (server advertisements).
+	/// </summary>
+
+	void Start () { if (Application.isPlaying) TNManager.StartUDP(udpPort); }
+
+	/// <summary>
+	/// Stop listening when this script is gone. In your case you will want to stop listening when the game shuts down.
+	/// </summary>
+
+	void OnDestroy () { TNManager.StopUDP(); }
 
 	/// <summary>
 	/// Adjust the server list's alpha based on whether it should be shown or not.
@@ -121,7 +134,9 @@ public class ExampleMenu : MonoBehaviour
 					mMessage = "Can't host from the Web Player due to Unity's security restrictions";
 #else
 					// Start a local server, loading the saved data if possible
-					TNServerInstance.Start(listenPort, "server.dat");
+					// The UDP port of the server doesn't matter much as it's optional,
+					// and the clients get notified of it via Packet.ResponseSetUDP.
+					TNServerInstance.Start(tcpPort, Random.Range(10000, 40000), "server.dat");
 					mMessage = "Server started";
 #endif
 				}

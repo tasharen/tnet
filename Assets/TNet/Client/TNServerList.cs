@@ -26,10 +26,10 @@ public class TNServerList : TNBehaviour
 	static public List<Entry> list = new List<Entry>();
 
 	/// <summary>
-	/// Port used for broadcasts.
+	/// Port used for broadcasts. This should match the UDP listening port on your clients.
 	/// </summary>
 
-	public int broadcastPort = 5128;
+	public int udpPort = 5128;
 
 	/// <summary>
 	/// The network manager won't listen for broadcasts unless they get explicitly enabled.
@@ -39,8 +39,6 @@ public class TNServerList : TNBehaviour
 	{
 		// Can't host in the web player due to Unity's security policy
 #if !UNITY_WEBPLAYER
-		// Start listening for packets broadcast on the specified port
-		TNManager.Start(broadcastPort);
 		StartCoroutine(BroadcastServerInfo());
 #endif
 		StartCoroutine(RemoveExpiredEntries());
@@ -92,7 +90,7 @@ public class TNServerList : TNBehaviour
 		{
 			if (TNServerInstance.isListening)
 			{
-				tno.BroadcastToLAN(broadcastPort, "OnServerInfo", TNServerInstance.serverName, TNServerInstance.listeningPort);
+				tno.BroadcastToLAN(udpPort, "OnServerInfo", TNServerInstance.serverName, TNServerInstance.listeningPort);
 			}
 			yield return new WaitForSeconds(3f);
 		}
