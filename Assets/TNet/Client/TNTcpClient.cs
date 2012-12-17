@@ -501,9 +501,9 @@ public class TcpClient
 		Packet response = (Packet)packetID;
 
 //#if !UNITY_EDITOR
-//            Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
+//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
 //#else
-//            UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
+//        if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
 //#endif
 
 		switch (response)

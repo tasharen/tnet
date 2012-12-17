@@ -570,7 +570,14 @@ public class TcpServer
 	protected void EndSend (bool reliable, TcpPlayer player)
 	{
 		mBuffer.EndTcpPacket();
-		player.SendTcpPacket(mBuffer);
+		if (mBuffer.size > 1024) reliable = true;
+
+		if (reliable || player.udpEndPoint == null)
+		{
+			player.SendTcpPacket(mBuffer);
+		}
+		else mUdp.Send(mBuffer, player.udpEndPoint);
+		
 		mBuffer.Recycle();
 		mBuffer = null;
 	}
@@ -583,6 +590,7 @@ public class TcpServer
 	protected void EndSend (bool reliable, TcpChannel channel, TcpPlayer exclude)
 	{
 		mBuffer.EndTcpPacket();
+		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
@@ -592,12 +600,9 @@ public class TcpServer
 			{
 				if (reliable || player.udpEndPoint == null)
 				{
-					mUdp.Send(mBuffer, player.udpEndPoint);
-				}
-				else
-				{
 					player.SendTcpPacket(mBuffer);
 				}
+				else mUdp.Send(mBuffer, player.udpEndPoint);
 			}
 		}
 
@@ -612,6 +617,7 @@ public class TcpServer
 	protected void EndSend (bool reliable)
 	{
 		mBuffer.EndTcpPacket();
+		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < mChannels.size; ++i)
 		{
@@ -625,12 +631,9 @@ public class TcpServer
 				{
 					if (reliable || player.udpEndPoint == null)
 					{
-						mUdp.Send(mBuffer, player.udpEndPoint);
-					}
-					else
-					{
 						player.SendTcpPacket(mBuffer);
 					}
+					else mUdp.Send(mBuffer, player.udpEndPoint);
 				}
 			}
 		}
@@ -645,6 +648,7 @@ public class TcpServer
 	protected void SendToChannel (bool reliable, TcpChannel channel, Buffer buffer)
 	{
 		mBuffer.MarkAsUsed();
+		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
@@ -654,12 +658,9 @@ public class TcpServer
 			{
 				if (reliable || player.udpEndPoint == null)
 				{
-					mUdp.Send(mBuffer, player.udpEndPoint);
-				}
-				else
-				{
 					player.SendTcpPacket(mBuffer);
 				}
+				else mUdp.Send(mBuffer, player.udpEndPoint);
 			}
 		}
 		mBuffer.Recycle();
@@ -759,9 +760,9 @@ public class TcpServer
 		Packet request = (Packet)reader.ReadByte();
 
 //#if UNITY_EDITOR
-//        UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
+//        if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
 //#else
-//        Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
+//        if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
 //#endif
 
 		// If the player has not yet been verified, the first packet must be an ID request
@@ -1001,7 +1002,7 @@ public class TcpServer
 	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 	{
 		// We can't send unreliable packets if UDP is not active
-		if (!mUdp.isActive || buffer.size > 8000) reliable = true;
+		if (!mUdp.isActive || buffer.size > 1024) reliable = true;
 
 		switch (request)
 		{
