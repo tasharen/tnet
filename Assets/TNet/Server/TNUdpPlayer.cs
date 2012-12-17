@@ -42,7 +42,7 @@ public class UdpPlayer : Player
 	public IPEndPoint endPoint;
 
 	// Temporary buffer used for writing
-	Datagram mDatagram;
+	Buffer mDatagram;
 	UdpProtocol mUdp;
 
 	/// <summary>
@@ -63,7 +63,7 @@ public class UdpPlayer : Player
 
 	public BinaryWriter BeginSend (Packet type)
 	{
-		mDatagram = mUdp.Datagram.Create();
+		mDatagram = mUdp.Buffer.Create();
 		mDatagram.endPoint = endPoint;
 		return mDatagram.buffer.BeginUdpPacket(type);
 	}
@@ -74,7 +74,7 @@ public class UdpPlayer : Player
 
 	public BinaryWriter BeginSend (byte packetID)
 	{
-		mDatagram = mUdp.Datagram.Create();
+		mDatagram = mUdp.Buffer.Create();
 		mDatagram.endPoint = endPoint;
 		return mDatagram.buffer.BeginUdpPacket(packetID);
 	}
@@ -93,6 +93,6 @@ public class UdpPlayer : Player
 	/// Send the specified datagram. Marks the buffer as used.
 	/// </summary>
 
-	public void SendDatagram (Datagram dg) { mUdp.Send(dg); }
+	public void SendDatagram (Buffer dg) { mUdp.Send(dg); }
 }
 }*/

@@ -18,14 +18,14 @@ public class ClientMain
 			{
 				Console.WriteLine("Large data test...");
 
-				FileStream stream = new FileStream("../../sig.png", FileMode.Open);
+				FileStream stream = new FileStream("../../test.jpg", FileMode.Open);
 				byte[] data = new byte[stream.Length];
 				stream.Read(data, 0, (int)stream.Length);
 				stream.Close();
 				stream.Dispose();
 				
 				BinaryWriter writer = client.BeginSend(Packet.ForwardToAllSaved);
-				writer.Write(0);
+				writer.Write(123456);
 				writer.Write(data);
 				client.EndSend();
 			}

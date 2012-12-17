@@ -336,10 +336,18 @@ public class TcpProtocol : Player
 	/// Extract the first incoming packet.
 	/// </summary>
 
-	public Buffer ReceivePacket ()
+	public bool ReceivePacket (out Buffer buffer)
 	{
-		if (mIn.Count == 0) return null;
-		lock (mIn) return mIn.Dequeue();
+		if (mIn.Count != 0)
+		{
+			lock (mIn)
+			{
+				buffer = mIn.Dequeue();
+				return true;
+			}
+		}
+		buffer = null;
+		return false;
 	}
 
 	/// <summary>

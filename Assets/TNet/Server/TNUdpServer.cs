@@ -99,9 +99,9 @@ public class UdpServer : UdpProtocol
 	/// Send a disconnect notification packet to the specified end point.
 	/// </summary>
 
-	void SendDisconnect (Queue<Datagram> queue, IPEndPoint ip)
+	void SendDisconnect (Queue<Buffer> queue, IPEndPoint ip)
 	{
-		Datagram dg = Datagram.Create();
+		Buffer dg = Buffer.Create();
 		dg.endPoint = ip;
 		dg.buffer = Buffer.Create();
 		dg.buffer.BeginTcpPacket(Packet.Disconnect);

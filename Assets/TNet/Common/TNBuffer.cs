@@ -122,13 +122,13 @@ public class Buffer
 	/// Release the buffer into the reusable pool.
 	/// </summary>
 
-	public void Recycle () { Recycle(true); }
+	public bool Recycle () { return Recycle(true); }
 
 	/// <summary>
 	/// Release the buffer into the reusable pool.
 	/// </summary>
 
-	public void Recycle (bool checkUsedFlag)
+	public bool Recycle (bool checkUsedFlag)
 	{
 		if (!mInPool && (!checkUsedFlag || MarkAsUnused()))
 		{
@@ -145,7 +145,9 @@ public class Buffer
 				Clear();
 				mPool.Add(this);
 			}
+			return true;
 		}
+		return false;
 	}
 
 	/// <summary>
@@ -159,6 +161,23 @@ public class Buffer
 			while (list.Count != 0)
 			{
 				Buffer b = list.Dequeue();
+				b.Clear();
+				mPool.Add(b);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Recycle an entire queue of buffers.
+	/// </summary>
+
+	static public void Recycle (Queue<Datagram> list)
+	{
+		lock (mPool)
+		{
+			while (list.Count != 0)
+			{
+				Buffer b = list.Dequeue().buffer;
 				b.Clear();
 				mPool.Add(b);
 			}
@@ -184,26 +203,7 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Recycle an entire list of datagrams that contain buffers.
-	/// </summary>
-
-	static public void Recycle (Queue<Datagram> list)
-	{
-		lock (mPool)
-		{
-			while (list.Count != 0)
-			{
-				Datagram d = list.Dequeue();
-				d.buffer.Clear();
-				mPool.Add(d.buffer);
-				d.buffer = null;
-			}
-			Datagram.Recycle(list);
-		}
-	}
-
-	/// <summary>
-	/// Recycle an entire list of datagrams that contain buffers.
+	/// Recycle an entire list of buffers.
 	/// </summary>
 
 	static public void Recycle (List<Datagram> list)
@@ -212,13 +212,12 @@ public class Buffer
 		{
 			for (int i = 0; i < list.size; ++i)
 			{
-				Datagram d = list[i];
-				d.buffer.Clear();
-				mPool.Add(d.buffer);
-				d.buffer = null;
+				Buffer b = list[i].buffer;
+				b.Clear();
+				mPool.Add(b);
 			}
+			list.Clear();
 		}
-		Datagram.Recycle(list);
 	}
 
 	/// <summary>

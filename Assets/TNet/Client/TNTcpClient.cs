@@ -316,9 +316,7 @@ public class TcpClient
 		else
 		{
 			mBuffer.EndTcpPacket();
-			Datagram dg = Datagram.Create(mBuffer);
-			dg.endPoint = mServerUdpEndPoint;
-			mUdp.Send(dg);
+			mUdp.Send(mBuffer, mServerUdpEndPoint);
 		}
 		mBuffer = null;
 	}
@@ -330,7 +328,7 @@ public class TcpClient
 	public void EndSend (int port)
 	{
 		mBuffer.EndTcpPacket();
-		mUdp.Send(port, mBuffer);
+		mUdp.Broadcast(mBuffer, port);
 		mBuffer = null;
 	}
 
@@ -341,7 +339,7 @@ public class TcpClient
 	public void EndSend (IPEndPoint target)
 	{
 		mBuffer.EndTcpPacket();
-		mUdp.Send(target, mBuffer);
+		mUdp.Send(mBuffer, target);
 		mBuffer = null;
 	}
 
@@ -473,29 +471,34 @@ public class TcpClient
 		}
 
 		Buffer buffer = null;
-		Datagram dg = null;
+		IPEndPoint ip = null;
 		bool keepGoing = true;
 
-		// Read all incoming packets one at a time
-		while (keepGoing)
+		while (keepGoing && mUdp.ReceivePacket(out buffer, out ip))
 		{
-			dg = mUdp.ReceiveDatagram();
+			keepGoing = ProcessPacket(buffer, ip);
+			buffer.Recycle();
+		}
 
-			if (dg == null)
-			{
-				buffer = mTcp.ReceivePacket();
-				if (buffer == null) return;
-			}
-			else
-			{
-				buffer = dg.buffer;
-				mPacketSource = dg.endPoint;
-			}
+		while (keepGoing && mTcp.ReceivePacket(out buffer))
+		{
+			keepGoing = ProcessPacket(buffer, null);
+			buffer.Recycle();
+		}
+	}
 
-			BinaryReader reader = buffer.BeginReading();
-			if (buffer.size == 0) continue;
-			int packetID = reader.ReadByte();
-			Packet response = (Packet)packetID;
+	/// <summary>
+	/// Process a single incoming packet. Returns whether we should keep processing packets or not.
+	/// </summary>
+
+	bool ProcessPacket (Buffer buffer, IPEndPoint ip)
+	{
+		mPacketSource = ip;
+		BinaryReader reader = buffer.BeginReading();
+		if (buffer.size == 0) return true;
+
+		int packetID = reader.ReadByte();
+		Packet response = (Packet)packetID;
 
 //#if !UNITY_EDITOR
 //            Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
@@ -503,215 +506,207 @@ public class TcpClient
 //            UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
 //#endif
 
-			switch (response)
+		switch (response)
+		{
+			case Packet.Empty: break;
+			case Packet.ForwardToAll:
+			case Packet.ForwardToOthers:
+			case Packet.ForwardToAllSaved:
+			case Packet.ForwardToOthersSaved:
+			case Packet.ForwardToHost:
 			{
-				case Packet.Empty: break;
-				case Packet.ForwardToAll:
-				case Packet.ForwardToOthers:
-				case Packet.ForwardToAllSaved:
-				case Packet.ForwardToOthersSaved:
-				case Packet.ForwardToHost:
+				if (onForwardedPacket != null) onForwardedPacket(reader);
+				break;
+			}
+			case Packet.ForwardToPlayer:
+			{
+				// Skip the player ID
+				reader.ReadInt32();
+				if (onForwardedPacket != null) onForwardedPacket(reader);
+				break;
+			}
+			case Packet.ResponsePing:
+			{
+				mPing = (int)(mTime - mPingTime);
+				mCanPing = true;
+				break;
+			}
+			case Packet.ResponseID:
+			{
+				if (mTcp.stage == TcpProtocol.Stage.Verifying)
 				{
-					if (onForwardedPacket != null) onForwardedPacket(reader);
-					break;
+					int serverVersion = reader.ReadInt32();
+
+					if (mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
+					{
+						if (mUdp.isActive)
+						{
+							// If we have a UDP listener active, tell the server
+							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0);
+							EndSend();
+						}
+						
+						mCanPing = true;
+						if (onConnect != null) onConnect(true, null);
+					}
+					else if (onConnect != null)
+					{
+						onConnect(false, "Version mismatch. Server is running version " +
+							serverVersion + ", while you have version " + Player.version);
+					}
 				}
-				case Packet.ForwardToPlayer:
+				break;
+			}
+			case Packet.ResponseSetUDP:
+			{
+				// The server has a new port for UDP traffic
+				ushort port = reader.ReadUInt16();
+				mServerUdpEndPoint = (port != 0) ? new IPEndPoint(new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes()), port) : null;
+				
+				if (mServerUdpEndPoint != null && mUdp.isActive)
 				{
-					// Skip the player ID
+					// Send an empty packet to the server, opening up the communication channel
+					mUdp.SendEmptyPacket(mServerUdpEndPoint);
+				}
+				break;
+			}
+			case Packet.ResponseJoiningChannel:
+			{
+				mDictionary.Clear();
+				players.Clear();
+
+				//int channelID =
 					reader.ReadInt32();
-					if (onForwardedPacket != null) onForwardedPacket(reader);
-					break;
-				}
-				case Packet.ResponsePing:
-				{
-					mPing = (int)(mTime - mPingTime);
-					mCanPing = true;
-					break;
-				}
-				case Packet.ResponseID:
-				{
-					if (mTcp.stage == TcpProtocol.Stage.Verifying)
-					{
-						int serverVersion = reader.ReadInt32();
+				int count = reader.ReadInt16();
 
-						if (mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
-						{
-							if (mUdp.isActive)
-							{
-								// If we have a UDP listener active, tell the server
-								BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listenerPort : (ushort)0);
-								EndSend();
-							}
-							
-							mCanPing = true;
-							if (onConnect != null) onConnect(true, null);
-						}
-						else if (onConnect != null)
-						{
-							onConnect(false, "Version mismatch. Server is running version " +
-								serverVersion + ", while you have version " + Player.version);
-						}
-					}
-					break;
-				}
-				case Packet.ResponseSetUDP:
-				{
-					// The server has a new port for UDP traffic
-					ushort port = reader.ReadUInt16();
-					mServerUdpEndPoint = (port != 0) ? new IPEndPoint(new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes()), port) : null;
-					
-					if (mServerUdpEndPoint != null && mUdp.isActive)
-					{
-						// Send an empty packet to the server, opening up the communication channel
-						mUdp.SendEmptyPacket(mServerUdpEndPoint);
-					}
-					break;
-				}
-				case Packet.ResponseJoiningChannel:
-				{
-					mDictionary.Clear();
-					players.Clear();
-
-					//int channelID =
-						reader.ReadInt32();
-					int count = reader.ReadInt16();
-
-					for (int i = 0; i < count; ++i)
-					{
-						Player p = new Player();
-						p.id = reader.ReadInt32();
-						p.name = reader.ReadString();
-						mDictionary.Add(p.id, p);
-						players.Add(p);
-					}
-					break;
-				}
-				case Packet.ResponseLoadLevel:
-				{
-					// Purposely return after loading a level, ensuring that all future callbacks happen after loading
-					if (onLoadLevel != null) onLoadLevel(reader.ReadString());
-					keepGoing = false;
-					break;
-				}
-				case Packet.ResponsePlayerLeft:
-				{
-					Player p = GetPlayer(reader.ReadInt32());
-					if (p != null) mDictionary.Remove(p.id);
-					players.Remove(p);
-					if (onPlayerLeft != null) onPlayerLeft(p);
-					break;
-				}
-				case Packet.ResponsePlayerJoined:
+				for (int i = 0; i < count; ++i)
 				{
 					Player p = new Player();
 					p.id = reader.ReadInt32();
 					p.name = reader.ReadString();
 					mDictionary.Add(p.id, p);
 					players.Add(p);
-					if (onPlayerJoined != null) onPlayerJoined(p);
-					break;
 				}
-				case Packet.ResponseSetHost:
-				{
-					mHost = reader.ReadInt32();
-					if (onSetHost != null) onSetHost(isHosting);
-					break;
-				}
-				case Packet.ResponseJoinChannel:
-				{
-					bool success = reader.ReadBoolean();
-					if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
-					break;
-				}
-				case Packet.ResponseLeaveChannel:
-				{
-					mDictionary.Clear();
-					players.Clear();
-					if (onLeftChannel != null) onLeftChannel();
-					break;
-				}
-				case Packet.ResponseRenamePlayer:
-				{
-					Player p = GetPlayer(reader.ReadInt32());
-					string oldName = p.name;
-					if (p != null) p.name = reader.ReadString();
-					if (onRenamePlayer != null) onRenamePlayer(p, oldName);
-					break;
-				}
-				case Packet.ResponseCreate:
-				{
-					if (onCreate != null)
-					{
-						short index = reader.ReadInt16();
-						uint objID = reader.ReadUInt32();
-						onCreate(index, objID, reader);
-					}
-					break;
-				}
-				case Packet.ResponseDestroy:
-				{
-					if (onDestroy != null)
-					{
-						int count = reader.ReadUInt16();
-						for (int i = 0; i < count; ++i) onDestroy(reader.ReadUInt32());
-					}
-					break;
-				}
-				//case Packet.ResponseNAT:
-				//{
-				//    // TODO: Share the TCP socket, create a new socket on the same port, and try the connect here.
-				//    IPEndPoint ip = Player.ResolveEndPoint(reader.ReadString(), reader.ReadInt16());
-				//    if (ip != null) mTcp.Connect(ip);
-				//    break;
-				//}
-				case Packet.Error:
-				{
-					if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
-					{
-						// Direct TCP connection failed: try to go via the NAT punch-through facilitator
-						//if (!mTriedNAT && natFacilitator != null && mConnectTarget != null && mUdp.isActive)
-						//{
-						//    mTriedNAT = true;
-						//    BinaryWriter writer = BeginSend(Packet.RequestNAT);
-						//    writer.Write(mTcp.target.Address.ToString());
-						//    writer.Write((ushort)mTcp.target.Port);
-						//    EndSend(natFacilitator);
-						//    mTcp.Connect(mConnectTarget);
-						//}
-						//else
-						{
-							onConnect(false, reader.ReadString());
-						}
-					}
-					else if (onError != null)
-					{
-						onError(reader.ReadString());
-					}
-					break;
-				}
-				case Packet.Disconnect:
-				{
-					if (isInChannel && onLeftChannel != null) onLeftChannel();
-					players.Clear();
-					mDictionary.Clear();
-					mTcp.Close(false);
-					if (onDisconnect != null) onDisconnect();
-					break;
-				}
-				default:
-				{
-					if (onError != null) onError("Unknown packet ID: " + packetID);
-					break;
-				}
+				break;
 			}
-
-			if (dg != null)
+			case Packet.ResponseLoadLevel:
 			{
-				dg.Recycle();
-				mPacketSource = null;
+				// Purposely return after loading a level, ensuring that all future callbacks happen after loading
+				if (onLoadLevel != null) onLoadLevel(reader.ReadString());
+				return false;
 			}
-			else buffer.Recycle();
+			case Packet.ResponsePlayerLeft:
+			{
+				Player p = GetPlayer(reader.ReadInt32());
+				if (p != null) mDictionary.Remove(p.id);
+				players.Remove(p);
+				if (onPlayerLeft != null) onPlayerLeft(p);
+				break;
+			}
+			case Packet.ResponsePlayerJoined:
+			{
+				Player p = new Player();
+				p.id = reader.ReadInt32();
+				p.name = reader.ReadString();
+				mDictionary.Add(p.id, p);
+				players.Add(p);
+				if (onPlayerJoined != null) onPlayerJoined(p);
+				break;
+			}
+			case Packet.ResponseSetHost:
+			{
+				mHost = reader.ReadInt32();
+				if (onSetHost != null) onSetHost(isHosting);
+				break;
+			}
+			case Packet.ResponseJoinChannel:
+			{
+				bool success = reader.ReadBoolean();
+				if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
+				break;
+			}
+			case Packet.ResponseLeaveChannel:
+			{
+				mDictionary.Clear();
+				players.Clear();
+				if (onLeftChannel != null) onLeftChannel();
+				break;
+			}
+			case Packet.ResponseRenamePlayer:
+			{
+				Player p = GetPlayer(reader.ReadInt32());
+				string oldName = p.name;
+				if (p != null) p.name = reader.ReadString();
+				if (onRenamePlayer != null) onRenamePlayer(p, oldName);
+				break;
+			}
+			case Packet.ResponseCreate:
+			{
+				if (onCreate != null)
+				{
+					short index = reader.ReadInt16();
+					uint objID = reader.ReadUInt32();
+					onCreate(index, objID, reader);
+				}
+				break;
+			}
+			case Packet.ResponseDestroy:
+			{
+				if (onDestroy != null)
+				{
+					int count = reader.ReadUInt16();
+					for (int i = 0; i < count; ++i) onDestroy(reader.ReadUInt32());
+				}
+				break;
+			}
+			//case Packet.ResponseNAT:
+			//{
+			//    // TODO: Share the TCP socket, create a new socket on the same port, and try the connect here.
+			//    IPEndPoint ip = Player.ResolveEndPoint(reader.ReadString(), reader.ReadInt16());
+			//    if (ip != null) mTcp.Connect(ip);
+			//    break;
+			//}
+			case Packet.Error:
+			{
+				if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
+				{
+					// Direct TCP connection failed: try to go via the NAT punch-through facilitator
+					//if (!mTriedNAT && natFacilitator != null && mConnectTarget != null && mUdp.isActive)
+					//{
+					//    mTriedNAT = true;
+					//    BinaryWriter writer = BeginSend(Packet.RequestNAT);
+					//    writer.Write(mTcp.target.Address.ToString());
+					//    writer.Write((ushort)mTcp.target.Port);
+					//    EndSend(natFacilitator);
+					//    mTcp.Connect(mConnectTarget);
+					//}
+					//else
+					{
+						onConnect(false, reader.ReadString());
+					}
+				}
+				else if (onError != null)
+				{
+					onError(reader.ReadString());
+				}
+				break;
+			}
+			case Packet.Disconnect:
+			{
+				if (isInChannel && onLeftChannel != null) onLeftChannel();
+				players.Clear();
+				mDictionary.Clear();
+				mTcp.Close(false);
+				if (onDisconnect != null) onDisconnect();
+				break;
+			}
+			default:
+			{
+				if (onError != null) onError("Unknown packet ID: " + packetID);
+				break;
+			}
 		}
+		return true;
 	}
 }
 }

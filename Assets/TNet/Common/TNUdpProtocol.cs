@@ -28,8 +28,8 @@ public class UdpProtocol
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
 
-	// Datagram that's currently used to receive incoming data
-	Datagram mInDatagram;
+	// Buffer that's currently used to receive incoming data
+	EndPoint mEndPoint = new IPEndPoint(IPAddress.Any, 0);
 
 	// Cached broadcast end-point
 	IPEndPoint mBroadcastIP = new IPEndPoint(IPAddress.Broadcast, 0);
@@ -56,12 +56,6 @@ public class UdpProtocol
 
 	public void Stop ()
 	{
-		if (mInDatagram != null)
-		{
-			mInDatagram.Recycle();
-			mInDatagram = null;
-		}
-
 		if (mSocket != null)
 		{
 			mSocket.Close();
@@ -91,13 +85,10 @@ public class UdpProtocol
 			
 		if (port != 0)
 		{
-			mInDatagram = Datagram.Create();
-			EndPoint ep = mInDatagram.endPoint;
-
 			try
 			{
 				mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
-				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref ep, OnReceive, null);
+				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
 #if UNITY_EDITOR
 			catch (System.Exception ex)
@@ -119,14 +110,11 @@ public class UdpProtocol
 
 	void OnReceive (IAsyncResult result)
 	{
-		// NOTE: I can set this to 'null'. Apparently the value does NOT get updated, but re-assigned.
-		// I wonder what happens to the previous data. Garbage collection? Ugh...
-		EndPoint ep = mInDatagram.endPoint;
 		int bytes = 0;
 
 		try
 		{
-			bytes = mSocket.EndReceiveFrom(result, ref ep);
+			bytes = mSocket.EndReceiveFrom(result, ref mEndPoint);
 		}
 #if UNITY_EDITOR
 		catch (System.Exception ex)
@@ -143,20 +131,21 @@ public class UdpProtocol
 		if (bytes > 4)
 		{
 			// This datagram is now ready to be processed
-			mInDatagram.buffer.BeginWriting(false).Write(mTemp, 0, bytes);
-			mInDatagram.buffer.BeginReading(4);
+			Buffer buffer = Buffer.Create();
+			buffer.BeginWriting(false).Write(mTemp, 0, bytes);
+			buffer.BeginReading(4);
 
 			// See the note above. The 'endPoint', gets reassigned rather than updated.
-			mInDatagram.endPoint = (IPEndPoint)ep;
-			lock (mIn) mIn.Enqueue(mInDatagram);
-			if (mSocket != null) mInDatagram = Datagram.Create();
+			Datagram dg = new Datagram();
+			dg.buffer = buffer;
+			dg.ip = (IPEndPoint)mEndPoint;
+			lock (mIn) mIn.Enqueue(dg);
 		}
 
 		// Queue up the next receive operation
 		if (mSocket != null)
 		{
-			ep = mInDatagram.endPoint;
-			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref ep, OnReceive, null);
+			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 	}
 
@@ -164,35 +153,42 @@ public class UdpProtocol
 	/// Extract the first incoming packet.
 	/// </summary>
 
-	public Datagram ReceiveDatagram ()
+	public bool ReceivePacket (out Buffer buffer, out IPEndPoint source)
 	{
 		if (mIn.Count != 0)
 		{
-			lock (mIn) return mIn.Dequeue();
+			lock (mIn)
+			{
+				Datagram dg = mIn.Dequeue();
+				buffer = dg.buffer;
+				source = dg.ip;
+				return true;
+			}
 		}
-		return null;
+		buffer = null;
+		source = null;
+		return false;
 	}
 
 	/// <summary>
 	/// Send an empty packet to the target destination.
-	/// Can be used for NAT punch-through, or just to keep the connection alive.
+	/// Can be used for NAT punch-through, or just to keep a UDP connection alive.
 	/// Empty packets are simply ignored.
 	/// </summary>
 
 	public void SendEmptyPacket (IPEndPoint ip)
 	{
-		Datagram dg = Datagram.Create();
-		dg.endPoint = ip;
-		dg.buffer.BeginTcpPacket(Packet.Empty);
-		dg.buffer.EndTcpPacket();
-		Send(dg);
+		Buffer buffer = Buffer.Create(false);
+		buffer.BeginTcpPacket(Packet.Empty);
+		buffer.EndTcpPacket();
+		Send(buffer, ip);
 	}
 
 	/// <summary>
 	/// Send the specified buffer to the entire LAN.
 	/// </summary>
 
-	public void Send (int port, Buffer buffer)
+	public void Broadcast (Buffer buffer, int port)
 	{
 		buffer.MarkAsUsed();
 #if UNITY_WEBPLAYER
@@ -213,25 +209,30 @@ public class UdpProtocol
 	/// Send the specified datagram.
 	/// </summary>
 
-	public void Send (Datagram dg)
+	public void Send (Buffer buffer, IPEndPoint ip)
 	{
+		buffer.MarkAsUsed();
+
 		if (mSocket != null)
 		{
-			dg.buffer.BeginReading();
+			buffer.BeginReading();
 
 			lock (mOut)
 			{
+				Datagram dg = new Datagram();
+				dg.buffer = buffer;
+				dg.ip = ip;
 				mOut.Enqueue(dg);
 
 				if (mOut.Count == 1)
 				{
 					// If it's the first datagram, begin the sending process
-					mSocket.BeginSendTo(dg.buffer.buffer, dg.buffer.position, dg.buffer.size,
-						SocketFlags.None, dg.endPoint, OnSend, dg);
+					mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size,
+						SocketFlags.None, ip, OnSend, null);
 				}
 			}
 		}
-		else dg.Recycle();
+		else buffer.Recycle();
 	}
 
 	/// <summary>
@@ -241,7 +242,6 @@ public class UdpProtocol
 	void OnSend (IAsyncResult result)
 	{
 		int bytes;
-		Datagram dg = (Datagram)result.AsyncState;
 
 		try
 		{
@@ -261,39 +261,16 @@ public class UdpProtocol
 
 		lock (mOut)
 		{
-			mOut.Dequeue();
+			mOut.Dequeue().buffer.Recycle();
 
-			if (bytes > 0)
+			if (bytes > 0 && mSocket != null && mOut.Count != 0)
 			{
-				// Recycle this datagram as it's no longer in use
-				dg.Recycle();
-
 				// If there is another packet to send out, let's send it
-				Datagram next = (mOut.Count == 0) ? null : mOut.Peek();
-				if (next != null) mSocket.BeginSendTo(next.buffer.buffer, next.buffer.position, next.buffer.size,
-					SocketFlags.None, next.endPoint, OnSend, next);
+				Datagram dg = mOut.Peek();
+				mSocket.BeginSendTo(dg.buffer.buffer, dg.buffer.position, dg.buffer.size,
+					SocketFlags.None, dg.ip, OnSend, null);
 			}
-			else dg.Recycle();
 		}
-	}
-
-	/// <summary>
-	/// Send the specified buffer to the target destination.
-	/// </summary>
-
-	public void Send (IPEndPoint target, Buffer buffer)
-	{
-		mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, target);
-	}
-
-	/// <summary>
-	/// Send the specified buffer to the target destination.
-	/// </summary>
-
-	public void Send (string address, int port, Buffer buffer)
-	{
-		IPEndPoint target = new IPEndPoint(Player.ResolveAddress(address), port);
-		mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, target);
 	}
 
 	/// <summary>
@@ -302,20 +279,13 @@ public class UdpProtocol
 
 	public void Error (IPEndPoint ip, string error)
 	{
-		Datagram dg = Datagram.Create();
-		dg.endPoint = ip;
-		Error (dg, error);
-	}
+		Buffer buffer = Buffer.Create();
+		buffer.BeginTcpPacket(Packet.Error).Write(error);
+		buffer.EndTcpPacketWithOffset(4);
 
-	/// <summary>
-	/// Add an error packet to the incoming queue.
-	/// </summary>
-
-	void Error (Datagram dg, string error)
-	{
-		if (dg.buffer == null) dg.buffer = Buffer.Create();
-		dg.buffer.BeginTcpPacket(Packet.Error).Write(error);
-		dg.buffer.EndTcpPacketWithOffset(4);
+		Datagram dg = new Datagram();
+		dg.buffer = buffer;
+		dg.ip = ip;
 		lock (mIn) mIn.Enqueue(dg);
 	}
 }
