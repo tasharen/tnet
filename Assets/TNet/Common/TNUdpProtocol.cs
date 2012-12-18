@@ -100,9 +100,9 @@ public class UdpProtocol
 				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 			}
 #if UNITY_EDITOR
-			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); return false; }
+			catch (System.Exception ex) { UnityEngine.Debug.LogError("Udp.Start: " + ex.Message); Stop(); return false; }
 #else
-			catch (System.Exception) { return false; }
+			catch (System.Exception) { Stop(); return false; }
 #endif
 		}
 		return true;
@@ -115,20 +115,15 @@ public class UdpProtocol
 
 	void OnReceive (IAsyncResult result)
 	{
+		if (!isActive) return;
 		int bytes = 0;
 
 		try
 		{
 			bytes = mSocket.EndReceiveFrom(result, ref mEndPoint);
 		}
-#if UNITY_EDITOR
-		catch (System.Exception ex)
-		{
-			UnityEngine.Debug.LogWarning(ex.Message);
-#else
 		catch (System.Exception)
 		{
-#endif
 			Stop();
 			return;
 		}
@@ -248,20 +243,15 @@ public class UdpProtocol
 
 	void OnSend (IAsyncResult result)
 	{
+		if (!isActive) return;
 		int bytes;
 
 		try
 		{
 			bytes = mSocket.EndSendTo(result);
 		}
-#if UNITY_EDITOR
-		catch (System.Exception ex)
-		{
-			UnityEngine.Debug.LogWarning(ex.Message);
-#else
 		catch (System.Exception)
 		{
-#endif
 			Stop();
 			return;
 		}
