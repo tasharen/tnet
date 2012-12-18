@@ -219,6 +219,29 @@ public class TcpClient
 
 	public int ping { get { return isConnected ? mPing : 0; } }
 
+	public enum LinkType
+	{
+		Offline,
+		TCP,
+		Hybrid,
+	}
+
+	/// <summary>
+	/// Type of the link we have with the server.
+	/// </summary>
+
+	public LinkType linkType
+	{
+		get
+		{
+			if (mTcp.isConnected)
+			{
+				return mUdp.receivedPacket ? LinkType.Hybrid : LinkType.TCP;
+			}
+			return LinkType.Offline;
+		}
+	}
+
 	/// <summary>
 	/// Return the local player.
 	/// </summary>

@@ -72,6 +72,12 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
+	/// Type of connection we have with the server.
+	/// </summary>
+
+	static public TcpClient.LinkType linkType { get { return mInstance != null ? mInstance.mClient.linkType : TcpClient.LinkType.Offline; } }
+
+	/// <summary>
 	/// Listening port for incoming UDP packets. Set via TNManager.Start().
 	/// </summary>
 

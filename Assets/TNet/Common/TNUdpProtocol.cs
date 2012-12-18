@@ -21,6 +21,7 @@ public class UdpProtocol
 	// Port used to listen and socket used to send and receive
 	int mPort = 0;
 	Socket mSocket;
+	bool mReceivedPacket = false;
 
 	// Optional socket used to broadcast (created on demand)
 	Socket mBroadcaster;
@@ -51,12 +52,19 @@ public class UdpProtocol
 	public int listeningPort { get { return mPort; } }
 
 	/// <summary>
+	/// Whether a valid packet was received from any source since the Start() call.
+	/// </summary>
+
+	public bool receivedPacket { get { return mReceivedPacket; } }
+
+	/// <summary>
 	/// Stop listening for incoming packets.
 	/// </summary>
 
 	public void Stop ()
 	{
 		mPort = 0;
+		mReceivedPacket = false;
 
 		if (mSocket != null)
 		{
@@ -130,6 +138,9 @@ public class UdpProtocol
 
 		if (bytes > 4)
 		{
+			// We now apparently have incoming packets
+			mReceivedPacket = true;
+
 			// This datagram is now ready to be processed
 			Buffer buffer = Buffer.Create();
 			buffer.BeginWriting(false).Write(mTemp, 0, bytes);

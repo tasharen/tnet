@@ -84,6 +84,7 @@ public class ExampleMenu : MonoBehaviour
 				DrawExampleMenu();
 			}
 			DrawDisconnectButton();
+			DrawDebugInfo();
 		}
 	}
 
@@ -233,6 +234,15 @@ public class ExampleMenu : MonoBehaviour
 			// "OnNetworkDisconnect".
 			TNManager.Disconnect();
 		}
+	}
+
+	/// <summary>
+	/// Print some additional information such as ping and which type of connection this is.
+	/// </summary>
+
+	void DrawDebugInfo ()
+	{
+		GUILayout.Label("Ping: " + TNManager.ping + " (" + TNManager.linkType + ")", text);
 	}
 
 	/// <summary>

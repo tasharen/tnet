@@ -170,8 +170,9 @@ public class TcpServer
 		}
 		mUdp.Stop();
 
-		// Remove all connected players
+		// Remove all connected players and clear the list of channels
 		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
+		mChannels.Clear();
 	}
 
 	/// <summary>
@@ -501,7 +502,7 @@ public class TcpServer
 
 	public void SaveTo (string fileName)
 	{
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !UNITY_FLASH
 		if (mListener == null) return;
 		fileName = CleanupFilename(fileName);
 		FileStream stream;
@@ -515,6 +516,7 @@ public class TcpServer
 			Error(null, ex.Message);
 			return;
 		}
+
 		BinaryWriter writer = new BinaryWriter(stream);
 		writer.Write(0);
 		int count = 0;
@@ -538,7 +540,10 @@ public class TcpServer
 		}
 
 		stream.Flush();
-		stream.Dispose();
+		stream.Close();
+#if UNITY_EDITOR
+		UnityEngine.Debug.Log("Saved to " + fileName);
+#endif
 #endif
 	}
 
@@ -548,13 +553,18 @@ public class TcpServer
 
 	public bool LoadFrom (string fileName)
 	{
-#if !UNITY_WEBPLAYER
+#if UNITY_WEBPLAYER || UNITY_FLASH
+		// There is no file access in the web player.
+		return false;
+#else
 		fileName = CleanupFilename(fileName);
 		if (!File.Exists(fileName)) return false;
 
+		FileStream stream = null;
+
 		try
 		{
-			FileStream stream = new FileStream(fileName, FileMode.Open);
+			stream = new FileStream(fileName, FileMode.Open);
 			BinaryReader reader = new BinaryReader(stream);
 
 			int channels = reader.ReadInt32();
@@ -567,15 +577,19 @@ public class TcpServer
 				if (isNew) ch.LoadFrom(reader);
 			}
 
-			stream.Dispose();
-			return true;
+			stream.Close();
 		}
 		catch (System.Exception ex)
 		{
-			Error(null, ex.Message);
+			Error(null, "Loading from " + fileName + ": " + ex.Message);
+			if (stream != null) stream.Close();
+			return false;
 		}
+#if UNITY_EDITOR
+		UnityEngine.Debug.Log("Loaded from " + fileName);
 #endif
-		return false;
+		return true;
+#endif
 	}
 
 	/// <summary>
