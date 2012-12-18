@@ -121,9 +121,6 @@ public class TcpServer
 	{
 		Stop();
 
-#if UNITY_EDITOR
-		UnityEngine.Debug.Log(tcpPort + " " + udpPort);
-#endif
 		try
 		{
 			mListenerPort = tcpPort;
@@ -525,7 +522,7 @@ public class TcpServer
 		{
 			TcpChannel ch = mChannels[i];
 			
-			if (!ch.closed && ch.persistent)
+			if (!ch.closed && ch.persistent && ch.hasData)
 			{
 				writer.Write(ch.id);
 				ch.SaveTo(writer);
@@ -541,9 +538,6 @@ public class TcpServer
 
 		stream.Flush();
 		stream.Close();
-#if UNITY_EDITOR
-		UnityEngine.Debug.Log("Saved to " + fileName);
-#endif
 #endif
 	}
 
@@ -585,9 +579,6 @@ public class TcpServer
 			if (stream != null) stream.Close();
 			return false;
 		}
-#if UNITY_EDITOR
-		UnityEngine.Debug.Log("Loaded from " + fileName);
-#endif
 		return true;
 #endif
 	}

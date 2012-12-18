@@ -106,7 +106,7 @@ public class TNServerList : TNBehaviour
 		if (TNManager.packetSource != null)
 		{
 			IPEndPoint src = TNManager.packetSource;
-			Entry ent = Get(src.Address.ToString() + ":" + src.Port);
+			Entry ent = Get(src.Address.ToString() + ":" + port);
 			ent.name = serverName;
 			ent.expiration = Time.time + 10f;
 		}

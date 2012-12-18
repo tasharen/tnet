@@ -43,6 +43,12 @@ public class TcpChannel
 	public TcpPlayer host;
 
 	/// <summary>
+	/// Whether the channel has data that can be saved.
+	/// </summary>
+
+	public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0; } }
+
+	/// <summary>
 	/// Reset the channel to its initial state.
 	/// </summary>
 
