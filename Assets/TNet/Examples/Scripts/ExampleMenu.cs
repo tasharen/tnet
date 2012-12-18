@@ -25,8 +25,8 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonWidth = 150f;
 	const float buttonHeight = 40f;
 
-	public int tcpPort = 5127;
-	public int udpPort = 5128;
+	public int serverTcpPort = 5127;
+	public int clientUdpPort = 5128;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -43,12 +43,14 @@ public class ExampleMenu : MonoBehaviour
 
 	/// <summary>
 	/// Start listening for incoming UDP packets right away. This is so that we are able to receive LAN broadcasts (server advertisements).
+	/// Check TNServerList script to see how these broadcasts are used even prior to establishing a connection with the server.
 	/// </summary>
 
-	void Start () { if (Application.isPlaying) TNManager.StartUDP(udpPort); }
+	void Start () { if (Application.isPlaying) TNManager.StartUDP(clientUdpPort); }
 
 	/// <summary>
-	/// Stop listening when this script is gone. In your case you will want to stop listening when the game shuts down.
+	/// Stop listening when this script is gone. In your case you will want to stop listening when the game shuts down
+	/// (if you need the LAN broadcasts), or when you get disconnected (if you don't need LAN broadcasts).
 	/// </summary>
 
 	void OnDestroy () { TNManager.StopUDP(); }
@@ -137,7 +139,7 @@ public class ExampleMenu : MonoBehaviour
 					// Start a local server, loading the saved data if possible
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
-					TNServerInstance.Start(tcpPort, Random.Range(10000, 40000), "server.dat");
+					TNServerInstance.Start(serverTcpPort, Random.Range(10000, 40000), "server.dat");
 					mMessage = "Server started";
 #endif
 				}
@@ -242,7 +244,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void DrawDebugInfo ()
 	{
-		GUILayout.Label("Ping: " + TNManager.ping + " (" + TNManager.linkType + ")", text);
+		GUILayout.Label("Ping: " + TNManager.ping + " (" + (TNManager.canUseUDP ? "TCP+UDP" : "TCP") + ")", text);
 	}
 
 	/// <summary>

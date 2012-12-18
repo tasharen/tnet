@@ -11,6 +11,10 @@ using System.Net;
 
 /// <summary>
 /// Example script showing how to use the BroadcastToLAN functionality to share a list of servers.
+/// This script periodically broadcasts the local server's information to the entire LAN via UDP
+/// by sending it to the same UDP port used by the clients. Since the clients start listening to
+/// this port in ExampleMenu.Start() even before a TCP connection to the server has been made,
+/// the clients will still receive the incoming RFCs as if they were actually connected.
 /// </summary>
 
 [AddComponentMenu("TNet/Server List")]
@@ -26,10 +30,10 @@ public class TNServerList : TNBehaviour
 	static public List<Entry> list = new List<Entry>();
 
 	/// <summary>
-	/// Port used for broadcasts. This should match the UDP listening port on your clients.
+	/// Port we'll be broadcasting server information to. Make it match ExampleMenu's clientUdpPort.
 	/// </summary>
 
-	public int udpPort = 5128;
+	public int clientUdpPort = 5128;
 
 	/// <summary>
 	/// The network manager won't listen for broadcasts unless they get explicitly enabled.
@@ -90,7 +94,7 @@ public class TNServerList : TNBehaviour
 		{
 			if (TNServerInstance.isListening)
 			{
-				tno.BroadcastToLAN(udpPort, "OnServerInfo", TNServerInstance.serverName, TNServerInstance.listeningPort);
+				tno.BroadcastToLAN(clientUdpPort, "OnServerInfo", TNServerInstance.serverName, TNServerInstance.listeningPort);
 			}
 			yield return new WaitForSeconds(3f);
 		}

@@ -72,10 +72,10 @@ public class TNManager : MonoBehaviour
 	static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 	/// <summary>
-	/// Type of connection we have with the server.
+	/// Whether we can use unreliable packets (UDP) to communicate with the server.
 	/// </summary>
 
-	static public TcpClient.LinkType linkType { get { return mInstance != null ? mInstance.mClient.linkType : TcpClient.LinkType.Offline; } }
+	static public bool canUseUDP { get { return mInstance != null && mInstance.mClient.canUseUDP; } }
 
 	/// <summary>
 	/// Listening port for incoming UDP packets. Set via TNManager.Start().
