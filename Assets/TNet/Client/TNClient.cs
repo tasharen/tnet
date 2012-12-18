@@ -16,7 +16,7 @@ namespace TNet
 /// Client-side logic.
 /// </summary>
 
-public class TcpClient
+public class Client
 {
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);

@@ -48,9 +48,7 @@
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNTcpServer.cs" />
-    <Compile Include="Assets\TNet\Server\TNUdpPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNUdpServer.cs" />
+    <Compile Include="Assets\TNet\Server\TNServer.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>

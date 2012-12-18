@@ -12,6 +12,9 @@ using TNet;
 /// This is because by default the buffering algorithm is on, and seems to be overly aggressive on some devices.
 /// For games that require quick response times, turning on "improveLatency" flag will improve performance. 
 /// http://en.wikipedia.org/wiki/Nagle's_algorithm
+/// 
+/// Note that using UDP for frequently sent data is usually a better approach than turning on 'noDelay'.
+/// For more information, look at how TNObject's SendQuickly function is used in the DraggedObject script.
 /// </summary>
 
 public class ImproveLatency : MonoBehaviour
@@ -26,7 +29,7 @@ public class ImproveLatency : MonoBehaviour
 
 	void OnNetworkJoinChannel (bool success, string error)
 	{
-		if (success)
+		if (enabled && success && !TNManager.canUseUDP)
 		{
 			if (Application.platform == RuntimePlatform.Android ||
 				Application.platform == RuntimePlatform.IPhonePlayer ||

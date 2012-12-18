@@ -22,7 +22,7 @@ public class TNManager : MonoBehaviour
 	public GameObject[] objects;
 
 	// Network client
-	TcpClient mClient = new TcpClient();
+	Client mClient = new Client();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 	static Player mPlayer = new Player("Guest");
@@ -37,7 +37,7 @@ public class TNManager : MonoBehaviour
 	/// TNet Client used for communication.
 	/// </summary>
 
-	static public TcpClient client { get { return (mInstance != null) ? mInstance.mClient : null; } }
+	static public Client client { get { return (mInstance != null) ? mInstance.mClient : null; } }
 
 	/// <summary>
 	/// Whether we're currently connected.
@@ -412,7 +412,15 @@ public class TNManager : MonoBehaviour
 	/// Make sure we disconnect on exit.
 	/// </summary>
 
-	void OnDestroy () { if (isConnected) mClient.Disconnect(); }
+	void OnDestroy ()
+	{
+		if (mInstance == this)
+		{
+			if (isConnected) mClient.Disconnect();
+			mClient.StopUDP();
+			mInstance = null;
+		}
+	}
 
 	/// <summary>
 	/// Find the index of the specified game object.

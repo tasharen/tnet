@@ -56,21 +56,24 @@ public class UdpProtocol
 
 	public void Stop ()
 	{
-		mPort = 0;
-
-		if (mSocket != null)
+		if (mPort != 0)
 		{
-			mSocket.Close();
-			mSocket = null;
-		}
+			mPort = 0;
 
-		if (mBroadcaster != null)
-		{
-			mBroadcaster.Close();
-			mBroadcaster = null;
+			if (mSocket != null)
+			{
+				mSocket.Close();
+				mSocket = null;
+			}
+
+			if (mBroadcaster != null)
+			{
+				mBroadcaster.Close();
+				mBroadcaster = null;
+			}
+			Buffer.Recycle(mIn);
+			Buffer.Recycle(mOut);
 		}
-		Buffer.Recycle(mIn);
-		Buffer.Recycle(mOut);
 	}
 
 	/// <summary>

@@ -49,13 +49,6 @@ public class ExampleMenu : MonoBehaviour
 	void Start () { if (Application.isPlaying) TNManager.StartUDP(clientUdpPort); }
 
 	/// <summary>
-	/// Stop listening when this script is gone. In your case you will want to stop listening when the game shuts down
-	/// (if you need the LAN broadcasts), or when you get disconnected (if you don't need LAN broadcasts).
-	/// </summary>
-
-	void OnDestroy () { TNManager.StopUDP(); }
-
-	/// <summary>
 	/// Adjust the server list's alpha based on whether it should be shown or not.
 	/// </summary>
 

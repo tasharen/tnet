@@ -5,7 +5,7 @@ using System.Threading;
 
 public class ClientMain
 {
-	static TcpClient client;
+	static Client client;
 	static int test = 0;
 
 	static void ThreadFunction ()
@@ -41,7 +41,7 @@ public class ClientMain
 
 	static int Main ()
 	{
-		client = new TcpClient();
+		client = new Client();
 		client.onError = OnError;
 		client.onConnect = OnConnect;
 		client.onDisconnect = OnDisconnect;

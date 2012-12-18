@@ -16,7 +16,7 @@ namespace TNet
 /// Server-side logic.
 /// </summary>
 
-public class TcpServer
+public class Server
 {
 	static int mPlayerCounter = 0;
 

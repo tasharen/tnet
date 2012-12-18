@@ -59,7 +59,7 @@
     <Compile Include="Assets\TNet\Client\TNTarget.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Assets\TNet\Client\TNTcpClient.cs" />
+    <Compile Include="Assets\TNet\Client\TNClient.cs" />
     <Compile Include="Assets\TNet\Client\TNTools.cs">
       <SubType>Code</SubType>
     </Compile>
