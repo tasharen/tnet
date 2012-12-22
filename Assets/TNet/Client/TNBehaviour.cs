@@ -11,7 +11,7 @@ using TNet;
 /// </summary>
 
 [RequireComponent(typeof(TNObject))]
-public class TNBehaviour : MonoBehaviour
+public abstract class TNBehaviour : MonoBehaviour
 {
 	TNObject mTNO;
 

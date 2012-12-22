@@ -44,11 +44,15 @@
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
+    <Compile Include="Assets\TNet\Common\TNServerList.cs" />
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
+    <Compile Include="Assets\TNet\Server\TNDiscoveryServer.cs" />
+    <Compile Include="Assets\TNet\Server\TNGameServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNServer.cs" />
+    <Compile Include="Assets\TNet\Server\TNUdpPlayer.cs" />
+    <Compile Include="Assets\TNet\Server\TNUdpServer.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -11,15 +11,21 @@ using System.Collections;
 
 /// <summary>
 /// Server list is an optional client component that listens for incoming server list packets.
+/// You can use it as-is in your game. Just specify where your discovery server is located,
+/// and you will be able to use TNDiscoveryClient.knownServers.
 /// </summary>
 
+[RequireComponent(typeof(TNManager))]
+[AddComponentMenu("TNet/Discovery Client")]
 public class TNDiscoveryClient : MonoBehaviour
 {
+	static ServerList mList = new ServerList();
+
 	/// <summary>
 	/// List of known servers.
 	/// </summary>
 
-	static public ServerList servers = new ServerList();
+	static public List<ServerList.Entry> knownServers { get { return mList.list; } }
 
 	/// <summary>
 	/// Discovery server address if any. If none is specified, network broadcasts are used instead.
@@ -56,7 +62,7 @@ public class TNDiscoveryClient : MonoBehaviour
 	void OnServerList (Packet response, BinaryReader reader, IPEndPoint source)
 	{
 		mNextRequest = Time.time + 3f;
-		servers.ReadFrom(reader, source, System.DateTime.Now.Ticks / 10000);
+		mList.ReadFrom(reader, source, System.DateTime.Now.Ticks / 10000);
 	}
 
 	/// <summary>
@@ -67,7 +73,7 @@ public class TNDiscoveryClient : MonoBehaviour
 	{
 		for (; ; )
 		{
-			servers.Cleanup(System.DateTime.Now.Ticks / 10000);
+			mList.Cleanup(System.DateTime.Now.Ticks / 10000);
 			yield return new WaitForSeconds(0.5f);
 		}
 	}
@@ -126,7 +132,7 @@ public class TNDiscoveryClient : MonoBehaviour
 		if (mHandling)
 		{
 			TNManager.SetPacketHandler(Packet.ResponseListServers, null);
-			servers.Clear();
+			mList.Clear();
 		}
 	}
 }

@@ -1,27 +1,40 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using TNet;
 using System.IO;
 
-public class TNetTest
+/// <summary>
+/// This is an example of a stand-alone server. You don't need Unity in order to compile and run it.
+/// </summary>
+
+public class ServerMain
 {
 	static int Main ()
 	{
-		Server server = new Server();
-		server.Start(5127, 5129);
+		// The game server's ports don't really matter if you use the discovery server.
+		// If you're not, you will want to remember the first value (TCP port).
+		GameServer server = new GameServer();
+		server.name = "Stand-alone Server";
+		server.Start(5127, 5130);
 		server.LoadFrom("server.dat");
+
+		// Server discovery port should match the discovery port on the client (TNDiscoveryClient).
+		DiscoveryServer discovery = new DiscoveryServer();
+		discovery.localServer = server;
+		discovery.Start(5129);
 
 		for (; ; )
 		{
-			Console.WriteLine("Command: ");
+			Console.WriteLine("Press 'q' followed by 'Enter' when you want to quit.");
 			string command = Console.ReadLine();
 			if (command == "q") break;
-			else if (command == "g")
-			{
-				GC.Collect();
-				Console.WriteLine("Recycled: " + TNet.Buffer.recycleQueue);
-			}
 		}
 		Console.WriteLine("Shutting down...");
+		discovery.Stop();
 		server.SaveTo("server.dat");
 		server.Stop();
 		return 0;

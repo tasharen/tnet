@@ -17,14 +17,12 @@ using TNet;
 /// </summary>
 
 [RequireComponent(typeof(Rigidbody))]
+[AddComponentMenu("TNet/Sync Rigidbody")]
 public class TNSyncRigidbody : TNBehaviour
 {
 	/// <summary>
 	/// How many times per second to send updates.
 	/// The actual number of updates sent may be higher (if new players connect) or lower (if the rigidbody is still).
-	/// The number of updates is also limited by the number of physics updates per second.
-	/// With each sync packet having 57 bytes (9 byte header + 48 byte payload), that's 0.57 kb/sec bandwidth
-	/// usage with a frequency of 10.
 	/// </summary>
 
 	public int updatesPerSecond = 10;
@@ -86,6 +84,7 @@ public class TNSyncRigidbody : TNBehaviour
 				// Using an ID speeds up the function lookup time and reduces the size of the packet.
 				// Since the target is "OthersSaved", even players that join later will receive this update.
 				// Each consecutive Send() updates the previous, so only the latest one is kept on the server.
+				// Note that you can also replace "Send" with "SendQuickly" in order to decrease bandwidth usage.
 				tno.Send(1, Target.OthersSaved, pos, rot, mRb.velocity, mRb.angularVelocity);
 			}
 			mWasSleeping = isSleeping;

@@ -1,11 +1,21 @@
-﻿using System;
+﻿//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
 using TNet;
 using System.IO;
 using System.Threading;
 
+/// <summary>
+/// This is an example of a stand-alone client. It's not very useful by itself,
+/// but can be used to quickly test certain functionality.
+/// </summary>
+
 public class ClientMain
 {
-	static Client client;
+	static GameClient client;
 	static int test = 0;
 
 	static void ThreadFunction ()
@@ -41,7 +51,7 @@ public class ClientMain
 
 	static int Main ()
 	{
-		client = new Client();
+		client = new GameClient();
 		client.onError = OnError;
 		client.onConnect = OnConnect;
 		client.onDisconnect = OnDisconnect;
