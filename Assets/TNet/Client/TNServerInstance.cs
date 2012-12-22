@@ -179,4 +179,14 @@ public class TNServerInstance : MonoBehaviour
 			if (mInstance.mDiscovery != null) mInstance.mDiscovery.Stop();
 		}
 	}
+
+	/// <summary>
+	/// Make sure that the servers are stopped when the server instance is destroyed.
+	/// </summary>
+
+	void OnDestroy ()
+	{
+		mGame.Stop();
+		mDiscovery.Stop();
+	}
 }

@@ -39,10 +39,11 @@ public class ServerList
 		{
 			Entry ent = list[i];
 
-			if (ent.ip == ip)
+			if (ent.ip.Equals(ip))
 			{
 				ent.name = name;
 				ent.expirationTime = time + 5000;
+				list[i] = ent;
 				return;
 			}
 		}
@@ -64,7 +65,7 @@ public class ServerList
 		{
 			Entry ent = list[i];
 
-			if (ent.ip == ip)
+			if (ent.Equals(ip))
 			{
 				lock (list) list.RemoveAt(i);
 				return;

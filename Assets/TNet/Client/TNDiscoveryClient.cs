@@ -55,7 +55,7 @@ public class TNDiscoveryClient : MonoBehaviour
 
 	void OnServerList (Packet response, BinaryReader reader, IPEndPoint source)
 	{
-		mNextRequest = Time.time + 5f;
+		mNextRequest = Time.time + 3f;
 		servers.ReadFrom(reader, source, System.DateTime.Now.Ticks / 10000);
 	}
 
@@ -80,11 +80,7 @@ public class TNDiscoveryClient : MonoBehaviour
 	{
 		for (; ; )
 		{
-			if (mNextRequest < Time.time)
-			{
-				mNextRequest = Time.time + 1f;
-				if (!RequestUpdate()) break;
-			}
+			if (mNextRequest < Time.time && !RequestUpdate()) break;
 			yield return new WaitForSeconds(1f);
 		}
 	}
