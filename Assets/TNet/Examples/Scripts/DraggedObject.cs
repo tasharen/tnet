@@ -29,29 +29,26 @@ public class DraggedObject : TNBehaviour
 	}
 
 	/// <summary>
-	/// When pressed on an object, claim it for the player (unless it was already claimed).
+	/// Press / release event handler.
 	/// </summary>
 
-	void OnPress ()
+	void OnPress (bool isPressed)
 	{
-		if (mOwner == null)
+		// When pressed on an object, claim it for the player (unless it was already claimed).
+		if (isPressed)
 		{
-			// Call the claim function directly in order to make it feel more responsive
-			ClaimObject(TNManager.playerID, mTrans.position);
+			if (mOwner == null)
+			{
+				// Call the claim function directly in order to make it feel more responsive
+				ClaimObject(TNManager.playerID, mTrans.position);
 
-			// Inform everyone else
-			tno.Send(2, Target.OthersSaved, TNManager.playerID, mTrans.position);
+				// Inform everyone else
+				tno.Send(2, Target.OthersSaved, TNManager.playerID, mTrans.position);
+			}
 		}
-	}
-
-	/// <summary>
-	/// When the mouse or touch gets released, inform everyone that the player no longer has control.
-	/// </summary>
-
-	void OnRelease ()
-	{
-		if (mOwner == TNManager.player)
+		else if (mOwner == TNManager.player)
 		{
+			// When the mouse or touch gets released, inform everyone that the player no longer has control.
 			ClaimObject(0, mTrans.position);
 			tno.Send(2, Target.OthersSaved, 0, mTrans.position);
 		}

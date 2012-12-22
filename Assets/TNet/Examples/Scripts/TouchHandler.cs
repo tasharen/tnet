@@ -7,7 +7,7 @@ using UnityEngine;
 using TNet;
 
 /// <summary>
-/// Very simple event manager script that sends out basic touch and mouse-based notifications using the syntax of Unity's upcoming UI system.
+/// Very simple event manager script that sends out basic touch and mouse-based notifications using NGUI's syntax.
 /// </summary>
 
 [RequireComponent(typeof(Camera))]
@@ -64,7 +64,7 @@ public class TouchHandler : MonoBehaviour
 	{
 		worldPos = pos;
 		mGo = Raycast(pos);
-		if (mGo != null) mGo.SendMessage("OnPress", SendMessageOptions.DontRequireReceiver);
+		if (mGo != null) mGo.SendMessage("OnPress", true, SendMessageOptions.DontRequireReceiver);
 	}
 
 	/// <summary>
@@ -79,7 +79,7 @@ public class TouchHandler : MonoBehaviour
 		{
 			GameObject go = Raycast(pos);
 			if (mGo == go) mGo.SendMessage("OnClick", SendMessageOptions.DontRequireReceiver);
-			mGo.SendMessage("OnRelease", SendMessageOptions.DontRequireReceiver);
+			mGo.SendMessage("OnPress", false, SendMessageOptions.DontRequireReceiver);
 			mGo = null;
 		}
 	}

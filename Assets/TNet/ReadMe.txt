@@ -17,7 +17,7 @@ drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php?boar
 
 Q: How to start and stop a server from in-game?
 
-TNServerInstance.Start(port, [fileToLoad]);
+TNServerInstance.Start(tcpPort, udpPort, [fileToLoad]);
 TNServerInstance.Stop([fileToSave]]);
 
 Q: How to connect/disconnect?
