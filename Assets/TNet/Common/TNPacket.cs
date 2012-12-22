@@ -30,6 +30,8 @@ public enum Packet
 
 	Disconnect,
 
+	//===================================================================================
+
 	/// <summary>
 	/// This should be the very first packet sent by the client.
 	/// int32: Protocol version.
@@ -152,14 +154,6 @@ public enum Packet
 	/// </summary>
 	
 	RequestChannelList,
-
-	/// <summary>
-	/// NAT punch-through request, should arrive via UDP.
-	/// string: address.
-	/// ushort: port.
-	/// </summary>
-
-	RequestNAT,
 
 	//===================================================================================
 
@@ -291,14 +285,6 @@ public enum Packet
 
 	ResponseChannelList,
 
-	/// <summary>
-	/// NAT facilitator-sent request indicating that the player should try to establish a connection with the remote player.
-	/// string: address.
-	/// int: port.
-	/// </summary>
-
-	ResponseNAT,
-
 	//===================================================================================
 
 	/// <summary>
@@ -358,5 +344,38 @@ public enum Packet
 	/// </summary>
 
 	ForwardToPlayerBuffered,
+
+	//===================================================================================
+
+	/// <summary>
+	/// Add a new entry to the list of known servers. Used by the Discovery Server.
+	/// ushort: Game ID.
+	/// string: Server name.
+	/// ushort: Server's listening port.
+	/// </summary>
+
+	RequestAddServer,
+
+	/// <summary>
+	/// Remove an existing server list entry. Used by the Discovery Server.
+	/// ushort: Game ID.
+	/// ushort: Server's listening port.
+	/// </summary>
+
+	RequestRemoveServer,
+
+	/// <summary>
+	/// Request a list of all known servers for the specified game ID. Used by the Discovery Server.
+	/// ushort: Game ID.
+	/// </summary>
+
+	RequestListServers,
+
+	/// <summary>
+	/// Response sent by the Discovery Server, listing servers.
+	/// Complicated data structure. Look inside the Server List class.
+	/// </summary>
+
+	ResponseListServers,
 }
 }

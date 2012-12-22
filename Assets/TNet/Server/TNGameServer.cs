@@ -13,50 +13,54 @@ using System.Net;
 namespace TNet
 {
 /// <summary>
-/// Server-side logic.
+/// Game server logic. Handles new connections, RFCs, and pretty much everything else.
 /// </summary>
 
-public class Server
+public class GameServer
 {
 	static int mPlayerCounter = 0;
+
+	/// <summary>
+	/// You will want to make this a unique value.
+	/// </summary>
+
+	public const ushort gameID = 1;
+
+	/// <summary>
+	/// Give your server a name.
+	/// </summary>
+
+	public string name = "Game Server";
 
 	/// <summary>
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 
-	protected List<TcpPlayer> mPlayers = new List<TcpPlayer>();
+	List<TcpPlayer> mPlayers = new List<TcpPlayer>();
 
 	/// <summary>
 	/// Dictionary list of players for easy access by ID.
 	/// </summary>
 
-	protected Dictionary<int, TcpPlayer> mDictionaryID = new Dictionary<int, TcpPlayer>();
+	Dictionary<int, TcpPlayer> mDictionaryID = new Dictionary<int, TcpPlayer>();
 
 	/// <summary>
 	/// Dictionary list of players for easy access by ID.
 	/// </summary>
 
-	protected Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
+	Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
 
 	/// <summary>
 	/// List of all the active channels.
 	/// </summary>
 
-	protected List<TcpChannel> mChannels = new List<TcpChannel>();
+	List<TcpChannel> mChannels = new List<TcpChannel>();
 
 	/// <summary>
 	/// Random number generator.
 	/// </summary>
 
-	protected Random mRandom = new Random();
-
-	public class FileEntry
-	{
-		public string fileName;
-		public byte[] data;
-	};
-
-	List<FileEntry> savedFiles = new List<FileEntry>();
+	Random mRandom = new Random();
 
 	Buffer mBuffer;
 	TcpListener mListener;
@@ -65,6 +69,18 @@ public class Server
 	int mListenerPort = 0;
 	long mTime = 0;
 	UdpProtocol mUdp = new UdpProtocol();
+
+	/// <summary>
+	/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
+	/// </summary>
+
+	struct FileEntry
+	{
+		public string fileName;
+		public byte[] data;
+	}
+
+	List<FileEntry> mSavedFiles = new List<FileEntry>();
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -82,7 +98,13 @@ public class Server
 	/// Port used for listening to incoming connections. Set when the server is started.
 	/// </summary>
 
-	public int listeningPort { get { return (mListener != null) ? mListenerPort : 0; } }
+	public int tcpPort { get { return (mListener != null) ? mListenerPort : 0; } }
+
+	/// <summary>
+	/// Listening port for UDP packets.
+	/// </summary>
+
+	public int udpPort { get { return mUdp.listeningPort; } }
 
 	/// <summary>
 	/// How many players are currently connected to the server.
@@ -217,8 +239,20 @@ public class Server
 			// Process datagrams first
 			while (mUdp.ReceivePacket(out buffer, out ip))
 			{
-				TcpPlayer player = GetPlayer(ip);
-				if (player != null && ProcessPacket(buffer, player, mTime, false)) received = true;
+				if (buffer.size > 0)
+				{
+					TcpPlayer player = GetPlayer(ip);
+
+					if (player != null)
+					{
+						try
+						{
+							if (ProcessPlayerPacket(buffer, player, false))
+								received = true;
+						}
+						catch (System.Exception) { RemovePlayer(player); }
+					}
+				}
 				buffer.Recycle();
 			}
 
@@ -230,7 +264,15 @@ public class Server
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
 				{
-					if (ProcessPacket(buffer, player, mTime, true)) received = true;
+					if (buffer.size > 0)
+					{
+						try
+						{
+							if (ProcessPlayerPacket(buffer, player, true))
+								received = true;
+						}
+						catch (System.Exception) { RemovePlayer(player); }
+					}
 					buffer.Recycle();
 				}
 
@@ -265,7 +307,7 @@ public class Server
 	/// Log an error message.
 	/// </summary>
 
-	protected virtual void Error (TcpPlayer p, string error)
+	void Error (TcpPlayer p, string error)
 	{
 #if UNITY_EDITOR
 		if (p != null) UnityEngine.Debug.LogError(error + " (" + p.address + ")");
@@ -280,7 +322,7 @@ public class Server
 	/// Add a new player entry.
 	/// </summary>
 
-	protected TcpPlayer AddPlayer (Socket socket)
+	TcpPlayer AddPlayer (Socket socket)
 	{
 		TcpPlayer player = new TcpPlayer();
 		player.StartReceiving(socket);
@@ -292,7 +334,7 @@ public class Server
 	/// Remove the specified player.
 	/// </summary>
 
-	protected void RemovePlayer (TcpPlayer p)
+	void RemovePlayer (TcpPlayer p)
 	{
 		if (p != null)
 		{
@@ -321,7 +363,7 @@ public class Server
 	/// Retrieve a player by their ID.
 	/// </summary>
 
-	protected TcpPlayer GetPlayer (int id)
+	TcpPlayer GetPlayer (int id)
 	{
 		TcpPlayer p = null;
 		mDictionaryID.TryGetValue(id, out p);
@@ -332,7 +374,7 @@ public class Server
 	/// Retrieve a player by their UDP end point.
 	/// </summary>
 
-	protected TcpPlayer GetPlayer (IPEndPoint ip)
+	TcpPlayer GetPlayer (IPEndPoint ip)
 	{
 		TcpPlayer p = null;
 		mDictionaryEP.TryGetValue(ip, out p);
@@ -343,7 +385,7 @@ public class Server
 	/// Change the player's UDP end point and update the local dictionary.
 	/// </summary>
 
-	protected void SetPlayerUdpEndPoint (TcpPlayer player, IPEndPoint udp)
+	void SetPlayerUdpEndPoint (TcpPlayer player, IPEndPoint udp)
 	{
 		if (player.udpEndPoint != null) mDictionaryEP.Remove(player.udpEndPoint);
 		player.udpEndPoint = udp;
@@ -354,7 +396,7 @@ public class Server
 	/// Create a new channel (or return an existing one).
 	/// </summary>
 
-	protected TcpChannel CreateChannel (int channelID, out bool isNew)
+	TcpChannel CreateChannel (int channelID, out bool isNew)
 	{
 		TcpChannel channel;
 
@@ -381,7 +423,7 @@ public class Server
 	/// Check to see if the specified channel exists.
 	/// </summary>
 
-	protected bool ChannelExists (int id)
+	bool ChannelExists (int id)
 	{
 		for (int i = 0; i < mChannels.size; ++i) if (mChannels[i].id == id) return true;
 		return false;
@@ -403,9 +445,9 @@ public class Server
 	{
 		bool exists = false;
 
-		for (int i = 0; i < savedFiles.size; ++i)
+		for (int i = 0; i < mSavedFiles.size; ++i)
 		{
-			FileEntry fi = savedFiles[i];
+			FileEntry fi = mSavedFiles[i];
 
 			if (fi.fileName == fileName)
 			{
@@ -420,7 +462,7 @@ public class Server
 			FileEntry fi = new FileEntry();
 			fi.fileName = fileName;
 			fi.data = data;
-			savedFiles.Add(fi);
+			mSavedFiles.Add(fi);
 		}
 #if !UNITY_WEBPLAYER
 		try
@@ -440,9 +482,9 @@ public class Server
 
 	public byte[] LoadFile (string fileName)
 	{
-		for (int i = 0; i < savedFiles.size; ++i)
+		for (int i = 0; i < mSavedFiles.size; ++i)
 		{
-			FileEntry fi = savedFiles[i];
+			FileEntry fi = mSavedFiles[i];
 			if (fi.fileName == fileName) return fi.data;
 		}
 #if !UNITY_WEBPLAYER
@@ -459,7 +501,7 @@ public class Server
 					FileEntry fi = new FileEntry();
 					fi.fileName = fileName;
 					fi.data = bytes;
-					savedFiles.Add(fi);
+					mSavedFiles.Add(fi);
 					return bytes;
 				}
 			}
@@ -478,13 +520,13 @@ public class Server
 
 	public void DeleteFile (string fileName)
 	{
-		for (int i = 0; i < savedFiles.size; ++i)
+		for (int i = 0; i < mSavedFiles.size; ++i)
 		{
-			FileEntry fi = savedFiles[i];
+			FileEntry fi = mSavedFiles[i];
 
 			if (fi.fileName == fileName)
 			{
-				savedFiles.RemoveAt(i);
+				mSavedFiles.RemoveAt(i);
 #if !UNITY_WEBPLAYER
 				File.Delete(CleanupFilename(fileName));
 #endif
@@ -587,7 +629,7 @@ public class Server
 	/// Start the sending process.
 	/// </summary>
 
-	protected BinaryWriter BeginSend (Packet type)
+	BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create();
 		BinaryWriter writer = mBuffer.BeginTcpPacket(type);
@@ -595,10 +637,22 @@ public class Server
 	}
 
 	/// <summary>
+	/// Send the outgoing buffer to the specified remote destination.
+	/// </summary>
+
+	void EndSend (IPEndPoint ip)
+	{
+		mBuffer.EndTcpPacket();
+		mUdp.Send(mBuffer, ip);
+		mBuffer.Recycle();
+		mBuffer = null;
+	}
+
+	/// <summary>
 	/// Send the outgoing buffer to the specified player.
 	/// </summary>
 
-	protected void EndSend (bool reliable, TcpPlayer player)
+	void EndSend (bool reliable, TcpPlayer player)
 	{
 		mBuffer.EndTcpPacket();
 		if (mBuffer.size > 1024) reliable = true;
@@ -615,10 +669,9 @@ public class Server
 
 	/// <summary>
 	/// Send the outgoing buffer to all players in the specified channel.
-	/// TODO: Reliable/not
 	/// </summary>
 
-	protected void EndSend (bool reliable, TcpChannel channel, TcpPlayer exclude)
+	void EndSend (bool reliable, TcpChannel channel, TcpPlayer exclude)
 	{
 		mBuffer.EndTcpPacket();
 		if (mBuffer.size > 1024) reliable = true;
@@ -645,7 +698,7 @@ public class Server
 	/// Send the outgoing buffer to all connected players.
 	/// </summary>
 
-	protected void EndSend (bool reliable)
+	void EndSend (bool reliable)
 	{
 		mBuffer.EndTcpPacket();
 		if (mBuffer.size > 1024) reliable = true;
@@ -676,7 +729,7 @@ public class Server
 	/// Send the outgoing buffer to all players in the specified channel.
 	/// </summary>
 
-	protected void SendToChannel (bool reliable, TcpChannel channel, Buffer buffer)
+	void SendToChannel (bool reliable, TcpChannel channel, Buffer buffer)
 	{
 		mBuffer.MarkAsUsed();
 		if (mBuffer.size > 1024) reliable = true;
@@ -701,7 +754,7 @@ public class Server
 	/// Have the specified player assume control of the channel.
 	/// </summary>
 
-	protected void SendSetHost (TcpPlayer player)
+	void SendSetHost (TcpPlayer player)
 	{
 		if (player.channel != null && player.channel.host != player)
 		{
@@ -716,7 +769,7 @@ public class Server
 	/// Leave the channel the player is in.
 	/// </summary>
 
-	protected void SendLeaveChannel (TcpPlayer player, bool notify)
+	void SendLeaveChannel (TcpPlayer player, bool notify)
 	{
 		if (player.channel != null)
 		{
@@ -754,7 +807,7 @@ public class Server
 	/// Join the specified channel.
 	/// </summary>
 
-	protected void SendJoinChannel (TcpPlayer player, TcpChannel channel)
+	void SendJoinChannel (TcpPlayer player, TcpChannel channel)
 	{
 		if (player.channel == null || player.channel != channel)
 		{
@@ -782,12 +835,9 @@ public class Server
 	/// Returns 'true' if a packet was received, 'false' otherwise.
 	/// </summary>
 
-	bool ProcessPacket (Buffer buffer, TcpPlayer player, long time, bool reliable)
+	bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 	{
-		// Begin the reading process
 		BinaryReader reader = buffer.BeginReading();
-
-		// First byte is always the packet's identifier
 		Packet request = (Packet)reader.ReadByte();
 
 //#if UNITY_EDITOR // DEBUG
@@ -1006,11 +1056,7 @@ public class Server
 			}
 			default:
 			{
-				if ((int)request > (int)Packet.ForwardToPlayerBuffered)
-				{
-					OnPacket(player, buffer, reader, (int)request);
-				}
-				else if (player.channel != null)
+				if (player.channel != null && (int)request <= (int)Packet.ForwardToPlayerBuffered)
 				{
 					// Other packets can only be processed while in a channel
 					if ((int)request >= (int)Packet.ForwardToAll)
@@ -1247,21 +1293,7 @@ public class Server
 				player.channel.DeleteRFC(id, funcName);
 				break;
 			}
-			default:
-			{
-				OnPacket(player, buffer, reader, (int)request);
-				break;
-			}
 		}
-	}
-
-	/// <summary>
-	/// If custom functionality is needed, all unrecognized packets will arrive here.
-	/// </summary>
-
-	protected virtual void OnPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, int packetID)
-	{
-		Error(player, "Unrecognized packet with ID of " + packetID);
 	}
 }
 }

@@ -62,6 +62,27 @@ public class Player
 
 	static public IPEndPoint ResolveEndPoint (string address, int port)
 	{
+		IPEndPoint ip = ResolveEndPoint(address);
+		if (ip != null) ip.Port = port;
+		return ip;
+	}
+
+	/// <summary>
+	/// Given the specified address, get the end point class.
+	/// </summary>
+
+	static public IPEndPoint ResolveEndPoint (string address)
+	{
+		int port = 0;
+		string[] split = address.Split(new char[':']);
+
+		// Automatically try to parse the port
+		if (split.Length > 1)
+		{
+			address = split[0];
+			int.TryParse(split[1], out port);
+		}
+
 		IPAddress ad = ResolveAddress(address);
 		return (ad != null) ? new IPEndPoint(ad, port) : null;
 	}

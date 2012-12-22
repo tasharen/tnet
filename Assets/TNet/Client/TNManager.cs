@@ -22,7 +22,7 @@ public class TNManager : MonoBehaviour
 	public GameObject[] objects;
 
 	// Network client
-	Client mClient = new Client();
+	GameClient mClient = new GameClient();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 	static Player mPlayer = new Player("Guest");
@@ -37,7 +37,7 @@ public class TNManager : MonoBehaviour
 	/// TNet Client used for communication.
 	/// </summary>
 
-	static public Client client { get { return (mInstance != null) ? mInstance.mClient : null; } }
+	static public GameClient client { get { return (mInstance != null) ? mInstance.mClient : null; } }
 
 	/// <summary>
 	/// Whether we're currently connected.
@@ -157,6 +157,30 @@ public class TNManager : MonoBehaviour
 		if (isConnected) return mInstance.mClient.GetPlayer(id);
 		if (id == mPlayer.id) return mPlayer;
 		return null;
+	}
+
+	/// <summary>
+	/// Set the following function to handle this type of packets.
+	/// </summary>
+
+	static public void SetPacketHandler (byte packetID, GameClient.OnPacket callback)
+	{
+		if (mInstance != null)
+		{
+			mInstance.mClient.packetHandlers[packetID] = callback;
+		}
+	}
+
+	/// <summary>
+	/// Set the following function to handle this type of packets.
+	/// </summary>
+
+	static public void SetPacketHandler (Packet packet, GameClient.OnPacket callback)
+	{
+		if (mInstance != null)
+		{
+			mInstance.mClient.packetHandlers[(byte)packet] = callback;
+		}
 	}
 
 	/// <summary>
@@ -374,6 +398,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void EndSend (int port) { mInstance.mClient.EndSend(port); }
+
+	/// <summary>
+	/// Broadcast the packet to the specified endpoint via UDP.
+	/// </summary>
+
+	static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
 
 
 #region MonoBehaviour Functions -- it's unlikely that you will need to modify these

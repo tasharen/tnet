@@ -16,7 +16,7 @@ namespace TNet
 /// Client-side logic.
 /// </summary>
 
-public class Client
+public class GameClient
 {
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
@@ -31,6 +31,13 @@ public class Client
 	public delegate void OnCreate (int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
+	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
+
+	/// <summary>
+	/// Custom packet listeners. You can set these to handle custom packets.
+	/// </summary>
+ 
+	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
 
 	/// <summary>
 	/// Error notification.
@@ -126,10 +133,10 @@ public class Client
 	// Same list of players, but in a dictionary format for quick lookup
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
 
-	// TCP connection is used for communication with the server.
+	// TCP connection is the primary method of communication with the server.
 	TcpProtocol mTcp = new TcpProtocol();
 
-	// UDP can be used for communication with everyone on the same LAN. For example: local server discovery.
+	// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 	UdpProtocol mUdp = new UdpProtocol();
 
 	// ID of the host
@@ -151,9 +158,6 @@ public class Client
 
 	// Connection attempt address (used for NAT)
 	IPEndPoint mConnectTarget;
-
-	// Whether we've tried NAT punch-through
-	//bool mTriedNAT = false;
 
 	// Temporary, not important
 	static Buffer mBuffer;
@@ -361,7 +365,6 @@ public class Client
 
 	public void Connect (string addr, int port)
 	{
-		//mTriedNAT = false;
 		mConnectTarget = Player.ResolveEndPoint(addr, port);
 		if (mConnectTarget != null) mTcp.Connect(mConnectTarget);
 	}
@@ -674,31 +677,11 @@ public class Client
 				}
 				break;
 			}
-			//case Packet.ResponseNAT:
-			//{
-			//    // TODO: Share the TCP socket, create a new socket on the same port, and try the connect here.
-			//    IPEndPoint ip = Player.ResolveEndPoint(reader.ReadString(), reader.ReadInt16());
-			//    if (ip != null) mTcp.Connect(ip);
-			//    break;
-			//}
 			case Packet.Error:
 			{
 				if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
 				{
-					// Direct TCP connection failed: try to go via the NAT punch-through facilitator
-					//if (!mTriedNAT && natFacilitator != null && mConnectTarget != null && mUdp.isActive)
-					//{
-					//    mTriedNAT = true;
-					//    BinaryWriter writer = BeginSend(Packet.RequestNAT);
-					//    writer.Write(mTcp.target.Address.ToString());
-					//    writer.Write((ushort)mTcp.target.Port);
-					//    EndSend(natFacilitator);
-					//    mTcp.Connect(mConnectTarget);
-					//}
-					//else
-					{
-						onConnect(false, reader.ReadString());
-					}
+					onConnect(false, reader.ReadString());
 				}
 				else if (onError != null)
 				{
@@ -717,7 +700,15 @@ public class Client
 			}
 			default:
 			{
-				if (onError != null) onError("Unknown packet ID: " + packetID);
+				OnPacket callback;
+				
+				if (packetHandlers.TryGetValue((byte)response, out callback))
+				{
+					if (callback != null)
+					{
+						callback(response, reader, ip);
+					}
+				}
 				break;
 			}
 		}

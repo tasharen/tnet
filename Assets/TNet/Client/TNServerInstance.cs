@@ -6,6 +6,7 @@
 using UnityEngine;
 using TNet;
 using System.IO;
+using System.Collections;
 
 /// <summary>
 /// Tasharen Network server tailored for Unity.
@@ -16,7 +17,8 @@ public class TNServerInstance : MonoBehaviour
 {
 	static TNServerInstance mInstance;
 
-	Server mServer = new Server();
+	GameServer mGame = new GameServer();
+	DiscoveryServer mDiscovery;
 
 	/// <summary>
 	/// Instance access is internal only as all the functions are static for convenience purposes.
@@ -46,43 +48,84 @@ public class TNServerInstance : MonoBehaviour
 	/// Whether the server instance is currently active.
 	/// </summary>
 
-	static public bool isActive { get { return (mInstance != null) && mInstance.mServer.isActive; } }
+	static public bool isActive { get { return (mInstance != null) && mInstance.mGame.isActive; } }
 
 	/// <summary>
 	/// Whether the server is currently listening for incoming connections.
 	/// </summary>
 
-	static public bool isListening { get { return (mInstance != null) && mInstance.mServer.isListening; } }
+	static public bool isListening { get { return (mInstance != null) && mInstance.mGame.isListening; } }
+
+	/// <summary>
+	/// Whether the discovery server is active.
+	/// </summary>
+
+	static public bool isDiscoverable { get { return discoveryPort != 0; } }
 
 	/// <summary>
 	/// Port used to listen for incoming TCP connections.
 	/// </summary>
 
-	static public int listeningPort { get { return (mInstance != null) ? mInstance.mServer.listeningPort : 0; } }
+	static public int listeningPort { get { return (mInstance != null) ? mInstance.mGame.tcpPort : 0; } }
+
+	/// <summary>
+	/// Port used to listen for server discovery.
+	/// </summary>
+
+	static public int discoveryPort
+	{
+		get
+		{
+			return (mInstance != null && mInstance.mDiscovery != null) ?
+				mInstance.mDiscovery.port : 0;
+		}
+		set
+		{
+			if (mInstance != null)
+			{
+				if (mInstance.mDiscovery == null)
+				{
+					if (value == 0) return;
+
+					// Create a new discovery server
+					mInstance.mDiscovery = new DiscoveryServer();
+					mInstance.mDiscovery.localServer = mInstance.mGame;
+				}
+
+				if (value != 0)
+				{
+					// Start the discovery server on the specified port,
+					// automatically broadcasting server changes to the entire LAN.
+					mInstance.mDiscovery.Start(value, mInstance.mGame.udpPort);
+				}
+				else mInstance.mDiscovery.Stop();
+			}
+		}
+	}
 
 	/// <summary>
 	/// How many players are currently connected to the server.
 	/// </summary>
 
-	static public int playerCount { get { return (mInstance != null) ? mInstance.mServer.playerCount : 0; } }
+	static public int playerCount { get { return (mInstance != null) ? mInstance.mGame.playerCount : 0; } }
 
 	/// <summary>
 	/// Server's local address on the network. For example: 192.168.1.10
 	/// </summary>
 
-	static public string localAddress { get { return (mInstance != null) ? mInstance.mServer.localAddress : "0.0.0.0:0"; } }
+	static public string localAddress { get { return (mInstance != null) ? mInstance.mGame.localAddress : "0.0.0.0:0"; } }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port.
 	/// </summary>
 
-	static public bool Start (int tcpPort) { return instance.mServer.Start(tcpPort, 0); }
+	static public bool Start (int tcpPort) { return instance.mGame.Start(tcpPort, 0); }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port.
 	/// </summary>
 
-	static public bool Start (int tcpPort, int udpPort) { return instance.mServer.Start(tcpPort, udpPort); }
+	static public bool Start (int tcpPort, int udpPort) { return instance.mGame.Start(tcpPort, udpPort); }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port and loading the saved data from the specified file.
@@ -90,9 +133,9 @@ public class TNServerInstance : MonoBehaviour
 
 	static public bool Start (int tcpPort, int udpPort, string fileName)
 	{
-		if (instance.mServer.Start(tcpPort, udpPort))
+		if (instance.mGame.Start(tcpPort, udpPort))
 		{
-			instance.mServer.LoadFrom(fileName);
+			instance.mGame.LoadFrom(fileName);
 			return true;
 		}
 		return false;
@@ -106,7 +149,8 @@ public class TNServerInstance : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			mInstance.mServer.Stop();
+			mInstance.mGame.Stop();
+			if (mInstance.mDiscovery != null) mInstance.mDiscovery.Stop();
 		}
 	}
 
@@ -116,10 +160,10 @@ public class TNServerInstance : MonoBehaviour
 
 	static public void Stop (string fileName)
 	{
-		if (mInstance != null && mInstance.mServer.isActive)
+		if (mInstance != null && mInstance.mGame.isActive)
 		{
-			mInstance.mServer.SaveTo(fileName);
-			mInstance.mServer.Stop();
+			mInstance.mGame.SaveTo(fileName);
+			Stop();
 		}
 	}
 
@@ -127,5 +171,12 @@ public class TNServerInstance : MonoBehaviour
 	/// Make the server private by no longer accepting new connections.
 	/// </summary>
 
-	static public void MakePrivate () { if (mInstance != null) mInstance.mServer.MakePrivate(); }
+	static public void MakePrivate ()
+	{
+		if (mInstance != null)
+		{
+			mInstance.mGame.MakePrivate();
+			if (mInstance.mDiscovery != null) mInstance.mDiscovery.Stop();
+		}
+	}
 }

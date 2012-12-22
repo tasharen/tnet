@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -6,6 +6,7 @@
 using UnityEngine;
 using TNet;
 using System.IO;
+using System.Collections;
 
 /// <summary>
 /// This script provides a main menu for all examples.
@@ -27,6 +28,7 @@ public class ExampleMenu : MonoBehaviour
 
 	public int serverTcpPort = 5127;
 	public int clientUdpPort = 5128;
+	public int discoveryPort = 5129;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -42,11 +44,18 @@ public class ExampleMenu : MonoBehaviour
 	float mAlpha = 0f;
 
 	/// <summary>
-	/// Start listening for incoming UDP packets right away. This is so that we are able to receive LAN broadcasts (server advertisements).
-	/// Check TNServerList script to see how these broadcasts are used even prior to establishing a connection with the server.
+	/// Start listening for incoming UDP packets right away.
 	/// </summary>
 
-	void Start () { if (Application.isPlaying) TNManager.StartUDP(clientUdpPort); }
+	void Start ()
+	{
+		if (Application.isPlaying)
+		{
+			// We don't want mobile devices to dim their screen and go to sleep while the app is running
+			Screen.sleepTimeout = SleepTimeout.NeverSleep;
+			TNManager.StartUDP(clientUdpPort);
+		}
+	}
 
 	/// <summary>
 	/// Adjust the server list's alpha based on whether it should be shown or not.
@@ -54,8 +63,11 @@ public class ExampleMenu : MonoBehaviour
 
 	void Update ()
 	{
-		float target = (TNServerList.list.size == 0) ? 0f : 1f;
-		mAlpha = Tools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
+		if (Application.isPlaying)
+		{
+			float target = (TNDiscoveryClient.servers.list.size == 0) ? 0f : 1f;
+			mAlpha = Tools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
+		}
 	}
 
 	/// <summary>
@@ -89,7 +101,8 @@ public class ExampleMenu : MonoBehaviour
 
 	void DrawConnectMenu ()
 	{
-		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f - mAlpha * 120f, Screen.height * 0.5f - 100f, 200f, 220f);
+		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f - mAlpha * 120f,
+			Screen.height * 0.5f - 100f, 200f, 220f);
 
 		// Show a half-transparent box around the upcoming UI
 		GUI.color = new Color(1f, 1f, 1f, 0.5f);
@@ -133,6 +146,7 @@ public class ExampleMenu : MonoBehaviour
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
 					TNServerInstance.Start(serverTcpPort, Random.Range(10000, 40000), "server.dat");
+					TNServerInstance.discoveryPort = discoveryPort;
 					mMessage = "Server started";
 #endif
 				}
@@ -254,14 +268,17 @@ public class ExampleMenu : MonoBehaviour
 		{
 			GUILayout.Label("LAN Server List", text);
 
-			// Server list example script automatically collects servers that have recently announced themselves
-			for (int i = 0; i < TNServerList.list.size; ++i)
-			{
-				TNServerList.Entry ent = TNServerList.list[i];
+			// List of discovered servers
+			List<ServerList.Entry> list = TNDiscoveryClient.servers.list;
 
-				if (GUILayout.Button(ent.address, button))
+			// Server list example script automatically collects servers that have recently announced themselves
+			for (int i = 0; i < list.size; ++i)
+			{
+				ServerList.Entry ent = list[i];
+
+				if (GUILayout.Button(ent.ip.ToString(), button))
 				{
-					TNManager.Connect(ent.address);
+					TNManager.Connect(ent.ip.ToString());
 					mMessage = "Connecting...";
 				}
 			}

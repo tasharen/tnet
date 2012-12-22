@@ -22,9 +22,6 @@ public class UdpProtocol
 	int mPort = 0;
 	Socket mSocket;
 
-	// Optional socket used to broadcast (created on demand)
-	Socket mBroadcaster;
-
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
 
@@ -66,11 +63,6 @@ public class UdpProtocol
 				mSocket = null;
 			}
 
-			if (mBroadcaster != null)
-			{
-				mBroadcaster.Close();
-				mBroadcaster = null;
-			}
 			Buffer.Recycle(mIn);
 			Buffer.Recycle(mOut);
 		}
@@ -201,13 +193,8 @@ public class UdpProtocol
 		UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player or Flash");
  #endif
 #else
-		if (mBroadcaster == null)
-		{
-			mBroadcaster = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-			mBroadcaster.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-		}
 		mBroadcastIP.Port = port;
-		mBroadcaster.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+		mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
 #endif
 		buffer.Recycle();
 	}
