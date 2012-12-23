@@ -19,13 +19,13 @@ public class ServerMain
 		// If you're not, you will want to remember the first value (TCP port).
 		GameServer server = new GameServer();
 		server.name = "Stand-alone Server";
-		server.Start(5127, 5130);
+		server.Start(5127, 5128);
 		server.LoadFrom("server.dat");
 
 		// Server discovery port should match the discovery port on the client (TNDiscoveryClient).
-		DiscoveryServer discovery = new DiscoveryServer();
-		discovery.localServer = server;
-		discovery.Start(5129);
+		//DiscoveryServer discovery = new DiscoveryServer();
+		//discovery.localServer = server;
+		//discovery.Start(5129);
 
 		for (; ; )
 		{
@@ -34,7 +34,7 @@ public class ServerMain
 			if (command == "q") break;
 		}
 		Console.WriteLine("Shutting down...");
-		discovery.Stop();
+		//discovery.Stop();
 		server.SaveTo("server.dat");
 		server.Stop();
 		return 0;

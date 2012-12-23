@@ -560,7 +560,8 @@ public class GameClient
 						if (mUdp.isActive)
 						{
 							// If we have a UDP listener active, tell the server
-							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0);
+							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ?
+								(ushort)mUdp.listeningPort : (ushort)0);
 							EndSend();
 						}
 						
@@ -579,13 +580,16 @@ public class GameClient
 			{
 				// The server has a new port for UDP traffic
 				ushort port = reader.ReadUInt16();
-				mServerUdpEndPoint = (port != 0) ? new IPEndPoint(new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes()), port) : null;
-				
-				if (mServerUdpEndPoint != null && mUdp.isActive)
+
+				if (port != 0)
 				{
+					IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
+					mServerUdpEndPoint = new IPEndPoint(ipa, port);
+
 					// Send an empty packet to the server, opening up the communication channel
-					mUdp.SendEmptyPacket(mServerUdpEndPoint);
+					if (mUdp.isActive) mUdp.SendEmptyPacket(mServerUdpEndPoint);
 				}
+				else mServerUdpEndPoint = null;
 				break;
 			}
 			case Packet.ResponseJoiningChannel:
