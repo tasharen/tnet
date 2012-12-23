@@ -27,7 +27,6 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
-	public int clientUdpPort = 5128;
 	public int discoveryPort = 5129;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
@@ -53,7 +52,9 @@ public class ExampleMenu : MonoBehaviour
 		{
 			// We don't want mobile devices to dim their screen and go to sleep while the app is running
 			Screen.sleepTimeout = SleepTimeout.NeverSleep;
-			TNManager.StartUDP(clientUdpPort);
+
+			// Make it possible to use UDP using a random port
+			TNManager.StartUDP(Random.Range(10000, 50000));
 		}
 	}
 
