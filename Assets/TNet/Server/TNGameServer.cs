@@ -250,8 +250,6 @@ public class GameServer
 
 					if (player != null)
 					{
-						Console.WriteLine("UDP: " + buffer.size + " from " + ip + " " + player.id);
-
 						try
 						{
 							if (ProcessPlayerPacket(buffer, player, false))
@@ -259,7 +257,6 @@ public class GameServer
 						}
 						catch (System.Exception) { RemovePlayer(player); }
 					}
-					else Console.WriteLine("UDP: " + buffer.size + " from " + ip);
 				}
 				buffer.Recycle();
 			}
@@ -272,8 +269,6 @@ public class GameServer
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
 				{
-					Console.WriteLine("TCP: " + buffer.size + " from " + player.udpEndPoint + " " + player.id);
-
 					if (buffer.size > 0)
 					{
 						try
@@ -399,11 +394,7 @@ public class GameServer
 	{
 		if (player.udpEndPoint != null) mDictionaryEP.Remove(player.udpEndPoint);
 		player.udpEndPoint = udp;
-		if (udp != null)
-		{
-			mDictionaryEP[udp] = player;
-			Console.WriteLine(player.id + ": " + udp + " " + mDictionaryEP.Count);
-		}
+		if (udp != null) mDictionaryEP[udp] = player;
 	}
 
 	/// <summary>

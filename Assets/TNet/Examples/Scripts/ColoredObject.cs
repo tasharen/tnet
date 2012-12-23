@@ -35,6 +35,6 @@ public class ColoredObject : MonoBehaviour
 		else if (renderer.material.color == Color.green) color = Color.blue;
 
 		TNObject tno = GetComponent<TNObject>();
-		tno.SendQuickly("OnColor", Target.AllSaved, color);
+		tno.Send("OnColor", Target.AllSaved, color);
 	}
 }
