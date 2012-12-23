@@ -385,7 +385,7 @@ public class TNManager : MonoBehaviour
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	static public void EndSend () { mInstance.mClient.EndSend(false); }
+	static public void EndSend () { mInstance.mClient.EndSend(true); }
 
 	/// <summary>
 	/// Send the outgoing buffer.

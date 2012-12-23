@@ -442,7 +442,7 @@ public class TNObject : MonoBehaviour
 			writer.Write((objID << 8) | rfcID);
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
-			TNManager.EndSend();
+			TNManager.EndSend(reliable);
 		}
 		else if (target == Target.All || target == Target.AllSaved)
 		{

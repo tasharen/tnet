@@ -156,7 +156,12 @@ public class GameServer
 			return false;
 		}
 
-		if (udpPort != 0) mUdp.Start(udpPort);
+		if (udpPort != 0 && !mUdp.Start(udpPort))
+		{
+			Error(null, "Unable to listen to UDP port " + udpPort);
+			Stop();
+			return false;
+		}
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 		return true;
@@ -245,6 +250,8 @@ public class GameServer
 
 					if (player != null)
 					{
+						//Console.WriteLine("UDP: " + buffer.size + " from " + ip);
+
 						try
 						{
 							if (ProcessPlayerPacket(buffer, player, false))
@@ -252,6 +259,7 @@ public class GameServer
 						}
 						catch (System.Exception) { RemovePlayer(player); }
 					}
+					//else Console.WriteLine("UDP: " + buffer.size + " from UNKNOWN " + ip);
 				}
 				buffer.Recycle();
 			}
@@ -264,6 +272,8 @@ public class GameServer
 				// Process up to 100 packets at a time
 				for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
 				{
+					//Console.WriteLine("TCP: " + buffer.size + " from " + player.udpEndPoint);
+
 					if (buffer.size > 0)
 					{
 						try
