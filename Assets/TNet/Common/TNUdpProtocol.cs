@@ -28,8 +28,10 @@ public class UdpProtocol
 	// Buffer that's currently used to receive incoming data
 	EndPoint mEndPoint = new IPEndPoint(IPAddress.Any, 0);
 
+#if !UNITY_WEBPLAYER
 	// Cached broadcast end-point
 	IPEndPoint mBroadcastIP = new IPEndPoint(IPAddress.Broadcast, 0);
+#endif
 
 	// Incoming message queue
 	protected Queue<Datagram> mIn = new Queue<Datagram>();

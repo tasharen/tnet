@@ -2,14 +2,14 @@
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
                   Version 1.0.0
-  http://www.tasharen.com/forum/index.php?board=2.0
+       http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
 
 Thank you for buying TNet!
 
 If you have any questions, suggestions, comments or feature requests, please
-drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php?board=2.0
+drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php
 
 -----------------------------------------------------
   Basic Usage
@@ -55,4 +55,4 @@ OnNetworkError (error)
   More information:
 -----------------------------------------------------
 
-http://www.tasharen.com/forum/index.php?topic=2513.0
+http://www.tasharen.com/?page_id=4518

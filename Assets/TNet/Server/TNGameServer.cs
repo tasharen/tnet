@@ -779,25 +779,26 @@ public class GameServer
 		if (player.channel != null)
 		{
 			// Remove this player from the channel
+			TcpChannel ch = player.channel;
 			player.channel.RemovePlayer(player);
+			player.channel = null;
 
 			// Are there other players left?
-			if (player.channel.players.size > 0)
+			if (ch.players.size > 0)
 			{
 				// Inform everyone of this player leaving the channel
 				BinaryWriter writer = BeginSend(Packet.ResponsePlayerLeft);
 				writer.Write(player.id);
-				EndSend(true, player.channel, null);
+				EndSend(true, ch, null);
 
 				// If this player was the host, choose a new host
-				if (player.channel.host == null) SendSetHost(player.channel.players[0]);
+				if (ch.host == null) SendSetHost(ch.players[0]);
 			}
-			else if (!player.channel.persistent)
+			else if (!ch.persistent)
 			{
 				// No other players left -- delete this channel
-				mChannels.Remove(player.channel);
+				mChannels.Remove(ch);
 			}
-			player.channel = null;
 
 			// Notify the player that they have left the channel
 			if (notify && player.isConnected)
