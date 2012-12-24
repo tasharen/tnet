@@ -17,3 +17,6 @@
 /*.dat
 /Misc
 /*.unitypackage
+/Assets/AssetStoreTools
+/Assets/AssetStoreTools.meta
+/Art/*.psd

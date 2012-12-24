@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.0.0
+                  Version 1.0.1
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -50,6 +50,15 @@ OnNetworkPlayerJoin (player)
 OnNetworkPlayerLeave (player)
 OnNetworkPlayerRenamed (player, previousName)
 OnNetworkError (error)
+
+-----------------------------------------------------
+  Stand-Alone Server
+-----------------------------------------------------
+
+You can build a stand-alone server by extracting the contents of the "TNetServer.zip" file
+into the project's root folder (outside the Assets folder), then opening up the TNServer
+solution or csproj file. A pre-compiled stand-alone windows executable is also included
+in the ZIP file for your convenience.
 
 -----------------------------------------------------
   More information:

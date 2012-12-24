@@ -34,11 +34,7 @@ public class ExampleMenu : MonoBehaviour
 	public GUIStyle text;
 	public GUIStyle input;
 
-#if UNITY_WEBPLAYER
-	string mAddress = "server.tasharen.com";
-#else
 	string mAddress = "127.0.0.1";
-#endif
 	string mMessage = "";
 	float mAlpha = 0f;
 
