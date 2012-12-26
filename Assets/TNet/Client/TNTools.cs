@@ -52,6 +52,32 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Returns whether the specified type can be serialized.
+	/// </summary>
+
+	static public bool CanBeSerialized (Type type)
+	{
+		if (type == typeof(bool)) return true;
+		if (type == typeof(byte)) return true;
+		if (type == typeof(int)) return true;
+		if (type == typeof(float)) return true;
+		if (type == typeof(string)) return true;
+		if (type == typeof(Vector2)) return true;
+		if (type == typeof(Vector3)) return true;
+		if (type == typeof(Vector4)) return true;
+		if (type == typeof(Quaternion)) return true;
+		if (type == typeof(Color32)) return true;
+		if (type == typeof(Color)) return true;
+		if (type == typeof(DateTime)) return true;
+		if (type == typeof(bool[])) return true;
+		if (type == typeof(byte[])) return true;
+		if (type == typeof(int[])) return true;
+		if (type == typeof(float[])) return true;
+		if (type == typeof(string[])) return true;
+		return false;
+	}
+
+	/// <summary>
 	/// Write the array of objects into the specified writer.
 	/// </summary>
 
