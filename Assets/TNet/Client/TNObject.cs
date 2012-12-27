@@ -226,14 +226,40 @@ public class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 				try
 				{
-					ent.func.Invoke(ent.obj, parameters);
+					ParameterInfo[] infos = ent.func.GetParameters();
+
+					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+					{
+						ent.func.Invoke(ent.obj, new object[] { parameters });
+					}
+					else
+					{
+						ent.func.Invoke(ent.obj, parameters);
+					}
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")");
+					string types = "";
+					
+					for (int b = 0; b < parameters.Length; ++b)
+					{
+						if (b != 0) types += ", ";
+						types += parameters[b].ToString();
+					}
+					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")\n" +
+						parameters.Length + " parameters: " + types);
 				}
 #else
-				ent.func.Invoke(ent.obj, parameters);
+				ParameterInfo[] infos = ent.func.GetParameters();
+
+				if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+				{
+					ent.func.Invoke(ent.obj, new object[] { parameters });
+				}
+				else
+				{
+					ent.func.Invoke(ent.obj, parameters);
+				}
 #endif
 			}
 		}
@@ -264,7 +290,15 @@ public class TNObject : MonoBehaviour
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + funcName + ")");
+					string types = "";
+
+					for (int b = 0; b < parameters.Length; ++b)
+					{
+						if (b != 0) types += ", ";
+						types += parameters[b].ToString();
+					}
+					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")\n" +
+						parameters.Length + " parameters: " + types);
 				}
 #else
 				ent.func.Invoke(ent.obj, parameters);

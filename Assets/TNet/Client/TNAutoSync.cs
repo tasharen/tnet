@@ -10,25 +10,39 @@ using System.Reflection;
 
 /// <summary>
 /// This script makes it really easy to sync some value across all connected clients.
-/// Keep in mind that this script should only be used for rapid prototyping. It's still better
-/// to create custom to-the-point sync scripts as they will yield better performance.
+/// Keep in mind that this script should ideally only be used for rapid prototyping.
+/// It's still better to create custom to-the-point sync scripts as they will yield
+/// better performance.
 /// </summary>
 
 [ExecuteInEditMode]
 public class TNAutoSync : TNBehaviour
 {
-	public Component target;
-	public string propertyName;
+	[System.Serializable]
+	public class SavedEntry
+	{
+		public Component target;
+		public string propertyName;
+	}
+
+	public System.Collections.Generic.List<SavedEntry> entries = new System.Collections.Generic.List<SavedEntry>();
 
 	public int updatesPerSecond = 20;
-	public bool isPersistent = true;
+	public bool isSavedOnServer = true;
 	public bool onlyHostCanSync = true;
 	public bool isImportant = true;
 
-	FieldInfo mField;
-	PropertyInfo mProperty;
-	object mLast;
 	bool mCanSync = false;
+
+	class ExtendedEntry : SavedEntry
+	{
+		public FieldInfo field;
+		public PropertyInfo property;
+		public object lastValue;
+	}
+
+	List<ExtendedEntry> mList = new List<ExtendedEntry>();
+	object[] mCached = null;
 
 	/// <summary>
 	/// Can only sync once we've joined a channel.
@@ -56,27 +70,47 @@ public class TNAutoSync : TNBehaviour
 		else
 #endif
 		{
-			if (target != null)
+			// Find all properties, converting the saved list into the usable list of reflected properties
+			for (int i = 0, imax = entries.Count; i < imax; ++i)
 			{
-				mField = target.GetType().GetField(propertyName, BindingFlags.Instance | BindingFlags.Public);
-
-				if (mField != null)
+				SavedEntry ent = entries[i];
+				
+				if (ent.target != null && !string.IsNullOrEmpty(ent.propertyName))
 				{
-					mLast = mField.GetValue(target);
-				}
-				else
-				{
-					mProperty = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
-					if (mProperty != null) mLast = mProperty.GetValue(target, null);
-				}
+					FieldInfo field = ent.target.GetType().GetField(ent.propertyName, BindingFlags.Instance | BindingFlags.Public);
 
-				if (mProperty == null && mField == null)
-				{
-					Debug.LogError("Unable to find property: '" + propertyName + "' on " + target.GetType());
-					enabled = false;
-					return;
-				}
+					if (field != null)
+					{
+						ExtendedEntry ext = new ExtendedEntry();
+						ext.target = ent.target;
+						ext.field = field;
+						ext.lastValue = field.GetValue(ent.target);
+						mList.Add(ext);
+						continue;
+					}
+					else
+					{
+						PropertyInfo pro = ent.target.GetType().GetProperty(ent.propertyName, BindingFlags.Instance | BindingFlags.Public);
 
+						if (pro != null)
+						{
+							ExtendedEntry ext = new ExtendedEntry();
+							ext.target = ent.target;
+							ext.property = pro;
+							ext.lastValue = pro.GetValue(ent.target, null);
+							mList.Add(ext);
+							continue;
+						}
+						else
+						{
+							Debug.LogError("Unable to find property: '" + ent.propertyName + "' on " + ent.target.GetType());
+						}
+					}
+				}
+			}
+
+			if (mList.size > 0)
+			{
 				// Only start the coroutine if we wanted to run periodic updates
 				if (updatesPerSecond > 0) StartCoroutine(PeriodicSync());
 			}
@@ -111,61 +145,64 @@ public class TNAutoSync : TNBehaviour
 
 	public void Sync ()
 	{
-		if (TNManager.isConnected && target != null && enabled)
+		if (TNManager.isConnected && mList.size != 0 && enabled)
 		{
-			if (mField != null)
+			bool initial = false;
+			bool changed = false;
+
+			if (mCached == null)
 			{
-				object val = mField.GetValue(target);
+				initial = true;
+				mCached = new object[mList.size];
+			}
 
-				if (mLast == null || !val.Equals(mLast))
+			for (int i = 0; i < mList.size; ++i)
+			{
+				ExtendedEntry ext = mList[i];
+
+				object val = (ext.field != null) ?
+					val = ext.field.GetValue(ext.target) :
+					val = ext.property.GetValue(ext.target, null);
+
+				if (!val.Equals(ext.lastValue))
+					changed = true;
+
+				if (initial || changed)
 				{
-					mLast = val;
-
-					if (isImportant)
-					{
-						tno.Send(255, isPersistent ? Target.OthersSaved : Target.Others, val);
-					}
-					else
-					{
-						tno.SendQuickly(255, isPersistent ? Target.OthersSaved : Target.Others, val);
-					}
+					ext.lastValue = val;
+					mCached[i] = val;
 				}
 			}
-			else if (mProperty != null)
+
+			if (changed)
 			{
-				object val = mProperty.GetValue(target, null);
-
-				if (mLast == null || !val.Equals(mLast))
+				if (isImportant)
 				{
-					mLast = val;
-
-					if (isImportant)
-					{
-						tno.Send(255, isPersistent ? Target.OthersSaved : Target.Others, val);
-					}
-					else
-					{
-						tno.SendQuickly(255, isPersistent ? Target.OthersSaved : Target.Others, val);
-					}
+					tno.Send(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
+				}
+				else
+				{
+					tno.SendQuickly(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
 				}
 			}
 		}
 	}
 
-	[RFC(255)]
-	void OnSync (object val)
-	{
-		if (target != null && enabled)
-		{
-			mLast = val;
+	/// <summary>
+	/// The actual synchronization function function.
+	/// </summary>
 
-			if (mField != null)
+	[RFC(255)]
+	void OnSync (object[] val)
+	{
+		if (enabled)
+		{
+			for (int i = 0; i < mList.size; ++i)
 			{
-				mField.SetValue(target, val);
-			}
-			else if (mProperty != null)
-			{
-				mProperty.SetValue(target, val, null);
+				ExtendedEntry ext = mList[i];
+				ext.lastValue = val[i];
+				if (ext.field != null) ext.field.SetValue(ext.target, ext.lastValue);
+				else ext.property.SetValue(ext.target, ext.lastValue, null);
 			}
 		}
 	}

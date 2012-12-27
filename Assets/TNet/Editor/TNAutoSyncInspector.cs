@@ -19,28 +19,53 @@ public class TNAutoSyncInspector : Editor
 	{
 		TNAutoSync sync = target as TNAutoSync;
 
-		DrawTarget(sync);
-		DrawProperty(sync);
+		List<Component> components = GetComponents(sync);
+		string[] names = GetComponentNames(components);
 
+		for (int i = 0; i < sync.entries.Count; )
+		{
+			GUILayout.BeginHorizontal();
+			{
+				if (DrawTarget(sync, i, components, names))
+				{
+					DrawProperties(sync, sync.entries[i]);
+					++i;
+				}
+			}
+			GUILayout.EndHorizontal();
+		}
+
+		GUI.backgroundColor = Color.green;
+
+		if (GUILayout.Button("Add a New Synchronized Property"))
+		{
+			TNAutoSync.SavedEntry ent = new TNAutoSync.SavedEntry();
+			ent.target = components[0];
+			sync.entries.Add(ent);
+			EditorUtility.SetDirty(sync);
+		}
+		GUI.backgroundColor = Color.white;
+
+		GUILayout.Space(4f);
 		int updates = EditorGUILayout.IntField("Updates Per Second", sync.updatesPerSecond);
-		bool persistent = EditorGUILayout.Toggle("Persistent", sync.isPersistent);
+		bool persistent = EditorGUILayout.Toggle("Saved On Server", sync.isSavedOnServer);
 		bool important = EditorGUILayout.Toggle("Important", sync.isImportant);
 		bool host = EditorGUILayout.Toggle("Only Host Can Sync", sync.onlyHostCanSync);
 
 		if (sync.updatesPerSecond != updates ||
-			sync.isPersistent != persistent ||
+			sync.isSavedOnServer != persistent ||
 			sync.isImportant != important ||
 			sync.onlyHostCanSync != host)
 		{
 			sync.updatesPerSecond = updates;
-			sync.isPersistent = persistent;
+			sync.isSavedOnServer = persistent;
 			sync.isImportant = important;
 			sync.onlyHostCanSync = host;
 			EditorUtility.SetDirty(sync);
 		}
 	}
 
-	void DrawTarget (TNAutoSync sync)
+	static List<Component> GetComponents (TNAutoSync sync)
 	{
 		Component[] comps = sync.GetComponents<Component>();
 
@@ -48,43 +73,77 @@ public class TNAutoSyncInspector : Editor
 
 		for (int i = 0, imax = comps.Length; i < imax; ++i)
 		{
-			if (comps[i] != sync)
+			if (comps[i] != sync && comps[i].GetType() != typeof(TNObject))
 			{
 				list.Add(comps[i]);
 			}
 		}
-
-		int index = 0;
-		string[] names = new string[list.size + 1];
-		names[0] = "<None>";
-
-		for (int i = 0; i < list.size; ++i)
-		{
-			if (list[i] == sync.target) index = i + 1;
-			names[i + 1] = list[i].GetType().ToString();
-		}
-
-		int newIndex = EditorGUILayout.Popup("Target", index, names);
-
-		if (newIndex != index)
-		{
-			sync.target = (newIndex == 0) ? null : list[newIndex - 1];
-			sync.propertyName = "";
-			EditorUtility.SetDirty(sync);
-		}
+		return list;
 	}
 
-	void DrawProperty (TNAutoSync sync)
+	static string[] GetComponentNames (List<Component> list)
 	{
-		if (sync.target == null) return;
+		string[] names = new string[list.size + 1];
+		names[0] = "<None>";
+		for (int i = 0; i < list.size; ++i)
+			names[i + 1] = list[i].GetType().ToString();
+		return names;
+	}
 
-		FieldInfo[] fields = sync.target.GetType().GetFields(
-			BindingFlags.Instance | BindingFlags.Public);
+	static bool DrawTarget (TNAutoSync sync, int index, List<Component> components, string[] names)
+	{
+		TNAutoSync.SavedEntry ent = sync.entries[index];
 		
-		PropertyInfo[] properties = sync.target.GetType().GetProperties(
+		if (ent.target == null)
+		{
+			ent.target = components[0];
+			EditorUtility.SetDirty(sync);
+		}
+
+		int oldIndex = 0;
+		string tname = (ent.target != null) ? ent.target.GetType().ToString() : "<None>";
+		
+		for (int i = 1; i < names.Length; ++i)
+		{
+			if (names[i] == tname)
+			{
+				oldIndex = i;
+				break;
+			}
+		}
+
+		GUI.backgroundColor = Color.red;
+		bool delete = GUILayout.Button("X", GUILayout.Width(24f));
+		GUI.backgroundColor = Color.white;
+		int newIndex = EditorGUILayout.Popup(oldIndex, names);
+
+		if (delete)
+		{
+			sync.entries.RemoveAt(index);
+			EditorUtility.SetDirty(sync);
+			return false;
+		}
+
+		if (newIndex != oldIndex)
+		{
+			ent.target = (newIndex == 0) ? null : components[newIndex - 1];
+			ent.propertyName = "";
+			EditorUtility.SetDirty(sync);
+		}
+		return true;
+	}
+
+	static void DrawProperties (TNAutoSync sync, TNAutoSync.SavedEntry saved)
+	{
+		if (saved.target == null) return;
+
+		FieldInfo[] fields = saved.target.GetType().GetFields(
 			BindingFlags.Instance | BindingFlags.Public);
 
-		int index = 0;
+		PropertyInfo[] properties = saved.target.GetType().GetProperties(
+			BindingFlags.Instance | BindingFlags.Public);
+
+		int oldIndex = 0;
 		List<string> names = new List<string>();
 		names.Add("<None>");
 
@@ -92,12 +151,10 @@ public class TNAutoSyncInspector : Editor
 		{
 			if (TNet.Tools.CanBeSerialized(fields[i].FieldType))
 			{
-				if (fields[i].Name == sync.propertyName) index = names.size;
+				if (fields[i].Name == saved.propertyName) oldIndex = names.size;
 				names.Add(fields[i].Name);
 			}
 		}
-		
-		names[fields.Length + 2] = "";
 		
 		for (int i = 0; i < properties.Length; ++i)
 		{
@@ -105,16 +162,16 @@ public class TNAutoSyncInspector : Editor
 
 			if (TNet.Tools.CanBeSerialized(pi.PropertyType) && pi.CanWrite && pi.CanRead)
 			{
-				if (pi.Name == sync.propertyName) index = names.size;
+				if (pi.Name == saved.propertyName) oldIndex = names.size;
 				names.Add(pi.Name);
 			}
 		}
 
-		int newIndex = EditorGUILayout.Popup("Target", index, names.ToArray());
+		int newIndex = EditorGUILayout.Popup(oldIndex, names.ToArray(), GUILayout.Width(90f));
 
-		if (newIndex != index)
+		if (newIndex != oldIndex)
 		{
-			sync.propertyName = (newIndex == 0) ? "" : names[newIndex];
+			saved.propertyName = (newIndex == 0) ? "" : names[newIndex];
 			EditorUtility.SetDirty(sync);
 		}
 	}

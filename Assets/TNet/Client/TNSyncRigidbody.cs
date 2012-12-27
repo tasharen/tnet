@@ -98,7 +98,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// </summary>
 
 	[RFC(1)]
-	void Sync (Vector3 pos, Vector3 rot, Vector3 vel, Vector3 ang)
+	void OnSync (Vector3 pos, Vector3 rot, Vector3 vel, Vector3 ang)
 	{
 #if TNDEBUG
 		renderer.material.color = Color.green;
@@ -114,13 +114,13 @@ public class TNSyncRigidbody : TNBehaviour
 	/// It's a good idea to send an update when a collision occurs.
 	/// </summary>
 
-	void OnCollisionEnter () { if (TNManager.isHosting) SendUpdate(); }
+	void OnCollisionEnter () { if (TNManager.isHosting) Sync(); }
 
 	/// <summary>
 	/// Send out an update to everyone on the network.
 	/// </summary>
 
-	public void SendUpdate ()
+	public void Sync ()
 	{
 		if (TNManager.isConnected)
 		{

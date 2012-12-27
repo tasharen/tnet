@@ -19,7 +19,7 @@ public class SpringTransform : MonoBehaviour
 	/// The lower the value, the smoother the transition will be.
 	/// </summary>
 
-	public float springStrength = 16f;
+	public float springStrength = 10f;
 
 	/// <summary>
 	/// Whether this script's effect will be ignored on the hosting player.

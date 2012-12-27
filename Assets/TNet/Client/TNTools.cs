@@ -97,6 +97,7 @@ static public class Tools
 		for (int b = 0, bmax = objs.Length; b < bmax; ++b)
 		{
 			object obj = objs[b];
+			if (obj == null) continue;
 			System.Type type = obj.GetType();
 
 			if (type == typeof(bool))

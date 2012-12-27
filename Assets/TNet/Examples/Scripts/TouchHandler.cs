@@ -36,6 +36,7 @@ public class TouchHandler : MonoBehaviour
 
 			if (touch.phase == TouchPhase.Began)
 			{
+				screenPos = touch.position;
 				SendPress(touch.position);
 			}
 			else if (touch.phase == TouchPhase.Moved)
@@ -50,7 +51,11 @@ public class TouchHandler : MonoBehaviour
 		else
 		{
 			// Mouse notifications
-			if (Input.GetMouseButtonDown(0)) SendPress(Input.mousePosition);
+			if (Input.GetMouseButtonDown(0))
+			{
+				screenPos = Input.mousePosition;
+				SendPress(Input.mousePosition);
+			}
 			if (Input.GetMouseButtonUp(0)) SendRelease(Input.mousePosition);
 			if (mGo != null && Input.GetMouseButton(0)) SendDrag(Input.mousePosition);
 		}
