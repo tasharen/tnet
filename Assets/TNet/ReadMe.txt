@@ -65,3 +65,19 @@ in the ZIP file for your convenience.
 -----------------------------------------------------
 
 http://www.tasharen.com/?page_id=4518
+
+-----------------------------------------------------
+ Version History
+-----------------------------------------------------
+
+1.1.0
+- NEW: Added AutoSync script that can automatically synchronize properties of your choice.
+- NEW: Added AutoJoin script that can quickly join a server when the scene starts.
+- NEW: Added a pair of new scenes to test the Auto scripts.
+- NEW: It's now possible to figure out which player requested an object to be created when the ResponseCreate packet arrives.
+- NEW: You can quickly check TNManager.isThisMyObject in a script's Awake function to determine if you're the one who created it.
+- NEW: You can now instantiate objects with velocity.
+- NEW: Added native support for ushort and uint data types (and their arrays).
+- FIX: Fixed a bug with sending data directly to the specified player.
+- FIX: Resolving a player address will no longer result in an exception with an invalid address.
+- FIX: Changed the order of some notifications. A new host will always be chosen before "player left" notification, for example.
