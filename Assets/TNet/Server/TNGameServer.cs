@@ -786,13 +786,13 @@ public class GameServer
 			// Are there other players left?
 			if (ch.players.size > 0)
 			{
+				// If this player was the host, choose a new host
+				if (ch.host == null) SendSetHost(ch.players[0]);
+
 				// Inform everyone of this player leaving the channel
 				BinaryWriter writer = BeginSend(Packet.ResponsePlayerLeft);
 				writer.Write(player.id);
 				EndSend(true, ch, null);
-
-				// If this player was the host, choose a new host
-				if (ch.host == null) SendSetHost(ch.players[0]);
 			}
 			else if (!ch.persistent)
 			{
@@ -817,9 +817,13 @@ public class GameServer
 	{
 		if (player.channel == null || player.channel != channel)
 		{
+			// Set the player's channel
 			player.channel = channel;
 
-			// Step 1: Inform the channel that a new player is joining
+			// Everything else gets sent to the player, so it's faster to do it all at once
+			player.FinishJoiningChannel();
+
+			// Inform the channel that a new player is joining
 			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
 			{
 				writer.Write(player.id);
@@ -827,12 +831,8 @@ public class GameServer
 			}
 			EndSend(true, channel, null);
 
-			// Add this player to the channel
-			player.channel = channel;
+			// Add this player to the channel now that the joining process is complete
 			channel.players.Add(player);
-
-			// Everything else gets sent to the player, so it's faster to do it all at once
-			player.FinishJoiningChannel();
 		}
 	}
 
@@ -1054,8 +1054,8 @@ public class GameServer
 
 				if (target != null && target.isConnected)
 				{
-					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-					buffer.position = buffer.position - 5;
+					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for player)
+					buffer.position = buffer.position - 9;
 					target.SendTcpPacket(buffer);
 				}
 				break;
@@ -1200,6 +1200,7 @@ public class GameServer
 				if (uniqueID != 0)
 				{
 					TcpChannel.CreatedObject obj = new TcpChannel.CreatedObject();
+					obj.playerID = player.id;
 					obj.objectID = objectIndex;
 					obj.uniqueID = uniqueID;
 
@@ -1213,6 +1214,7 @@ public class GameServer
 
 				// Inform the channel
 				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+				writer.Write(player.id);
 				writer.Write(objectIndex);
 				writer.Write(uniqueID);
 				if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);

@@ -20,7 +20,7 @@ public class Player
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 1;
+	public const int version = 2;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.
@@ -47,12 +47,22 @@ public class Player
 		if (IPAddress.TryParse(address, out ip))
 			return ip;
 
-		IPAddress[] ips = Dns.GetHostAddresses(address);
+		try
+		{
+			IPAddress[] ips = Dns.GetHostAddresses(address);
 
-		for (int i = 0; i < ips.Length; ++i)
-			if (!IPAddress.IsLoopback(ips[i]))
-				return ips[i];
-
+			for (int i = 0; i < ips.Length; ++i)
+				if (!IPAddress.IsLoopback(ips[i]))
+					return ips[i];
+		}
+#if UNITY_EDITOR
+		catch (System.Exception ex)
+		{
+			UnityEngine.Debug.LogError(ex.Message + " (" + address + ")");
+		}
+#else
+		catch (System.Exception) {}
+#endif
 		return null;
 	}
 

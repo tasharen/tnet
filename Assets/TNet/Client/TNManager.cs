@@ -32,6 +32,7 @@ public class TNManager : MonoBehaviour
 
 	// Instance pointer
 	static TNManager mInstance;
+	static int mObjectOwner = 1;
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -82,6 +83,20 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public int listeningPort { get { return mInstance != null ? mInstance.mClient.listeningPort : 0; } }
+
+	/// <summary>
+	/// ID of the player that wanted an object to be created.
+	/// Check this in a script's Awake() attached to an network-instantiated object.
+	/// </summary>
+
+	static public int objectOwnerID { get { return mObjectOwner; } }
+
+	/// <summary>
+	/// Call this function in the script's Awake() to determine if this object
+	/// was created as a result of the player's TNManager.Create() call.
+	/// </summary>
+
+	static public bool isThisMyObject { get { return mObjectOwner == playerID; } }
 
 	/// <summary>
 	/// Address from which the packet was received. Only available during packet processing callbacks.
@@ -349,6 +364,68 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Create a new object at the specified position and rotation.
+	/// Note that the object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel)
+	{
+		if (mInstance != null)
+		{
+			int index = mInstance.IndexOf(go);
+
+			if (index != -1)
+			{
+				if (mInstance.mClient.isConnected)
+				{
+					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+					writer.Write((ushort)index);
+					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write((byte)2);
+					writer.Write(pos.x);
+					writer.Write(pos.y);
+					writer.Write(pos.z);
+					writer.Write(rot.x);
+					writer.Write(rot.y);
+					writer.Write(rot.z);
+					writer.Write(rot.w);
+					writer.Write(vel.x);
+					writer.Write(vel.y);
+					writer.Write(vel.z);
+					writer.Write(angVel.x);
+					writer.Write(angVel.y);
+					writer.Write(angVel.z);
+					mInstance.mClient.EndSend();
+					return;
+				}
+			}
+			else
+			{
+				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
+			}
+		}
+
+		go = Instantiate(go, pos, rot) as GameObject;
+		Rigidbody rb = go.rigidbody;
+
+		if (rb != null)
+		{
+			if (rb.isKinematic)
+			{
+				rb.isKinematic = false;
+				rb.velocity = vel;
+				rb.angularVelocity = angVel;
+				rb.isKinematic = true;
+			}
+			else
+			{
+				rb.velocity = vel;
+				rb.angularVelocity = angVel;
+			}
+		}
+	}
+
+	/// <summary>
 	/// Destroy the specified game object.
 	/// </summary>
 
@@ -466,13 +543,45 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new object being created.
 	/// </summary>
 
-	void OnCreateObject (int index, uint objectID, BinaryReader reader)
+	void OnCreateObject (int creator, int index, uint objectID, BinaryReader reader)
 	{
+		if (index >= objects.Length)
+		{
+			Debug.LogError("Attempting to create an invalid object. Index: " + index);
+			return;
+		}
 		GameObject go = null;
 
+		mObjectOwner = creator;
 		int type = reader.ReadByte();
 
-		if (type == 1)
+		if (type == 2)
+		{
+			Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+			Quaternion rot = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
+				reader.ReadSingle(), reader.ReadSingle());
+			Vector3 vel = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+			Vector3 ang = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+			go = Instantiate(objects[index], pos, rot) as GameObject;
+			Rigidbody rb = go.rigidbody;
+
+			if (rb != null)
+			{
+				if (rb.isKinematic)
+				{
+					rb.isKinematic = false;
+					rb.velocity = vel;
+					rb.angularVelocity = ang;
+					rb.isKinematic = true;
+				}
+				else
+				{
+					rb.velocity = vel;
+					rb.angularVelocity = ang;
+				}
+			}
+		}
+		else if (type == 1)
 		{
 			Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 			Quaternion rot = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
@@ -483,6 +592,8 @@ public class TNManager : MonoBehaviour
 		{
 			go = Instantiate(objects[index]) as GameObject;
 		}
+
+		mObjectOwner = playerID;
 		
 		if (go != null && objectID != 0)
 		{

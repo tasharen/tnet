@@ -187,6 +187,6 @@ public class TNServerInstance : MonoBehaviour
 	void OnDestroy ()
 	{
 		mGame.Stop();
-		mDiscovery.Stop();
+		if (mDiscovery != null) mDiscovery.Stop();
 	}
 }

@@ -16,6 +16,8 @@ using TNet;
 [RequireComponent(typeof(TNManager))]
 public class TNAutoJoin : MonoBehaviour
 {
+	static public TNAutoJoin instance;
+
 	public string serverAddress = "127.0.0.1";
 	public int serverPort = 5127;
 	
@@ -26,6 +28,12 @@ public class TNAutoJoin : MonoBehaviour
 	public bool connectOnStart = true;
 	public string successFunctionName;
 	public string failureFunctionName;
+
+	/// <summary>
+	/// Set the instance so this script can be easily found.
+	/// </summary>
+
+	void Awake () { if (instance == null) instance = this; }
 
 	/// <summary>
 	/// Connect to the server if requested.
@@ -63,6 +71,7 @@ public class TNAutoJoin : MonoBehaviour
 		{
 			Tools.Broadcast(failureFunctionName, message);
 		}
+		else Debug.LogError(message);
 	}
 
 	/// <summary>
@@ -96,6 +105,8 @@ public class TNAutoJoin : MonoBehaviour
 			{
 				Tools.Broadcast(failureFunctionName, message);
 			}
+			else Debug.LogError(message);
+
 			TNManager.Disconnect();
 		}
 	}

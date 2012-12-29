@@ -28,7 +28,7 @@ public class GameClient
 	public delegate void OnPlayerLeft (Player p);
 	public delegate void OnSetHost (bool hosting);
 	public delegate void OnRenamePlayer (Player p, string previous);
-	public delegate void OnCreate (int index, uint objID, BinaryReader reader);
+	public delegate void OnCreate (int creator, int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
@@ -149,6 +149,7 @@ public class GameClient
 	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
+	bool mIsInChannel = false;
 
 	// Server's UDP address
 	IPEndPoint mServerUdpEndPoint;
@@ -178,7 +179,7 @@ public class GameClient
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return !mTcp.isConnected || players.size > 0; } }
+	public bool isInChannel { get { return mIsInChannel || !mTcp.isConnected; } }
 
 	/// <summary>
 	/// Port used to listen for incoming UDP packets. Set via Start().
@@ -519,9 +520,9 @@ public class GameClient
 		Packet response = (Packet)packetID;
 
 //#if !UNITY_EDITOR // DEBUG
-//		if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " " + buffer.size);
+//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#else
-//		if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " " + buffer.size);
+//        if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#endif
 
 		switch (response)
@@ -644,11 +645,13 @@ public class GameClient
 			case Packet.ResponseJoinChannel:
 			{
 				bool success = reader.ReadBoolean();
+				if (success) mIsInChannel = true;
 				if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
 				break;
 			}
 			case Packet.ResponseLeaveChannel:
 			{
+				mIsInChannel = false;
 				mDictionary.Clear();
 				players.Clear();
 				if (onLeftChannel != null) onLeftChannel();
@@ -666,10 +669,12 @@ public class GameClient
 			{
 				if (onCreate != null)
 				{
+					int id = reader.ReadInt32();
 					short index = reader.ReadInt16();
 					uint objID = reader.ReadUInt32();
-					onCreate(index, objID, reader);
+					onCreate(id, index, objID, reader);
 				}
+				else UnityEngine.Debug.Log("!?!");
 				break;
 			}
 			case Packet.ResponseDestroy:

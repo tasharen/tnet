@@ -59,7 +59,9 @@ static public class Tools
 	{
 		if (type == typeof(bool)) return true;
 		if (type == typeof(byte)) return true;
+		if (type == typeof(ushort)) return true;
 		if (type == typeof(int)) return true;
+		if (type == typeof(uint)) return true;
 		if (type == typeof(float)) return true;
 		if (type == typeof(string)) return true;
 		if (type == typeof(Vector2)) return true;
@@ -71,7 +73,9 @@ static public class Tools
 		if (type == typeof(DateTime)) return true;
 		if (type == typeof(bool[])) return true;
 		if (type == typeof(byte[])) return true;
+		if (type == typeof(ushort[])) return true;
 		if (type == typeof(int[])) return true;
+		if (type == typeof(uint[])) return true;
 		if (type == typeof(float[])) return true;
 		if (type == typeof(string[])) return true;
 		return false;
@@ -110,32 +114,42 @@ static public class Tools
 				bw.Write('b');
 				bw.Write((byte)obj);
 			}
-			else if (type == typeof(int))
+			else if (type == typeof(ushort))
 			{
 				bw.Write('c');
+				bw.Write((ushort)obj);
+			}
+			else if (type == typeof(int))
+			{
+				bw.Write('d');
 				bw.Write((int)obj);
+			}
+			else if (type == typeof(uint))
+			{
+				bw.Write('e');
+				bw.Write((uint)obj);
 			}
 			else if (type == typeof(float))
 			{
-				bw.Write('d');
+				bw.Write('f');
 				bw.Write((float)obj);
 			}
 			else if (type == typeof(string))
 			{
-				bw.Write('e');
+				bw.Write('g');
 				bw.Write((string)obj);
 			}
 			else if (type == typeof(Vector2))
 			{
 				Vector2 v = (Vector2)obj;
-				bw.Write('f');
+				bw.Write('h');
 				bw.Write(v.x);
 				bw.Write(v.y);
 			}
 			else if (type == typeof(Vector3))
 			{
 				Vector3 v = (Vector3)obj;
-				bw.Write('g');
+				bw.Write('i');
 				bw.Write(v.x);
 				bw.Write(v.y);
 				bw.Write(v.z);
@@ -143,7 +157,7 @@ static public class Tools
 			else if (type == typeof(Vector4))
 			{
 				Vector4 v = (Vector4)obj;
-				bw.Write('h');
+				bw.Write('j');
 				bw.Write(v.x);
 				bw.Write(v.y);
 				bw.Write(v.z);
@@ -152,7 +166,7 @@ static public class Tools
 			else if (type == typeof(Quaternion))
 			{
 				Quaternion q = (Quaternion)obj;
-				bw.Write('i');
+				bw.Write('k');
 				bw.Write(q.x);
 				bw.Write(q.y);
 				bw.Write(q.z);
@@ -161,7 +175,7 @@ static public class Tools
 			else if (type == typeof(Color32))
 			{
 				Color32 c = (Color32)obj;
-				bw.Write('j');
+				bw.Write('l');
 				bw.Write(c.r);
 				bw.Write(c.g);
 				bw.Write(c.b);
@@ -170,7 +184,7 @@ static public class Tools
 			else if (type == typeof(Color))
 			{
 				Color c = (Color)obj;
-				bw.Write('k');
+				bw.Write('m');
 				bw.Write(c.r);
 				bw.Write(c.g);
 				bw.Write(c.b);
@@ -179,7 +193,7 @@ static public class Tools
 			else if (type == typeof(DateTime))
 			{
 				DateTime time = (DateTime)obj;
-				bw.Write('l');
+				bw.Write('n');
 				bw.Write((Int64)time.Ticks);
 			}
 			else if (type == typeof(bool[]))
@@ -196,24 +210,38 @@ static public class Tools
 				bw.Write(arr.Length);
 				bw.Write(arr);
 			}
+			else if (type == typeof(ushort[]))
+			{
+				ushort[] arr = (ushort[])obj;
+				bw.Write('C');
+				bw.Write(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+			}
 			else if (type == typeof(int[]))
 			{
 				int[] arr = (int[])obj;
-				bw.Write('C');
+				bw.Write('D');
+				bw.Write(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+			}
+			else if (type == typeof(uint[]))
+			{
+				uint[] arr = (uint[])obj;
+				bw.Write('E');
 				bw.Write(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 			}
 			else if (type == typeof(float[]))
 			{
 				float[] arr = (float[])obj;
-				bw.Write('D');
+				bw.Write('F');
 				bw.Write(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 			}
 			else if (type == typeof(string[]))
 			{
 				string[] arr = (string[])obj;
-				bw.Write('E');
+				bw.Write('G');
 				bw.Write(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 			}
@@ -244,16 +272,18 @@ static public class Tools
 			{
 				case 'a': data[i] = reader.ReadBoolean(); break;
 				case 'b': data[i] = reader.ReadByte(); break;
-				case 'c': data[i] = reader.ReadInt32(); break;
-				case 'd': data[i] = reader.ReadSingle(); break;
-				case 'e': data[i] = reader.ReadString(); break;
-				case 'f': data[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle()); break;
-				case 'g': data[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-				case 'h': data[i] = new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-				case 'i': data[i] = new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-				case 'j': data[i] = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte()); break;
-				case 'k': data[i] = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-				case 'l': data[i] = new DateTime(reader.ReadInt64()); break;
+				case 'c': data[i] = reader.ReadUInt16(); break;
+				case 'd': data[i] = reader.ReadInt32(); break;
+				case 'e': data[i] = reader.ReadUInt32(); break;
+				case 'f': data[i] = reader.ReadSingle(); break;
+				case 'g': data[i] = reader.ReadString(); break;
+				case 'h': data[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'i': data[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'j': data[i] = new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'k': data[i] = new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'l': data[i] = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte()); break;
+				case 'm': data[i] = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+				case 'n': data[i] = new DateTime(reader.ReadInt64()); break;
 				case 'A':
 				{
 					int elements = reader.ReadInt32();
@@ -271,12 +301,28 @@ static public class Tools
 				case 'C':
 				{
 					int elements = reader.ReadInt32();
+					ushort[] arr = new ushort[elements];
+					for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt16();
+					data[i] = arr;
+					break;
+				}
+				case 'D':
+				{
+					int elements = reader.ReadInt32();
 					int[] arr = new int[elements];
 					for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt32();
 					data[i] = arr;
 					break;
 				}
-				case 'D':
+				case 'E':
+				{
+					int elements = reader.ReadInt32();
+					uint[] arr = new uint[elements];
+					for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt32();
+					data[i] = arr;
+					break;
+				}
+				case 'F':
 				{
 					int elements = reader.ReadInt32();
 					float[] arr = new float[elements];
@@ -284,7 +330,7 @@ static public class Tools
 					data[i] = arr;
 					break;
 				}
-				case 'E':
+				case 'G':
 				{
 					int elements = reader.ReadInt32();
 					string[] arr = new string[elements];
@@ -327,6 +373,32 @@ static public class Tools
 		r.yMin -= padding;
 		r.yMax += padding;
 		return r;
+	}
+
+	/// <summary>
+	/// Whether the specified game object is a child of the specified parent.
+	/// </summary>
+
+	static public bool IsParentChild (GameObject parent, GameObject child)
+	{
+		if (parent == null || child == null) return false;
+		return IsParentChild(parent.transform, child.transform);
+	}
+
+	/// <summary>
+	/// Whether the specified transform is a child of the specified parent.
+	/// </summary>
+
+	static public bool IsParentChild (Transform parent, Transform child)
+	{
+		if (parent == null || child == null) return false;
+
+		while (child != null)
+		{
+			if (parent == child) return true;
+			child = child.parent;
+		}
+		return false;
 	}
 }
 }

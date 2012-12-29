@@ -248,6 +248,7 @@ public enum Packet
 
 	/// <summary>
 	/// Create a new persistent entry.
+	/// int: ID of the player that requested this object to be created.
 	/// ushort: Index of the object being created (within a static list of prefabs on the client).
 	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.

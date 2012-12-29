@@ -25,6 +25,7 @@ public class TcpChannel
 
 	public class CreatedObject
 	{
+		public int playerID;
 		public ushort objectID;
 		public uint uniqueID;
 		public Buffer buffer;
@@ -180,6 +181,7 @@ public class TcpChannel
 		for (int i = 0; i < created.size; ++i)
 		{
 			CreatedObject co = created[i];
+			writer.Write(co.playerID);
 			writer.Write(co.uniqueID);
 			writer.Write(co.objectID);
 			writer.Write(co.buffer.size);
@@ -233,6 +235,7 @@ public class TcpChannel
 		for (int i = 0; i < size; ++i)
 		{
 			CreatedObject co = new CreatedObject();
+			co.playerID = reader.ReadInt32();
 			co.uniqueID = reader.ReadUInt32();
 			co.objectID = reader.ReadUInt16();
 			Buffer b = Buffer.Create();

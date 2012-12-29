@@ -71,6 +71,7 @@ public class TcpPlayer : TcpProtocol
 		{
 			TcpChannel.CreatedObject obj = channel.created.buffer[i];
 			buffer.BeginTcpPacket(Packet.ResponseCreate, offset);
+			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
