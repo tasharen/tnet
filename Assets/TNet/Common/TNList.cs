@@ -78,7 +78,7 @@ public class List<T>
 				buffer = newList;
 			}
 		}
-		else buffer = null;
+		else buffer = new T[0];
 	}
 
 	/// <summary>

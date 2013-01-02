@@ -244,10 +244,9 @@ public class TNObject : MonoBehaviour
 					for (int b = 0; b < parameters.Length; ++b)
 					{
 						if (b != 0) types += ", ";
-						types += parameters[b].ToString();
+						types += parameters[b].GetType().ToString();
 					}
-					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")\n" +
-						parameters.Length + " parameters: " + types);
+					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
 				}
 #else
 				ParameterInfo[] infos = ent.func.GetParameters();
@@ -295,10 +294,9 @@ public class TNObject : MonoBehaviour
 					for (int b = 0; b < parameters.Length; ++b)
 					{
 						if (b != 0) types += ", ";
-						types += parameters[b].ToString();
+						types += parameters[b].GetType().ToString();
 					}
-					Debug.LogError(ex.Message + " (" + ent.obj.GetType() + "." + ent.func.Name + ")\n" +
-						parameters.Length + " parameters: " + types);
+					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
 				}
 #else
 				ent.func.Invoke(ent.obj, parameters);
@@ -320,7 +318,7 @@ public class TNObject : MonoBehaviour
 		{
 			obj.Execute(funcID, parameters);
 		}
-		else
+		else if (TNManager.isConnected)
 		{
 			DelayedCall dc = new DelayedCall();
 			dc.objID = objID;
@@ -328,6 +326,10 @@ public class TNObject : MonoBehaviour
 			dc.parameters = parameters;
 			mDelayed.Add(dc);
 		}
+#if UNITY_EDITOR
+		else Debug.LogError("Trying to execute a function " + funcID + " on TNObject #" + objID +
+			" before it has been created.");
+#endif
 	}
 
 	/// <summary>
@@ -342,7 +344,7 @@ public class TNObject : MonoBehaviour
 		{
 			obj.Execute(funcName, parameters);
 		}
-		else
+		else if (TNManager.isConnected)
 		{
 			DelayedCall dc = new DelayedCall();
 			dc.objID = objID;
@@ -350,6 +352,10 @@ public class TNObject : MonoBehaviour
 			dc.parameters = parameters;
 			mDelayed.Add(dc);
 		}
+#if UNITY_EDITOR
+		else Debug.LogError("Trying to execute a function '" + funcName + "' on TNObject #" + objID +
+			" before it has been created.");
+#endif
 	}
 
 	/// <summary>
@@ -469,7 +475,9 @@ public class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (TNManager.isConnected)
+		bool executeLocally = (target == Target.Host && TNManager.isHosting);
+
+		if (!executeLocally && TNManager.isConnected)
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 			BinaryWriter writer = TNManager.BeginSend(packetID);
@@ -479,6 +487,11 @@ public class TNObject : MonoBehaviour
 			TNManager.EndSend(reliable);
 		}
 		else if (target == Target.All || target == Target.AllSaved)
+		{
+			executeLocally = true;
+		}
+		
+		if (executeLocally)
 		{
 			if (rfcID != 0)
 			{
