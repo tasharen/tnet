@@ -173,7 +173,7 @@ public class GameClient
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return !mTcp.isConnected || (mHost == mTcp.id) && (players.size > 0); } }
+	public bool isHosting { get { return !mTcp.isConnected || mHost == mTcp.id; } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
