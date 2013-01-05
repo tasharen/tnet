@@ -112,7 +112,13 @@ public class TNAutoSync : TNBehaviour
 			if (mList.size > 0)
 			{
 				// Only start the coroutine if we wanted to run periodic updates
-				if (updatesPerSecond > 0) StartCoroutine(PeriodicSync());
+				if (updatesPerSecond > 0 && TNManager.isConnected)
+				{
+					// If we're already in a channel, we can now sync this object
+					if (TNManager.isInChannel) mCanSync = true;
+					StartCoroutine(PeriodicSync());
+				}
+				else enabled = false;
 			}
 			else enabled = false;
 		}
@@ -126,10 +132,8 @@ public class TNAutoSync : TNBehaviour
 	{
 		for (; ; )
 		{
-			if (mCanSync && TNManager.isConnected && (!onlyHostCanSync || TNManager.isHosting))
-			{
-				Sync();
-			}
+			if (!TNManager.isConnected) break;
+			if (mCanSync && (!onlyHostCanSync || TNManager.isHosting)) Sync();
 
 			if (updatesPerSecond > 0)
 			{

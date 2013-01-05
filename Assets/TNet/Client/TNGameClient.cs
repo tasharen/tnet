@@ -433,6 +433,20 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Close the channel the player is in. New players will be prevented from joining.
+	/// Once a channel has been closed, it cannot be re-opened.
+	/// </summary>
+
+	public void CloseChannel ()
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestCloseChannel);
+			EndSend();
+		}
+	}
+
+	/// <summary>
 	/// Leave the current channel.
 	/// </summary>
 

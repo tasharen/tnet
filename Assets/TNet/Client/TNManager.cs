@@ -270,6 +270,13 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Close the channel the player is in. New players will be prevented from joining.
+	/// Once a channel has been closed, it cannot be re-opened.
+	/// </summary>
+
+	static public void CloseChannel () { if (mInstance != null) mInstance.mClient.CloseChannel(); }
+
+	/// <summary>
 	/// Leave the channel we're in.
 	/// </summary>
 
@@ -593,8 +600,6 @@ public class TNManager : MonoBehaviour
 			go = Instantiate(objects[index]) as GameObject;
 		}
 
-		mObjectOwner = playerID;
-		
 		if (go != null && objectID != 0)
 		{
 			TNObject obj = go.GetComponent<TNObject>();
