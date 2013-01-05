@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.1.0
+                  Version 1.2.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -81,3 +81,8 @@ http://www.tasharen.com/?page_id=4518
 - FIX: Fixed a bug with sending data directly to the specified player.
 - FIX: Resolving a player address will no longer result in an exception with an invalid address.
 - FIX: Changed the order of some notifications. A new host will always be chosen before "player left" notification, for example.
+
+1.2.0
+- NEW: Added TNManager.CloseChannel.
+- FIX: TNManager.isHosting was not correct if the host was alone.
+- FIX: TNAutoSync will now start properly on runtime-instantiated objects.

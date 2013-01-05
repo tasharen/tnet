@@ -182,7 +182,7 @@ public class GameClient
 	public bool isInChannel { get { return mIsInChannel || !mTcp.isConnected; } }
 
 	/// <summary>
-	/// Port used to listen for incoming UDP packets. Set via Start().
+	/// Port used to listen for incoming UDP packets. Set via StartUDP().
 	/// </summary>
 
 	public int listeningPort { get { return mUdp.listeningPort; } }

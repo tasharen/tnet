@@ -79,7 +79,7 @@ public class TNManager : MonoBehaviour
 	static public bool canUseUDP { get { return mInstance != null && mInstance.mClient.canUseUDP; } }
 
 	/// <summary>
-	/// Listening port for incoming UDP packets. Set via TNManager.Start().
+	/// Listening port for incoming UDP packets. Set via TNManager.StartUDP().
 	/// </summary>
 
 	static public int listeningPort { get { return mInstance != null ? mInstance.mClient.listeningPort : 0; } }
