@@ -147,12 +147,7 @@ public class TNManager : MonoBehaviour
 		get
 		{
 			if (isConnected) return mInstance.mClient.players;
-			
-			if (mPlayers == null)
-			{
-				mPlayers = new List<Player>();
-				mPlayers.Add(mPlayer);
-			}
+			if (mPlayers == null) mPlayers = new List<Player>();
 			return mPlayers;
 		}
 	}
