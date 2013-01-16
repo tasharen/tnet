@@ -248,7 +248,7 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, true, null);
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, true, 65535, null);
 	}
 
 	/// <summary>
@@ -257,11 +257,25 @@ public class TNManager : MonoBehaviour
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	static public void JoinChannel (int channelID, string levelName, bool persistent, string password)
+	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, persistent, password);
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+	}
+
+	/// <summary>
+	/// Join a random open game channel.
+	/// </summary>
+	/// <param name="levelName">Level that will be loaded first.</param>
+	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
+	/// <param name="password">Password for the channel. First player sets the password.</param>
+
+	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password)
+	{
+		if (mInstance != null) mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
 	}
 
 	/// <summary>
@@ -276,6 +290,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void LeaveChannel () { if (mInstance != null) mInstance.mClient.LeaveChannel(); }
+
+	/// <summary>
+	/// Change the maximum number of players that can join the channel the player is currently in.
+	/// </summary>
+
+	static public void SetPlayerLimit (int max) { if (mInstance != null) mInstance.mClient.SetPlayerLimit(max); }
 
 	/// <summary>
 	/// Load the specified level.

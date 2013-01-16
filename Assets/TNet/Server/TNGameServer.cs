@@ -934,7 +934,26 @@ public class GameServer
 				string pass = reader.ReadString();
 				string levelName = reader.ReadString();
 				bool persist = reader.ReadBoolean();
+				ushort playerLimit = reader.ReadUInt16();
 
+				// Join a random existing channel
+				if (channelID == -2)
+				{
+					channelID = -1;
+
+					for (int i = 0; i < mChannels.size; ++i)
+					{
+						TcpChannel ch = mChannels[i];
+						
+						if (ch.isOpen)
+						{
+							channelID = ch.id;
+							break;
+						}
+					}
+				}
+
+				// Join a random new channel
 				if (channelID == -1)
 				{
 					channelID = mRandom.Next(100000000);
@@ -951,7 +970,7 @@ public class GameServer
 					bool isNew;
 					TcpChannel channel = CreateChannel(channelID, out isNew);
 
-					if (channel == null)
+					if (channel == null || !channel.isOpen)
 					{
 						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
 						writer.Write(false);
@@ -963,6 +982,7 @@ public class GameServer
 						channel.password = pass;
 						channel.persistent = persist;
 						channel.level = levelName;
+						channel.playerLimit = playerLimit;
 
 						SendLeaveChannel(player, false);
 						SendJoinChannel(player, channel);
@@ -1292,6 +1312,11 @@ public class GameServer
 			{
 				player.channel.persistent = false;
 				player.channel.closed = true;
+				break;
+			}
+			case Packet.RequestSetPlayerLimit:
+			{
+				player.channel.playerLimit = reader.ReadUInt16();
 				break;
 			}
 			case Packet.RequestRemoveRFC:

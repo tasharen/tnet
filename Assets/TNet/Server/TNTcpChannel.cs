@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -36,6 +36,7 @@ public class TcpChannel
 	public string level = "";
 	public bool persistent = false;
 	public bool closed = false;
+	public ushort playerLimit = 0;
 	public List<TcpPlayer> players = new List<TcpPlayer>();
 	public List<RFC> rfcs = new List<RFC>();
 	public List<CreatedObject> created = new List<CreatedObject>();
@@ -48,6 +49,12 @@ public class TcpChannel
 	/// </summary>
 
 	public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0; } }
+
+	/// <summary>
+	/// Whether the channel can be joined.
+	/// </summary>
+
+	public bool isOpen { get { return !closed && players.size < playerLimit; } }
 
 	/// <summary>
 	/// Reset the channel to its initial state.
@@ -161,6 +168,7 @@ public class TcpChannel
 		writer.Write(objectCounter);
 		writer.Write(password);
 		writer.Write(persistent);
+		writer.Write(playerLimit);
 		writer.Write(rfcs.size);
 
 		for (int i = 0; i < rfcs.size; ++i)
@@ -217,6 +225,7 @@ public class TcpChannel
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();
+		playerLimit = reader.ReadUInt16();
 
 		int size = reader.ReadInt32();
 

@@ -55,9 +55,10 @@ public enum Packet
 
 	/// <summary>
 	/// Join the specified channel.
-	/// int32: Channel ID.
+	/// int32: Channel ID (-1 = new random, -2 = existing random)
 	/// string: Channel password.
 	/// bool: Whether the channel should be persistent (left open even when the last player leaves).
+	/// ushort: Player limit.
 	/// </summary>
 
 	RequestJoinChannel,
@@ -73,6 +74,13 @@ public enum Packet
 	/// </summary>
 
 	RequestCloseChannel,
+
+	/// <summary>
+	/// Change the number of players that can be in this channel at the same time.
+	/// ushort: Player limit.
+	/// </summary>
+
+	RequestSetPlayerLimit,
 
 	/// <summary>
 	/// Load the specified level.

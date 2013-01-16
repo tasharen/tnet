@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -417,9 +417,10 @@ public class GameClient
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	public void JoinChannel (int channelID, string levelName, bool persistent, string password)
+	public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
 		if (isConnected)
 		{
@@ -428,6 +429,7 @@ public class GameClient
 			writer.Write(string.IsNullOrEmpty(password) ? "" : password);
 			writer.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
 			writer.Write(persistent);
+			writer.Write((ushort)playerLimit);
 			EndSend();
 		}
 	}
@@ -455,6 +457,19 @@ public class GameClient
 		if (isConnected)
 		{
 			BeginSend(Packet.RequestLeaveChannel);
+			EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Change the maximum number of players that can join the channel the player is currently in.
+	/// </summary>
+
+	public void SetPlayerLimit (int max)
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestSetPlayerLimit).Write((ushort)max);
 			EndSend();
 		}
 	}
