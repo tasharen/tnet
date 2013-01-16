@@ -51,8 +51,6 @@
     <Compile Include="Assets\TNet\Server\TNGameServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNUdpPlayer.cs" />
-    <Compile Include="Assets\TNet\Server\TNUdpServer.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>

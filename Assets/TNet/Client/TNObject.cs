@@ -477,6 +477,20 @@ public class TNObject : MonoBehaviour
 #endif
 		bool executeLocally = (target == Target.Host && TNManager.isHosting);
 
+		if (!reliable)
+		{
+			if (target == Target.All)
+			{
+				target = Target.Others;
+				executeLocally = true;
+			}
+			else if (target == Target.AllSaved)
+			{
+				target = Target.OthersSaved;
+				executeLocally = true;
+			}
+		}
+
 		if (!executeLocally && TNManager.isConnected)
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);

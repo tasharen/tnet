@@ -1,4 +1,4 @@
-//------------------------------------------
+﻿//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -36,7 +36,7 @@ public class TcpChannel
 	public string level = "";
 	public bool persistent = false;
 	public bool closed = false;
-	public ushort playerLimit = 0;
+	public ushort playerLimit = 65535;
 	public List<TcpPlayer> players = new List<TcpPlayer>();
 	public List<RFC> rfcs = new List<RFC>();
 	public List<CreatedObject> created = new List<CreatedObject>();
