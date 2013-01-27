@@ -1208,8 +1208,9 @@ public class GameServer
 				{
 					uniqueID = --player.channel.objectCounter;
 
-					// 24 bit precision
-					if (uniqueID < 32767)
+					// 1-32767 is reserved for existing scene objects.
+					// 32768 - 16777215 is for dynamically created objects.
+					if (uniqueID < 32768)
 					{
 						player.channel.objectCounter = 0xFFFFFF;
 						uniqueID = 0xFFFFFF;

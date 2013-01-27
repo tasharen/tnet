@@ -58,7 +58,17 @@ public class TNObject : MonoBehaviour
 	/// The ID is supposed to be a 'uint', but Unity is not able to serialize 'uint' types. Sigh.
 	/// </summary>
 
-	public int id = 0;
+	[SerializeField] int id = 0;
+
+	/// <summary>
+	/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32768 to 2^24-1).
+	/// </summary>
+
+	public uint uid
+	{
+		get { return (uint)id; }
+		set { id = (int)(value & 0xFFFFFF); }
+	}
 
 	/// <summary>
 	/// When set to 'true', it will cause the list of remote function calls to be rebuilt next time they're needed.
@@ -102,20 +112,20 @@ public class TNObject : MonoBehaviour
 
 #if UNITY_EDITOR
 	// Last used ID
-	static int mLastID = 0;
+	static uint mLastID = 0;
 
 	/// <summary>
 	/// Get a new unique object identifier.
 	/// </summary>
 
-	static int GetUniqueID ()
+	static uint GetUniqueID ()
 	{
 		TNObject[] tns = (TNObject[])FindObjectsOfType(typeof(TNObject));
 
 		for (int i = 0, imax = tns.Length; i < imax; ++i)
 		{
 			TNObject ts = tns[i];
-			if (ts != null && ts.id > mLastID) mLastID = ts.id;
+			if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
 		}
 		return ++mLastID;
 	}
@@ -126,7 +136,8 @@ public class TNObject : MonoBehaviour
 
 	void UniqueCheck ()
 	{
-		TNObject tobj = Find((uint)id);
+		if (id < 0) id = -id;
+		TNObject tobj = Find(uid);
 
 		if (id == 0 || tobj != null)
 		{
@@ -144,7 +155,7 @@ public class TNObject : MonoBehaviour
 						"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
 				}
 			}
-			id = GetUniqueID();
+			uid = GetUniqueID();
 		}
 	}
 
@@ -186,7 +197,7 @@ public class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 			UniqueCheck();
 #endif
-			mDictionary[(uint)id] = this;
+			mDictionary[uid] = this;
 			mList.Add(this);
 			mIsRegistered = true;
 		}
@@ -200,7 +211,7 @@ public class TNObject : MonoBehaviour
 	{
 		if (mIsRegistered)
 		{
-			if (mDictionary != null) mDictionary.Remove((uint)id);
+			if (mDictionary != null) mDictionary.Remove(uid);
 			if (mList != null) mList.Remove(this);
 			mIsRegistered = false;
 		}
@@ -398,73 +409,92 @@ public class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Target target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, true, objs); }
+	public void Send (byte rfcID, Target target, params object[] objs) { SendRFC(uid, rfcID, null, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Target target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, true, objs); }
+	public void Send (string rfcName, Target target, params object[] objs) { SendRFC(uid, 0, rfcName, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Player target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, true, objs); }
+	public void Send (byte rfcID, Player target, params object[] objs) { SendRFC(uid, rfcID, null, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Player target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, true, objs); }
+	public void Send (string rfcName, Player target, params object[] objs) { SendRFC(uid, 0, rfcName, target, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (byte rfcID, Target target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, false, objs); }
+	public void SendQuickly (byte rfcID, Target target, params object[] objs) { SendRFC(uid, rfcID, null, target, false, objs); }
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, false, objs); }
+	public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC(uid, 0, rfcName, target, false, objs); }
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (byte rfcID, Player target, params object[] objs) { SendRFC((uint)id, rfcID, null, target, false, objs); }
+	public void SendQuickly (byte rfcID, Player target, params object[] objs) { SendRFC(uid, rfcID, null, target, false, objs); }
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC((uint)id, 0, rfcName, target, false, objs); }
+	public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(uid, 0, rfcName, target, false, objs); }
 
 	/// <summary>
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
 	/// </summary>
 
-	public void BroadcastToLAN (int port, byte rfcID, params object[] objs) { BroadcastToLAN(port, (uint)id, rfcID, null, objs); }
+	public void BroadcastToLAN (int port, byte rfcID, params object[] objs) { BroadcastToLAN(port, uid, rfcID, null, objs); }
 
 	/// <summary>
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
 	/// </summary>
 
-	public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, (uint)id, 0, rfcName, objs); }
+	public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, uid, 0, rfcName, objs); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (string rfcName) { RemoveSavedRFC((uint)id, 0, rfcName); }
+	public void Remove (string rfcName) { RemoveSavedRFC(uid, 0, rfcName); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (byte rfcID) { RemoveSavedRFC((uint)id, rfcID, null); }
+	public void Remove (byte rfcID) { RemoveSavedRFC(uid, rfcID, null); }
+
+	/// <summary>
+	/// Convert object and RFC IDs into a single UINT.
+	/// </summary>
+
+	static uint GetUID (uint objID, byte rfcID)
+	{
+		return (objID << 8) | rfcID;
+	}
+
+	/// <summary>
+	/// Decode object ID and RFC IDs encoded in a single UINT.
+	/// </summary>
+
+	static public void DecodeUID (uint uid, out uint objID, out byte rfcID)
+	{
+		rfcID = (byte)(uid & 0xFF);
+		objID = (uid >> 8);
+	}
 
 	/// <summary>
 	/// Send a new RFC call to the specified target.
@@ -495,7 +525,7 @@ public class TNObject : MonoBehaviour
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 			BinaryWriter writer = TNManager.BeginSend(packetID);
-			writer.Write((objID << 8) | rfcID);
+			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
 			TNManager.EndSend(reliable);
@@ -528,7 +558,7 @@ public class TNObject : MonoBehaviour
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
 			writer.Write(target.id);
-			writer.Write((objID << 8) | rfcID);
+			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			Tools.Write(writer, objs);
 			TNManager.EndSend(reliable);
@@ -542,7 +572,7 @@ public class TNObject : MonoBehaviour
 	static void BroadcastToLAN (int port, uint objID, byte rfcID, string rfcName, params object[] objs)
 	{
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
-		writer.Write((objID << 8) | rfcID);
+		writer.Write(GetUID(objID, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);
 		Tools.Write(writer, objs);
 		TNManager.EndSend(port);
@@ -557,7 +587,7 @@ public class TNObject : MonoBehaviour
 		if (TNManager.isConnected)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
-			writer.Write((objID << 24) | rfcID);
+			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(funcName);
 			TNManager.EndSend();
 		}

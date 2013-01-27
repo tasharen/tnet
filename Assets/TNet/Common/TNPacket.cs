@@ -258,7 +258,7 @@ public enum Packet
 	/// Create a new persistent entry.
 	/// int: ID of the player that requested this object to be created.
 	/// ushort: Index of the object being created (within a static list of prefabs on the client).
-	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise.
+	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise. 0-16777215 range.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
@@ -298,7 +298,7 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -306,7 +306,7 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to everyone in the room and everyone who joins later.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -314,7 +314,7 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -322,7 +322,7 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -330,7 +330,7 @@ public enum Packet
 
 	/// <summary>
 	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -339,7 +339,7 @@ public enum Packet
 	/// <summary>
 	/// Echo the packet to the specified player.
 	/// int32: Player ID
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -348,7 +348,7 @@ public enum Packet
 	/// <summary>
 	/// Echo the packet to the specified player and everyone who joins later.
 	/// int32: Player ID
-	/// int32: Object ID (24 bits), RFC ID (8 bits).
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 

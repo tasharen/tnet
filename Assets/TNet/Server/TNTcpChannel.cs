@@ -79,7 +79,7 @@ public class TcpChannel
 	{
 		if (p == host) host = null;
 
-		if (players.Remove(p) && !persistent && players.size == 0)
+		if (players.Remove(p) && (!persistent || playerLimit < 1) && players.size == 0)
 		{
 			closed = true;
 

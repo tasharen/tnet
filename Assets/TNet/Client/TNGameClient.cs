@@ -698,12 +698,11 @@ public class GameClient
 			{
 				if (onCreate != null)
 				{
-					int id = reader.ReadInt32();
+					int playerID = reader.ReadInt32();
 					short index = reader.ReadInt16();
 					uint objID = reader.ReadUInt32();
-					onCreate(id, index, objID, reader);
+					onCreate(playerID, index, objID, reader);
 				}
-				else UnityEngine.Debug.Log("!?!");
 				break;
 			}
 			case Packet.ResponseDestroy:

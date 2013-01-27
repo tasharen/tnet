@@ -460,7 +460,7 @@ public class TNManager : MonoBehaviour
 			if (obj != null)
 			{
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestDestroy);
-				writer.Write(obj.id);
+				writer.Write(obj.uid);
 				mInstance.mClient.EndSend();
 				return;
 			}
@@ -621,7 +621,7 @@ public class TNManager : MonoBehaviour
 
 			if (obj != null)
 			{
-				obj.id = (int)objectID;
+				obj.uid = objectID;
 				obj.Register();
 			}
 			else
@@ -647,9 +647,9 @@ public class TNManager : MonoBehaviour
 
 	void OnForwardedPacket (BinaryReader reader)
 	{
-		uint val = reader.ReadUInt32();
-		uint objID = (val >> 8);
-		byte funcID = (byte)(val & 0xFF);
+		uint objID;
+		byte funcID;
+		TNObject.DecodeUID(reader.ReadUInt32(), out objID, out funcID);
 
 		if (funcID == 0)
 		{
