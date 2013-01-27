@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
-      Copyright © 2012 Tasharen Entertainment
-                  Version 1.3.0
+      Copyright Â© 2012 Tasharen Entertainment
+                  Version 1.3.1
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.3.1
+- FIX: Unified usage of Object IDs -- they are now all UINTs.
+- FIX: Minor tweaks to how things work.
 
 1.3.0
 - NEW: Added a way to join a random existing channel.
