@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.3.1
+                  Version 1.3.2
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.3.2:
+- NEW: Server list now contains the number of players on the server.
+- FIX: Some minor tweaks.
 
 1.3.1
 - FIX: Unified usage of Object IDs -- they are now all UINTs.
