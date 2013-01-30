@@ -15,7 +15,7 @@ using TNet;
 
 [ExecuteInEditMode]
 [AddComponentMenu("TNet/Network Object")]
-public class TNObject : MonoBehaviour
+public sealed class TNObject : MonoBehaviour
 {
 	/// <summary>
 	/// Remote function calls that can't be executed immediately get stored,

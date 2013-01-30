@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -18,6 +18,7 @@ public class ServerList
 	public struct Entry
 	{
 		public string name;
+		public int playerCount;
 		public IPEndPoint ip;
 		public long expirationTime;
 	}
@@ -33,7 +34,7 @@ public class ServerList
 	/// Add a new entry to the list.
 	/// </summary>
 
-	public void Add (string name, IPEndPoint ip, long time)
+	public void Add (string name, int playerCount, IPEndPoint ip, long time)
 	{
 		for (int i = 0; i < list.size; ++i)
 		{
@@ -42,6 +43,7 @@ public class ServerList
 			if (ent.ip.Equals(ip))
 			{
 				ent.name = name;
+				ent.playerCount = playerCount;
 				ent.expirationTime = time + 5000;
 				list[i] = ent;
 				return;
@@ -50,6 +52,7 @@ public class ServerList
 
 		Entry e = new Entry();
 		e.name = name;
+		e.playerCount = playerCount;
 		e.ip = ip;
 		e.expirationTime = time + 5000;
 		lock (list) list.Add(e);
@@ -114,6 +117,7 @@ public class ServerList
 		{
 			writer.Write(true);
 			writer.Write(localServer.name);
+			writer.Write(localServer.playerCount);
 			writer.Write((ushort)localServer.tcpPort);
 		}
 		else writer.Write(false);
@@ -127,6 +131,7 @@ public class ServerList
 				Entry ent = list[i];
 
 				writer.Write(ent.name);
+				writer.Write(ent.playerCount);
 				byte[] bytes = ent.ip.Address.GetAddressBytes();
 				writer.Write((byte)bytes.Length);
 				writer.Write(bytes);
@@ -146,8 +151,9 @@ public class ServerList
 			if (reader.ReadBoolean())
 			{
 				string name = reader.ReadString();
+				int playerCount = reader.ReadInt32();
 				IPEndPoint ip = new IPEndPoint(source.Address, reader.ReadUInt16());
-				Add(name, ip, time);
+				Add(name, playerCount, ip, time);
 			}
 
 			int count = reader.ReadUInt16();
@@ -155,9 +161,10 @@ public class ServerList
 			for (int i = 0; i < count; ++i)
 			{
 				string name = reader.ReadString();
+				int playerCount = reader.ReadInt32();
 				byte[] bytes = reader.ReadBytes(reader.ReadByte());
 				IPEndPoint ip = new IPEndPoint(new IPAddress(bytes), reader.ReadUInt16());
-				Add(name, ip, time);
+				Add(name, playerCount, ip, time);
 			}
 		}
 	}

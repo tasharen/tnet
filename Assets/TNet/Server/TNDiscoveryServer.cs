@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -144,7 +144,8 @@ public class DiscoveryServer
 			{
 				string name = reader.ReadString();
 				ushort port = reader.ReadUInt16();
-				mList.Add(name, new IPEndPoint(ip.Address, port), mTime);
+				ushort count = reader.ReadUInt16();
+				mList.Add(name, count, new IPEndPoint(ip.Address, port), mTime);
 				return true;
 			}
 			case Packet.RequestRemoveServer:

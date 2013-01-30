@@ -328,7 +328,15 @@ public class TcpProtocol : Player
 			tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
 
 			// Queue up the read operation
-			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			try
+			{
+				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			}
+			catch (System.Exception ex)
+			{
+				Error(ex.Message);
+				Disconnect();
+			}
 		}
 	}
 
@@ -365,16 +373,30 @@ public class TcpProtocol : Player
 		}
 		catch (System.Exception ex)
 		{
-			Close(true);
 			Error(ex.Message);
+			Close(false);
 			return;
 		}
 		timestamp = DateTime.Now.Ticks / 10000;
 
-		if (bytes > 0 && ProcessBuffer(bytes))
+		if (bytes == 0)
 		{
-			// Queue up the next read operation
-			mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			Close(false);
+		}
+		else if (ProcessBuffer(bytes))
+		{
+			if (stage == Stage.NotConnected) return;
+
+			try
+			{
+				// Queue up the next read operation
+				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+			}
+			catch (System.Exception ex)
+			{
+				Error(ex.Message);
+				Close(false);
+			}
 		}
 		else Close(true);
 	}
