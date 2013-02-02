@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.3.2
+                  Version 1.4.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,9 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.4.0:
+- NEW: Added Universal Plug & Play functionality to easily open ports on the gateway/router.
 
 1.3.2:
 - NEW: Server list now contains the number of players on the server.

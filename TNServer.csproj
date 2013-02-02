@@ -47,6 +47,7 @@
     <Compile Include="Assets\TNet\Common\TNServerList.cs" />
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
+    <Compile Include="Assets\TNet\Common\TNUPnP.cs" />
     <Compile Include="Assets\TNet\Server\TNDiscoveryServer.cs" />
     <Compile Include="Assets\TNet\Server\TNGameServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
@@ -55,5 +56,6 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.XML" />
   </ItemGroup>
 </Project>

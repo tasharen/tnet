@@ -36,7 +36,7 @@ public class GameClient
 	/// <summary>
 	/// Custom packet listeners. You can set these to handle custom packets.
 	/// </summary>
- 
+
 	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
 
 	/// <summary>

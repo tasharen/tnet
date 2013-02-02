@@ -64,7 +64,7 @@ public class ClientMain
 		client.onDestroy = OnDestroyObject;
 		client.onForwardedPacket = OnForwardedPacket;
 		//client.Start(5129);
-		client.Connect("127.0.0.1", 5137);
+		client.Connect("127.0.0.1", 5127);
 
 		Thread thread = new Thread(ThreadFunction);
 		thread.Start();
@@ -89,7 +89,7 @@ public class ClientMain
 			}
 			else if (command == "j")
 			{
-				client.JoinChannel(123, "Some Level", true, null);
+				client.JoinChannel(123, "Some Level", true, 10, null);
 			}
 			else if (command == "l")
 			{

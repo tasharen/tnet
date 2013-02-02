@@ -65,7 +65,6 @@ public class GameServer
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
-	string mLocalAddress;
 	int mListenerPort = 0;
 	long mTime = 0;
 	UdpProtocol mUdp = new UdpProtocol();
@@ -111,23 +110,6 @@ public class GameServer
 	/// </summary>
 
 	public int playerCount { get { return isActive ? mPlayers.size : 0; } }
-
-	/// <summary>
-	/// Server's local address on the network. For example: 192.168.1.10
-	/// </summary>
-
-	public string localAddress
-	{
-		get
-		{
-			if (mLocalAddress == null)
-			{
-				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
-				mLocalAddress = ips[0].ToString() + ":" + mListenerPort;
-			}
-			return mLocalAddress;
-		}
-	}
 
 	/// <summary>
 	/// Start listening to incoming connections on the specified port.
