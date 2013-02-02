@@ -47,20 +47,22 @@ public class ServerMain
 			{
 				Console.WriteLine("No arguments specified, assuming default values.");
 				Console.WriteLine("In the future you can specify your own ports like so:");
-				Console.WriteLine("  TNServer.exe 5127 5128 5129 <-- TCP, UDP, Discovery");
-				Console.WriteLine("  TNServer.exe 5127 5128      <-- TCP and UDP (default)");
-				Console.WriteLine("  TNServer.exe 5127           <-- TCP only");
-				Console.WriteLine("  TNServer.exe 0 0 5129       <-- Discovery only\n");
-				args = new string[] { "5127", "5128" };
+				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Discovery");
+				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128      <-- TCP and UDP (default)");
+				Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
+				Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Discovery only\n");
+				args = new string[] { "TNet Server", "5127", "5128" };
 			}
 
 			int tcpPort = 0;
 			int udpPort = 0;
 			int disPort = 0;
+			string name = "TNet Server";
 
-			if (args.Length > 0) int.TryParse(args[0], out tcpPort);
-			if (args.Length > 1) int.TryParse(args[1], out udpPort);
-			if (args.Length > 2) int.TryParse(args[2], out disPort);
+			if (args.Length > 0) name = args[0];
+			if (args.Length > 1) int.TryParse(args[1], out tcpPort);
+			if (args.Length > 2) int.TryParse(args[2], out udpPort);
+			if (args.Length > 3) int.TryParse(args[3], out disPort);
 
 			UPnP up = new UPnP();
 
@@ -80,7 +82,7 @@ public class ServerMain
 			if (tcpPort > 0)
 			{
 				server = new GameServer();
-				server.name = "Stand-alone Server";
+				server.name = name;
 				server.Start(tcpPort, udpPort);
 				server.LoadFrom("server.dat");
 			}
