@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -11,7 +11,7 @@ using System.Threading;
 using System.Text;
 
 // Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
-#if !UNITY_3 && !UNITY_4
+#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_4
 using System.Net.NetworkInformation;
 #endif
 
@@ -79,6 +79,12 @@ public class UPnP
 	/// </summary>
 
 	public IPAddress localAddress { get { return mLocalAddress; } }
+
+	/// <summary>
+	/// Gateway's IP address, such as 192.168.1.1
+	/// </summary>
+
+	public IPAddress gatewayAddress { get { return mGatewayAddress; } }
 
 	/// <summary>
 	/// External IP address, such as 50.128.231.100.
@@ -157,21 +163,9 @@ public class UPnP
 	{
 		Thread th = (Thread)obj;
 		mStatus = Status.Searching;
-		
-#if UNITY_3 || UNITY_4
-		// Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
-		string local = localAddress.ToString();
-		string gateway = local.Substring(0, local.LastIndexOf('.')) + ".1";
-		IPAddress address = IPAddress.Parse(gateway);
 
-		if (IsValidAddress(address) && ThreadConnect(address))
-		{
-			mStatus = Status.Success;
-			mGatewayAddress = address;
-			lock (mThreads) mThreads.Remove(th);
-			return;
-		}
-#else
+		// Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
+#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_4
 		NetworkInterface[] networks = NetworkInterface.GetAllNetworkInterfaces();
 
 		for (int i = 0; i < networks.Length; ++i)
@@ -191,6 +185,18 @@ public class UPnP
 					return;
 				}
 			}
+		}
+#else
+		string local = localAddress.ToString();
+		string gateway = local.Substring(0, local.LastIndexOf('.')) + ".1";
+		IPAddress address = IPAddress.Parse(gateway);
+
+		if (IsValidAddress(address) && ThreadConnect(address))
+		{
+			mStatus = Status.Success;
+			mGatewayAddress = address;
+			lock (mThreads) mThreads.Remove(th);
+			return;
 		}
 #endif
 		mStatus = Status.Failure;
@@ -220,9 +226,9 @@ public class UPnP
 		// Receive a response
 		EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
 		byte[] data = new byte[2048];
-		int recv = socket.ReceiveFrom(data, ref sourceAddress);
+		int count = socket.ReceiveFrom(data, ref sourceAddress);
 		socket.Close();
-		string response = Encoding.ASCII.GetString(data);
+		string response = Encoding.ASCII.GetString(data, 0, count);
 
 		// Find the "Location" header
 		int index = response.IndexOf("LOCATION:");

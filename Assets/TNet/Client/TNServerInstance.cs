@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright ï¿½ 2012 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -108,12 +108,6 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public int playerCount { get { return (mInstance != null) ? mInstance.mGame.playerCount : 0; } }
-
-	/// <summary>
-	/// Server's local address on the network. For example: 192.168.1.10
-	/// </summary>
-
-	static public string localAddress { get { return (mInstance != null) ? mInstance.mGame.localAddress : "0.0.0.0:0"; } }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port.
