@@ -24,7 +24,7 @@ namespace TNet
 /// 
 /// Example usage:
 /// UPnP p = new UPnP();
-/// p.Open(5127, true);
+/// p.OpenTCP(5127);
 /// 
 /// Don't worry about closing ports. This class will do it for you when its instance gets destroyed.
 /// </summary>
