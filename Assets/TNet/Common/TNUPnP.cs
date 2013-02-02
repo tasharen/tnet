@@ -1,4 +1,4 @@
-//------------------------------------------
+﻿//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -258,7 +258,7 @@ public class UPnP
 
 	bool GetExternalAddress ()
 	{
-		string response = SendRequest("GetExternalIPAddress", null);
+		string response = SendRequest("GetExternalIPAddress", null, 5000);
 		if (string.IsNullOrEmpty(response)) return false;
 
 		string tag = "<NewExternalIPAddress>";
@@ -348,7 +348,7 @@ public class UPnP
 	/// Send a SOAP request to the gateway.
 	/// </summary>
 
-	string SendRequest (string action, string content)
+	string SendRequest (string action, string content, int timeout)
 	{
 		string request = "<?xml version=\"1.0\"?>\n" +
 			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=" +
@@ -364,7 +364,7 @@ public class UPnP
 		try
 		{
 			WebRequest web = HttpWebRequest.Create(mControlURL);
-			web.Timeout = 5000;
+			web.Timeout = timeout;
 			web.Method = "POST";
 			web.Headers.Add("SOAPACTION", "\"" + mControlURL + "#" + action + "\"");
 			web.ContentType = "text/xml";
@@ -507,7 +507,7 @@ public class UPnP
 	{
 		while (mStatus == Status.Searching) Thread.Sleep(1);
 		ExtraParams xp = (ExtraParams)obj;
-		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request) : null;
+		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000) : null;
 		if (xp.callback != null)
 			xp.callback(this, xp.port, xp.protocol, !string.IsNullOrEmpty(response));
 		if (xp.th != null) lock (mThreads) mThreads.Remove(xp.th);

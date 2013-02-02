@@ -117,7 +117,7 @@ public class ServerList
 		{
 			writer.Write(true);
 			writer.Write(localServer.name);
-			writer.Write(localServer.playerCount);
+			writer.Write((ushort)localServer.playerCount);
 			writer.Write((ushort)localServer.tcpPort);
 		}
 		else writer.Write(false);
@@ -131,7 +131,7 @@ public class ServerList
 				Entry ent = list[i];
 
 				writer.Write(ent.name);
-				writer.Write(ent.playerCount);
+				writer.Write((ushort)ent.playerCount);
 				byte[] bytes = ent.ip.Address.GetAddressBytes();
 				writer.Write((byte)bytes.Length);
 				writer.Write(bytes);
@@ -151,7 +151,7 @@ public class ServerList
 			if (reader.ReadBoolean())
 			{
 				string name = reader.ReadString();
-				int playerCount = reader.ReadInt32();
+				int playerCount = reader.ReadUInt16();
 				IPEndPoint ip = new IPEndPoint(source.Address, reader.ReadUInt16());
 				Add(name, playerCount, ip, time);
 			}
@@ -161,7 +161,7 @@ public class ServerList
 			for (int i = 0; i < count; ++i)
 			{
 				string name = reader.ReadString();
-				int playerCount = reader.ReadInt32();
+				int playerCount = reader.ReadUInt16();
 				byte[] bytes = reader.ReadBytes(reader.ReadByte());
 				IPEndPoint ip = new IPEndPoint(new IPAddress(bytes), reader.ReadUInt16());
 				Add(name, playerCount, ip, time);

@@ -72,6 +72,7 @@ http://www.tasharen.com/?page_id=4518
 
 1.4.0:
 - NEW: Added Universal Plug & Play functionality to easily open ports on the gateway/router.
+- NEW: TNet Server app now supports port parameters and can also start the discovery server.
 
 1.3.2:
 - NEW: Server list now contains the number of players on the server.
