@@ -85,7 +85,7 @@ public class ServerMain
 			}
 
 			GameServer server = null;
-			DiscoveryServer discovery = null;
+			TcpDiscoveryServer discovery = null;
 
 			if (tcpPort > 0)
 			{
@@ -105,9 +105,8 @@ public class ServerMain
 			if (disPort > 0)
 			{
 				// Server discovery port should match the discovery port on the client (TNDiscoveryClient).
-				discovery = new DiscoveryServer();
+				discovery = new TcpDiscoveryServer();
 				discovery.localServer = server;
-				discovery.protocol = DiscoveryServer.Protocol.Tcp;
 				discovery.Start(disPort);
 			}
 

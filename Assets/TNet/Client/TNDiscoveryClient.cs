@@ -11,7 +11,7 @@ using UnityEngine;
 using TNet;
 
 /// <summary>
-/// Server list is an optional client component that listens for incoming server list packets.
+/// Server Discovery Client can query a remote server for a list of active game servers.
 /// You can use it as-is in your game. Just specify where your discovery server is located,
 /// and you will be able to use TNDiscoveryClient.knownServers.
 /// </summary>
@@ -61,7 +61,6 @@ public class TNDiscoveryClient : MonoBehaviour
 	Buffer mRequest;
 	IPEndPoint mTarget;
 	long mNextSend = 0;
-	bool mWasConnected = false;
 
 	void Start ()
 	{
@@ -77,7 +76,7 @@ public class TNDiscoveryClient : MonoBehaviour
 
 			// Server list request -- we'll be using it a lot, so just create it once
 			mRequest = Buffer.Create();
-			mRequest.BeginTcpPacket(Packet.RequestListServers).Write(1);
+			mRequest.BeginTcpPacket(Packet.RequestServerList).Write(1);
 			mRequest.EndTcpPacket();
 
 			if (protocol == Protocol.Udp)
@@ -133,8 +132,9 @@ public class TNDiscoveryClient : MonoBehaviour
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
 
-					if (response == Packet.ResponseListServers)
+					if (response == Packet.ResponseServerList)
 					{
+						mNextSend = time + 3000;
 						knownServers.ReadFrom(reader, ip, time);
 						changed = true;
 					}
@@ -154,43 +154,43 @@ public class TNDiscoveryClient : MonoBehaviour
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
 
-					if (response == Packet.ResponseListServers)
+					// The connection must be verified before it's usable
+					if (response == Packet.ResponseID)
+					{
+						if (mTcp.stage == TcpProtocol.Stage.Verifying)
+						{
+							int serverVersion = reader.ReadInt32();
+
+							if (!mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
+							{
+								Debug.LogError("Version mismatch. Server is running version " +
+									serverVersion + ", while you have version " + Player.version);
+							}
+						}
+					}
+					else if (response == Packet.ResponseServerList)
 					{
 						knownServers.ReadFrom(reader, mTcp.tcpEndPoint, time);
 						changed = true;
 					}
 				}
-				catch (System.Exception) { mTcp.Close(false); }
+				catch (System.Exception ex)
+				{
+					Debug.LogWarning(ex.Message);
+					mTcp.Close(false);
+				}
 			}
+			buffer.Recycle();
 		}
 
 		// Trigger the listener callback
 		if (changed && onChange != null) onChange();
 
 		// Send out the update request
-		if (mNextSend < time)
+		if (mNextSend < time && mUdp != null)
 		{
-			if (mUdp != null)
-			{
-				Debug.Log("Sending");
-				mNextSend = time + 3000;
-				mUdp.Send(mRequest, mTarget);
-			}
-			else if (mTcp != null)
-			{
-				if (mTcp.isConnected)
-				{
-					Debug.Log("Sending");
-					mWasConnected = true;
-					mNextSend = time + 4000;
-					mTcp.SendTcpPacket(mRequest);
-				}
-				else if (mWasConnected)
-				{
-					// Automatically try to reconnect
-					mTcp.Connect(mTarget);
-				}
-			}
+			mNextSend = time + 3000;
+			mUdp.Send(mRequest, mTarget);
 		}
 	}
 }

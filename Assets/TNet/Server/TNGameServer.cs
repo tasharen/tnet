@@ -33,24 +33,6 @@ public class GameServer
 	public string name = "Game Server";
 
 	/// <summary>
-	/// Discovery server's address.
-	/// </summary>
-
-	public string discoveryAddress;
-
-	/// <summary>
-	/// Discovery server's port.
-	/// </summary>
-
-	public int discoveryPort = 5129;
-
-	/// <summary>
-	/// Protocol used by the discovery server.
-	/// </summary>
-
-	public DiscoveryServer.Protocol discoveryProtocol = DiscoveryServer.Protocol.Udp;
-
-	/// <summary>
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 
@@ -145,11 +127,6 @@ public class GameServer
 	public bool Start (int tcpPort, int udpPort)
 	{
 		Stop();
-
-		if (!string.IsNullOrEmpty(discoveryAddress))
-		{
-			mDiscovery = Player.ResolveEndPoint(discoveryAddress, discoveryPort);
-		}
 
 		try
 		{
@@ -313,7 +290,7 @@ public class GameServer
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
 					// Up to 10 seconds can go without a single packet before the player is removed
-					if (player.timestamp + 10000 < mTime)
+					if (player.lastReceivedTime + 10000 < mTime)
 					{
 #if STANDALONE
 						Console.WriteLine(player.address + " has timed out");
@@ -322,7 +299,7 @@ public class GameServer
 						continue;
 					}
 				}
-				else if (player.timestamp + 2000 < mTime)
+				else if (player.lastReceivedTime + 2000 < mTime)
 				{
 #if STANDALONE
 					Console.WriteLine(player.address + " has timed out");

@@ -41,7 +41,13 @@ public class TcpProtocol : Player
 	/// Timestamp of when we received the last message.
 	/// </summary>
 
-	public long timestamp = 0;
+	public long lastReceivedTime = 0;
+
+	/// <summary>
+	/// Custom timestamp you can set to keep track of when was the last time you've done something.
+	/// </summary>
+
+	public long customTimestamp = 0;
 
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();
@@ -322,7 +328,7 @@ public class TcpProtocol : Player
 			stage = Stage.Verifying;
 
 			// Save the timestamp
-			timestamp = DateTime.Now.Ticks / 10000;
+			lastReceivedTime = DateTime.Now.Ticks / 10000;
 
 			// Save the address
 			tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
@@ -377,7 +383,7 @@ public class TcpProtocol : Player
 			Close(false);
 			return;
 		}
-		timestamp = DateTime.Now.Ticks / 10000;
+		lastReceivedTime = DateTime.Now.Ticks / 10000;
 
 		if (bytes == 0)
 		{

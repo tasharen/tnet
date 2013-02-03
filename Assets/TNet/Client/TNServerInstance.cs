@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright � 2012 Tasharen Entertainment
+// Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -18,7 +18,6 @@ public class TNServerInstance : MonoBehaviour
 	static TNServerInstance mInstance;
 
 	GameServer mGame = new GameServer();
-	DiscoveryServer mDiscovery;
 
 	/// <summary>
 	/// Instance access is internal only as all the functions are static for convenience purposes.
@@ -57,51 +56,10 @@ public class TNServerInstance : MonoBehaviour
 	static public bool isListening { get { return (mInstance != null) && mInstance.mGame.isListening; } }
 
 	/// <summary>
-	/// Whether the discovery server is active.
-	/// </summary>
-
-	static public bool isDiscoverable { get { return discoveryPort != 0; } }
-
-	/// <summary>
 	/// Port used to listen for incoming TCP connections.
 	/// </summary>
 
 	static public int listeningPort { get { return (mInstance != null) ? mInstance.mGame.tcpPort : 0; } }
-
-	/// <summary>
-	/// Port used to listen for server discovery.
-	/// </summary>
-
-	static public int discoveryPort
-	{
-		get
-		{
-			return (mInstance != null && mInstance.mDiscovery != null) ?
-				mInstance.mDiscovery.port : 0;
-		}
-		set
-		{
-			if (mInstance != null)
-			{
-				if (mInstance.mDiscovery == null)
-				{
-					if (value == 0) return;
-
-					// Create a new discovery server
-					mInstance.mDiscovery = new DiscoveryServer();
-					mInstance.mDiscovery.localServer = mInstance.mGame;
-				}
-
-				if (value != 0)
-				{
-					// Start the discovery server on the specified port,
-					// automatically broadcasting server changes to the entire LAN.
-					mInstance.mDiscovery.Start(value, mInstance.mGame.udpPort);
-				}
-				else mInstance.mDiscovery.Stop();
-			}
-		}
-	}
 
 	/// <summary>
 	/// How many players are currently connected to the server.
@@ -144,7 +102,6 @@ public class TNServerInstance : MonoBehaviour
 		if (mInstance != null)
 		{
 			mInstance.mGame.Stop();
-			if (mInstance.mDiscovery != null) mInstance.mDiscovery.Stop();
 		}
 	}
 
@@ -170,7 +127,6 @@ public class TNServerInstance : MonoBehaviour
 		if (mInstance != null)
 		{
 			mInstance.mGame.MakePrivate();
-			if (mInstance.mDiscovery != null) mInstance.mDiscovery.Stop();
 		}
 	}
 
@@ -181,6 +137,5 @@ public class TNServerInstance : MonoBehaviour
 	void OnDestroy ()
 	{
 		mGame.Stop();
-		if (mDiscovery != null) mDiscovery.Stop();
 	}
 }
