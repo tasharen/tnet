@@ -74,6 +74,10 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added Universal Plug & Play functionality to easily open ports on the gateway/router.
 - NEW: TNet Server app now supports port parameters and can also start the discovery server.
 - NEW: Added TNObject.isMine flag that will only be 'true' on the client that instantiated it (or the host if that player leaves).
+- NEW: Game server can now automatically register itself with a remote discovery server.
+- FIX: TNet will no longer silently stop using UDP on the web player. UDP in the web player is simply no longer supported.
+- MOD: Moved localAddress and IsLocalAddress() functions into TNPlayer and made them static.
+- MOD: Redesigned the discovery client.
 
 1.3.2:
 - NEW: Server list now contains the number of players on the server.

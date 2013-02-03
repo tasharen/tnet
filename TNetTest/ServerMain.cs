@@ -83,6 +83,8 @@ public class ServerMain
 			{
 				server = new GameServer();
 				server.name = name;
+				//server.discoveryAddress = "127.0.0.1";
+				//server.discoveryPort = 5129;
 				server.Start(tcpPort, udpPort);
 				server.LoadFrom("server.dat");
 			}

@@ -3,11 +3,12 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using UnityEngine;
-using TNet;
 using System.Net;
 using System.IO;
 using System.Collections;
+using System.Threading;
+using UnityEngine;
+using TNet;
 
 /// <summary>
 /// Server list is an optional client component that listens for incoming server list packets.
@@ -15,124 +16,99 @@ using System.Collections;
 /// and you will be able to use TNDiscoveryClient.knownServers.
 /// </summary>
 
-[RequireComponent(typeof(TNManager))]
-[AddComponentMenu("TNet/Discovery Client")]
 public class TNDiscoveryClient : MonoBehaviour
 {
-	static ServerList mList = new ServerList();
+	public delegate void OnListChanged ();
 
 	/// <summary>
 	/// List of known servers.
 	/// </summary>
 
-	static public List<ServerList.Entry> knownServers { get { return mList.list; } }
+	static public ServerList knownServers = new ServerList();
 
 	/// <summary>
-	/// Discovery server address if any. If none is specified, network broadcasts are used instead.
+	/// Callback that will be triggered every time the server list changes.
 	/// </summary>
 
-	public string discoveryAddress;
+	static public OnListChanged onChange;
 
 	/// <summary>
-	/// Port for the discovery server.
+	/// Public address for the discovery client server's location.
 	/// </summary>
 
-	public int discoveryServerPort = 5129;
-
-	bool mHandling = false;
-	IPEndPoint mIp;
-	float mNextRequest = 0f;
+	public string address;
 
 	/// <summary>
-	/// We want to handle the server list response packet.
+	/// Discovery server's port.
 	/// </summary>
+
+	public int port = 5129;
+
+	UdpProtocol mUdp = new UdpProtocol();
+	Buffer mRequest;
+	IPEndPoint mTarget;
+	long mNextSend = 0;
 
 	void Start ()
 	{
-		mHandling = true;
-		TNManager.SetPacketHandler(Packet.ResponseListServers, OnServerList);
-		StartCoroutine(Cleanup());
-		StartCoroutine(PeriodicRequest());
-	}
-
-	/// <summary>
-	/// Custom packet handler for the Server List Response.
-	/// </summary>
-
-	void OnServerList (Packet response, BinaryReader reader, IPEndPoint source)
-	{
-		mNextRequest = Time.time + 3f;
-		mList.ReadFrom(reader, source, System.DateTime.Now.Ticks / 10000);
-	}
-
-	/// <summary>
-	/// Periodically clean up the list of known servers.
-	/// </summary>
-
-	IEnumerator Cleanup()
-	{
-		for (; ; )
+		if (!string.IsNullOrEmpty(address))
 		{
-			mList.Cleanup(System.DateTime.Now.Ticks / 10000);
-			yield return new WaitForSeconds(0.5f);
+			mTarget = Player.ResolveEndPoint(address, port);
+			mRequest = Buffer.Create();
+			mRequest.BeginTcpPacket(Packet.RequestListServers).Write(1);
+			mRequest.EndTcpPacket();
+			mUdp.Start(0);
 		}
 	}
-
-	/// <summary>
-	/// Periodically request a new list of servers from the discovery server.
-	/// </summary>
-
-	IEnumerator PeriodicRequest ()
-	{
-		for (; ; )
-		{
-			if (mNextRequest < Time.time && !RequestUpdate()) break;
-			yield return new WaitForSeconds(1f);
-		}
-	}
-
-	/// <summary>
-	/// Update the server list by requesting it from the server.
-	/// </summary>
-
-	public bool RequestUpdate ()
-	{
-		BinaryWriter writer = TNManager.BeginSend(Packet.RequestListServers);
-		writer.Write(GameServer.gameID);
-
-		if (string.IsNullOrEmpty(discoveryAddress))
-		{
-			TNManager.EndSend(discoveryServerPort);
-		}
-		else
-		{
-			if (mIp == null)
-			{
-				mIp = Player.ResolveEndPoint(discoveryAddress, discoveryServerPort);
-			}
-			if (mIp != null)
-			{
-				TNManager.EndSend(mIp);
-			}
-			else
-			{
-				Debug.LogError("Unable to resolve " + discoveryAddress, this);
-				return false;
-			}
-		}
-		return true;
-	}
-
-	/// <summary>
-	/// If we've been handling the server list packets, clear the handler.
-	/// </summary>
 
 	void OnDestroy ()
 	{
-		if (mHandling)
+		mUdp.Stop();
+		knownServers.Clear();
+		onChange = null;
+		if (mRequest != null) mRequest.Recycle();
+	}
+
+	/// <summary>
+	/// Keep receiving incoming packets.
+	/// </summary>
+
+	void Update ()
+	{
+		Buffer buffer;
+		IPEndPoint ip;
+		bool changed = false;
+		long time = System.DateTime.Now.Ticks / 10000;
+
+		// Receive and process UDP packets one at a time
+		while (mUdp.ReceivePacket(out buffer, out ip))
 		{
-			TNManager.SetPacketHandler(Packet.ResponseListServers, null);
-			mList.Clear();
+			if (buffer.size > 0)
+			{
+				try
+				{
+					BinaryReader reader = buffer.BeginReading();
+					Packet response = (Packet)reader.ReadByte();
+
+					if (response == Packet.ResponseListServers)
+					{
+						knownServers.ReadFrom(reader, ip, time);
+						changed = true;
+					}
+				}
+				catch (System.Exception) { }
+			}
+			buffer.Recycle();
+		}
+
+		// Trigger the listener callback
+		if (changed && onChange != null) onChange();
+
+		// Send out the update request
+		if (mNextSend < time)
+		{
+			mNextSend = time + 3000;
+			mUdp.Send(mRequest, mTarget);
 		}
 	}
 }

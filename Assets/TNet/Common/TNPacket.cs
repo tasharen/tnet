@@ -359,9 +359,9 @@ public enum Packet
 	/// <summary>
 	/// Add a new entry to the list of known servers. Used by the Discovery Server.
 	/// ushort: Game ID.
-	/// ushort: Number of connected players.
 	/// string: Server name.
 	/// ushort: Server's listening port.
+	/// ushort: Number of connected players.
 	/// </summary>
 
 	RequestAddServer,

@@ -37,6 +37,48 @@ public class Player
 	public Player () { }
 	public Player (string playerName) { name = playerName; }
 
+	static IPAddress mLocalAddress;
+
+	/// <summary>
+	/// Local IP address.
+	/// </summary>
+
+	static public IPAddress localAddress
+	{
+		get
+		{
+			if (mLocalAddress == null)
+			{
+				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+
+				for (int i = 0; i < ips.Length; ++i)
+				{
+					IPAddress addr = ips[i];
+
+					if (IsValidAddress(addr))
+					{
+						mLocalAddress = addr;
+						break;
+					}
+				}
+			}
+			return mLocalAddress;
+		}
+	}
+
+	/// <summary>
+	/// Helper function that determines if this is a valid address.
+	/// </summary>
+
+	static public bool IsValidAddress (IPAddress address)
+	{
+		if (address.AddressFamily != AddressFamily.InterNetwork) return false;
+		if (address.Equals(IPAddress.Loopback)) return false;
+		if (address.Equals(IPAddress.None)) return false;
+		if (address.Equals(IPAddress.Any)) return false;
+		return true;
+	}
+
 	/// <summary>
 	/// Helper function that resolves the remote address.
 	/// </summary>

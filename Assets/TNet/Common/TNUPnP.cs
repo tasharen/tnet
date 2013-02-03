@@ -40,7 +40,6 @@ public class UPnP
 	}
 
 	Status mStatus = Status.Inactive;
-	IPAddress mLocalAddress = IPAddress.None;
 	IPAddress mGatewayAddress = IPAddress.None;
 	IPAddress mExternalAddress = IPAddress.None;
 	
@@ -75,12 +74,6 @@ public class UPnP
 	public Status status { get { return mStatus; } }
 
 	/// <summary>
-	/// Local IP address, such as 192.168.1.10
-	/// </summary>
-
-	public IPAddress localAddress { get { return mLocalAddress; } }
-
-	/// <summary>
 	/// Gateway's IP address, such as 192.168.1.1
 	/// </summary>
 
@@ -104,20 +97,7 @@ public class UPnP
 
 	public UPnP ()
 	{
-		IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
-
-		for (int i = 0; i < ips.Length; ++i)
-		{
-			IPAddress addr = ips[i];
-
-			if (IsValidAddress(addr))
-			{
-				mLocalAddress = addr;
-				mExternalAddress = addr;
-				break;
-			}
-		}
-
+		mExternalAddress = Player.localAddress;
 		Thread th = new Thread(ThreadDiscover);
 		mThreads.Add(th);
 		th.Start(th);
@@ -143,19 +123,6 @@ public class UPnP
 	}
 
 	/// <summary>
-	/// Helper function that determines if this is a valid address.
-	/// </summary>
-
-	static bool IsValidAddress (IPAddress address)
-	{
-		if (address.AddressFamily != AddressFamily.InterNetwork) return false;
-		if (address.Equals(IPAddress.Loopback)) return false;
-		if (address.Equals(IPAddress.None)) return false;
-		if (address.Equals(IPAddress.Any)) return false;
-		return true;
-	}
-
-	/// <summary>
 	/// Gateway discovery logic is done on a separate thread so that it's not blocking the main thread.
 	/// </summary>
 
@@ -177,7 +144,7 @@ public class UPnP
 			{
 				IPAddress address = gis[b].Address;
 				
-				if (IsValidAddress(address) && ThreadConnect(address))
+				if (Player.IsValidAddress(address) && ThreadConnect(address))
 				{
 					mStatus = Status.Success;
 					mGatewayAddress = address;
@@ -187,11 +154,11 @@ public class UPnP
 			}
 		}
 #else
-		string local = localAddress.ToString();
+		string local = Player.localAddress.ToString();
 		string gateway = local.Substring(0, local.LastIndexOf('.')) + ".1";
 		IPAddress address = IPAddress.Parse(gateway);
 
-		if (IsValidAddress(address) && ThreadConnect(address))
+		if (Player.IsValidAddress(address) && ThreadConnect(address))
 		{
 			mStatus = Status.Success;
 			mGatewayAddress = address;
@@ -432,7 +399,7 @@ public class UPnP
 				"<NewExternalPort>" + port + "</NewExternalPort>\n" +
 				"<NewProtocol>" + (tcp ? "TCP" : "UDP") + "</NewProtocol>\n" +
 				"<NewInternalPort>" + port + "</NewInternalPort>\n" +
-				"<NewInternalClient>" + localAddress + "</NewInternalClient>\n" +
+				"<NewInternalClient>" + Player.localAddress + "</NewInternalClient>\n" +
 				"<NewEnabled>1</NewEnabled>\n" +
 				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 				"<NewLeaseDuration>0</NewLeaseDuration>\n";

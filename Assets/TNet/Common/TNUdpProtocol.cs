@@ -19,7 +19,7 @@ namespace TNet
 public class UdpProtocol
 {
 	// Port used to listen and socket used to send and receive
-	int mPort = 0;
+	int mPort = -1;
 	Socket mSocket;
 
 	// Buffer used for receiving incoming data
@@ -41,47 +41,35 @@ public class UdpProtocol
 	/// Whether we can send or receive through the UDP socket.
 	/// </summary>
 
-	public bool isActive { get { return mPort != 0; } }
+	public bool isActive { get { return mPort != -1; } }
 
 	/// <summary>
 	/// Port used for listening.
 	/// </summary>
 
-	public int listeningPort { get { return mPort; } }
+	public int listeningPort { get { return mPort > 0 ? mPort : 0; } }
 
 	/// <summary>
-	/// Stop listening for incoming packets.
+	/// Start UDP, but don't bind it to a specific port.
 	/// </summary>
 
-	public void Stop ()
-	{
-		if (mPort != 0)
-		{
-			mPort = 0;
-
-			if (mSocket != null)
-			{
-				mSocket.Close();
-				mSocket = null;
-			}
-
-			Buffer.Recycle(mIn);
-			Buffer.Recycle(mOut);
-		}
-	}
+	public bool Start () { return Start(0); }
 
 	/// <summary>
 	/// Start listening for incoming messages on the specified port.
 	/// </summary>
 
-#if UNITY_FLASH
+#if UNITY_FLASH || UNITY_WEBPLAYER
 	// UDP is not supported by Flash.
-	public bool Start (int port) { return false; }
+	public bool Start (int port)
+	{
+		UnityEngine.Debug.LogWarning("Unity doesn't support UDP on Flash or Web Player targets");
+		return false;
+	}
 #else
 	public bool Start (int port)
 	{
 		Stop();
-		if (port == 0) return false;
 
 		mPort = port;
 		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -89,24 +77,39 @@ public class UdpProtocol
 		// Web player doesn't seem to support broadcasts
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 #endif	
-		if (port != 0)
+		try
 		{
-			try
-			{
-				mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
-				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
-			}
-#if UNITY_EDITOR
-			catch (System.Exception ex) { UnityEngine.Debug.LogError("Udp.Start: " + ex.Message); Stop(); return false; }
-#elif DEBUG
-			catch (System.Exception ex) { Console.WriteLine("Udp.Start: " + ex.Message); Stop(); return false; }
-#else
-			catch (System.Exception) { Stop(); return false; }
-#endif
+			if (mPort > 0) mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
+			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
+#if UNITY_EDITOR
+		catch (System.Exception ex) { UnityEngine.Debug.LogError("Udp.Start: " + ex.Message); Stop(); return false; }
+#elif DEBUG
+		catch (System.Exception ex) { Console.WriteLine("Udp.Start: " + ex.Message); Stop(); return false; }
+#else
+		catch (System.Exception) { Stop(); return false; }
+#endif
 		return true;
 	}
 #endif // UNITY_FLASH
+
+	/// <summary>
+	/// Stop listening for incoming packets.
+	/// </summary>
+
+	public void Stop ()
+	{
+		mPort = -1;
+
+		if (mSocket != null)
+		{
+			mSocket.Close();
+			mSocket = null;
+		}
+
+		Buffer.Recycle(mIn);
+		Buffer.Recycle(mOut);
+	}
 
 	/// <summary>
 	/// Receive incoming data.

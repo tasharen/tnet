@@ -33,6 +33,18 @@ public class GameServer
 	public string name = "Game Server";
 
 	/// <summary>
+	/// Discovery server's address.
+	/// </summary>
+
+	public string discoveryAddress;
+
+	/// <summary>
+	/// Discovery server's port.
+	/// </summary>
+
+	public int discoveryPort = 5129;
+
+	/// <summary>
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 
@@ -62,12 +74,15 @@ public class GameServer
 
 	Random mRandom = new Random();
 
+	IPEndPoint mDiscovery;
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
 	int mListenerPort = 0;
 	long mTime = 0;
+	long mNextSend = 0;
 	UdpProtocol mUdp = new UdpProtocol();
+	bool mAllowUdp = false;
 
 	/// <summary>
 	/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
@@ -125,6 +140,11 @@ public class GameServer
 	{
 		Stop();
 
+		if (!string.IsNullOrEmpty(discoveryAddress))
+		{
+			mDiscovery = Player.ResolveEndPoint(discoveryAddress, discoveryPort);
+		}
+
 		try
 		{
 			mListenerPort = tcpPort;
@@ -138,12 +158,14 @@ public class GameServer
 			return false;
 		}
 
-		if (udpPort != 0 && !mUdp.Start(udpPort))
+		if (!mUdp.Start(udpPort))
 		{
 			Error(null, "Unable to listen to UDP port " + udpPort);
 			Stop();
 			return false;
 		}
+
+		mAllowUdp = (udpPort > 0);
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 		return true;
@@ -161,6 +183,9 @@ public class GameServer
 
 	public void Stop ()
 	{
+		mDiscovery = null;
+		mAllowUdp = false;
+
 		// Stop the worker thread
 		if (mThread != null)
 		{
@@ -195,6 +220,11 @@ public class GameServer
 	{
 		for (; ; )
 		{
+			Buffer buffer;
+			bool received = false;
+			mTime = DateTime.Now.Ticks / 10000;
+			IPEndPoint ip;
+
 			// Stop the listener if the port is 0 (MakePrivate() was called)
 			if (mListenerPort == 0)
 			{
@@ -202,6 +232,21 @@ public class GameServer
 				{
 					mListener.Stop();
 					mListener = null;
+
+					// Inform the discovery server that this server is no longer available
+					if (mDiscovery != null && mUdp.isActive)
+					{
+						buffer = Buffer.Create();
+
+						BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestRemoveServer);
+						writer.Write(gameID);
+						buffer.EndTcpPacket();
+
+						mUdp.Send(buffer, mDiscovery);
+
+						buffer.Recycle();
+						buffer = null;
+					}
 				}
 			}
 			else
@@ -217,11 +262,6 @@ public class GameServer
 #endif
 				}
 			}
-
-			bool received = false;
-			mTime = DateTime.Now.Ticks / 10000;
-			Buffer buffer;
-			IPEndPoint ip;
 
 			// Process datagrams first
 			while (mUdp.ReceivePacket(out buffer, out ip))
@@ -286,6 +326,27 @@ public class GameServer
 				}
 				++i;
 			}
+
+			// Send out an update to the discovery server (you and me baby ain't nothin' but mammals)
+			if (mListener != null && mDiscovery != null && mUdp.isActive && mNextSend < mTime)
+			{
+				mNextSend = mTime + 4000;
+				buffer = Buffer.Create();
+
+				BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestAddServer);
+				writer.Write(gameID);
+				writer.Write(name);
+				writer.Write((ushort)mListenerPort);
+				writer.Write((short)playerCount);
+				writer.Write(false);
+				buffer.EndTcpPacket();
+
+				mUdp.Send(buffer, mDiscovery);
+
+				buffer.Recycle();
+				buffer = null;
+			}
+
 			if (!received) Thread.Sleep(1);
 		}
 	}
@@ -314,6 +375,7 @@ public class GameServer
 		TcpPlayer player = new TcpPlayer();
 		player.StartReceiving(socket);
 		mPlayers.Add(player);
+		mNextSend = 0;
 		return player;
 	}
 
@@ -343,6 +405,7 @@ public class GameServer
 				mDictionaryEP.Remove(p.udpEndPoint);
 				p.udpEndPoint = null;
 			}
+			mNextSend = 0;
 		}
 	}
 
@@ -644,7 +707,7 @@ public class GameServer
 		mBuffer.EndTcpPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
-		if (reliable || player.udpEndPoint == null)
+		if (reliable || player.udpEndPoint == null || !mAllowUdp)
 		{
 			player.SendTcpPacket(mBuffer);
 		}
@@ -669,7 +732,7 @@ public class GameServer
 			
 			if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 			{
-				if (reliable || player.udpEndPoint == null)
+				if (reliable || player.udpEndPoint == null || !mAllowUdp)
 				{
 					player.SendTcpPacket(mBuffer);
 				}
@@ -700,7 +763,7 @@ public class GameServer
 				
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
-					if (reliable || player.udpEndPoint == null)
+					if (reliable || player.udpEndPoint == null || !mAllowUdp)
 					{
 						player.SendTcpPacket(mBuffer);
 					}
@@ -727,7 +790,7 @@ public class GameServer
 			
 			if (player.stage == TcpProtocol.Stage.Connected)
 			{
-				if (reliable || player.udpEndPoint == null)
+				if (reliable || player.udpEndPoint == null || !mAllowUdp)
 				{
 					player.SendTcpPacket(mBuffer);
 				}
@@ -1099,7 +1162,7 @@ public class GameServer
 				buffer.position = buffer.position - 5;
 
 				// Forward the packet to the channel's host
-				if (reliable || player.channel.host.udpEndPoint == null)
+				if (reliable || player.channel.host.udpEndPoint == null || !mAllowUdp)
 				{
 					player.channel.host.SendTcpPacket(buffer);
 				}
@@ -1123,7 +1186,7 @@ public class GameServer
 				// Forward the packet to the target player
 				if (targetPlayer != null && targetPlayer.isConnected)
 				{
-					if (reliable || targetPlayer.udpEndPoint == null)
+					if (reliable || targetPlayer.udpEndPoint == null || !mAllowUdp)
 					{
 						targetPlayer.SendTcpPacket(buffer);
 					}
@@ -1158,7 +1221,7 @@ public class GameServer
 					
 					if (tp != exclude)
 					{
-						if (reliable || tp.udpEndPoint == null)
+						if (reliable || tp.udpEndPoint == null || !mAllowUdp)
 						{
 							tp.SendTcpPacket(buffer);
 						}
