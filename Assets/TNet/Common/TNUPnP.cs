@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -224,11 +224,20 @@ public class UPnP
 		socket.SendTo(bytes, bytes.Length, SocketFlags.None, new IPEndPoint(address, 1900));
 
 		// Receive a response
-		EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
-		byte[] data = new byte[2048];
-		int count = socket.ReceiveFrom(data, ref sourceAddress);
-		socket.Close();
-		string response = Encoding.ASCII.GetString(data, 0, count);
+		string response = null;
+		
+		try
+		{
+			EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+			byte[] data = new byte[2048];
+			int count = socket.ReceiveFrom(data, ref sourceAddress);
+			socket.Close();
+			response = Encoding.ASCII.GetString(data, 0, count);
+		}
+		catch (System.Exception)
+		{
+			return false;
+		}
 
 		// Find the "Location" header
 		int index = response.IndexOf("LOCATION:");
