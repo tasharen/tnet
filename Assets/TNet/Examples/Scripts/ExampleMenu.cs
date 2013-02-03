@@ -62,7 +62,7 @@ public class ExampleMenu : MonoBehaviour
 	{
 		if (Application.isPlaying)
 		{
-			float target = (TNDiscoveryClient.knownServers.size == 0) ? 0f : 1f;
+			float target = (TNDiscoveryClient.knownServers.list.size == 0) ? 0f : 1f;
 			mAlpha = Tools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
 		}
 	}
@@ -266,7 +266,7 @@ public class ExampleMenu : MonoBehaviour
 			GUILayout.Label("LAN Server List", text);
 
 			// List of discovered servers
-			List<ServerList.Entry> list = TNDiscoveryClient.knownServers;
+			List<ServerList.Entry> list = TNDiscoveryClient.knownServers.list;
 
 			// Server list example script automatically collects servers that have recently announced themselves
 			for (int i = 0; i < list.size; ++i)

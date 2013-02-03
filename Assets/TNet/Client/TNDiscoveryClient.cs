@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -105,7 +105,7 @@ public class TNDiscoveryClient : MonoBehaviour
 		if (changed && onChange != null) onChange();
 
 		// Send out the update request
-		if (mNextSend < time)
+		if (mNextSend < time && mRequest != null)
 		{
 			mNextSend = time + 3000;
 			mUdp.Send(mRequest, mTarget);

@@ -346,7 +346,6 @@ public class GameServer
 				buffer.Recycle();
 				buffer = null;
 			}
-
 			if (!received) Thread.Sleep(1);
 		}
 	}

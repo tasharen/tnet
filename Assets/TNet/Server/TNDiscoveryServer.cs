@@ -142,6 +142,7 @@ public class DiscoveryServer
 		{
 			case Packet.RequestAddServer:
 			{
+				Console.WriteLine("Add request from " + ip);
 				string name = reader.ReadString();
 				ushort port = reader.ReadUInt16();
 				ushort count = reader.ReadUInt16();
@@ -150,12 +151,14 @@ public class DiscoveryServer
 			}
 			case Packet.RequestRemoveServer:
 			{
+				Console.WriteLine("Remove request from " + ip);
 				ushort port = reader.ReadUInt16();
 				mList.Remove(new IPEndPoint(ip.Address, port));
 				return true;
 			}
 			case Packet.RequestListServers:
 			{
+				Console.WriteLine("List request from " + ip);
 				mList.WriteTo(BeginSend(), localServer);
 				EndSend(ip);
 				return true;
