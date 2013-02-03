@@ -45,6 +45,12 @@ public class GameServer
 	public int discoveryPort = 5129;
 
 	/// <summary>
+	/// Protocol used by the discovery server.
+	/// </summary>
+
+	public DiscoveryServer.Protocol discoveryProtocol = DiscoveryServer.Protocol.Udp;
+
+	/// <summary>
 	/// List of players in a consecutive order for each looping.
 	/// </summary>
 

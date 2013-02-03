@@ -379,13 +379,13 @@ public enum Packet
 	/// ushort: Game ID.
 	/// </summary>
 
-	RequestListServers,
+	RequestServerList,
 
 	/// <summary>
 	/// Response sent by the Discovery Server, listing servers.
 	/// Complicated data structure. Look inside the Server List class.
 	/// </summary>
 
-	ResponseListServers,
+	ResponseServerList,
 }
 }

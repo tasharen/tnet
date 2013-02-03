@@ -20,6 +20,12 @@ public class TNDiscoveryClient : MonoBehaviour
 {
 	public delegate void OnListChanged ();
 
+	public enum Protocol
+	{
+		Tcp,
+		Udp,
+	}
+
 	/// <summary>
 	/// List of known servers.
 	/// </summary>
@@ -44,26 +50,63 @@ public class TNDiscoveryClient : MonoBehaviour
 
 	public int port = 5129;
 
-	UdpProtocol mUdp = new UdpProtocol();
+	/// <summary>
+	/// Protocol that should be used for communication.
+	/// </summary>
+
+	public Protocol protocol = Protocol.Udp;
+
+	UdpProtocol mUdp;
+	TcpProtocol mTcp;
 	Buffer mRequest;
 	IPEndPoint mTarget;
 	long mNextSend = 0;
+	bool mWasConnected = false;
 
 	void Start ()
 	{
 		if (!string.IsNullOrEmpty(address))
 		{
 			mTarget = Player.ResolveEndPoint(address, port);
+
+			if (mTarget == null)
+			{
+				Debug.LogError("Invalid address: " + address + ":" + port);
+				return;
+			}
+
+			// Server list request -- we'll be using it a lot, so just create it once
 			mRequest = Buffer.Create();
 			mRequest.BeginTcpPacket(Packet.RequestListServers).Write(1);
 			mRequest.EndTcpPacket();
-			mUdp.Start(0);
+
+			if (protocol == Protocol.Udp)
+			{
+				mUdp = new UdpProtocol();
+				mUdp.Start(0);
+			}
+			else
+			{
+				mTcp = new TcpProtocol();
+				mTcp.Connect(mTarget);
+			}
 		}
 	}
 
 	void OnDestroy ()
 	{
-		mUdp.Stop();
+		if (mUdp != null)
+		{
+			mUdp.Stop();
+			mUdp = null;
+		}
+		
+		if (mTcp != null)
+		{
+			mTcp.Disconnect();
+			mTcp = null;
+		}
+		
 		knownServers.Clear();
 		onChange = null;
 		if (mRequest != null) mRequest.Recycle();
@@ -81,7 +124,7 @@ public class TNDiscoveryClient : MonoBehaviour
 		long time = System.DateTime.Now.Ticks / 10000;
 
 		// Receive and process UDP packets one at a time
-		while (mUdp.ReceivePacket(out buffer, out ip))
+		while (mUdp != null && mUdp.ReceivePacket(out buffer, out ip))
 		{
 			if (buffer.size > 0)
 			{
@@ -101,14 +144,53 @@ public class TNDiscoveryClient : MonoBehaviour
 			buffer.Recycle();
 		}
 
+		// TCP-based discovery
+		while (mTcp != null && mTcp.ReceivePacket(out buffer))
+		{
+			if (buffer.size > 0)
+			{
+				try
+				{
+					BinaryReader reader = buffer.BeginReading();
+					Packet response = (Packet)reader.ReadByte();
+
+					if (response == Packet.ResponseListServers)
+					{
+						knownServers.ReadFrom(reader, mTcp.tcpEndPoint, time);
+						changed = true;
+					}
+				}
+				catch (System.Exception) { mTcp.Close(false); }
+			}
+		}
+
 		// Trigger the listener callback
 		if (changed && onChange != null) onChange();
 
 		// Send out the update request
-		if (mNextSend < time && mRequest != null)
+		if (mNextSend < time)
 		{
-			mNextSend = time + 3000;
-			mUdp.Send(mRequest, mTarget);
+			if (mUdp != null)
+			{
+				Debug.Log("Sending");
+				mNextSend = time + 3000;
+				mUdp.Send(mRequest, mTarget);
+			}
+			else if (mTcp != null)
+			{
+				if (mTcp.isConnected)
+				{
+					Debug.Log("Sending");
+					mWasConnected = true;
+					mNextSend = time + 4000;
+					mTcp.SendTcpPacket(mRequest);
+				}
+				else if (mWasConnected)
+				{
+					// Automatically try to reconnect
+					mTcp.Connect(mTarget);
+				}
+			}
 		}
 	}
 }

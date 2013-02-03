@@ -83,7 +83,7 @@ public class UdpProtocol
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 #if UNITY_EDITOR
-		catch (System.Exception ex) { UnityEngine.Debug.LogWarning("Udp.Start: " + ex.Message); Stop(); return false; }
+		catch (System.Exception ex) { UnityEngine.Debug.LogError("Udp.Start: " + ex.Message); Stop(); return false; }
 #elif DEBUG
 		catch (System.Exception ex) { Console.WriteLine("Udp.Start: " + ex.Message); Stop(); return false; }
 #else
@@ -124,15 +124,11 @@ public class UdpProtocol
 		{
 			bytes = mSocket.EndReceiveFrom(result, ref mEndPoint);
 		}
-#if DEBUG
-		catch (System.Exception ex) { Console.WriteLine("Udp.OnReceive: " + ex.Message); Stop(); return; }
-#else
-		catch (System.Exception) { Stop(); return; }
-#endif
-
-#if DEBUG
-		Console.WriteLine("Received " + bytes + " bytes from " + ((IPEndPoint)mEndPoint));
-#endif
+		catch (System.Exception)
+		{
+			Stop();
+			return;
+		}
 
 		if (bytes > 4)
 		{
@@ -214,9 +210,6 @@ public class UdpProtocol
 
 	public void Send (Buffer buffer, IPEndPoint ip)
 	{
-#if DEBUG
-		Console.WriteLine("Sending " + buffer.size + " to " + ip);
-#endif
 		buffer.MarkAsUsed();
 
 		if (mSocket != null)
@@ -233,7 +226,8 @@ public class UdpProtocol
 				if (mOut.Count == 1)
 				{
 					// If it's the first datagram, begin the sending process
-					mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, ip, OnSend, null);
+					mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size,
+						SocketFlags.None, ip, OnSend, null);
 				}
 			}
 		}
@@ -253,11 +247,11 @@ public class UdpProtocol
 		{
 			bytes = mSocket.EndSendTo(result);
 		}
-#if DEBUG
-		catch (System.Exception ex) { Console.WriteLine("Udp.OnSend: " + ex.Message); Stop(); return; }
-#else
-		catch (System.Exception) { Stop(); return; }
-#endif
+		catch (System.Exception)
+		{
+			Stop();
+			return;
+		}
 
 		lock (mOut)
 		{

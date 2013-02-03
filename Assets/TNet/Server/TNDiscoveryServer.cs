@@ -19,9 +19,17 @@ namespace TNet
 
 public class DiscoveryServer
 {
+	public enum Protocol
+	{
+		Udp,
+		Tcp,
+	}
+
 	// List of servers that's currently being updated
 	ServerList mList = new ServerList();
-	UdpProtocol mUdp = new UdpProtocol();
+	UdpProtocol mUdp;
+	List<TcpProtocol> mTcp = new List<TcpProtocol>();
+	TcpListener mListener;
 	Thread mThread;
 	long mTime = 0;
 	bool mListIsDirty = false;
@@ -35,10 +43,16 @@ public class DiscoveryServer
 	public GameServer localServer;
 
 	/// <summary>
+	/// Protocol that should be used.
+	/// </summary>
+
+	public Protocol protocol = Protocol.Udp;
+
+	/// <summary>
 	/// Whether the server is active.
 	/// </summary>
 
-	public bool isActive { get { return mUdp.isActive; } }
+	public bool isActive { get { return (mUdp != null && mUdp.isActive) || (mListener != null); } }
 
 	/// <summary>
 	/// Port used to listen for incoming packets.
@@ -60,15 +74,27 @@ public class DiscoveryServer
 	public bool Start (int listenPort, int broadcastPort)
 	{
 		Stop();
-		
-		if (mUdp.Start(listenPort))
+
+		if (protocol == Protocol.Udp)
 		{
+			if (!mUdp.Start(listenPort)) return false;
 			mBroadcastPort = (ushort)broadcastPort;
-			mThread = new Thread(ThreadFunction);
-			mThread.Start();
-			return true;
 		}
-		return false;
+		else
+		{
+			try
+			{
+				mListener = new TcpListener(IPAddress.Any, listenPort);
+				mListener.Start(50);
+			}
+			catch (System.Exception)
+			{
+				return false;
+			}
+		}
+		mThread = new Thread(ThreadFunction);
+		mThread.Start();
+		return true;
 	}
 
 	/// <summary>
@@ -82,7 +108,18 @@ public class DiscoveryServer
 			mThread.Abort();
 			mThread = null;
 		}
-		mUdp.Stop();
+		
+		if (mUdp != null)
+		{
+			mUdp.Stop();
+			mUdp = null;
+		}
+
+		if (mListener != null)
+		{
+			mListener.Stop();
+			mListener = null;
+		}
 		mList.Clear();
 	}
 
@@ -99,25 +136,65 @@ public class DiscoveryServer
 			// Cleanup a list of servers by removing expired entries
 			if (mList.Cleanup(mTime)) mListIsDirty = true;
 
+			// Accept incoming connections
+			while (mListener != null && mListener.Pending())
+			{
+				TcpProtocol tc = new TcpProtocol();
+				tc.StartReceiving(mListener.AcceptSocket());
+				mTcp.Add(tc);
+			}
+
 			Buffer buffer;
 			IPEndPoint ip;
 
-			// Receive and process UDP packets one at a time
-			while (mUdp.ReceivePacket(out buffer, out ip))
+			// Process incoming UDP packets
+			while (mUdp != null && mUdp.ReceivePacket(out buffer, out ip))
 			{
-				if (buffer.size > 0)
+				try { ProcessPacket(buffer, null, ip); }
+				catch (System.Exception) { }
+				
+				if (buffer != null)
 				{
-					try { ProcessPacket(buffer, ip); }
-					catch (System.Exception) { }
+					buffer.Recycle();
+					buffer = null;
 				}
-				buffer.Recycle();
+			}
+
+			// Process incoming TCP packets
+			for (int i = 0; i < mTcp.size; ++i)
+			{
+				TcpProtocol tc = mTcp[i];
+
+				while (tc.ReceivePacket(out buffer))
+				{
+					try
+					{
+						if (!ProcessPacket(buffer, tc, null))
+							tc.Disconnect();
+					}
+					catch (System.Exception) { }
+
+					if (buffer != null)
+					{
+						buffer.Recycle();
+						buffer = null;
+					}
+				}
+			}
+
+			// Remove clients that have been disconnected
+			for (int i = mTcp.size; i > 0; )
+			{
+				TcpProtocol tc = mTcp[--i];
+				if (tc.stage == TcpProtocol.Stage.NotConnected)
+					mTcp.RemoveAt(i);
 			}
 
 			// If the list has changed, broadcast the updated list to the network
 			if (mListIsDirty && mBroadcastPort != 0)
 			{
 				mListIsDirty = false;
-				mList.WriteTo(BeginSend(), localServer);
+				mList.WriteTo(BeginSend(Packet.ResponseServerList), localServer);
 				EndSend();
 			}
 			Thread.Sleep(1);
@@ -128,21 +205,43 @@ public class DiscoveryServer
 	/// Process an incoming packet.
 	/// </summary>
 
-	bool ProcessPacket (Buffer buffer, IPEndPoint ip)
+	bool ProcessPacket (Buffer buffer, TcpProtocol tc, IPEndPoint ip)
 	{
 		BinaryReader reader = buffer.BeginReading();
-
-		// First byte should be the packet identifier
 		Packet request = (Packet)reader.ReadByte();
 
-		// The game ID must match
-		if (reader.ReadUInt16() != GameServer.gameID) return false;
+		// TCP connections must be verified first to ensure that they are using the correct protocol
+		if (tc != null && tc.stage == TcpProtocol.Stage.Verifying)
+		{
+			if (request == Packet.RequestID)
+			{
+				int clientVersion = reader.ReadInt32();
+				tc.name = reader.ReadString();
+
+				// Version matches? Connection is now verified.
+				if (clientVersion == TcpPlayer.version)
+					tc.stage = TcpProtocol.Stage.Connected;
+
+				// Send the player their ID
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(TcpPlayer.version);
+				writer.Write(0);
+				EndSend(tc, null);
+
+				// If the version matches, move on to the next packet
+				if (clientVersion == TcpPlayer.version) return true;
+			}
+#if STANDALONE
+			Console.WriteLine(tc.address + " has failed the verification step");
+#endif
+			return false;
+		}
 
 		switch (request)
 		{
 			case Packet.RequestAddServer:
 			{
-				Console.WriteLine("Add request from " + ip);
+				if (reader.ReadUInt16() != GameServer.gameID) return false;
 				string name = reader.ReadString();
 				ushort port = reader.ReadUInt16();
 				ushort count = reader.ReadUInt16();
@@ -151,16 +250,20 @@ public class DiscoveryServer
 			}
 			case Packet.RequestRemoveServer:
 			{
-				Console.WriteLine("Remove request from " + ip);
+				if (reader.ReadUInt16() != GameServer.gameID) return false;
 				ushort port = reader.ReadUInt16();
 				mList.Remove(new IPEndPoint(ip.Address, port));
 				return true;
 			}
-			case Packet.RequestListServers:
+			case Packet.RequestServerList:
 			{
-				Console.WriteLine("List request from " + ip);
-				mList.WriteTo(BeginSend(), localServer);
-				EndSend(ip);
+				if (reader.ReadUInt16() != GameServer.gameID) return false;
+				mList.WriteTo(BeginSend(Packet.ResponseServerList), localServer);
+				EndSend(tc, ip);
+				return true;
+			}
+			case Packet.Empty:
+			{
 				return true;
 			}
 		}
@@ -171,10 +274,10 @@ public class DiscoveryServer
 	/// Start the sending process.
 	/// </summary>
 
-	BinaryWriter BeginSend ()
+	BinaryWriter BeginSend (Packet packet)
 	{
 		mBuffer = Buffer.Create();
-		BinaryWriter writer = mBuffer.BeginTcpPacket(Packet.ResponseListServers);
+		BinaryWriter writer = mBuffer.BeginTcpPacket(packet);
 		return writer;
 	}
 
@@ -182,10 +285,11 @@ public class DiscoveryServer
 	/// Send the outgoing buffer to the specified remote destination.
 	/// </summary>
 
-	void EndSend (IPEndPoint ip)
+	void EndSend (TcpProtocol tc, IPEndPoint ip)
 	{
 		mBuffer.EndTcpPacket();
-		mUdp.Send(mBuffer, ip);
+		if (tc != null) tc.SendTcpPacket(mBuffer);
+		else if (ip != null) mUdp.Send(mBuffer, ip);
 		mBuffer.Recycle();
 		mBuffer = null;
 	}

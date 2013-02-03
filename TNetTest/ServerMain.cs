@@ -51,7 +51,7 @@ public class ServerMain
 				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Discovery");
 				Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
 				Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Discovery only\n");
-				args = new string[] { "TNet Server", "5127", "5128" };
+				args = new string[] { "TNet Server", "5127", "5128", "5129" };
 			}
 
 			int tcpPort = 0;
@@ -79,9 +79,9 @@ public class ServerMain
 				Console.WriteLine("External IP address: " + up.externalAddress);
 
 				// Open up ports on the gateway
-				if (tcpPort > 0) up.OpenTCP(tcpPort, OnPortOpened);
-				if (udpPort > 0) up.OpenUDP(udpPort, OnPortOpened);
-				if (disPort > 0) up.OpenUDP(disPort, OnPortOpened);
+				//if (tcpPort > 0) up.OpenTCP(tcpPort, OnPortOpened);
+				//if (udpPort > 0) up.OpenUDP(udpPort, OnPortOpened);
+				//if (disPort > 0) up.OpenUDP(disPort, OnPortOpened);
 			}
 
 			GameServer server = null;
@@ -92,11 +92,12 @@ public class ServerMain
 				server = new GameServer();
 				server.name = name;
 
-				if (disPort == 0)
-				{
-					server.discoveryAddress = "server.tasharen.com";
-					server.discoveryPort = 5129;
-				}
+				//if (disPort == 0)
+				//{
+				//    server.discoveryAddress = "server.tasharen.com";
+				//    server.discoveryPort = 5129;
+				//    server.discoveryProtocol = DiscoveryServer.Protocol.Tcp;
+				//}
 				server.Start(tcpPort, udpPort);
 				server.LoadFrom("server.dat");
 			}
@@ -106,6 +107,7 @@ public class ServerMain
 				// Server discovery port should match the discovery port on the client (TNDiscoveryClient).
 				discovery = new DiscoveryServer();
 				discovery.localServer = server;
+				discovery.protocol = DiscoveryServer.Protocol.Tcp;
 				discovery.Start(disPort);
 			}
 
@@ -120,9 +122,9 @@ public class ServerMain
 			if (up != null)
 			{
 				// Close the ports we opened earlier
-				if (tcpPort > 0) up.CloseTCP(tcpPort, OnPortClosed);
-				if (udpPort > 0) up.CloseUDP(udpPort, OnPortClosed);
-				if (disPort > 0) up.CloseUDP(disPort, OnPortClosed);
+				//if (tcpPort > 0) up.CloseTCP(tcpPort, OnPortClosed);
+				//if (udpPort > 0) up.CloseUDP(udpPort, OnPortClosed);
+				//if (disPort > 0) up.CloseUDP(disPort, OnPortClosed);
 
 				// Wait for the ports to get closed
 				while (up.hasThreadsActive) Thread.Sleep(1);
