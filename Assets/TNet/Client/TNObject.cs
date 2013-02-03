@@ -82,6 +82,27 @@ public sealed class TNObject : MonoBehaviour
 	// Whether the object has been registered with the lists
 	bool mIsRegistered = false;
 
+	// ID of the object's owner
+	int mOwner = -1;
+
+	/// <summary>
+	/// Whether this object belongs to the player.
+	/// </summary>
+
+	public bool isMine { get { return (mOwner == -1) ? TNManager.isThisMyObject : mOwner == TNManager.playerID; } }
+
+	/// <summary>
+	/// Remember the object's ownership, for convenience.
+	/// </summary>
+
+	void Awake () { mOwner = TNManager.objectOwnerID; }
+
+	/// <summary>
+	/// Automatically transfer the ownership.
+	/// </summary>
+
+	void OnNetworkPlayerLeave (Player p) { if (p.id == mOwner) p.id = TNManager.hostID; }
+
 	/// <summary>
 	/// Retrieve the Tasharen Network Object by ID.
 	/// </summary>

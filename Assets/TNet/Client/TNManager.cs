@@ -107,16 +107,16 @@ public class TNManager : MonoBehaviour
 	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSource : null; } }
 
 	/// <summary>
+	/// ID of the host.
+	/// </summary>
+
+	static public int hostID { get { return isConnected ? mInstance.mClient.hostID : mPlayer.id; } }
+
+	/// <summary>
 	/// The player's unique identifier.
 	/// </summary>
 
-	static public int playerID
-	{
-		get
-		{
-			return (isConnected) ? mInstance.mClient.playerID : mPlayer.id;
-		}
-	}
+	static public int playerID { get { return isConnected ? mInstance.mClient.playerID : mPlayer.id; } }
 
 	/// <summary>
 	/// Get or set the player's name as everyone sees him on the network.

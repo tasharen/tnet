@@ -164,6 +164,12 @@ public class GameClient
 	static Buffer mBuffer;
 
 	/// <summary>
+	/// ID of the host.
+	/// </summary>
+
+	public int hostID { get { return mTcp.isConnected ? mHost : mTcp.id; } }
+
+	/// <summary>
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
