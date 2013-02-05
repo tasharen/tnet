@@ -16,6 +16,8 @@ namespace TNet
 
 public class Player
 {
+	static protected int mPlayerCounter = 0;
+
 	/// <summary>
 	/// Protocol version.
 	/// </summary>

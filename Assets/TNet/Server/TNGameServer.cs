@@ -20,8 +20,6 @@ namespace TNet
 
 public class GameServer
 {
-	static int mPlayerCounter = 0;
-
 	/// <summary>
 	/// You will want to make this a unique value.
 	/// </summary>
@@ -176,8 +174,6 @@ public class GameServer
 			return false;
 		}
 
-		if (discoveryLink != null) discoveryLink.Start();
-
 		if (!mUdp.Start(udpPort))
 		{
 			Error(null, "Unable to listen to UDP port " + udpPort);
@@ -186,6 +182,13 @@ public class GameServer
 		}
 
 		mAllowUdp = (udpPort > 0);
+
+		if (discoveryLink != null)
+		{
+			discoveryLink.Start();
+			discoveryLink.Update(this);
+		}
+
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 		return true;
@@ -926,32 +929,12 @@ public class GameServer
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (request == Packet.RequestID)
+			if (player.VerifyClientProtocol(request, reader, true))
 			{
-				int clientVersion = reader.ReadInt32();
-				player.name = reader.ReadString();
-				
-				// Version matches? Connection is now verified.
-				if (clientVersion == TcpPlayer.version)
-				{
-					player.id = Interlocked.Increment(ref mPlayerCounter);
-					player.stage = TcpProtocol.Stage.Connected;
-					mDictionaryID.Add(player.id, player);
-				}
-
-				// Send the player their ID
-				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(TcpPlayer.version);
-				writer.Write(player.id);
-				EndSend(true, player);
-
-				// If the version matches, move on to the next packet
-				if (clientVersion == TcpPlayer.version)
-				{
-					if (discoveryLink != null) discoveryLink.Update(this);
-					if (onPlayerConnect != null) onPlayerConnect(player);
-					return true;
-				}
+				mDictionaryID.Add(player.id, player);
+				if (discoveryLink != null) discoveryLink.Update(this);
+				if (onPlayerConnect != null) onPlayerConnect(player);
+				return true;
 			}
 #if STANDALONE
 			Console.WriteLine(player.address + " has failed the verification step");

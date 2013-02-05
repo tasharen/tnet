@@ -15,76 +15,59 @@ using System.Threading;
 
 public class ServerMain
 {
-	/// <summary>
-	/// UPnP notification of a port being open.
-	/// </summary>
-
-	static void OnPortOpened (UPnP up, int port, ProtocolType protocol, bool success)
-	{
-		if (success)
-		{
-			Console.WriteLine(protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
-		}
-		else
-		{
-			Console.WriteLine("Unable to open " + protocol.ToString().ToUpper() + " port " + port);
-		}
-	}
-
-	/// <summary>
-	/// UPnP notification of a port closing.
-	/// </summary>
-
-	static void OnPortClosed (UPnP up, int port, ProtocolType protocol, bool success)
-	{
-		if (success)
-		{
-			Console.WriteLine(protocol.ToString().ToUpper() + " port " + port + " was closed successfully.");
-		}
-		else
-		{
-			Console.WriteLine("Unable to close " + protocol.ToString().ToUpper() + " port " + port);
-		}
-	}
-
 	// TODO: Fix the Unity project. Its discovery won't work anymore.
+
+	/// <summary>
+	/// Application entry point -- parse the parameters.
+	/// </summary>
 
 	static int Main (string[] args)
 	{
+		if (args == null || args.Length == 0)
+		{
+			Console.WriteLine("No arguments specified, assuming default values.");
+			Console.WriteLine("In the future you can specify your own ports like so:");
+			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128      <-- TCP and UDP (default)");
+			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Discovery");
+			Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
+			Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Discovery only\n");
+			Console.WriteLine("To register with a remote discovery server, use this syntax:");
+			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 some.server.com 5129\n");
+			args = new string[] { "TNet Server", "5127", "5128", "5129" };
+		}
+
+		int tcpPort = 0;
+		int udpPort = 0;
+		int discoveryPort = 0;
+		string name = "TNet Server";
+		string discoveryAddress = null;
+
+		if (args.Length > 0) name = args[0];
+		if (args.Length > 1) int.TryParse(args[1], out tcpPort);
+		if (args.Length > 2) int.TryParse(args[2], out udpPort);
+		if (args.Length > 4)
+		{
+			if (int.TryParse(args[4], out discoveryPort))
+			{
+				discoveryAddress = args[3];
+			}
+		}
+		else if (args.Length > 3)
+		{
+			int.TryParse(args[3], out discoveryPort);
+		}
+		Start(name, tcpPort, udpPort, discoveryPort, discoveryAddress);
+		return 0;
+	}
+
+	/// <summary>
+	/// Start the server.
+	/// </summary>
+
+	static void Start (string name, int tcpPort, int udpPort, int discoveryPort, string discoveryAddress)
+	{
 		Console.WriteLine("Locating the gateway...");
 		{
-			if (args == null || args.Length == 0)
-			{
-				Console.WriteLine("No arguments specified, assuming default values.");
-				Console.WriteLine("In the future you can specify your own ports like so:");
-				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128      <-- TCP and UDP (default)");
-				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Discovery");
-				Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
-				Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Discovery only\n");
-				Console.WriteLine("To register with a remote discovery server, use this syntax:");
-				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 some.server.com 5129\n");
-				args = new string[] { "TNet Server", "5127", "5128", "5129" };
-			}
-
-			int tcpPort = 0;
-			int udpPort = 0;
-			int discoveryPort = 0;
-			int remoteDiscoveryPort = 0;
-			string name = "TNet Server";
-			string remoteDiscovery = null;
-
-			if (args.Length > 0) name = args[0];
-			if (args.Length > 1) int.TryParse(args[1], out tcpPort);
-			if (args.Length > 2) int.TryParse(args[2], out udpPort);
-			if (args.Length > 4)
-			{
-				if (int.TryParse(args[4], out remoteDiscoveryPort))
-				{
-					remoteDiscovery = args[3];
-				}
-			}
-			else if (args.Length > 3) int.TryParse(args[3], out discoveryPort);
-
 			// Universal Plug & Play is used to determine the external IP address,
 			// and to automatically open up ports on the router / gateway.
 			UPnP up = new UPnP();
@@ -123,11 +106,11 @@ public class ServerMain
 				gameServer = new GameServer();
 				gameServer.name = name;
 
-				if (!string.IsNullOrEmpty(remoteDiscovery))
+				if (!string.IsNullOrEmpty(discoveryAddress))
 				{
 					gameServer.discoveryLink = new TcpDiscoveryServerLink();
-					gameServer.discoveryLink.address = remoteDiscovery;
-					gameServer.discoveryLink.port = remoteDiscoveryPort;
+					gameServer.discoveryLink.address = discoveryAddress;
+					gameServer.discoveryLink.port = discoveryPort;
 				}
 				else if (discoveryPort > 0)
 				{
@@ -176,6 +159,37 @@ public class ServerMain
 		}
 		Console.WriteLine("There server has shut down. Press ENTER to terminate the application.");
 		Console.ReadLine();
-		return 0;
+	}
+
+	/// <summary>
+	/// UPnP notification of a port being open.
+	/// </summary>
+
+	static void OnPortOpened (UPnP up, int port, ProtocolType protocol, bool success)
+	{
+		if (success)
+		{
+			Console.WriteLine(protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
+		}
+		else
+		{
+			Console.WriteLine("Unable to open " + protocol.ToString().ToUpper() + " port " + port);
+		}
+	}
+
+	/// <summary>
+	/// UPnP notification of a port closing.
+	/// </summary>
+
+	static void OnPortClosed (UPnP up, int port, ProtocolType protocol, bool success)
+	{
+		if (success)
+		{
+			Console.WriteLine(protocol.ToString().ToUpper() + " port " + port + " was closed successfully.");
+		}
+		else
+		{
+			Console.WriteLine("Unable to close " + protocol.ToString().ToUpper() + " port " + port);
+		}
 	}
 }

@@ -8,6 +8,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 
 namespace TNet
 {
@@ -141,7 +142,7 @@ public class TcpProtocol : Player
 
 		// Request a player ID
 		BinaryWriter writer = BeginSend(Packet.RequestID);
-		writer.Write(Player.version);
+		writer.Write(version);
 		writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
 		EndSend();
 		StartReceiving();
@@ -426,23 +427,59 @@ public class TcpProtocol : Player
 	}
 
 	/// <summary>
-	/// Verify the server's version -- it must match the client.
+	/// Verify the connection.
 	/// </summary>
 
-	public bool VerifyVersion (int clientVersion, int clientID)
+	public bool VerifyClientProtocol (Packet packet, BinaryReader reader, bool uniqueID)
 	{
-		if (clientVersion == version)
+		if (packet == Packet.RequestID)
 		{
-			id = clientID;
-			stage = Stage.Connected;
-			return true;
+			// Client version must match
+			if (reader.ReadInt32() == version)
+			{
+				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
+				name = reader.ReadString();
+				stage = TcpProtocol.Stage.Connected;
+
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(version);
+				writer.Write(id);
+				EndSend();
+				return true;
+			}
+			else
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(version);
+				writer.Write(0);
+				EndSend();
+				Close(false);
+			}
 		}
-		else
+		return false;
+	}
+
+	/// <summary>
+	/// Verify the connection.
+	/// </summary>
+
+	public bool VerifyServerProtocol (Packet packet, BinaryReader reader)
+	{
+		if (packet == Packet.ResponseID)
 		{
-			id = 0;
-			Close(false);
-			return false;
+			if (reader.ReadInt32() == version)
+			{
+				id = reader.ReadInt32();
+				stage = Stage.Connected;
+				return true;
+			}
+			else
+			{
+				id = 0;
+				Close(false);
+			}
 		}
+		return false;
 	}
 
 	/// <summary>

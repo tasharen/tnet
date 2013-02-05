@@ -106,9 +106,6 @@ public class TcpDiscoveryServer : DiscoveryServer
 		{
 			mTime = DateTime.Now.Ticks / 10000;
 
-			// Cleanup a list of servers by removing expired entries
-			if (mList.Cleanup(mTime)) mListIsDirty = true;
-
 			// Accept incoming connections
 			while (mListener != null && mListener.Pending())
 			{
@@ -129,7 +126,10 @@ public class TcpDiscoveryServer : DiscoveryServer
 					try
 					{
 						if (!ProcessPacket(buffer, tc))
+						{
+							mList.Remove(new IPEndPoint(tc.tcpEndPoint.Address, port));
 							tc.Disconnect();
+						}
 					}
 					catch (System.Exception) { }
 
@@ -222,15 +222,7 @@ public class TcpDiscoveryServer : DiscoveryServer
 				tc.EndSend();
 
 				// The client version must match
-				if (clientVersion == TcpPlayer.version)
-				{
-					// Send the server list
-					writer = tc.BeginSend(Packet.ResponseServerList);
-					mList.WriteTo(writer);
-					tc.EndSend();
-					tc.customTimestamp = mTime + 4000;
-					return true;
-				}
+				if (clientVersion == TcpPlayer.version) return true;
 			}
 #if STANDALONE
 			Console.WriteLine(tc.address + " has failed the verification step");

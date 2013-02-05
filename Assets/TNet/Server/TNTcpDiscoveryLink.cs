@@ -3,8 +3,10 @@
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
-using System.Net;
+using System;
 using System.IO;
+using System.Net;
+using System.Threading;
 
 namespace TNet
 {
@@ -16,6 +18,8 @@ namespace TNet
 public class TcpDiscoveryServerLink : DiscoveryServerLink
 {
 	TcpProtocol mTcp;
+	GameServer mServer;
+	Thread mThread;
 
 	/// <summary>
 	/// Whether the link is currently active.
@@ -44,6 +48,12 @@ public class TcpDiscoveryServerLink : DiscoveryServerLink
 
 	public override void Stop ()
 	{
+		if (mThread != null)
+		{
+			mThread.Abort();
+			mThread = null;
+		}
+
 		if (mTcp != null)
 		{
 			mTcp.Disconnect();
@@ -57,14 +67,60 @@ public class TcpDiscoveryServerLink : DiscoveryServerLink
 
 	public override void Update (GameServer server)
 	{
-		if (mTcp.isConnected)
+		mServer = server;
+
+		if (mThread == null)
 		{
-			BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
-			writer.Write(GameServer.gameID);
-			writer.Write(server.name);
-			writer.Write((ushort)server.tcpPort);
-			writer.Write((short)server.playerCount);
-			mTcp.EndSend();
+			mThread = new Thread(ThreadFunction);
+			mThread.Start();
+		}
+	}
+
+	/// <summary>
+	/// Send periodic updates.
+	/// </summary>
+
+	void ThreadFunction()
+	{
+		for (; ; )
+		{
+			Buffer buffer;
+			
+			while (mTcp.ReceivePacket(out buffer))
+			{
+				BinaryReader reader = buffer.BeginReading();
+				Packet response = (Packet)reader.ReadByte();
+
+				if (mTcp.stage == TcpProtocol.Stage.Verifying)
+				{
+					if (!mTcp.VerifyServerProtocol(response, reader))
+					{
+						mThread = null;
+						return;
+					}
+				}
+				else if (response == Packet.Error)
+				{
+					Console.WriteLine("TcpDiscoveryLink: " + reader.ReadString());
+				}
+				else
+				{
+					Console.WriteLine("TcpDiscoveryLink can't handle this packet: " + response);
+				}
+				buffer.Recycle();
+			}
+
+			if (mServer != null && mTcp.isConnected)
+			{
+				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
+				writer.Write(GameServer.gameID);
+				writer.Write(mServer.name);
+				writer.Write((ushort)mServer.tcpPort);
+				writer.Write((short)mServer.playerCount);
+				mTcp.EndSend();
+				mServer = null;
+			}
+			Thread.Sleep(10);
 		}
 	}
 }

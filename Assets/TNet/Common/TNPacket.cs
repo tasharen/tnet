@@ -383,7 +383,13 @@ public enum Packet
 
 	/// <summary>
 	/// Response sent by the Discovery Server, listing servers.
-	/// Complicated data structure. Look inside the Server List class.
+	/// ushort: List size
+	/// For each entry:
+	/// string: Server name
+	/// ushort: Player count
+	/// byte: # of bytes in the address
+	/// bytes[]: Server address
+	/// ushort: Server port
 	/// </summary>
 
 	ResponseServerList,
