@@ -67,8 +67,13 @@
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUPnP.cs" />
+    <Compile Include="Assets\TNet\Server\TNDiscoveryLink.cs" />
+    <Compile Include="Assets\TNet\Server\TNDiscoveryServer.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Assets\TNet\Server\TNGameServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
+    <Compile Include="Assets\TNet\Server\TNTcpDiscoveryLink.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpDiscoveryServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
     <Compile Include="Assets\TNet\Server\TNUdpDiscoveryServer.cs" />

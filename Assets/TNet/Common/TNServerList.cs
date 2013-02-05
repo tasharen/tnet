@@ -109,23 +109,14 @@ public class ServerList
 	/// Save the list of servers to the specified binary writer.
 	/// </summary>
 
-	public void WriteTo (BinaryWriter writer, GameServer localServer)
+	public void WriteTo (BinaryWriter writer)
 	{
 		writer.Write(GameServer.gameID);
 
-		if (localServer != null && localServer.isActive)
-		{
-			writer.Write(true);
-			writer.Write(localServer.name);
-			writer.Write((ushort)localServer.playerCount);
-			writer.Write((ushort)localServer.tcpPort);
-		}
-		else writer.Write(false);
-
-		writer.Write((ushort)list.size);
-
 		lock (list)
 		{
+			writer.Write((ushort)list.size);
+
 			for (int i = 0; i < list.size; ++i)
 			{
 				Entry ent = list[i];
@@ -148,14 +139,6 @@ public class ServerList
 	{
 		if (reader.ReadUInt16() == GameServer.gameID)
 		{
-			if (reader.ReadBoolean())
-			{
-				string name = reader.ReadString();
-				int playerCount = reader.ReadUInt16();
-				IPEndPoint ip = new IPEndPoint(source.Address, reader.ReadUInt16());
-				Add(name, playerCount, ip, time);
-			}
-
 			int count = reader.ReadUInt16();
 
 			for (int i = 0; i < count; ++i)

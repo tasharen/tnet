@@ -17,7 +17,7 @@ namespace TNet
 /// register themselves with a central location for easy discovery by clients.
 /// </summary>
 
-public class TcpDiscoveryServer
+public class TcpDiscoveryServer : DiscoveryServer
 {
 	// List of servers that's currently being updated
 	ServerList mList = new ServerList();
@@ -29,12 +29,6 @@ public class TcpDiscoveryServer
 	long mTime = 0;
 
 	/// <summary>
-	/// Local server, if we're hosting any.
-	/// </summary>
-
-	public GameServer localServer;
-
-	/// <summary>
 	/// If the number of simultaneous connected clients exceeds this number,
 	/// server updates will no longer be instant, but rather delayed instead.
 	/// </summary>
@@ -42,28 +36,28 @@ public class TcpDiscoveryServer
 	public int instantUpdatesClientLimit = 50;
 
 	/// <summary>
-	/// Whether the server is active.
-	/// </summary>
-
-	public bool isActive { get { return (mListener != null); } }
-
-	/// <summary>
 	/// Port used to listen for incoming packets.
 	/// </summary>
 
-	public int port { get { return mPort; } }
+	public override int port { get { return mPort; } }
+
+	/// <summary>
+	/// Whether the server is active.
+	/// </summary>
+
+	public override bool isActive { get { return (mListener != null); } }
 
 	/// <summary>
 	/// Mark the list as having changed.
 	/// </summary>
 
-	public void MarkAsDirty () { mListIsDirty = true; }
+	public override void MarkAsDirty () { mListIsDirty = true; }
 
 	/// <summary>
 	/// Start listening for incoming connections.
 	/// </summary>
 
-	public bool Start (int listenPort)
+	public override bool Start (int listenPort)
 	{
 		Stop();
 
@@ -86,7 +80,7 @@ public class TcpDiscoveryServer
 	/// Stop listening for incoming packets.
 	/// </summary>
 
-	public void Stop ()
+	public override void Stop ()
 	{
 		if (mThread != null)
 		{
@@ -183,7 +177,7 @@ public class TcpDiscoveryServer
 				{
 					buffer = Buffer.Create();
 					BinaryWriter writer = buffer.BeginTcpPacket(Packet.ResponseServerList);
-					mList.WriteTo(writer, localServer);
+					mList.WriteTo(writer);
 					buffer.EndTcpPacket();
 				}
 				tc.SendTcpPacket(buffer);
@@ -232,7 +226,7 @@ public class TcpDiscoveryServer
 				{
 					// Send the server list
 					writer = tc.BeginSend(Packet.ResponseServerList);
-					mList.WriteTo(writer, localServer);
+					mList.WriteTo(writer);
 					tc.EndSend();
 					tc.customTimestamp = mTime + 4000;
 					return true;

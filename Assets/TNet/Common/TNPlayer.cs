@@ -20,7 +20,7 @@ public class Player
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 4;
+	public const int version = 5;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.
@@ -85,6 +85,8 @@ public class Player
 
 	static public IPAddress ResolveAddress (string address)
 	{
+		if (string.IsNullOrEmpty(address)) return null;
+
 		IPAddress ip;
 		if (IPAddress.TryParse(address, out ip))
 			return ip;

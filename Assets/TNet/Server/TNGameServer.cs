@@ -13,7 +13,9 @@ using System.Net;
 namespace TNet
 {
 /// <summary>
-/// Game server logic. Handles new connections, RFCs, and pretty much everything else.
+/// Game server logic. Handles new connections, RFCs, and pretty much everything else. Example usage:
+/// GameServer gs = new GameServer();
+/// gs.Start(5127);
 /// </summary>
 
 public class GameServer
@@ -26,11 +28,46 @@ public class GameServer
 
 	public const ushort gameID = 1;
 
+	public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable);
+	public delegate void OnPlayerAction (Player p);
+	public delegate void OnShutdown ();
+
+	/// <summary>
+	/// Any packet not already handled by the server will go to this function for processing.
+	/// </summary>
+
+	public OnCustomPacket onCustomPacket;
+
+	/// <summary>
+	/// Notification triggered when a player connects and authenticates successfully.
+	/// </summary>
+
+	public OnPlayerAction onPlayerConnect;
+
+	/// <summary>
+	/// Notification triggered when a player disconnects.
+	/// </summary>
+
+	public OnPlayerAction onPlayerDisconnect;
+
+	/// <summary>
+	/// Notification triggered when the server shuts down.
+	/// </summary>
+
+	public OnShutdown onShutdown;
+
 	/// <summary>
 	/// Give your server a name.
 	/// </summary>
 
 	public string name = "Game Server";
+
+	/// <summary>
+	/// Discovery server link, if one is desired.
+	/// You can use this to automatically inform a remote discovery server of any changes to this server.
+	/// </summary>
+
+	public DiscoveryServerLink discoveryLink;
 
 	/// <summary>
 	/// List of players in a consecutive order for each looping.
@@ -62,13 +99,11 @@ public class GameServer
 
 	Random mRandom = new Random();
 
-	IPEndPoint mDiscovery;
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
 	int mListenerPort = 0;
 	long mTime = 0;
-	long mNextSend = 0;
 	UdpProtocol mUdp = new UdpProtocol();
 	bool mAllowUdp = false;
 
@@ -141,6 +176,8 @@ public class GameServer
 			return false;
 		}
 
+		if (discoveryLink != null) discoveryLink.Start();
+
 		if (!mUdp.Start(udpPort))
 		{
 			Error(null, "Unable to listen to UDP port " + udpPort);
@@ -166,7 +203,8 @@ public class GameServer
 
 	public void Stop ()
 	{
-		mDiscovery = null;
+		if (discoveryLink != null) discoveryLink.Stop();
+
 		mAllowUdp = false;
 
 		// Stop the worker thread
@@ -216,20 +254,22 @@ public class GameServer
 					mListener.Stop();
 					mListener = null;
 
+					if (onShutdown != null) onShutdown();
+
 					// Inform the discovery server that this server is no longer available
-					if (mDiscovery != null && mUdp.isActive)
-					{
-						buffer = Buffer.Create();
+					//if (mDiscovery != null && mUdp.isActive)
+					//{
+					//    buffer = Buffer.Create();
 
-						BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestRemoveServer);
-						writer.Write(gameID);
-						buffer.EndTcpPacket();
+					//    BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestRemoveServer);
+					//    writer.Write(gameID);
+					//    buffer.EndTcpPacket();
 
-						mUdp.Send(buffer, mDiscovery);
+					//    mUdp.Send(buffer, mDiscovery);
 
-						buffer.Recycle();
-						buffer = null;
-					}
+					//    buffer.Recycle();
+					//    buffer = null;
+					//}
 				}
 			}
 			else
@@ -310,25 +350,27 @@ public class GameServer
 				++i;
 			}
 
+			// TODO: Move this out
+
 			// Send out an update to the discovery server (you and me baby ain't nothin' but mammals)
-			if (mListener != null && mDiscovery != null && mUdp.isActive && mNextSend < mTime)
-			{
-				mNextSend = mTime + 4000;
-				buffer = Buffer.Create();
+			//if (mListener != null && mDiscovery != null && mUdp.isActive && mNextSend < mTime)
+			//{
+			//    mNextSend = mTime + 4000;
+			//    buffer = Buffer.Create();
 
-				BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestAddServer);
-				writer.Write(gameID);
-				writer.Write(name);
-				writer.Write((ushort)mListenerPort);
-				writer.Write((short)playerCount);
-				writer.Write(false);
-				buffer.EndTcpPacket();
+			//    BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestAddServer);
+			//    writer.Write(gameID);
+			//    writer.Write(name);
+			//    writer.Write((ushort)mListenerPort);
+			//    writer.Write((short)playerCount);
+			//    writer.Write(false);
+			//    buffer.EndTcpPacket();
 
-				mUdp.Send(buffer, mDiscovery);
+			//    mUdp.Send(buffer, mDiscovery);
 
-				buffer.Recycle();
-				buffer = null;
-			}
+			//    buffer.Recycle();
+			//    buffer = null;
+			//}
 			if (!received) Thread.Sleep(1);
 		}
 	}
@@ -357,7 +399,6 @@ public class GameServer
 		TcpPlayer player = new TcpPlayer();
 		player.StartReceiving(socket);
 		mPlayers.Add(player);
-		mNextSend = 0;
 		return player;
 	}
 
@@ -376,18 +417,21 @@ public class GameServer
 			p.Release();
 			mPlayers.Remove(p);
 
-			if (p.id != 0)
-			{
-				mDictionaryID.Remove(p.id);
-				p.id = 0;
-			}
-
 			if (p.udpEndPoint != null)
 			{
 				mDictionaryEP.Remove(p.udpEndPoint);
 				p.udpEndPoint = null;
 			}
-			mNextSend = 0;
+
+			if (p.id != 0)
+			{
+				if (mDictionaryID.Remove(p.id))
+				{
+					if (discoveryLink != null) discoveryLink.Update(this);
+					if (onPlayerDisconnect != null) onPlayerDisconnect(p);
+				}
+				p.id = 0;
+			}
 		}
 	}
 
@@ -902,7 +946,12 @@ public class GameServer
 				EndSend(true, player);
 
 				// If the version matches, move on to the next packet
-				if (clientVersion == TcpPlayer.version) return true;
+				if (clientVersion == TcpPlayer.version)
+				{
+					if (discoveryLink != null) discoveryLink.Update(this);
+					if (onPlayerConnect != null) onPlayerConnect(player);
+					return true;
+				}
 			}
 #if STANDALONE
 			Console.WriteLine(player.address + " has failed the verification step");
@@ -1120,6 +1169,10 @@ public class GameServer
 					{
 						ProcessChannelPacket(player, buffer, reader, request);
 					}
+				}
+				else if (onCustomPacket != null)
+				{
+					onCustomPacket(player, buffer, reader, request, reliable);
 				}
 				break;
 			}

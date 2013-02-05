@@ -231,6 +231,7 @@ public class TcpProtocol : Player
 		return mBuffer.BeginTcpPacket(packetID);
 	}
 
+	/// <summary>
 	/// Send the outgoing buffer.
 	/// </summary>
 

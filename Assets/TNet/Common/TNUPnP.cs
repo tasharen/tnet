@@ -92,7 +92,7 @@ public class UPnP
 	public bool hasThreadsActive { get { return mThreads.size > 0; } }
 
 	/// <summary>
-	/// Start the Universal Plug & Play discovery process.
+	/// Start the Universal Plug and Play discovery process.
 	/// </summary>
 
 	public UPnP ()

@@ -17,7 +17,7 @@ namespace TNet
 /// register themselves with a central location for easy discovery by clients.
 /// </summary>
 
-public class UdpDiscoveryServer
+public class UdpDiscoveryServer : DiscoveryServer
 {
 	// List of servers that's currently being updated
 	ServerList mList = new ServerList();
@@ -29,34 +29,28 @@ public class UdpDiscoveryServer
 	ushort mBroadcastPort = 0;
 
 	/// <summary>
-	/// Local server, if we're hosting any.
+	/// Port used to listen for incoming packets.
 	/// </summary>
 
-	public GameServer localServer;
+	public override int port { get { return mUdp.isActive ? mUdp.listeningPort : 0; } }
 
 	/// <summary>
 	/// Whether the server is active.
 	/// </summary>
 
-	public bool isActive { get { return (mUdp != null && mUdp.isActive); } }
-
-	/// <summary>
-	/// Port used to listen for incoming packets.
-	/// </summary>
-
-	public int port { get { return mUdp.isActive ? mUdp.listeningPort : 0; } }
+	public override bool isActive { get { return (mUdp != null && mUdp.isActive); } }
 
 	/// <summary>
 	/// Mark the list as having changed.
 	/// </summary>
 
-	public void MarkAsDirty () { mListIsDirty = true; }
+	public override void MarkAsDirty () { mListIsDirty = true; }
 
 	/// <summary>
 	/// Start listening for incoming UDP packets on the specified listener port.
 	/// </summary>
 
-	public bool Start (int listenPort) { return Start(listenPort, 0); }
+	public override bool Start (int listenPort) { return Start(listenPort, 0); }
 
 	/// <summary>
 	/// Start listening for incoming UDP packets on the specified listener port, and automatically
@@ -78,7 +72,7 @@ public class UdpDiscoveryServer
 	/// Stop listening for incoming packets.
 	/// </summary>
 
-	public void Stop ()
+	public override void Stop ()
 	{
 		if (mThread != null)
 		{
@@ -127,7 +121,7 @@ public class UdpDiscoveryServer
 			if (mListIsDirty && mBroadcastPort != 0)
 			{
 				mListIsDirty = false;
-				mList.WriteTo(BeginSend(Packet.ResponseServerList), localServer);
+				mList.WriteTo(BeginSend(Packet.ResponseServerList));
 				EndSend();
 			}
 			Thread.Sleep(1);
@@ -166,12 +160,8 @@ public class UdpDiscoveryServer
 			case Packet.RequestServerList:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;
-				mList.WriteTo(BeginSend(Packet.ResponseServerList), localServer);
+				mList.WriteTo(BeginSend(Packet.ResponseServerList));
 				EndSend(ip);
-				return true;
-			}
-			case Packet.Empty:
-			{
 				return true;
 			}
 		}

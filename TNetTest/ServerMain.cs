@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -15,6 +15,10 @@ using System.Threading;
 
 public class ServerMain
 {
+	/// <summary>
+	/// UPnP notification of a port being open.
+	/// </summary>
+
 	static void OnPortOpened (UPnP up, int port, ProtocolType protocol, bool success)
 	{
 		if (success)
@@ -26,6 +30,10 @@ public class ServerMain
 			Console.WriteLine("Unable to open " + protocol.ToString().ToUpper() + " port " + port);
 		}
 	}
+
+	/// <summary>
+	/// UPnP notification of a port closing.
+	/// </summary>
 
 	static void OnPortClosed (UPnP up, int port, ProtocolType protocol, bool success)
 	{
@@ -39,6 +47,8 @@ public class ServerMain
 		}
 	}
 
+	// TODO: Fix the Unity project. Its discovery won't work anymore.
+
 	static int Main (string[] args)
 	{
 		Console.WriteLine("Locating the gateway...");
@@ -51,19 +61,32 @@ public class ServerMain
 				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Discovery");
 				Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
 				Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Discovery only\n");
+				Console.WriteLine("To register with a remote discovery server, use this syntax:");
+				Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 some.server.com 5129\n");
 				args = new string[] { "TNet Server", "5127", "5128", "5129" };
 			}
 
 			int tcpPort = 0;
 			int udpPort = 0;
-			int disPort = 0;
+			int discoveryPort = 0;
+			int remoteDiscoveryPort = 0;
 			string name = "TNet Server";
+			string remoteDiscovery = null;
 
 			if (args.Length > 0) name = args[0];
 			if (args.Length > 1) int.TryParse(args[1], out tcpPort);
 			if (args.Length > 2) int.TryParse(args[2], out udpPort);
-			if (args.Length > 3) int.TryParse(args[3], out disPort);
+			if (args.Length > 4)
+			{
+				if (int.TryParse(args[4], out remoteDiscoveryPort))
+				{
+					remoteDiscovery = args[3];
+				}
+			}
+			else if (args.Length > 3) int.TryParse(args[3], out discoveryPort);
 
+			// Universal Plug & Play is used to determine the external IP address,
+			// and to automatically open up ports on the router / gateway.
 			UPnP up = new UPnP();
 
 			// Wait for the gateway to be found
@@ -79,35 +102,42 @@ public class ServerMain
 				Console.WriteLine("External IP address: " + up.externalAddress);
 
 				// Open up ports on the gateway
-				//if (tcpPort > 0) up.OpenTCP(tcpPort, OnPortOpened);
-				//if (udpPort > 0) up.OpenUDP(udpPort, OnPortOpened);
-				//if (disPort > 0) up.OpenUDP(disPort, OnPortOpened);
+				//if (tcpPort > 0) mUp.OpenTCP(tcpPort, OnPortOpened);
+				//if (udpPort > 0) mUp.OpenUDP(udpPort, OnPortOpened);
+				//if (disPort > 0) mUp.OpenUDP(disPort, OnPortOpened);
 			}
 
-			GameServer server = null;
-			TcpDiscoveryServer discovery = null;
+			DiscoveryServer discoveryServer = null;
+
+			if (discoveryPort > 0)
+			{
+				// Server discovery port should match the discovery port on the client
+				discoveryServer = new TcpDiscoveryServer();
+				discoveryServer.Start(discoveryPort);
+			}
+
+			GameServer gameServer = null;
 
 			if (tcpPort > 0)
 			{
-				server = new GameServer();
-				server.name = name;
+				gameServer = new GameServer();
+				gameServer.name = name;
 
-				//if (disPort == 0)
-				//{
-				//    server.discoveryAddress = "server.tasharen.com";
-				//    server.discoveryPort = 5129;
-				//    server.discoveryProtocol = DiscoveryServer.Protocol.Tcp;
-				//}
-				server.Start(tcpPort, udpPort);
-				server.LoadFrom("server.dat");
-			}
+				if (!string.IsNullOrEmpty(remoteDiscovery))
+				{
+					gameServer.discoveryLink = new TcpDiscoveryServerLink();
+					gameServer.discoveryLink.address = remoteDiscovery;
+					gameServer.discoveryLink.port = remoteDiscoveryPort;
+				}
+				else if (discoveryPort > 0)
+				{
+					gameServer.discoveryLink = new TcpDiscoveryServerLink();
+					gameServer.discoveryLink.address = "127.0.0.1";
+					gameServer.discoveryLink.port = discoveryPort;
+				}
 
-			if (disPort > 0)
-			{
-				// Server discovery port should match the discovery port on the client (TNDiscoveryClient).
-				discovery = new TcpDiscoveryServer();
-				discovery.localServer = server;
-				discovery.Start(disPort);
+				gameServer.Start(tcpPort, udpPort);
+				gameServer.LoadFrom("server.dat");
 			}
 
 			for (; ; )
@@ -121,21 +151,27 @@ public class ServerMain
 			if (up != null)
 			{
 				// Close the ports we opened earlier
-				//if (tcpPort > 0) up.CloseTCP(tcpPort, OnPortClosed);
-				//if (udpPort > 0) up.CloseUDP(udpPort, OnPortClosed);
-				//if (disPort > 0) up.CloseUDP(disPort, OnPortClosed);
+				//if (tcpPort > 0) mUp.CloseTCP(tcpPort, OnPortClosed);
+				//if (udpPort > 0) mUp.CloseUDP(udpPort, OnPortClosed);
+				//if (disPort > 0) mUp.CloseUDP(disPort, OnPortClosed);
 
 				// Wait for the ports to get closed
 				while (up.hasThreadsActive) Thread.Sleep(1);
+				up = null;
 			}
 
 			// Save everything and stop the server
-			if (discovery != null) discovery.Stop();
-
-			if (server != null)
+			if (discoveryServer != null)
 			{
-				server.SaveTo("server.dat");
-				server.Stop();
+				discoveryServer.Stop();
+				discoveryServer = null;
+			}
+
+			if (gameServer != null)
+			{
+				gameServer.SaveTo("server.dat");
+				gameServer.Stop();
+				gameServer = null;
 			}
 		}
 		Console.WriteLine("There server has shut down. Press ENTER to terminate the application.");
