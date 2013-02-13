@@ -298,7 +298,7 @@ public class GameClient
 	public BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create();
-		return mBuffer.BeginTcpPacket(type);
+		return mBuffer.BeginPacket(type);
 	}
 
 	/// <summary>
@@ -308,7 +308,7 @@ public class GameClient
 	public BinaryWriter BeginSend (byte packetID)
 	{
 		mBuffer = Buffer.Create();
-		return mBuffer.BeginTcpPacket(packetID);
+		return mBuffer.BeginPacket(packetID);
 	}
 
 	/// <summary>
@@ -317,7 +317,7 @@ public class GameClient
 
 	public void EndSend ()
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mTcp.SendTcpPacket(mBuffer);
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -329,7 +329,7 @@ public class GameClient
 
 	public void EndSend (bool reliable)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 
 		if (reliable || mServerUdpEndPoint == null || !mUdp.isActive)
 		{
@@ -338,7 +338,7 @@ public class GameClient
 		}
 		else
 		{
-			mBuffer.EndTcpPacket();
+			mBuffer.EndPacket();
 			mUdp.Send(mBuffer, mServerUdpEndPoint);
 		}
 		mBuffer = null;
@@ -350,7 +350,7 @@ public class GameClient
 
 	public void EndSend (int port)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mUdp.Broadcast(mBuffer, port);
 		mBuffer = null;
 	}
@@ -361,7 +361,7 @@ public class GameClient
 
 	public void EndSend (IPEndPoint target)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mUdp.Send(mBuffer, target);
 		mBuffer = null;
 	}
@@ -372,7 +372,7 @@ public class GameClient
 
 	public void Connect (string addr, int port)
 	{
-		mConnectTarget = Player.ResolveEndPoint(addr, port);
+		mConnectTarget = Tools.ResolveEndPoint(addr, port);
 		if (mConnectTarget != null) mTcp.Connect(mConnectTarget);
 	}
 
@@ -554,6 +554,28 @@ public class GameClient
 		int packetID = reader.ReadByte();
 		Packet response = (Packet)packetID;
 
+		// Verification step must be passed first
+		if (mTcp.stage == TcpProtocol.Stage.Verifying)
+		{
+			if (mTcp.VerifyResponseID(response, reader))
+			{
+				if (mUdp.isActive)
+				{
+					// If we have a UDP listener active, tell the server
+					BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0);
+					EndSend();
+				}
+
+				mCanPing = true;
+				if (onConnect != null) onConnect(true, null);
+			}
+			else if (onConnect != null)
+			{
+				onConnect(false, "Protocol version mismatch!");
+			}
+			return true;
+		}
+
 //#if !UNITY_EDITOR // DEBUG
 //        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#else
@@ -583,33 +605,6 @@ public class GameClient
 			{
 				mPing = (int)(mTime - mPingTime);
 				mCanPing = true;
-				break;
-			}
-			case Packet.ResponseID:
-			{
-				if (mTcp.stage == TcpProtocol.Stage.Verifying)
-				{
-					int serverVersion = reader.ReadInt32();
-
-					if (mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
-					{
-						if (mUdp.isActive)
-						{
-							// If we have a UDP listener active, tell the server
-							BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ?
-								(ushort)mUdp.listeningPort : (ushort)0);
-							EndSend();
-						}
-						
-						mCanPing = true;
-						if (onConnect != null) onConnect(true, null);
-					}
-					else if (onConnect != null)
-					{
-						onConnect(false, "Version mismatch. Server is running version " +
-							serverVersion + ", while you have version " + Player.version);
-					}
-				}
 				break;
 			}
 			case Packet.ResponseSetUDP:

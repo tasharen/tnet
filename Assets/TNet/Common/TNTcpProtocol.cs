@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -43,12 +43,6 @@ public class TcpProtocol : Player
 	/// </summary>
 
 	public long lastReceivedTime = 0;
-
-	/// <summary>
-	/// Custom timestamp you can set to keep track of when was the last time you've done something.
-	/// </summary>
-
-	public long customTimestamp = 0;
 
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();
@@ -182,7 +176,7 @@ public class TcpProtocol : Player
 			if (notify)
 			{
 				Buffer buffer = Buffer.Create();
-				buffer.BeginTcpPacket(Packet.Disconnect);
+				buffer.BeginPacket(Packet.Disconnect);
 				buffer.EndTcpPacketWithOffset(4);
 				lock (mIn) mIn.Enqueue(buffer);
 			}
@@ -219,7 +213,7 @@ public class TcpProtocol : Player
 	public BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginTcpPacket(type);
+		return mBuffer.BeginPacket(type);
 	}
 
 	/// <summary>
@@ -229,7 +223,7 @@ public class TcpProtocol : Player
 	public BinaryWriter BeginSend (byte packetID)
 	{
 		mBuffer = Buffer.Create(false);
-		return mBuffer.BeginTcpPacket(packetID);
+		return mBuffer.BeginPacket(packetID);
 	}
 
 	/// <summary>
@@ -238,7 +232,7 @@ public class TcpProtocol : Player
 
 	public void EndSend ()
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		SendTcpPacket(mBuffer);
 		mBuffer = null;
 	}
@@ -382,14 +376,14 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			Error(ex.Message);
-			Close(false);
+			Disconnect();
 			return;
 		}
 		lastReceivedTime = DateTime.Now.Ticks / 10000;
 
 		if (bytes == 0)
 		{
-			Close(false);
+			Close(true);
 		}
 		else if (ProcessBuffer(bytes))
 		{
@@ -407,79 +401,6 @@ public class TcpProtocol : Player
 			}
 		}
 		else Close(true);
-	}
-
-	/// <summary>
-	/// Add an error packet to the incoming queue.
-	/// </summary>
-
-	public void Error (string error) { Error(Buffer.Create(), error); }
-
-	/// <summary>
-	/// Add an error packet to the incoming queue.
-	/// </summary>
-
-	void Error (Buffer buffer, string error)
-	{
-		buffer.BeginTcpPacket(Packet.Error).Write(error);
-		buffer.EndTcpPacketWithOffset(4);
-		lock (mIn) mIn.Enqueue(buffer);
-	}
-
-	/// <summary>
-	/// Verify the connection.
-	/// </summary>
-
-	public bool VerifyClientProtocol (Packet packet, BinaryReader reader, bool uniqueID)
-	{
-		if (packet == Packet.RequestID)
-		{
-			// Client version must match
-			if (reader.ReadInt32() == version)
-			{
-				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
-				name = reader.ReadString();
-				stage = TcpProtocol.Stage.Connected;
-
-				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(version);
-				writer.Write(id);
-				EndSend();
-				return true;
-			}
-			else
-			{
-				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(version);
-				writer.Write(0);
-				EndSend();
-				Close(false);
-			}
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Verify the connection.
-	/// </summary>
-
-	public bool VerifyServerProtocol (Packet packet, BinaryReader reader)
-	{
-		if (packet == Packet.ResponseID)
-		{
-			if (reader.ReadInt32() == version)
-			{
-				id = reader.ReadInt32();
-				stage = Stage.Connected;
-				return true;
-			}
-			else
-			{
-				id = 0;
-				Close(false);
-			}
-		}
-		return false;
 	}
 
 	/// <summary>
@@ -553,6 +474,81 @@ public class TcpProtocol : Player
 			else break;
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	public void Error (string error) { Error(Buffer.Create(), error); }
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	void Error (Buffer buffer, string error)
+	{
+		buffer.BeginPacket(Packet.Error).Write(error);
+		buffer.EndTcpPacketWithOffset(4);
+		lock (mIn) mIn.Enqueue(buffer);
+	}
+
+	/// <summary>
+	/// Verify the connection.
+	/// </summary>
+
+	public bool VerifyRequestID (Packet packet, BinaryReader reader, bool uniqueID)
+	{
+		if (packet == Packet.RequestID)
+		{
+			if (reader.ReadInt32() == version)
+			{
+				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
+				name = reader.ReadString();
+				stage = TcpProtocol.Stage.Connected;
+
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(version);
+				writer.Write(id);
+				EndSend();
+				return true;
+			}
+			else
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(version);
+				writer.Write(0);
+				EndSend();
+				Close(false);
+			}
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Verify the connection.
+	/// </summary>
+
+	public bool VerifyResponseID (Packet packet, BinaryReader reader)
+	{
+		if (packet == Packet.ResponseID)
+		{
+			int serverVersion = reader.ReadInt32();
+
+			if (serverVersion == version)
+			{
+				id = reader.ReadInt32();
+				stage = Stage.Connected;
+				return true;
+			}
+			else
+			{
+				id = 0;
+				Error("Version mismatch! Server is running version " + serverVersion + " while you have version " + version);
+				Close(false);
+			}
+		}
+		return false;
 	}
 }
 }

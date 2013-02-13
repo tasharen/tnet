@@ -1,0 +1,151 @@
+//------------------------------------------
+//            Tasharen Network
+// Copyright © 2012 Tasharen Entertainment
+//------------------------------------------
+
+using System;
+using System.IO;
+using System.Net;
+using System.Threading;
+
+namespace TNet
+{
+/// <summary>
+/// TCP-based lobby server link. Designed to communicate with a remote TcpLobbyServer.
+/// You can use this class to register your game server with a remote lobby server.
+/// </summary>
+
+public class TcpLobbyServerLink : LobbyServerLink
+{
+	TcpProtocol mTcp;
+	IPEndPoint mRemoteAddress;
+	GameServer mGameServer;
+	Thread mThread;
+	long mNextConnect = 0;
+	bool mWasConnected = false;
+
+	/// <summary>
+	/// Create a new link to a remote lobby server.
+	/// </summary>
+
+	public TcpLobbyServerLink (IPEndPoint address) : base(null) { mRemoteAddress = address; }
+
+	/// <summary>
+	/// Whether the link is currently active.
+	/// </summary>
+
+	public override bool isActive { get { return mTcp.isConnected; } }
+
+	/// <summary>
+	/// Start the lobby server link.
+	/// </summary>
+
+	public override void Start ()
+	{
+		if (externalAddress != null)
+		{
+			base.Start();
+
+			if (mTcp == null)
+			{
+				mTcp = new TcpProtocol();
+				mTcp.name = "Link";
+			}
+			mNextConnect = 0;
+		}
+	}
+
+	/// <summary>
+	/// Send a server update.
+	/// </summary>
+
+	public override void SendUpdate (GameServer server)
+	{
+		if (externalAddress != null && !mShutdown)
+		{
+			mGameServer = server;
+
+			if (mThread == null)
+			{
+				mThread = new Thread(ThreadFunction);
+				mThread.Start();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Send periodic updates.
+	/// </summary>
+
+	void ThreadFunction()
+	{
+		for (; ; )
+		{
+			long time = DateTime.Now.Ticks / 10000;
+
+			if (mShutdown)
+			{
+				mTcp.Disconnect();
+				mThread = null;
+				break;
+			}
+
+			Buffer buffer;
+
+			// Try to establish a connection
+			if (mGameServer != null && !mTcp.isConnected && mNextConnect < time)
+			{
+				mNextConnect = time + 15000;
+				mTcp.Connect(mRemoteAddress);
+			}
+			
+			while (mTcp.ReceivePacket(out buffer))
+			{
+				BinaryReader reader = buffer.BeginReading();
+				Packet response = (Packet)reader.ReadByte();
+
+				if (mTcp.stage == TcpProtocol.Stage.Verifying)
+				{
+					if (mTcp.VerifyResponseID(response, reader))
+					{
+						mWasConnected = true;
+					}
+					else
+					{
+#if STANDALONE
+						Console.WriteLine("TcpLobbyLink: Protocol version mismatch");
+#endif
+						mThread = null;
+						return;
+					}
+				}
+				else if (response == Packet.Error)
+				{
+					// Automatically try to re-establish a connection on disconnect
+					mNextConnect = mWasConnected ? 0 : time + 30000;
+#if STANDALONE
+					Console.WriteLine("TcpLobbyLink: " + reader.ReadString());
+#endif
+				}
+#if STANDALONE
+				else Console.WriteLine("TcpLobbyLink can't handle this packet: " + response);
+#endif
+				buffer.Recycle();
+			}
+
+			if (mGameServer != null && mTcp.isConnected && internalAddress != null && externalAddress != null)
+			{
+				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
+				writer.Write(GameServer.gameID);
+				writer.Write(mGameServer.name);
+				writer.Write((short)mGameServer.playerCount);
+				Tools.Serialize(writer, internalAddress);
+				Tools.Serialize(writer, externalAddress);
+				mTcp.EndSend();
+				mGameServer = null;
+			}
+			Thread.Sleep(10);
+		}
+	}
+}
+}

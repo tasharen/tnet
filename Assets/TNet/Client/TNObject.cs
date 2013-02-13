@@ -548,7 +548,7 @@ public sealed class TNObject : MonoBehaviour
 			BinaryWriter writer = TNManager.BeginSend(packetID);
 			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
-			Tools.Write(writer, objs);
+			UnityTools.Write(writer, objs);
 			TNManager.EndSend(reliable);
 		}
 		else if (target == Target.All || target == Target.AllSaved)
@@ -581,7 +581,7 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(target.id);
 			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
-			Tools.Write(writer, objs);
+			UnityTools.Write(writer, objs);
 			TNManager.EndSend(reliable);
 		}
 	}
@@ -595,7 +595,7 @@ public sealed class TNObject : MonoBehaviour
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write(GetUID(objID, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);
-		Tools.Write(writer, objs);
+		UnityTools.Write(writer, objs);
 		TNManager.EndSend(port);
 	}
 

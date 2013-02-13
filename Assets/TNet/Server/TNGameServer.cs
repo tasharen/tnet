@@ -61,11 +61,11 @@ public class GameServer
 	public string name = "Game Server";
 
 	/// <summary>
-	/// Discovery server link, if one is desired.
-	/// You can use this to automatically inform a remote discovery server of any changes to this server.
+	/// Lobby server link, if one is desired.
+	/// You can use this to automatically inform a remote lobby server of any changes to this server.
 	/// </summary>
 
-	public DiscoveryServerLink discoveryLink;
+	public LobbyServerLink lobbyLink;
 
 	/// <summary>
 	/// List of players in a consecutive order for each looping.
@@ -174,6 +174,9 @@ public class GameServer
 			return false;
 		}
 
+#if STANDALONE
+		Console.WriteLine("Game server started on port " + tcpPort);
+#endif
 		if (!mUdp.Start(udpPort))
 		{
 			Error(null, "Unable to listen to UDP port " + udpPort);
@@ -183,10 +186,10 @@ public class GameServer
 
 		mAllowUdp = (udpPort > 0);
 
-		if (discoveryLink != null)
+		if (lobbyLink != null)
 		{
-			discoveryLink.Start();
-			discoveryLink.Update(this);
+			lobbyLink.Start();
+			lobbyLink.SendUpdate(this);
 		}
 
 		mThread = new Thread(ThreadFunction);
@@ -206,7 +209,7 @@ public class GameServer
 
 	public void Stop ()
 	{
-		if (discoveryLink != null) discoveryLink.Stop();
+		if (lobbyLink != null) lobbyLink.Stop();
 
 		mAllowUdp = false;
 
@@ -256,23 +259,8 @@ public class GameServer
 				{
 					mListener.Stop();
 					mListener = null;
-
+					if (lobbyLink != null) lobbyLink.Stop();
 					if (onShutdown != null) onShutdown();
-
-					// Inform the discovery server that this server is no longer available
-					//if (mDiscovery != null && mUdp.isActive)
-					//{
-					//    buffer = Buffer.Create();
-
-					//    BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestRemoveServer);
-					//    writer.Write(gameID);
-					//    buffer.EndTcpPacket();
-
-					//    mUdp.Send(buffer, mDiscovery);
-
-					//    buffer.Recycle();
-					//    buffer = null;
-					//}
 				}
 			}
 			else
@@ -352,28 +340,6 @@ public class GameServer
 				}
 				++i;
 			}
-
-			// TODO: Move this out
-
-			// Send out an update to the discovery server (you and me baby ain't nothin' but mammals)
-			//if (mListener != null && mDiscovery != null && mUdp.isActive && mNextSend < mTime)
-			//{
-			//    mNextSend = mTime + 4000;
-			//    buffer = Buffer.Create();
-
-			//    BinaryWriter writer = buffer.BeginTcpPacket(Packet.RequestAddServer);
-			//    writer.Write(gameID);
-			//    writer.Write(name);
-			//    writer.Write((ushort)mListenerPort);
-			//    writer.Write((short)playerCount);
-			//    writer.Write(false);
-			//    buffer.EndTcpPacket();
-
-			//    mUdp.Send(buffer, mDiscovery);
-
-			//    buffer.Recycle();
-			//    buffer = null;
-			//}
 			if (!received) Thread.Sleep(1);
 		}
 	}
@@ -430,7 +396,7 @@ public class GameServer
 			{
 				if (mDictionaryID.Remove(p.id))
 				{
-					if (discoveryLink != null) discoveryLink.Update(this);
+					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					if (onPlayerDisconnect != null) onPlayerDisconnect(p);
 				}
 				p.id = 0;
@@ -711,7 +677,7 @@ public class GameServer
 	BinaryWriter BeginSend (Packet type)
 	{
 		mBuffer = Buffer.Create();
-		BinaryWriter writer = mBuffer.BeginTcpPacket(type);
+		BinaryWriter writer = mBuffer.BeginPacket(type);
 		return writer;
 	}
 
@@ -721,7 +687,7 @@ public class GameServer
 
 	void EndSend (IPEndPoint ip)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mUdp.Send(mBuffer, ip);
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -733,7 +699,7 @@ public class GameServer
 
 	void EndSend (bool reliable, TcpPlayer player)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
 		if (reliable || player.udpEndPoint == null || !mAllowUdp)
@@ -752,7 +718,7 @@ public class GameServer
 
 	void EndSend (bool reliable, TcpChannel channel, TcpPlayer exclude)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
@@ -779,7 +745,7 @@ public class GameServer
 
 	void EndSend (bool reliable)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < mChannels.size; ++i)
@@ -929,10 +895,10 @@ public class GameServer
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (player.VerifyClientProtocol(request, reader, true))
+			if (player.VerifyRequestID(request, reader, true))
 			{
 				mDictionaryID.Add(player.id, player);
-				if (discoveryLink != null) discoveryLink.Update(this);
+				if (lobbyLink != null) lobbyLink.SendUpdate(this);
 				if (onPlayerConnect != null) onPlayerConnect(player);
 				return true;
 			}

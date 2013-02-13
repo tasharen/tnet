@@ -27,7 +27,7 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
-	public int discoveryPort = 5129;
+	public int lobbyPort = 5129;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -62,8 +62,8 @@ public class ExampleMenu : MonoBehaviour
 	{
 		if (Application.isPlaying)
 		{
-			float target = (TNDiscoveryClient.knownServers.list.size == 0) ? 0f : 1f;
-			mAlpha = Tools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
+			float target = (TNLobbyClient.knownServers.list.size == 0) ? 0f : 1f;
+			mAlpha = UnityTools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
 		}
 	}
 
@@ -103,7 +103,7 @@ public class ExampleMenu : MonoBehaviour
 
 		// Show a half-transparent box around the upcoming UI
 		GUI.color = new Color(1f, 1f, 1f, 0.5f);
-		GUI.Box(Tools.PadRect(rect, 8f), "");
+		GUI.Box(UnityTools.PadRect(rect, 8f), "");
 		GUI.color = Color.white;
 
 		GUILayout.BeginArea(rect);
@@ -139,11 +139,19 @@ public class ExampleMenu : MonoBehaviour
 #if UNITY_WEBPLAYER
 					mMessage = "Can't host from the Web Player due to Unity's security restrictions";
 #else
+					int udpPort = Random.Range(10000, 40000);
+
+					// Lobby server makes it possible to easily retrieve a list of known servers
+					if (lobbyPort != 0)
+					{
+						TNServerInstance.lobby = new UdpLobbyServer();
+						TNServerInstance.lobby.Start(lobbyPort, udpPort);
+					}
+
 					// Start a local server, loading the saved data if possible
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
-					TNServerInstance.Start(serverTcpPort, Random.Range(10000, 40000), "server.dat");
-					TNServerInstance.discoveryPort = discoveryPort;
+					TNServerInstance.Start(serverTcpPort, udpPort, "server.dat");
 					mMessage = "Server started";
 #endif
 				}
@@ -258,7 +266,7 @@ public class ExampleMenu : MonoBehaviour
 	void DrawServerList (Rect rect)
 	{
 		GUI.color = new Color(1f, 1f, 1f, mAlpha * mAlpha * 0.5f);
-		GUI.Box(Tools.PadRect(rect, 8f), "");
+		GUI.Box(UnityTools.PadRect(rect, 8f), "");
 		GUI.color = new Color(1f, 1f, 1f, mAlpha * mAlpha);
 
 		GUILayout.BeginArea(rect);
@@ -266,16 +274,16 @@ public class ExampleMenu : MonoBehaviour
 			GUILayout.Label("LAN Server List", text);
 
 			// List of discovered servers
-			List<ServerList.Entry> list = TNDiscoveryClient.knownServers.list;
+			List<ServerList.Entry> list = TNLobbyClient.knownServers.list;
 
 			// Server list example script automatically collects servers that have recently announced themselves
 			for (int i = 0; i < list.size; ++i)
 			{
 				ServerList.Entry ent = list[i];
 
-				if (GUILayout.Button(ent.ip.ToString(), button))
+				if (GUILayout.Button(ent.externalAddress.ToString(), button))
 				{
-					TNManager.Connect(ent.ip.ToString());
+					TNManager.Connect(ent.externalAddress.ToString());
 					mMessage = "Connecting...";
 				}
 			}

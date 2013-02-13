@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -12,10 +12,10 @@ using System.Net;
 namespace TNet
 {
 /// <summary>
-/// Common Tasharen Network-related functionality and helper functions.
+/// Common Tasharen Network-related functionality and helper functions to be used with Unity.
 /// </summary>
 
-static public class Tools
+static public class UnityTools
 {
 	/// <summary>
 	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
@@ -71,6 +71,7 @@ static public class Tools
 		if (type == typeof(Color32)) return true;
 		if (type == typeof(Color)) return true;
 		if (type == typeof(DateTime)) return true;
+		if (type == typeof(IPEndPoint)) return true;
 		if (type == typeof(bool[])) return true;
 		if (type == typeof(byte[])) return true;
 		if (type == typeof(ushort[])) return true;
@@ -196,6 +197,15 @@ static public class Tools
 				bw.Write('n');
 				bw.Write((Int64)time.Ticks);
 			}
+			else if (type == typeof(IPEndPoint))
+			{
+				IPEndPoint ip = (IPEndPoint)obj;
+				byte[] bytes = ip.Address.GetAddressBytes();
+				bw.Write('o');
+				bw.Write((byte)bytes.Length);
+				bw.Write(bytes);
+				bw.Write((ushort)ip.Port);
+			}
 			else if (type == typeof(bool[]))
 			{
 				bool[] arr = (bool[])obj;
@@ -284,6 +294,13 @@ static public class Tools
 				case 'l': data[i] = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte()); break;
 				case 'm': data[i] = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
 				case 'n': data[i] = new DateTime(reader.ReadInt64()); break;
+				case 'o':
+				{
+					byte[] bytes = reader.ReadBytes(reader.ReadByte());
+					IPEndPoint ip = new IPEndPoint(new IPAddress(bytes), reader.ReadUInt16());
+					data[i] = ip;
+					break;
+				}
 				case 'A':
 				{
 					int elements = reader.ReadInt32();

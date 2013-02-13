@@ -11,36 +11,28 @@ using UnityEngine;
 using TNet;
 
 /// <summary>
-/// UDP-based discovery client, designed to communicate with the UdpDiscoveryServer.
+/// UDP-based lobby client, designed to communicate with the UdpLobbyServer.
 /// </summary>
 
-public class TNUdpDiscoveryClient : TNDiscoveryClient
+public class TNUdpLobbyClient : TNLobbyClient
 {
 	UdpProtocol mUdp;
 	Buffer mRequest;
-	IPEndPoint mTarget;
 	long mNextSend = 0;
 
 	void Start ()
 	{
-		if (!string.IsNullOrEmpty(address))
-		{
-			mTarget = Player.ResolveEndPoint(address, port);
+		mUdp = new UdpProtocol();
 
-			if (mTarget == null)
-			{
-				Debug.LogError("Invalid address: " + address + ":" + port);
-				return;
-			}
+		// Server list request -- we'll be using it a lot, so just create it once
+		isActive = false;
+		mRequest = Buffer.Create();
+		mRequest.BeginPacket(Packet.RequestServerList).Write(GameServer.gameID);
+		mRequest.EndPacket();
 
-			// Server list request -- we'll be using it a lot, so just create it once
-			mRequest = Buffer.Create();
-			mRequest.BeginTcpPacket(Packet.RequestServerList).Write(1);
-			mRequest.EndTcpPacket();
-
-			mUdp = new UdpProtocol();
-			mUdp.Start(0);
-		}
+		// Twice just in case the first try falls on a taken port
+		if (!mUdp.Start(10000 + (int)(System.DateTime.Now.Ticks % 50000)))
+			 mUdp.Start(10000 + (int)(System.DateTime.Now.Ticks % 50000));
 	}
 
 	void OnDestroy ()
@@ -49,11 +41,17 @@ public class TNUdpDiscoveryClient : TNDiscoveryClient
 		{
 			mUdp.Stop();
 			mUdp = null;
+			knownServers.Clear();
+			onChange = null;
 		}
-		
-		knownServers.Clear();
-		onChange = null;
-		if (mRequest != null) mRequest.Recycle();
+
+		isActive = false;
+
+		if (mRequest != null)
+		{
+			mRequest.Recycle();
+			mRequest = null;
+		}
 	}
 
 	/// <summary>
@@ -79,9 +77,14 @@ public class TNUdpDiscoveryClient : TNDiscoveryClient
 
 					if (response == Packet.ResponseServerList)
 					{
+						isActive = true;
 						mNextSend = time + 3000;
-						knownServers.ReadFrom(reader, ip, time);
+						knownServers.ReadFrom(reader, time);
 						changed = true;
+					}
+					else if (response == Packet.Error)
+					{
+						Debug.LogWarning(reader.ReadString());
 					}
 				}
 				catch (System.Exception) { }
@@ -96,7 +99,7 @@ public class TNUdpDiscoveryClient : TNDiscoveryClient
 		if (mNextSend < time && mUdp != null)
 		{
 			mNextSend = time + 3000;
-			mUdp.Send(mRequest, mTarget);
+			mUdp.Send(mRequest, mRemoteAddress);
 		}
 	}
 }

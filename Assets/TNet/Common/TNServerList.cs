@@ -15,12 +15,30 @@ namespace TNet
 
 public class ServerList
 {
-	public struct Entry
+	public class Entry
 	{
 		public string name;
 		public int playerCount;
-		public IPEndPoint ip;
-		public long expirationTime;
+		public IPEndPoint internalAddress;
+		public IPEndPoint externalAddress;
+		public long recordTime;
+		public object data;
+
+		public void WriteTo (BinaryWriter writer)
+		{
+			writer.Write(name);
+			writer.Write((ushort)playerCount);
+			Tools.Serialize(writer, internalAddress);
+			Tools.Serialize(writer, externalAddress);
+		}
+
+		public void ReadFrom (BinaryReader reader)
+		{
+			name = reader.ReadString();
+			playerCount = reader.ReadUInt16();
+			Tools.Serialize(reader, out internalAddress);
+			Tools.Serialize(reader, out externalAddress);
+		}
 	}
 
 	/// <summary>
@@ -34,46 +52,80 @@ public class ServerList
 	/// Add a new entry to the list.
 	/// </summary>
 
-	public void Add (string name, int playerCount, IPEndPoint ip, long time)
+	public Entry Add (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		for (int i = 0; i < list.size; ++i)
+		lock (list)
 		{
-			Entry ent = list[i];
-
-			if (ent.ip.Equals(ip))
+			for (int i = 0; i < list.size; ++i)
 			{
-				ent.name = name;
-				ent.playerCount = playerCount;
-				ent.expirationTime = time + 5000;
-				list[i] = ent;
-				return;
-			}
-		}
+				Entry ent = list[i];
 
-		Entry e = new Entry();
-		e.name = name;
-		e.playerCount = playerCount;
-		e.ip = ip;
-		e.expirationTime = time + 5000;
-		lock (list) list.Add(e);
+				if (ent.internalAddress.Equals(internalAddress) &&
+					ent.externalAddress.Equals(externalAddress))
+				{
+					ent.name = name;
+					ent.playerCount = playerCount;
+					list[i] = ent;
+					return ent;
+				}
+			}
+
+			Entry e = new Entry();
+			e.name = name;
+			e.playerCount = playerCount;
+			e.internalAddress = internalAddress;
+			e.externalAddress = externalAddress;
+			list.Add(e);
+			return e;
+		}
+	}
+
+	/// <summary>
+	/// Add a new entry.
+	/// </summary>
+
+	public Entry Add (Entry newEntry)
+	{
+		lock (list)
+		{
+			for (int i = 0; i < list.size; ++i)
+			{
+				Entry ent = list[i];
+
+				if (ent.internalAddress.Equals(newEntry.internalAddress) &&
+					ent.externalAddress.Equals(newEntry.externalAddress))
+				{
+					ent.name = newEntry.name;
+					ent.playerCount = newEntry.playerCount;
+					return ent;
+				}
+			}
+			list.Add(newEntry);
+		}
+		return newEntry;
 	}
 
 	/// <summary>
 	/// Remove an existing entry from the list.
 	/// </summary>
 
-	public void Remove (IPEndPoint ip)
+	public bool Remove (IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		for (int i = 0; i < list.size; ++i)
+		lock (list)
 		{
-			Entry ent = list[i];
-
-			if (ent.Equals(ip))
+			for (int i = 0; i < list.size; ++i)
 			{
-				lock (list) list.RemoveAt(i);
-				return;
+				Entry ent = list[i];
+
+				if (ent.internalAddress.Equals(internalAddress) &&
+					ent.externalAddress.Equals(externalAddress))
+				{
+					list.RemoveAt(i);
+					return true;
+				}
 			}
 		}
+		return false;
 	}
 
 	/// <summary>
@@ -82,13 +134,14 @@ public class ServerList
 
 	public bool Cleanup (long time)
 	{
+		time -= 7000;
 		bool changed = false;
 
 		for (int i = 0; i < list.size; )
 		{
 			Entry ent = list[i];
 
-			if (ent.expirationTime < time)
+			if (ent.recordTime < time)
 			{
 				changed = true;
 				lock (list) list.RemoveAt(i);
@@ -116,18 +169,8 @@ public class ServerList
 		lock (list)
 		{
 			writer.Write((ushort)list.size);
-
 			for (int i = 0; i < list.size; ++i)
-			{
-				Entry ent = list[i];
-
-				writer.Write(ent.name);
-				writer.Write((ushort)ent.playerCount);
-				byte[] bytes = ent.ip.Address.GetAddressBytes();
-				writer.Write((byte)bytes.Length);
-				writer.Write(bytes);
-				writer.Write((ushort)ent.ip.Port);
-			}
+				list[i].WriteTo(writer);
 		}
 	}
 
@@ -135,21 +178,45 @@ public class ServerList
 	/// Read a list of servers from the binary reader.
 	/// </summary>
 
-	public void ReadFrom (BinaryReader reader, IPEndPoint source, long time)
+	public void ReadFrom (BinaryReader reader, long time)
 	{
 		if (reader.ReadUInt16() == GameServer.gameID)
 		{
-			int count = reader.ReadUInt16();
-
-			for (int i = 0; i < count; ++i)
+			lock (list)
 			{
-				string name = reader.ReadString();
-				int playerCount = reader.ReadUInt16();
-				byte[] bytes = reader.ReadBytes(reader.ReadByte());
-				IPEndPoint ip = new IPEndPoint(new IPAddress(bytes), reader.ReadUInt16());
-				Add(name, playerCount, ip, time);
+				list.Clear();
+				int count = reader.ReadUInt16();
+
+				for (int i = 0; i < count; ++i)
+				{
+					Entry ent = new Entry();
+					ent.ReadFrom(reader);
+					AddInternal(ent, time);
+				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Add a new entry. Not thread-safe.
+	/// </summary>
+
+	void AddInternal (Entry newEntry, long time)
+	{
+		for (int i = 0; i < list.size; ++i)
+		{
+			Entry ent = list[i];
+
+			if (ent.internalAddress.Equals(newEntry.internalAddress) &&
+				ent.externalAddress.Equals(newEntry.externalAddress))
+			{
+				ent.name = newEntry.name;
+				ent.playerCount = newEntry.playerCount;
+				ent.recordTime = time;
+				return;
+			}
+		}
+		list.Add(newEntry);
 	}
 }
 }

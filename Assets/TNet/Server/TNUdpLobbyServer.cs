@@ -14,16 +14,16 @@ namespace TNet
 {
 /// <summary>
 /// Optional UDP-based listener that makes it possible for servers to
-/// register themselves with a central location for easy discovery by clients.
+/// register themselves with a central location for easy lobby by clients.
 /// </summary>
 
-public class UdpDiscoveryServer : DiscoveryServer
+public class UdpLobbyServer : LobbyServer
 {
 	// List of servers that's currently being updated
 	ServerList mList = new ServerList();
+	long mTime = 0;
 	UdpProtocol mUdp;
 	Thread mThread;
-	long mTime = 0;
 	bool mListIsDirty = false;
 	Buffer mBuffer;
 	ushort mBroadcastPort = 0;
@@ -41,27 +41,18 @@ public class UdpDiscoveryServer : DiscoveryServer
 	public override bool isActive { get { return (mUdp != null && mUdp.isActive); } }
 
 	/// <summary>
-	/// Mark the list as having changed.
-	/// </summary>
-
-	public override void MarkAsDirty () { mListIsDirty = true; }
-
-	/// <summary>
-	/// Start listening for incoming UDP packets on the specified listener port.
-	/// </summary>
-
-	public override bool Start (int listenPort) { return Start(listenPort, 0); }
-
-	/// <summary>
 	/// Start listening for incoming UDP packets on the specified listener port, and automatically
 	/// broadcast list changes to the entire LAN to the specified Broadcast Port.
 	/// </summary>
 
-	public bool Start (int listenPort, int broadcastPort)
+	public override bool Start (int listenPort, int broadcastPort)
 	{
 		Stop();
 		mUdp = new UdpProtocol();
 		if (!mUdp.Start(listenPort)) return false;
+#if STANDALONE
+		Console.WriteLine("UDP Lobby Server started on port " + listenPort);
+#endif
 		mBroadcastPort = (ushort)broadcastPort;
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
@@ -142,19 +133,33 @@ public class UdpDiscoveryServer : DiscoveryServer
 			case Packet.RequestAddServer:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;
-				string name = reader.ReadString();
-				ushort port = reader.ReadUInt16();
-				ushort count = reader.ReadUInt16();
-				mList.Add(name, count, new IPEndPoint(ip.Address, port), mTime);
+				ServerList.Entry ent = new ServerList.Entry();
+				ent.ReadFrom(reader);
+
+				if (ent.externalAddress.Address.Equals(IPAddress.None))
+					ent.externalAddress = ip;
+
+				mList.Add(ent).recordTime = mTime;
 				mListIsDirty = true;
+#if STANDALONE
+				Console.WriteLine(ip + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
+#endif
 				return true;
 			}
 			case Packet.RequestRemoveServer:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;
-				ushort port = reader.ReadUInt16();
-				mList.Remove(new IPEndPoint(ip.Address, port));
-				mListIsDirty = true;
+				IPEndPoint internalAddress, externalAddress;
+				Tools.Serialize(reader, out internalAddress);
+				Tools.Serialize(reader, out externalAddress);
+
+				if (externalAddress.Address.Equals(IPAddress.None))
+					externalAddress = ip;
+
+				RemoveServer(internalAddress, externalAddress);
+#if STANDALONE
+				Console.WriteLine(ip + " removed a server (" + internalAddress + ", " + externalAddress + ")");
+#endif
 				return true;
 			}
 			case Packet.RequestServerList:
@@ -169,13 +174,33 @@ public class UdpDiscoveryServer : DiscoveryServer
 	}
 
 	/// <summary>
+	/// Add a new server to the list.
+	/// </summary>
+
+	public override void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
+	{
+		mList.Add(name, playerCount, internalAddress, externalAddress).recordTime = mTime;
+		mListIsDirty = true;
+	}
+
+	/// <summary>
+	/// Remove an existing server from the list.
+	/// </summary>
+
+	public override void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress)
+	{
+		if (mList.Remove(internalAddress, externalAddress))
+			mListIsDirty = true;
+	}
+
+	/// <summary>
 	/// Start the sending process.
 	/// </summary>
 
 	BinaryWriter BeginSend (Packet packet)
 	{
 		mBuffer = Buffer.Create();
-		BinaryWriter writer = mBuffer.BeginTcpPacket(packet);
+		BinaryWriter writer = mBuffer.BeginPacket(packet);
 		return writer;
 	}
 
@@ -185,7 +210,7 @@ public class UdpDiscoveryServer : DiscoveryServer
 
 	void EndSend (IPEndPoint ip)
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mUdp.Send(mBuffer, ip);
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -197,7 +222,7 @@ public class UdpDiscoveryServer : DiscoveryServer
 
 	void EndSend ()
 	{
-		mBuffer.EndTcpPacket();
+		mBuffer.EndPacket();
 		mUdp.Broadcast(mBuffer, mBroadcastPort);
 		mBuffer.Recycle();
 		mBuffer = null;

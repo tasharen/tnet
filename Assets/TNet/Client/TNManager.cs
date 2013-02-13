@@ -653,11 +653,11 @@ public class TNManager : MonoBehaviour
 
 		if (funcID == 0)
 		{
-			TNObject.FindAndExecute(objID, reader.ReadString(), Tools.Read(reader));
+			TNObject.FindAndExecute(objID, reader.ReadString(), UnityTools.Read(reader));
 		}
 		else
 		{
-			TNObject.FindAndExecute(objID, funcID, Tools.Read(reader));
+			TNObject.FindAndExecute(objID, funcID, UnityTools.Read(reader));
 		}
 	}
 
@@ -674,32 +674,32 @@ public class TNManager : MonoBehaviour
 	/// Error notification.
 	/// </summary>
 
-	void OnError (string err) { Tools.Broadcast("OnNetworkError", err); }
+	void OnError (string err) { UnityTools.Broadcast("OnNetworkError", err); }
 
 	/// <summary>
 	/// Connection result notification.
 	/// </summary>
 
-	void OnConnect (bool success, string message) { Tools.Broadcast("OnNetworkConnect", success, message); }
+	void OnConnect (bool success, string message) { UnityTools.Broadcast("OnNetworkConnect", success, message); }
 
 	/// <summary>
 	/// Notification that happens when the client gets disconnected from the server.
 	/// </summary>
 
-	void OnDisconnect () { Tools.Broadcast("OnNetworkDisconnect"); }
+	void OnDisconnect () { UnityTools.Broadcast("OnNetworkDisconnect"); }
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message) { Tools.Broadcast("OnNetworkJoinChannel", success, message); }
+	void OnJoinChannel (bool success, string message) { UnityTools.Broadcast("OnNetworkJoinChannel", success, message); }
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel () { Tools.Broadcast("OnNetworkLeaveChannel"); }
+	void OnLeftChannel () { UnityTools.Broadcast("OnNetworkLeaveChannel"); }
 
 	/// <summary>
 	/// Notification sent when a level is changing.
@@ -717,13 +717,13 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnPlayerJoined (Player p) { Tools.Broadcast("OnNetworkPlayerJoin", p); }
+	void OnPlayerJoined (Player p) { UnityTools.Broadcast("OnNetworkPlayerJoin", p); }
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnPlayerLeft (Player p) { Tools.Broadcast("OnNetworkPlayerLeave", p); }
+	void OnPlayerLeft (Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", p); }
 
 	/// <summary>
 	/// Notification of a player being renamed.
@@ -732,7 +732,7 @@ public class TNManager : MonoBehaviour
 	void OnRenamePlayer (Player p, string previous)
 	{
 		mPlayer.name = p.name;
-		Tools.Broadcast("OnNetworkPlayerRenamed", p, previous);
+		UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous);
 	}
 #endregion
 }

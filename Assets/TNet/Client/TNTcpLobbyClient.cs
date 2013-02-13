@@ -11,28 +11,17 @@ using UnityEngine;
 using TNet;
 
 /// <summary>
-/// TCP-based discovery client, designed to communicate with the TcpDiscoveryServer.
+/// TCP-based lobby client, designed to communicate with the TcpLobbyServer.
 /// </summary>
 
-public class TNTcpDiscoveryClient : TNDiscoveryClient
+public class TNTcpLobbyClient : TNLobbyClient
 {
 	TcpProtocol mTcp;
+	long mNextConnect = 0;
 
 	void Start ()
 	{
-		if (!string.IsNullOrEmpty(address))
-		{
-			IPEndPoint ip = Player.ResolveEndPoint(address, port);
-
-			if (ip == null)
-			{
-				Debug.LogError("Invalid address: " + address + ":" + port);
-				return;
-			}
-
-			mTcp = new TcpProtocol();
-			mTcp.Connect(ip);
-		}
+		mTcp = new TcpProtocol();
 	}
 
 	void OnDestroy ()
@@ -41,10 +30,9 @@ public class TNTcpDiscoveryClient : TNDiscoveryClient
 		{
 			mTcp.Disconnect();
 			mTcp = null;
+			knownServers.Clear();
+			onChange = null;
 		}
-		
-		knownServers.Clear();
-		onChange = null;
 	}
 
 	/// <summary>
@@ -57,8 +45,15 @@ public class TNTcpDiscoveryClient : TNDiscoveryClient
 		bool changed = false;
 		long time = System.DateTime.Now.Ticks / 10000;
 
-		// TCP-based discovery
-		while (mTcp != null && mTcp.ReceivePacket(out buffer))
+		// Automatically try to connect and reconnect if not connected
+		if (mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)
+		{
+			mNextConnect = time + 15000;
+			mTcp.Connect(mRemoteAddress);
+		}
+
+		// TCP-based lobby
+		while (mTcp.ReceivePacket(out buffer))
 		{
 			if (buffer.size > 0)
 			{
@@ -67,24 +62,31 @@ public class TNTcpDiscoveryClient : TNDiscoveryClient
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
 
-					// The connection must be verified before it's usable
-					if (response == Packet.ResponseID)
+					if (mTcp.stage == TcpProtocol.Stage.Verifying)
 					{
-						if (mTcp.stage == TcpProtocol.Stage.Verifying)
+						if (mTcp.VerifyResponseID(response, reader))
 						{
-							int serverVersion = reader.ReadInt32();
+							isActive = true;
 
-							if (!mTcp.VerifyVersion(serverVersion, reader.ReadInt32()))
-							{
-								Debug.LogError("Version mismatch. Server is running version " +
-									serverVersion + ", while you have version " + Player.version);
-							}
+							// Request the server list -- with TCP this only needs to be done once
+							mTcp.BeginSend(Packet.RequestServerList).Write(GameServer.gameID);
+							mTcp.EndSend();
 						}
+					}
+					else if (response == Packet.Disconnect)
+					{
+						knownServers.Clear();
+						isActive = false;
+						changed = true;
 					}
 					else if (response == Packet.ResponseServerList)
 					{
-						knownServers.ReadFrom(reader, mTcp.tcpEndPoint, time);
+						knownServers.ReadFrom(reader, time);
 						changed = true;
+					}
+					else if (response == Packet.Error)
+					{
+						Debug.LogWarning(reader.ReadString());
 					}
 				}
 				catch (System.Exception ex)

@@ -41,7 +41,6 @@ public class UPnP
 
 	Status mStatus = Status.Inactive;
 	IPAddress mGatewayAddress = IPAddress.None;
-	IPAddress mExternalAddress = IPAddress.None;
 	
 	string mGatewayURL = null;
 	string mControlURL = null;
@@ -80,24 +79,17 @@ public class UPnP
 	public IPAddress gatewayAddress { get { return mGatewayAddress; } }
 
 	/// <summary>
-	/// External IP address, such as 50.128.231.100.
-	/// </summary>
-
-	public IPAddress externalAddress { get { return mExternalAddress; } }
-
-	/// <summary>
 	/// Whether there are threads active.
 	/// </summary>
 
 	public bool hasThreadsActive { get { return mThreads.size > 0; } }
 
 	/// <summary>
-	/// Start the Universal Plug and Play discovery process.
+	/// Start the Universal Plug and Play lobby process.
 	/// </summary>
 
 	public UPnP ()
 	{
-		mExternalAddress = Player.localAddress;
 		Thread th = new Thread(ThreadDiscover);
 		mThreads.Add(th);
 		th.Start(th);
@@ -107,23 +99,31 @@ public class UPnP
 	/// Wait for all threads to finish.
 	/// </summary>
 
-	~UPnP ()
+	~UPnP () { Close(); WaitForThreads(); }
+
+	/// <summary>
+	/// Close all ports that we've opened.
+	/// </summary>
+
+	public void Close ()
 	{
-		// Close all ports that we've opened
 		for (int i = mPorts.size; i > 0; )
 		{
 			int id = mPorts[--i];
 			int port = (id >> 8);
-			bool tcp = (port & 1) == 1;
+			bool tcp = ((id & 1) == 1);
 			Close(port, tcp, null);
 		}
-
-		// Wait for all ports to close
-		while (mThreads.size > 0) Thread.Sleep(1);
 	}
 
 	/// <summary>
-	/// Gateway discovery logic is done on a separate thread so that it's not blocking the main thread.
+	/// Wait for all threads to finish.
+	/// </summary>
+
+	public void WaitForThreads () { while (mThreads.size > 0) Thread.Sleep(1); }
+
+	/// <summary>
+	/// Gateway lobby logic is done on a separate thread so that it's not blocking the main thread.
 	/// </summary>
 
 	void ThreadDiscover (object obj)
@@ -131,81 +131,69 @@ public class UPnP
 		Thread th = (Thread)obj;
 		mStatus = Status.Searching;
 
-		// Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
-#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_4
-		NetworkInterface[] networks = NetworkInterface.GetAllNetworkInterfaces();
+		string request = "M-SEARCH * HTTP/1.1\r\n" +
+						"HOST: 239.255.255.250:1900\r\n" +
+						"ST:upnp:rootdevice\r\n" +
+						"MAN:\"ssdp:discover\"\r\n" +
+						"MX:3\r\n\r\n";
 
-		for (int i = 0; i < networks.Length; ++i)
+		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
+
+		int port = 10000 + (int)(DateTime.Now.Ticks % 45000);
+		UdpClient sender = new UdpClient(port);
+		sender.Connect(IPAddress.Broadcast, 1900);
+		sender.Send(requestBytes, requestBytes.Length);
+		sender.Close();
+
+		UdpClient receiver = new UdpClient(port);
+		receiver.Client.ReceiveTimeout = 3000;
+
+		try
 		{
-			NetworkInterface ni = networks[i];
-			GatewayIPAddressInformationCollection gis = ni.GetIPProperties().GatewayAddresses;
+			EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
 
-			for (int b = 0; b < gis.Count; ++b)
+			for (; ; )
 			{
-				IPAddress address = gis[b].Address;
-				
-				if (Player.IsValidAddress(address) && ThreadConnect(address))
+				IPEndPoint remoteAddress = new IPEndPoint(IPAddress.Any, 0);
+				byte[] data = receiver.Receive(ref remoteAddress);
+
+				if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 				{
-					mStatus = Status.Success;
-					mGatewayAddress = address;
-					lock (mThreads) mThreads.Remove(th);
+					receiver.Close();
+
+					lock (mThreads)
+					{
+						mGatewayAddress = remoteAddress.Address;
+						mStatus = Status.Success;
+						mThreads.Remove(th);
+					}
 					return;
 				}
 			}
 		}
-#else
-		string local = Player.localAddress.ToString();
-		string gateway = local.Substring(0, local.LastIndexOf('.')) + ".1";
-		IPAddress address = IPAddress.Parse(gateway);
-
-		if (Player.IsValidAddress(address) && ThreadConnect(address))
+#if DEBUG
+		catch (System.Exception ex)
 		{
-			mStatus = Status.Success;
-			mGatewayAddress = address;
-			lock (mThreads) mThreads.Remove(th);
-			return;
+			Console.WriteLine("ERROR: (UPnP) " + ex.Message);
 		}
+#else
+		catch (System.Exception) { }
 #endif
-		mStatus = Status.Failure;
-		lock (mThreads) mThreads.Remove(th);
+		receiver.Close();
+
+		lock (mThreads)
+		{
+			mStatus = Status.Failure;
+			mThreads.Remove(th);
+		}
 	}
 
 	/// <summary>
-	/// Try to initialize UPnP with the specified gateway address.
+	/// Parse the response to the UPnP discovery message.
 	/// </summary>
 
-	bool ThreadConnect (IPAddress address)
+	bool ParseResponse (string response)
 	{
-		string request = "M-SEARCH * HTTP/1.1\r\n" +
-			"HOST: " + address + ":1900\r\n" +
-			"ST:upnp:rootdevice\r\n" +
-			"MAN:\"ssdp:discover\"\r\n" +
-			"MX:3\r\n\r\n";
-
-		// UPnP gateway is listening for HTTP-based communication via UDP
-		Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, 3000);
-
-		// Send the discovery packet to the gateway
-		byte[] bytes = Encoding.ASCII.GetBytes(request);
-		socket.SendTo(bytes, bytes.Length, SocketFlags.None, new IPEndPoint(address, 1900));
-
-		// Receive a response
-		string response = null;
-		
-		try
-		{
-			EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
-			byte[] data = new byte[2048];
-			int count = socket.ReceiveFrom(data, ref sourceAddress);
-			socket.Close();
-			response = Encoding.ASCII.GetString(data, 0, count);
-		}
-		catch (System.Exception)
-		{
-			return false;
-		}
-
 		// Find the "Location" header
 		int index = response.IndexOf("LOCATION:");
 		if (index == -1) return false;
@@ -222,60 +210,7 @@ public class UPnP
 		mGatewayURL = baseURL.Substring(0, offset);
 
 		// Get the port control URL
-		if (!GetControlURL(baseURL)) return false;
-
-		// Get the external IP address
-		return GetExternalAddress();
-	}
-
-	/// <summary>
-	/// Determine the external IP address.
-	/// </summary>
-
-	bool GetExternalAddress ()
-	{
-		string response = SendRequest("GetExternalIPAddress", null, 5000);
-		if (string.IsNullOrEmpty(response)) return false;
-
-		string tag = "<NewExternalIPAddress>";
-		int start = response.IndexOf(tag);
-		if (start == -1) return false;
-		start += tag.Length;
-
-		int end = response.IndexOf("</NewExternalIPAddress>", start);
-		if (end == -1) return false;
-
-		string address = response.Substring(start, end - start);
-		return IPAddress.TryParse(address, out mExternalAddress);
-	}
-
-	/// <summary>
-	/// Helper function that returns the response of the specified web request.
-	/// </summary>
-
-	static string GetResponse (WebRequest request)
-	{
-		string response = "";
-
-		try
-		{
-			WebResponse webResponse = request.GetResponse();
-			Stream stream = webResponse.GetResponseStream();
-
-			byte[] bytes = new byte[2048];
-
-			for (; ; )
-			{
-				int count = stream.Read(bytes, 0, bytes.Length);
-				if (count > 0) response += Encoding.ASCII.GetString(bytes, 0, count);
-				else break;
-			}
-		}
-		catch (System.Exception)
-		{
-			return null;
-		}
-		return response;
+		return GetControlURL(baseURL);
 	}
 
 	/// <summary>
@@ -284,7 +219,7 @@ public class UPnP
 
 	bool GetControlURL (string url)
 	{
-		string response = GetResponse(WebRequest.Create(url));
+		string response = Tools.GetResponse(WebRequest.Create(url));
 		if (string.IsNullOrEmpty(response)) return false;
 
 		// For me the full hierarchy of nodes was:
@@ -322,14 +257,15 @@ public class UPnP
 
 	/// <summary>
 	/// Send a SOAP request to the gateway.
+	/// Some routers (like my NETGEAR RangeMax) seem to fail requests for no reason, so repetition may be needed.
 	/// </summary>
 
-	string SendRequest (string action, string content, int timeout)
+	string SendRequest (string action, string content, int timeout, int repeat)
 	{
 		string request = "<?xml version=\"1.0\"?>\n" +
 			"<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=" +
 			"\"http://schemas.xmlsoap.org/soap/encoding/\">\n<s:Body>\n" +
-			"<m:" + action + " xmlns:m=\"" + mServiceType + "\">\n";
+			"<m:" + action + " xmlns:m=\"urn:schemas-upnp-org:service:" + mServiceType + ":1\">\n";
 
 		if (!string.IsNullOrEmpty(content)) request += content;
 
@@ -337,21 +273,26 @@ public class UPnP
 
 		byte[] b = Encoding.UTF8.GetBytes(request);
 
+		string response = null;
+
 		try
 		{
-			WebRequest web = HttpWebRequest.Create(mControlURL);
-			web.Timeout = timeout;
-			web.Method = "POST";
-			web.Headers.Add("SOAPACTION", "\"" + mControlURL + "#" + action + "\"");
-			web.ContentType = "text/xml";
-			web.ContentLength = b.Length;
-			web.GetRequestStream().Write(b, 0, b.Length);
-			return GetResponse(web);
+			for (int i = 0; i < repeat; ++i)
+			{
+				WebRequest web = HttpWebRequest.Create(mControlURL);
+				web.Timeout = timeout;
+				web.Method = "POST";
+				web.Headers.Add("SOAPACTION", "\"urn:schemas-upnp-org:service:" + mServiceType + ":1#" + action + "\"");
+				web.ContentType = "text/xml; charset=\"utf-8\"";
+				web.ContentLength = b.Length;
+				web.GetRequestStream().Write(b, 0, b.Length);
+				response = Tools.GetResponse(web);
+				if (!string.IsNullOrEmpty(response))
+					return response;
+			}
 		}
-		catch (System.Exception)
-		{
-			return null;
-		}
+		catch (System.Exception) { }
+		return null;
 	}
 
 	/// <summary>
@@ -399,7 +340,7 @@ public class UPnP
 				"<NewExternalPort>" + port + "</NewExternalPort>\n" +
 				"<NewProtocol>" + (tcp ? "TCP" : "UDP") + "</NewProtocol>\n" +
 				"<NewInternalPort>" + port + "</NewInternalPort>\n" +
-				"<NewInternalClient>" + Player.localAddress + "</NewInternalClient>\n" +
+				"<NewInternalClient>" + Tools.localAddress + "</NewInternalClient>\n" +
 				"<NewEnabled>1</NewEnabled>\n" +
 				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 				"<NewLeaseDuration>0</NewLeaseDuration>\n";
@@ -483,11 +424,10 @@ public class UPnP
 	{
 		while (mStatus == Status.Searching) Thread.Sleep(1);
 		ExtraParams xp = (ExtraParams)obj;
-		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000) : null;
+		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000, 3) : null;
 		if (xp.callback != null)
 			xp.callback(this, xp.port, xp.protocol, !string.IsNullOrEmpty(response));
 		if (xp.th != null) lock (mThreads) mThreads.Remove(xp.th);
-		//Console.WriteLine("Result: " + response);
 	}
 }
 }

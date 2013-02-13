@@ -50,7 +50,7 @@ public class UdpProtocol
 	public int listeningPort { get { return mPort > 0 ? mPort : 0; } }
 
 	/// <summary>
-	/// Start UDP, but don't bind it to a specific port.
+	/// Start UDP, but don't bind it to a specific port. This means we will be able to send, but not receive.
 	/// </summary>
 
 	public bool Start () { return Start(0); }
@@ -76,10 +76,12 @@ public class UdpProtocol
 #if !UNITY_WEBPLAYER
 		// Web player doesn't seem to support broadcasts
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-#endif	
+#endif
+		if (mPort == 0) return true;
+
 		try
 		{
-			if (mPort > 0) mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
+			mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 #if UNITY_EDITOR
@@ -124,10 +126,9 @@ public class UdpProtocol
 		{
 			bytes = mSocket.EndReceiveFrom(result, ref mEndPoint);
 		}
-		catch (System.Exception)
+		catch (System.Exception ex)
 		{
-			Stop();
-			return;
+			Error(new IPEndPoint(Tools.localAddress, 0), ex.Message);
 		}
 
 		if (bytes > 4)
@@ -157,7 +158,12 @@ public class UdpProtocol
 
 	public bool ReceivePacket (out Buffer buffer, out IPEndPoint source)
 	{
-		if (mIn.Count != 0)
+		if (mPort == 0)
+		{
+			Stop();
+			throw new System.InvalidOperationException("You must specify a non-zero port to UdpProtocol.Start() before you can receive data.");
+		}
+		else if (mIn.Count != 0)
 		{
 			lock (mIn)
 			{
@@ -181,8 +187,8 @@ public class UdpProtocol
 	public void SendEmptyPacket (IPEndPoint ip)
 	{
 		Buffer buffer = Buffer.Create(false);
-		buffer.BeginTcpPacket(Packet.Empty);
-		buffer.EndTcpPacket();
+		buffer.BeginPacket(Packet.Empty);
+		buffer.EndPacket();
 		Send(buffer, ip);
 	}
 
@@ -231,7 +237,11 @@ public class UdpProtocol
 				}
 			}
 		}
-		else buffer.Recycle();
+		else
+		{
+			buffer.Recycle();
+			throw new InvalidOperationException("The socket is null. Did you forget to call UdpProtocol.Start()?");
+		}
 	}
 
 	/// <summary>
@@ -241,16 +251,21 @@ public class UdpProtocol
 	void OnSend (IAsyncResult result)
 	{
 		if (!isActive) return;
-		int bytes;
+		int bytes = 0;
 
 		try
 		{
 			bytes = mSocket.EndSendTo(result);
 		}
-		catch (System.Exception)
+		catch (System.Exception ex)
 		{
-			Stop();
-			return;
+			bytes = 1;
+#if STANDALONE
+			Console.WriteLine(ex.Message);
+#else
+			UnityEngine.Debug.Log(ex.Message);
+#endif
+			//Error(new IPEndPoint(Tools.localAddress, 0), ex.Message);
 		}
 
 		lock (mOut)
@@ -274,7 +289,7 @@ public class UdpProtocol
 	public void Error (IPEndPoint ip, string error)
 	{
 		Buffer buffer = Buffer.Create();
-		buffer.BeginTcpPacket(Packet.Error).Write(error);
+		buffer.BeginPacket(Packet.Error).Write(error);
 		buffer.EndTcpPacketWithOffset(4);
 
 		Datagram dg = new Datagram();

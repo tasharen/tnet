@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright ï¿½ 2012 Tasharen Entertainment
 //------------------------------------------
 
 using TNet;
@@ -149,7 +149,7 @@ public class TNAutoSyncInspector : Editor
 
 		for (int i = 0; i < fields.Length; ++i)
 		{
-			if (TNet.Tools.CanBeSerialized(fields[i].FieldType))
+			if (TNet.UnityTools.CanBeSerialized(fields[i].FieldType))
 			{
 				if (fields[i].Name == saved.propertyName) oldIndex = names.size;
 				names.Add(fields[i].Name);
@@ -160,7 +160,7 @@ public class TNAutoSyncInspector : Editor
 		{
 			PropertyInfo pi = properties[i];
 
-			if (TNet.Tools.CanBeSerialized(pi.PropertyType) && pi.CanWrite && pi.CanRead)
+			if (TNet.UnityTools.CanBeSerialized(pi.PropertyType) && pi.CanWrite && pi.CanRead)
 			{
 				if (pi.Name == saved.propertyName) oldIndex = names.size;
 				names.Add(pi.Name);

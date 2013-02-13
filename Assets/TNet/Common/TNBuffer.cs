@@ -370,32 +370,10 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Begin writing a packet.
-	/// </summary>
-
-	public BinaryWriter BeginUdpPacket (byte packetID)
-	{
-		BinaryWriter writer = BeginWriting(false);
-		writer.Write(packetID);
-		return writer;
-	}
-
-	/// <summary>
-	/// Begin writing a packet.
-	/// </summary>
-
-	public BinaryWriter BeginUdpPacket (Packet packet)
-	{
-		BinaryWriter writer = BeginWriting(false);
-		writer.Write((byte)packet);
-		return writer;
-	}
-
-	/// <summary>
 	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
 	/// </summary>
 
-	public BinaryWriter BeginTcpPacket (byte packetID)
+	public BinaryWriter BeginPacket (byte packetID)
 	{
 		BinaryWriter writer = BeginWriting(false);
 		writer.Write(0);
@@ -407,7 +385,7 @@ public class Buffer
 	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
 	/// </summary>
 
-	public BinaryWriter BeginTcpPacket (Packet packet)
+	public BinaryWriter BeginPacket (Packet packet)
 	{
 		BinaryWriter writer = BeginWriting(false);
 		writer.Write(0);
@@ -419,7 +397,7 @@ public class Buffer
 	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
 	/// </summary>
 
-	public BinaryWriter BeginTcpPacket (Packet packet, int startOffset)
+	public BinaryWriter BeginPacket (Packet packet, int startOffset)
 	{
 		BinaryWriter writer = BeginWriting(startOffset);
 		writer.Write(0);
@@ -428,53 +406,10 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Begin writing a packet: 2 byte packet index, 4 byte received packet mask
-	/// </summary>
-
-	/*public BinaryWriter BeginRudpPacket (byte packetID, ushort local, ushort remote, uint remoteMask)
-	{
-		BinaryWriter writer = BeginWriting(false);
-		writer.Write(local);
-		writer.Write(remote);
-		writer.Write(remoteMask);
-		writer.Write(packetID);
-		return writer;
-	}
-
-	/// <summary>
-	/// Begin writing a packet: 2 byte packet index, 4 byte received packet mask
-	/// </summary>
-
-	public BinaryWriter BeginRudpPacket (Packet packet, ushort local, ushort remote, uint remoteMask)
-	{
-		BinaryWriter writer = BeginWriting(false);
-		writer.Write(local);
-		writer.Write(remote);
-		writer.Write(remoteMask);
-		writer.Write((byte)packet);
-		return writer;
-	}*/
-
-	/// <summary>
 	/// Finish writing of the packet, updating (and returning) its size.
 	/// </summary>
 
-	public int EndUdpPacket ()
-	{
-		if (mWriting)
-		{
-			mSize = position;
-			mStream.Seek(0, SeekOrigin.Begin);
-			mWriting = false;
-		}
-		return mSize;
-	}
-
-	/// <summary>
-	/// Finish writing of the packet, updating (and returning) its size.
-	/// </summary>
-
-	public int EndTcpPacket ()
+	public int EndPacket ()
 	{
 		if (mWriting)
 		{

@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright ï¿½ 2012 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -69,7 +69,7 @@ public class TNAutoJoin : MonoBehaviour
 		}
 		else if (!string.IsNullOrEmpty(failureFunctionName))
 		{
-			Tools.Broadcast(failureFunctionName, message);
+			UnityTools.Broadcast(failureFunctionName, message);
 		}
 		else Debug.LogError(message);
 	}
@@ -96,14 +96,14 @@ public class TNAutoJoin : MonoBehaviour
 		{
 			if (!string.IsNullOrEmpty(successFunctionName))
 			{
-				Tools.Broadcast(successFunctionName);
+				UnityTools.Broadcast(successFunctionName);
 			}
 		}
 		else
 		{
 			if (!string.IsNullOrEmpty(failureFunctionName))
 			{
-				Tools.Broadcast(failureFunctionName, message);
+				UnityTools.Broadcast(failureFunctionName, message);
 			}
 			else Debug.LogError(message);
 

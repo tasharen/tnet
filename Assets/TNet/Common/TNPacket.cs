@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -357,39 +357,40 @@ public enum Packet
 	//===================================================================================
 
 	/// <summary>
-	/// Add a new entry to the list of known servers. Used by the Discovery Server.
+	/// Add a new entry to the list of known servers. Used by the Lobby Server.
 	/// ushort: Game ID.
 	/// string: Server name.
-	/// ushort: Server's listening port.
 	/// ushort: Number of connected players.
+	/// IPEndPoint: Internal address
+	/// IPEndPoint: External address
 	/// </summary>
 
 	RequestAddServer,
 
 	/// <summary>
-	/// Remove an existing server list entry. Used by the Discovery Server.
+	/// Remove an existing server list entry. Used by the Lobby Server.
 	/// ushort: Game ID.
-	/// ushort: Server's listening port.
+	/// IPEndPoint: Internal address
+	/// IPEndPoint: External address
 	/// </summary>
 
 	RequestRemoveServer,
 
 	/// <summary>
-	/// Request a list of all known servers for the specified game ID. Used by the Discovery Server.
+	/// Request a list of all known servers for the specified game ID. Used by the Lobby Server.
 	/// ushort: Game ID.
 	/// </summary>
 
 	RequestServerList,
 
 	/// <summary>
-	/// Response sent by the Discovery Server, listing servers.
+	/// Response sent by the Lobby Server, listing servers.
 	/// ushort: List size
 	/// For each entry:
 	/// string: Server name
 	/// ushort: Player count
-	/// byte: # of bytes in the address
-	/// bytes[]: Server address
-	/// ushort: Server port
+	/// IPEndPoint: Internal address
+	/// IPEndPoint: External address
 	/// </summary>
 
 	ResponseServerList,

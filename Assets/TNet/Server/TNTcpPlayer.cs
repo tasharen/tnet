@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -39,7 +39,7 @@ public class TcpPlayer : TcpProtocol
 		Buffer buffer = Buffer.Create();
 
 		// Step 2: Tell the player who else is in the channel
-		BinaryWriter writer = buffer.BeginTcpPacket(Packet.ResponseJoiningChannel);
+		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
 		{
 			writer.Write(channel.id);
 			writer.Write((short)channel.players.size);
@@ -53,16 +53,16 @@ public class TcpPlayer : TcpProtocol
 		}
 
 		// End the first packet, but remember where it ended
-		int offset = buffer.EndTcpPacket();
+		int offset = buffer.EndPacket();
 
 		// Step 3: Inform the player of who is hosting
 		if (channel.host == null) channel.host = this;
-		buffer.BeginTcpPacket(Packet.ResponseSetHost, offset);
+		buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Step 5: Inform the player of what level we're on
-		buffer.BeginTcpPacket(Packet.ResponseLoadLevel, offset);
+		buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
@@ -70,7 +70,7 @@ public class TcpPlayer : TcpProtocol
 		for (int i = 0; i < channel.created.size; ++i)
 		{
 			TcpChannel.CreatedObject obj = channel.created.buffer[i];
-			buffer.BeginTcpPacket(Packet.ResponseCreate, offset);
+			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
@@ -81,7 +81,7 @@ public class TcpPlayer : TcpProtocol
 		// Step 7: Send the list of objects that have been destroyed
 		if (channel.destroyed.size != 0)
 		{
-			buffer.BeginTcpPacket(Packet.ResponseDestroy, offset);
+			buffer.BeginPacket(Packet.ResponseDestroy, offset);
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
@@ -99,7 +99,7 @@ public class TcpPlayer : TcpProtocol
 		}
 
 		// Step 9: The join process is now complete
-		buffer.BeginTcpPacket(Packet.ResponseJoinChannel, offset);
+		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(true);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
