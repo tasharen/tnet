@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.4.0
+                  Version 1.5.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -70,14 +70,15 @@ http://www.tasharen.com/?page_id=4518
  Version History
 -----------------------------------------------------
 
-1.4.0:
+1.5.0:
 - NEW: Added Universal Plug & Play functionality to easily open ports on the gateway/router.
 - NEW: TNet Server app now supports port parameters and can also start the discovery server.
 - NEW: Added TNObject.isMine flag that will only be 'true' on the client that instantiated it (or the host if that player leaves).
-- NEW: Game server can now automatically register itself with a remote discovery server.
+- NEW: Redesigned the discovery client. There is now several game Lobby server / clients instead.
+- NEW: Game server can now automatically register itself with a remote lobby server.
+- NEW: Added Tools.externalAddress that will return your internet-visible IP.
 - FIX: TNet will no longer silently stop using UDP on the web player. UDP in the web player is simply no longer supported.
-- MOD: Moved localAddress and IsLocalAddress() functions into TNPlayer and made them static.
-- MOD: Redesigned the discovery client.
+- MOD: Moved localAddress and IsLocalAddress() functions into Tools and made them static.
 
 1.3.2:
 - NEW: Server list now contains the number of players on the server.
