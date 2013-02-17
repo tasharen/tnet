@@ -4,6 +4,7 @@
 //------------------------------------------
 
 using System.Net;
+using System.Threading;
 
 namespace TNet
 {
@@ -15,20 +16,12 @@ namespace TNet
 
 public class LobbyServerLink
 {
-	/// <summary>
-	/// Game server's internal address, sent to the lobby server.
-	/// </summary>
+	LobbyServer mLobby;
 
-	public IPEndPoint internalAddress;
-
-	/// <summary>
-	/// Game server's external address, sent to the lobby server.
-	/// </summary>
-
-	public IPEndPoint externalAddress;
-
-	// Local lobby server
-	LobbyServer mServer;
+	protected GameServer mGameServer;
+	protected Thread mThread;
+	protected IPEndPoint mInternal;
+	protected IPEndPoint mExternal;
 
 	// Thread-safe flag indicating that the server should shut down at the first available opportunity
 	protected bool mShutdown = false;
@@ -37,25 +30,25 @@ public class LobbyServerLink
 	/// Create a new local lobby server link. Expects a local server to work with.
 	/// </summary>
 
-	public LobbyServerLink (LobbyServer lobbyServer) { mServer = lobbyServer; }
+	public LobbyServerLink (LobbyServer lobbyServer) { mLobby = lobbyServer; }
 
 	/// <summary>
 	/// Whether the link is currently active.
 	/// </summary>
 
-	public virtual bool isActive { get { return (mServer != null && externalAddress != null); } }
+	public virtual bool isActive { get { return (mLobby != null && mExternal != null); } }
 
 	/// <summary>
 	/// Start the lobby server link. Establish a connection, if one is required.
 	/// </summary>
 
-	public virtual void Start () { mShutdown = false; }
+	public virtual void Start () { mShutdown = false; mGameServer = null; }
 
 	/// <summary>
 	/// Stopping the server should be delayed in order for it to be thread-safe.
 	/// </summary>
 
-	public void Stop () { mShutdown = true; }
+	public void Stop () { mShutdown = true; mGameServer = null; }
 
 	/// <summary>
 	/// Send an update to the lobby server. Triggered by the game server.
@@ -65,7 +58,28 @@ public class LobbyServerLink
 	{
 		if (!mShutdown)
 		{
-			mServer.AddServer(gameServer.name, gameServer.playerCount, internalAddress, externalAddress);
+			if (mExternal != null)
+			{
+				mLobby.AddServer(gameServer.name, gameServer.playerCount, mInternal, mExternal);
+			}
+			else if (mThread == null)
+			{
+				mThread = new Thread(SendThread);
+				mThread.Start(gameServer);
+			}
+		}
+	}
+
+	void SendThread (object obj)
+	{
+		mInternal = new IPEndPoint(Tools.localAddress, mGameServer.tcpPort);
+		mExternal = new IPEndPoint(Tools.externalAddress, mGameServer.tcpPort);
+
+		GameServer gameServer = (GameServer)obj;
+
+		if (gameServer != null && gameServer.isActive)
+		{
+			mLobby.AddServer(gameServer.name, gameServer.playerCount, mInternal, mExternal);
 		}
 	}
 }

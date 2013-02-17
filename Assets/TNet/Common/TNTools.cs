@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace TNet
 {
@@ -47,7 +48,8 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// External IP address.
+	/// Immediately retrieve the external IP address.
+	/// Note that if the external address is not yet known, this operation may hold up the application.
 	/// </summary>
 
 	static public IPAddress externalAddress

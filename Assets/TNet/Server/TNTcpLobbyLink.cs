@@ -19,8 +19,6 @@ public class TcpLobbyServerLink : LobbyServerLink
 {
 	TcpProtocol mTcp;
 	IPEndPoint mRemoteAddress;
-	GameServer mGameServer;
-	Thread mThread;
 	long mNextConnect = 0;
 	bool mWasConnected = false;
 
@@ -42,17 +40,14 @@ public class TcpLobbyServerLink : LobbyServerLink
 
 	public override void Start ()
 	{
-		if (externalAddress != null)
-		{
-			base.Start();
+		base.Start();
 
-			if (mTcp == null)
-			{
-				mTcp = new TcpProtocol();
-				mTcp.name = "Link";
-			}
-			mNextConnect = 0;
+		if (mTcp == null)
+		{
+			mTcp = new TcpProtocol();
+			mTcp.name = "Link";
 		}
+		mNextConnect = 0;
 	}
 
 	/// <summary>
@@ -61,7 +56,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 
 	public override void SendUpdate (GameServer server)
 	{
-		if (externalAddress != null && !mShutdown)
+		if (!mShutdown)
 		{
 			mGameServer = server;
 
@@ -79,6 +74,9 @@ public class TcpLobbyServerLink : LobbyServerLink
 
 	void ThreadFunction()
 	{
+		mInternal = new IPEndPoint(Tools.localAddress, mGameServer.tcpPort);
+		mExternal = new IPEndPoint(Tools.externalAddress, mGameServer.tcpPort);
+
 		for (; ; )
 		{
 			long time = DateTime.Now.Ticks / 10000;
@@ -133,14 +131,14 @@ public class TcpLobbyServerLink : LobbyServerLink
 				buffer.Recycle();
 			}
 
-			if (mGameServer != null && mTcp.isConnected && internalAddress != null && externalAddress != null)
+			if (mGameServer != null && mTcp.isConnected)
 			{
 				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);
 				writer.Write((short)mGameServer.playerCount);
-				Tools.Serialize(writer, internalAddress);
-				Tools.Serialize(writer, externalAddress);
+				Tools.Serialize(writer, mInternal);
+				Tools.Serialize(writer, mExternal);
 				mTcp.EndSend();
 				mGameServer = null;
 			}

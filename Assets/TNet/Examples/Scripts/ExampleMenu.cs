@@ -141,17 +141,10 @@ public class ExampleMenu : MonoBehaviour
 #else
 					int udpPort = Random.Range(10000, 40000);
 
-					// Lobby server makes it possible to easily retrieve a list of known servers
-					if (lobbyPort != 0)
-					{
-						TNServerInstance.lobby = new UdpLobbyServer();
-						TNServerInstance.lobby.Start(lobbyPort, udpPort);
-					}
-
 					// Start a local server, loading the saved data if possible
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
-					TNServerInstance.Start(serverTcpPort, udpPort, "server.dat");
+					TNServerInstance.Start(serverTcpPort, udpPort, "server.dat", lobbyPort);
 					mMessage = "Server started";
 #endif
 				}

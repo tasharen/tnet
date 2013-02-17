@@ -131,20 +131,8 @@ public class ServerMain
 					lobbyServer.Start(lobbyPort);
 					if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
 #endif
-
 					// Local lobby server
 					gameServer.lobbyLink = new LobbyServerLink(lobbyServer);
-				}
-
-				if (gameServer.lobbyLink != null)
-				{
-					// The lobby server link needs to know internal and external addresses.
-					// If there is no gateway to work with, just use an invalid external address.
-					// The lobby server will replace it with the address of where the packet came from.
-					gameServer.lobbyLink.internalAddress = new IPEndPoint(Tools.localAddress, tcpPort);
-					gameServer.lobbyLink.externalAddress = (up != null) ?
-						new IPEndPoint(Tools.externalAddress, tcpPort) :
-						new IPEndPoint(IPAddress.None, 0);
 				}
 
 				// Start the actual game server and load the save file

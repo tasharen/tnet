@@ -19,8 +19,6 @@ public class UdpLobbyServerLink : LobbyServerLink
 {
 	UdpProtocol mUdp;
 	IPEndPoint mRemoteAddress;
-	GameServer mGameServer;
-	Thread mThread;
 	long mNextSend = 0;
 
 	/// <summary>
@@ -54,15 +52,12 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 	public override void Start ()
 	{
-		if (externalAddress != null)
-		{
-			base.Start();
+		base.Start();
 
-			if (mUdp == null)
-			{
-				mUdp = new UdpProtocol();
-				mUdp.Start();
-			}
+		if (mUdp == null)
+		{
+			mUdp = new UdpProtocol();
+			mUdp.Start();
 		}
 	}
 
@@ -72,7 +67,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 	public override void SendUpdate (GameServer server)
 	{
-		if (externalAddress != null && !mShutdown)
+		if (!mShutdown)
 		{
 			mNextSend = 0;
 			mGameServer = server;
@@ -91,6 +86,9 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 	void ThreadFunction()
 	{
+		mInternal = new IPEndPoint(Tools.localAddress, mGameServer.tcpPort);
+		mExternal = new IPEndPoint(Tools.externalAddress, mGameServer.tcpPort);
+
 		for (; ; )
 		{
 			long time = DateTime.Now.Ticks / 10000;
@@ -100,8 +98,8 @@ public class UdpLobbyServerLink : LobbyServerLink
 				Buffer buffer = Buffer.Create();
 				BinaryWriter writer = buffer.BeginPacket(Packet.RequestRemoveServer);
 				writer.Write(GameServer.gameID);
-				Tools.Serialize(writer, internalAddress);
-				Tools.Serialize(writer, externalAddress);
+				Tools.Serialize(writer, mInternal);
+				Tools.Serialize(writer, mExternal);
 				buffer.EndPacket();
 				mUdp.Send(buffer, mRemoteAddress);
 				buffer.Recycle();
@@ -109,7 +107,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 				break;
 			}
 
-			if (mNextSend < time && mGameServer != null && internalAddress != null && externalAddress != null)
+			if (mNextSend < time && mGameServer != null)
 			{
 				mNextSend = time + 3000;
 				Buffer buffer = Buffer.Create();
@@ -117,8 +115,8 @@ public class UdpLobbyServerLink : LobbyServerLink
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);
 				writer.Write((short)mGameServer.playerCount);
-				Tools.Serialize(writer, internalAddress);
-				Tools.Serialize(writer, externalAddress);
+				Tools.Serialize(writer, mInternal);
+				Tools.Serialize(writer, mExternal);
 				buffer.EndPacket();
 				mUdp.Send(buffer, mRemoteAddress);
 				buffer.Recycle();

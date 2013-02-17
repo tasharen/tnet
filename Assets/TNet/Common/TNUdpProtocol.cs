@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -216,6 +216,12 @@ public class UdpProtocol
 
 	public void Send (Buffer buffer, IPEndPoint ip)
 	{
+		if (ip.Address.Equals(IPAddress.Broadcast))
+		{
+			Broadcast(buffer, ip.Port);
+			return;
+		}
+
 		buffer.MarkAsUsed();
 
 		if (mSocket != null)

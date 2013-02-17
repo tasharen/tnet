@@ -74,6 +74,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 				{
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
+					Debug.Log(response);
 
 					if (response == Packet.ResponseServerList)
 					{
@@ -100,6 +101,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 		{
 			mNextSend = time + 3000;
 			mUdp.Send(mRequest, mRemoteAddress);
+			Debug.Log(mRemoteAddress.ToString());
 		}
 	}
 }

@@ -57,11 +57,12 @@ public abstract class TNLobbyClient : MonoBehaviour
 	{
 		if (string.IsNullOrEmpty(remoteAddress))
 		{
-			Debug.LogWarning("You should specify the lobby server's address", this);
-			enabled = false;
+			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
 		}
-
-		mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+		else
+		{
+			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+		}
 
 		if (mRemoteAddress == null)
 		{

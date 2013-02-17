@@ -128,6 +128,9 @@ public class UdpLobbyServer : LobbyServer
 		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
+		// TODO: Remove
+		UnityEngine.Debug.Log(request);
+
 		switch (request)
 		{
 			case Packet.RequestAddServer:
