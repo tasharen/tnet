@@ -16,9 +16,40 @@ using TNet;
 
 public class TNUdpLobbyClient : TNLobbyClient
 {
+	/// <summary>
+	/// Public address for the lobby client server's location.
+	/// </summary>
+
+	public string remoteAddress;
+
+	/// <summary>
+	/// Lobby server's port.
+	/// </summary>
+
+	public int remotePort = 5129;
+
 	UdpProtocol mUdp;
 	Buffer mRequest;
 	long mNextSend = 0;
+	IPEndPoint mRemoteAddress;
+
+	void Awake ()
+	{
+		if (string.IsNullOrEmpty(remoteAddress))
+		{
+			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
+		}
+		else
+		{
+			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+		}
+
+		if (mRemoteAddress == null)
+		{
+			Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
+			enabled = false;
+		}
+	}
 
 	void Start ()
 	{
@@ -31,8 +62,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 		mRequest.EndPacket();
 
 		// Twice just in case the first try falls on a taken port
-		if (!mUdp.Start(10000 + (int)(System.DateTime.Now.Ticks % 50000)))
-			 mUdp.Start(10000 + (int)(System.DateTime.Now.Ticks % 50000));
+		if (!mUdp.Start(Tools.randomPort)) mUdp.Start(Tools.randomPort);
 	}
 
 	void OnDestroy ()
@@ -74,13 +104,13 @@ public class TNUdpLobbyClient : TNLobbyClient
 				{
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
-					Debug.Log(response);
 
 					if (response == Packet.ResponseServerList)
 					{
 						isActive = true;
 						mNextSend = time + 3000;
 						knownServers.ReadFrom(reader, time);
+						knownServers.Cleanup(time);
 						changed = true;
 					}
 					else if (response == Packet.Error)
@@ -94,14 +124,18 @@ public class TNUdpLobbyClient : TNLobbyClient
 		}
 
 		// Trigger the listener callback
-		if (changed && onChange != null) onChange();
-
-		// Send out the update request
-		if (mNextSend < time && mUdp != null)
+		if (changed && onChange != null)
 		{
+			onChange();
+		}
+		else if (mNextSend < time && mUdp != null)
+		{
+			// Send out the update request
 			mNextSend = time + 3000;
 			mUdp.Send(mRequest, mRemoteAddress);
-			Debug.Log(mRemoteAddress.ToString());
+
+			// Clean up old servers
+			knownServers.Cleanup(time);
 		}
 	}
 }

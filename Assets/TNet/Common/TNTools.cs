@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -19,6 +19,12 @@ static public class Tools
 {
 	static IPAddress mLocalAddress;
 	static IPAddress mExternalAddress;
+
+	/// <summary>
+	/// Generate a random port from 10,000 to 60,000.
+	/// </summary>
+
+	static public int randomPort { get { return 10000 + (int)(System.DateTime.Now.Ticks % 50000); } }
 
 	/// <summary>
 	/// Local IP address.
@@ -56,7 +62,8 @@ static public class Tools
 	{
 		get
 		{
-			if (mExternalAddress == null) mExternalAddress = GetExternalAddress();
+			if (mExternalAddress == null)
+				mExternalAddress = GetExternalAddress();
 			return mExternalAddress;
 		}
 	}

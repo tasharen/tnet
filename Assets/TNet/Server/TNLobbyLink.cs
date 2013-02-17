@@ -5,6 +5,7 @@
 
 using System.Net;
 using System.Threading;
+using System;
 
 namespace TNet
 {
@@ -17,6 +18,7 @@ namespace TNet
 public class LobbyServerLink
 {
 	LobbyServer mLobby;
+	long mNextSend = 0;
 
 	protected GameServer mGameServer;
 	protected Thread mThread;
@@ -42,13 +44,24 @@ public class LobbyServerLink
 	/// Start the lobby server link. Establish a connection, if one is required.
 	/// </summary>
 
-	public virtual void Start () { mShutdown = false; mGameServer = null; }
+	public virtual void Start () { mShutdown = false; }
 
 	/// <summary>
 	/// Stopping the server should be delayed in order for it to be thread-safe.
 	/// </summary>
 
-	public void Stop () { mShutdown = true; mGameServer = null; }
+	public virtual void Stop ()
+	{
+		if (!mShutdown)
+		{
+			mShutdown = true;
+
+			if (mExternal != null && mLobby != null)
+			{
+				mLobby.RemoveServer(mInternal, mExternal);
+			}
+		}
+	}
 
 	/// <summary>
 	/// Send an update to the lobby server. Triggered by the game server.
@@ -58,29 +71,46 @@ public class LobbyServerLink
 	{
 		if (!mShutdown)
 		{
+			mGameServer = gameServer;
+
 			if (mExternal != null)
 			{
-				mLobby.AddServer(gameServer.name, gameServer.playerCount, mInternal, mExternal);
+				long time = DateTime.Now.Ticks / 10000;
+				mNextSend = time + 3000;
+				mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
 			}
 			else if (mThread == null)
 			{
 				mThread = new Thread(SendThread);
-				mThread.Start(gameServer);
+				mThread.Start();
 			}
 		}
 	}
 
-	void SendThread (object obj)
+	/// <summary>
+	/// Resolve the IPs and start periodic updates.
+	/// </summary>
+
+	void SendThread ()
 	{
 		mInternal = new IPEndPoint(Tools.localAddress, mGameServer.tcpPort);
 		mExternal = new IPEndPoint(Tools.externalAddress, mGameServer.tcpPort);
 
-		GameServer gameServer = (GameServer)obj;
-
-		if (gameServer != null && gameServer.isActive)
+		if (mLobby is UdpLobbyServer)
 		{
-			mLobby.AddServer(gameServer.name, gameServer.playerCount, mInternal, mExternal);
+			while (!mShutdown)
+			{
+				long time = DateTime.Now.Ticks / 10000;
+
+				if (mNextSend < time && mGameServer != null)
+				{
+					mNextSend = time + 3000;
+					mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
+				}
+				Thread.Sleep(10);
+			}
 		}
+		mThread = null;
 	}
 }
 }

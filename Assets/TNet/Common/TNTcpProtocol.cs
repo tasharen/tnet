@@ -57,6 +57,8 @@ public class TcpProtocol : Player
 	int mOffset = 0;
 	Socket mSocket;
 	bool mNoDelay = false;
+	IPEndPoint mFallback;
+	Thread mCancelConnect;
 
 	// Static as it's temporary
 	static Buffer mBuffer;
@@ -99,18 +101,61 @@ public class TcpProtocol : Player
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (IPEndPoint ip)
+	public void Connect (IPEndPoint externalIP) { Connect(externalIP, null); }
+
+	/// <summary>
+	/// Try to establish a connection with the specified remote destination.
+	/// </summary>
+
+	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
 		Disconnect();
-		tcpEndPoint = ip;
+
+		tcpEndPoint = externalIP;
+		mFallback = internalIP;
 
 		if (tcpEndPoint != null)
 		{
 			stage = Stage.Connecting;
 			mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
+			
+			IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
+			mCancelConnect = new Thread(CancelConnect);
+			mCancelConnect.Start(result);
 		}
 		else Error("Unable to resolve the specified address");
+	}
+
+	/// <summary>
+	/// Default timeout on a connection attempt it something around 15 seconds, which is ridiculously long.
+	/// </summary>
+
+	void CancelConnect (object obj)
+	{
+		IAsyncResult result = (IAsyncResult)obj;
+
+		while (result != null)
+		{
+			if (result.AsyncWaitHandle.WaitOne(3000, true)) break;
+
+			IPEndPoint alternative = mFallback;
+			mFallback = null;
+			mSocket.Close();
+			mSocket = null;
+
+			if (alternative != null)
+			{
+				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				result = mSocket.BeginConnect(alternative, OnConnectResult, mSocket);
+			}
+			else
+			{
+				Error("Connection attempt timed out");
+				Close(false);
+				break;
+			}
+		}
+		mCancelConnect = null;
 	}
 
 	/// <summary>
@@ -127,6 +172,21 @@ public class TcpProtocol : Player
 		}
 		catch (System.Exception ex)
 		{
+			// Cancel the thread
+			Thread th = mCancelConnect;
+			mCancelConnect = null;
+			if (th != null) th.Abort();
+			tcpEndPoint = mFallback;
+			mFallback = null;
+
+			// Begin a new connection attempt to the fallback address
+			if (tcpEndPoint != null)
+			{
+				result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
+				mCancelConnect = new Thread(CancelConnect);
+				mCancelConnect.Start(result);
+				return;
+			}
 			Error(ex.Message);
 			Close(false);
 			return;
@@ -146,7 +206,13 @@ public class TcpProtocol : Player
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public void Disconnect () { if (mSocket != null) Close(mSocket.Connected); }
+	public void Disconnect ()
+	{
+		Thread th = mCancelConnect;
+		mCancelConnect = null;
+		if (th != null) th.Abort();
+		if (mSocket != null) Close(mSocket.Connected);
+	}
 
 	/// <summary>
 	/// Close the connection.
@@ -155,6 +221,10 @@ public class TcpProtocol : Player
 	public void Close (bool notify)
 	{
 		stage = Stage.NotConnected;
+
+		Thread th = mCancelConnect;
+		mCancelConnect = null;
+		if (th != null) th.Abort();
 
 		if (mReceiveBuffer != null)
 		{

@@ -206,15 +206,34 @@ public class TNManager : MonoBehaviour
 	static public void StopUDP () { if (mInstance != null) mInstance.mClient.StopUDP(); }
 
 	/// <summary>
+	/// Connect to the specified remote destination.
+	/// </summary>
+
+	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
+	{
+		if (mInstance != null)
+		{
+			mInstance.mClient.playerName = mPlayer.name;
+			mInstance.mClient.Connect(externalIP, internalIP);
+		}
+	}
+
+	/// <summary>
 	/// Connect to the specified destination.
 	/// </summary>
 
 	static public void Connect (string address, int port)
 	{
-		if (mInstance != null)
+		IPEndPoint ip = Tools.ResolveEndPoint(address, port);
+
+		if (ip == null)
+		{
+			Debug.LogError("Unable to resolve " + address);
+		}
+		else if (mInstance != null)
 		{
 			mInstance.mClient.playerName = mPlayer.name;
-			mInstance.mClient.Connect(address, port);
+			mInstance.mClient.Connect(ip, null);
 		}
 	}
 

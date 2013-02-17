@@ -27,7 +27,6 @@ public class ExampleMenu : MonoBehaviour
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
-	public int lobbyPort = 5129;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -144,6 +143,8 @@ public class ExampleMenu : MonoBehaviour
 					// Start a local server, loading the saved data if possible
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
+					TNUdpLobbyClient lan = GetComponent<TNUdpLobbyClient>();
+					int lobbyPort = (lan != null) ? lan.remotePort : 0;
 					TNServerInstance.Start(serverTcpPort, udpPort, "server.dat", lobbyPort);
 					mMessage = "Server started";
 #endif
@@ -276,7 +277,7 @@ public class ExampleMenu : MonoBehaviour
 
 				if (GUILayout.Button(ent.externalAddress.ToString(), button))
 				{
-					TNManager.Connect(ent.externalAddress.ToString());
+					TNManager.Connect(ent.externalAddress, ent.internalAddress);
 					mMessage = "Connecting...";
 				}
 			}

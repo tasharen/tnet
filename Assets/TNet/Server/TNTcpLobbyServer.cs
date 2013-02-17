@@ -50,10 +50,9 @@ public class TcpLobbyServer : LobbyServer
 
 	/// <summary>
 	/// Start listening for incoming connections.
-	/// Note that the broadcasting is not possible with TCP, so the broadcast port is ignored.
 	/// </summary>
 
-	public override bool Start (int listenPort, int broadcastPort)
+	public override bool Start (int listenPort)
 	{
 		Stop();
 
@@ -219,7 +218,7 @@ public class TcpLobbyServer : LobbyServer
 				if (ent.externalAddress.Address.Equals(IPAddress.None))
 					ent.externalAddress = tc.tcpEndPoint;
 
-				mList.Add(ent).data = tc;
+				mList.Add(ent, mTime).data = tc;
 				mLastChange = mTime;
 #if STANDALONE
 				Console.WriteLine(tc.address + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
@@ -282,7 +281,7 @@ public class TcpLobbyServer : LobbyServer
 
 	public override void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		mList.Add(name, playerCount, internalAddress, externalAddress);
+		mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
 		mLastChange = mTime;
 	}
 

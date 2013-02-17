@@ -17,8 +17,6 @@ public abstract class TNLobbyClient : MonoBehaviour
 {
 	public delegate void OnListChange ();
 
-	protected IPEndPoint mRemoteAddress;
-
 	/// <summary>
 	/// List of known servers.
 	/// </summary>
@@ -36,38 +34,4 @@ public abstract class TNLobbyClient : MonoBehaviour
 	/// </summary>
 
 	static public bool isActive = false;
-
-	/// <summary>
-	/// Public address for the lobby client server's location.
-	/// </summary>
-
-	public string remoteAddress;
-
-	/// <summary>
-	/// Lobby server's port.
-	/// </summary>
-
-	public int remotePort = 5129;
-
-	/// <summary>
-	/// Ensure we have an address to work with.
-	/// </summary>
-
-	void Awake ()
-	{
-		if (string.IsNullOrEmpty(remoteAddress))
-		{
-			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
-		}
-		else
-		{
-			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
-		}
-
-		if (mRemoteAddress == null)
-		{
-			Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
-			enabled = false;
-		}
-	}
 }

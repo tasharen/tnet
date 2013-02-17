@@ -18,6 +18,13 @@ public class TNServerInstance : MonoBehaviour
 {
 	static TNServerInstance mInstance;
 
+	public enum Type
+	{
+		Lan,
+		Udp,
+		Tcp,
+	}
+
 	public enum State
 	{
 		Inactive,
@@ -28,6 +35,7 @@ public class TNServerInstance : MonoBehaviour
 	State mState = State.Inactive;
 	GameServer mGame = new GameServer();
 	LobbyServer mLobby;
+	UPnP mUp = new UPnP();
 
 	/// <summary>
 	/// Instance access is internal only as all the functions are static for convenience purposes.
@@ -96,7 +104,7 @@ public class TNServerInstance : MonoBehaviour
 
 	static public bool Start (int tcpPort)
 	{
-		return instance.StartLocal(tcpPort, 0, null, 0, false);
+		return instance.StartLocal(tcpPort, 0, null, 0);
 	}
 
 	/// <summary>
@@ -105,7 +113,7 @@ public class TNServerInstance : MonoBehaviour
 
 	static public bool Start (int tcpPort, int udpPort)
 	{
-		return instance.StartLocal(tcpPort, udpPort, null, 0, false);
+		return instance.StartLocal(tcpPort, udpPort, null, 0);
 	}
 
 	/// <summary>
@@ -114,56 +122,49 @@ public class TNServerInstance : MonoBehaviour
 
 	static public bool Start (int tcpPort, int udpPort, string fileName)
 	{
-		return instance.StartLocal(tcpPort, udpPort, fileName, 0, false);
+		return instance.StartLocal(tcpPort, udpPort, fileName, 0);
 	}
 
 	/// <summary>
 	/// Start a local game and lobby server instances.
 	/// </summary>
 
-	static public bool Start (int tcpPort, int udpPort, string fileName, int lobbyPort)
+	static public bool Start (int tcpPort, int udpPort, string fileName, int lanBroadcastPort)
 	{
-		return instance.StartLocal(tcpPort, udpPort, fileName, lobbyPort, false);
-	}
-
-	/// <summary>
-	/// Start a local game and lobby server instances.
-	/// </summary>
-
-	static public bool Start (int tcpPort, int udpPort, string fileName, int lobbyPort, bool useTcpLobby)
-	{
-		return instance.StartLocal(tcpPort, udpPort, fileName, lobbyPort, useTcpLobby);
+		return instance.StartLocal(tcpPort, udpPort, fileName, lanBroadcastPort);
 	}
 
 	/// <summary>
 	/// Start a local game server and connect to a remote lobby server.
 	/// </summary>
 
-	static public bool Start (int tcpPort, int udpPort, string fileName, bool useTcpLobby, IPEndPoint remoteLobby)
+	static public bool Start (int tcpPort, int udpPort, string fileName, Type type, IPEndPoint remoteLobby)
 	{
-		return instance.StartRemote(tcpPort, udpPort, fileName, remoteLobby, useTcpLobby);
+		return instance.StartRemote(tcpPort, udpPort, fileName, remoteLobby, type);
 	}
 
 	/// <summary>
 	/// Start a new server.
 	/// </summary>
 
-	bool StartLocal (int tcpPort, int udpPort, string fileName, int lobbyPort, bool useTcpLobby)
+	bool StartLocal (int tcpPort, int udpPort, string fileName, int lobbyPort)
 	{
 		// Ensure that everything has been stopped first
-		OnDestroy();
+		Disconnect();
 
 		// If there is a lobby port, we should set up the lobby server and/or link first.
 		// Doing so will let us inform the lobby that we are starting a new server.
 
 		if (lobbyPort > 0)
 		{
-			// Create the appropriate lobby
-			if (useTcpLobby) mLobby = new TcpLobbyServer();
-			else mLobby = new UdpLobbyServer();
+			mLobby = new UdpLobbyServer();
 
 			// Start a local lobby server
-			if (!mLobby.Start(lobbyPort, 0))
+			if (mLobby.Start(lobbyPort))
+			{
+				mUp.OpenUDP(lobbyPort);
+			}
+			else
 			{
 				mLobby = null;
 				return false;
@@ -176,34 +177,40 @@ public class TNServerInstance : MonoBehaviour
 		// Start the game server
 		if (mGame.Start(tcpPort, udpPort))
 		{
+			mUp.OpenTCP(tcpPort);
+			mUp.OpenUDP(udpPort);
 			if (!string.IsNullOrEmpty(fileName)) mGame.LoadFrom(fileName);
-			return false;
+			return true;
 		}
 
 		// Something went wrong -- stop everything
-		OnDestroy();
-		return true;
+		Disconnect();
+		return false;
 	}
 
 	/// <summary>
 	/// Start a new server.
 	/// </summary>
 
-	bool StartRemote (int tcpPort, int udpPort, string fileName, IPEndPoint remoteLobby, bool useTcpLobby)
+	bool StartRemote (int tcpPort, int udpPort, string fileName, IPEndPoint remoteLobby, Type type)
 	{
-		OnDestroy();
+		Disconnect();
 
 		if (remoteLobby != null && remoteLobby.Port > 0)
 		{
-			if (useTcpLobby)
+			if (type == Type.Tcp)
 			{
 				mLobby = new TcpLobbyServer();
 				mGame.lobbyLink = new TcpLobbyServerLink(remoteLobby);
 			}
-			else
+			else if (type == Type.Udp)
 			{
 				mLobby = new UdpLobbyServer();
 				mGame.lobbyLink = new UdpLobbyServerLink(remoteLobby);
+			}
+			else
+			{
+				Debug.LogWarning("The remote lobby server type must be either UDP or TCP, not LAN");
 			}
 		}
 
@@ -213,7 +220,7 @@ public class TNServerInstance : MonoBehaviour
 			return false;
 		}
 
-		OnDestroy();
+		Disconnect();
 		return true;
 	}
 
@@ -221,7 +228,7 @@ public class TNServerInstance : MonoBehaviour
 	/// Stop the server.
 	/// </summary>
 
-	static public void Stop () { if (mInstance != null) mInstance.OnDestroy(); }
+	static public void Stop () { if (mInstance != null) mInstance.Disconnect(); }
 
 	/// <summary>
 	/// Stop the server, saving the current state to the specified file.
@@ -243,10 +250,10 @@ public class TNServerInstance : MonoBehaviour
 	static public void MakePrivate () { if (mInstance != null) mInstance.mGame.MakePrivate(); }
 
 	/// <summary>
-	/// Make sure that the servers are stopped when the server instance is destroyed.
+	/// Stop everything.
 	/// </summary>
 
-	void OnDestroy ()
+	void Disconnect ()
 	{
 		mGame.Stop();
 
@@ -255,5 +262,16 @@ public class TNServerInstance : MonoBehaviour
 			mLobby.Stop();
 			mLobby = null;
 		}
+		mUp.Close();
+	}
+
+	/// <summary>
+	/// Make sure that the servers are stopped when the server instance is destroyed.
+	/// </summary>
+
+	void OnDestroy ()
+	{
+		Disconnect();
+		mUp.WaitForThreads();
 	}
 }

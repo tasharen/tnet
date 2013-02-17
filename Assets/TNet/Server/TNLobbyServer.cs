@@ -28,13 +28,7 @@ public abstract class LobbyServer
 	/// Start listening for incoming server list requests.
 	/// </summary>
 
-	public bool Start (int listenPort) { return Start(listenPort, 0); }
-
-	/// <summary>
-	/// Start listening for incoming server list requests.
-	/// </summary>
-
-	public abstract bool Start (int listenPort, int broadcastPort);
+	public abstract bool Start (int listenPort);
 
 	/// <summary>
 	/// Stop listening for incoming packets.

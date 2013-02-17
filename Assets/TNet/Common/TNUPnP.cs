@@ -344,13 +344,9 @@ public class UPnP
 				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 				"<NewLeaseDuration>0</NewLeaseDuration>\n";
 
-			if (callback != null)
-			{
-				xp.th = new Thread(ThreadRequest);
-				lock (mThreads) mThreads.Add(xp.th);
-				xp.th.Start(xp);
-			}
-			else ThreadRequest(xp);
+			xp.th = new Thread(ThreadRequest);
+			lock (mThreads) mThreads.Add(xp.th);
+			xp.th.Start(xp);
 		}
 		else if (callback != null)
 		{

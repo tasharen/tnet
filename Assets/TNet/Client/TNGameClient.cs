@@ -157,9 +157,6 @@ public class GameClient
 	// Source of the UDP packet (available during callbacks)
 	IPEndPoint mPacketSource;
 
-	// Connection attempt address (used for NAT)
-	IPEndPoint mConnectTarget;
-
 	// Temporary, not important
 	static Buffer mBuffer;
 
@@ -370,10 +367,10 @@ public class GameClient
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (string addr, int port)
+	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
-		mConnectTarget = Tools.ResolveEndPoint(addr, port);
-		if (mConnectTarget != null) mTcp.Connect(mConnectTarget);
+		Disconnect();
+		mTcp.Connect(externalIP, internalIP);
 	}
 
 	/// <summary>

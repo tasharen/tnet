@@ -77,6 +77,7 @@ public class UdpProtocol
 		// Web player doesn't seem to support broadcasts
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 #endif
+		// Port zero means we will be able to send, but not receive
 		if (mPort == 0) return true;
 
 		try

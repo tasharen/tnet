@@ -24,9 +24,7 @@ public class UdpLobbyServer : LobbyServer
 	long mTime = 0;
 	UdpProtocol mUdp;
 	Thread mThread;
-	bool mListIsDirty = false;
 	Buffer mBuffer;
-	ushort mBroadcastPort = 0;
 
 	/// <summary>
 	/// Port used to listen for incoming packets.
@@ -41,11 +39,10 @@ public class UdpLobbyServer : LobbyServer
 	public override bool isActive { get { return (mUdp != null && mUdp.isActive); } }
 
 	/// <summary>
-	/// Start listening for incoming UDP packets on the specified listener port, and automatically
-	/// broadcast list changes to the entire LAN to the specified Broadcast Port.
+	/// Start listening for incoming UDP packets on the specified listener port.
 	/// </summary>
 
-	public override bool Start (int listenPort, int broadcastPort)
+	public override bool Start (int listenPort)
 	{
 		Stop();
 		mUdp = new UdpProtocol();
@@ -53,7 +50,6 @@ public class UdpLobbyServer : LobbyServer
 #if STANDALONE
 		Console.WriteLine("UDP Lobby Server started on port " + listenPort);
 #endif
-		mBroadcastPort = (ushort)broadcastPort;
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 		return true;
@@ -90,13 +86,13 @@ public class UdpLobbyServer : LobbyServer
 			mTime = DateTime.Now.Ticks / 10000;
 
 			// Cleanup a list of servers by removing expired entries
-			if (mList.Cleanup(mTime)) mListIsDirty = true;
+			mList.Cleanup(mTime);
 
 			Buffer buffer;
 			IPEndPoint ip;
 
 			// Process incoming UDP packets
-			while (mUdp != null && mUdp.ReceivePacket(out buffer, out ip))
+			while (mUdp != null && mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
 			{
 				try { ProcessPacket(buffer, ip); }
 				catch (System.Exception) { }
@@ -106,14 +102,6 @@ public class UdpLobbyServer : LobbyServer
 					buffer.Recycle();
 					buffer = null;
 				}
-			}
-
-			// If the list has changed, broadcast the updated list to the network
-			if (mListIsDirty && mBroadcastPort != 0)
-			{
-				mListIsDirty = false;
-				mList.WriteTo(BeginSend(Packet.ResponseServerList));
-				EndSend();
 			}
 			Thread.Sleep(1);
 		}
@@ -128,9 +116,6 @@ public class UdpLobbyServer : LobbyServer
 		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
-		// TODO: Remove
-		UnityEngine.Debug.Log(request);
-
 		switch (request)
 		{
 			case Packet.RequestAddServer:
@@ -142,8 +127,7 @@ public class UdpLobbyServer : LobbyServer
 				if (ent.externalAddress.Address.Equals(IPAddress.None))
 					ent.externalAddress = ip;
 
-				mList.Add(ent).recordTime = mTime;
-				mListIsDirty = true;
+				mList.Add(ent, mTime);
 #if STANDALONE
 				Console.WriteLine(ip + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
 #endif
@@ -182,8 +166,7 @@ public class UdpLobbyServer : LobbyServer
 
 	public override void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		mList.Add(name, playerCount, internalAddress, externalAddress).recordTime = mTime;
-		mListIsDirty = true;
+		mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
 	}
 
 	/// <summary>
@@ -192,8 +175,7 @@ public class UdpLobbyServer : LobbyServer
 
 	public override void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		if (mList.Remove(internalAddress, externalAddress))
-			mListIsDirty = true;
+		mList.Remove(internalAddress, externalAddress);
 	}
 
 	/// <summary>
@@ -215,18 +197,6 @@ public class UdpLobbyServer : LobbyServer
 	{
 		mBuffer.EndPacket();
 		mUdp.Send(mBuffer, ip);
-		mBuffer.Recycle();
-		mBuffer = null;
-	}
-
-	/// <summary>
-	/// Broadcast this packet to LAN.
-	/// </summary>
-
-	void EndSend ()
-	{
-		mBuffer.EndPacket();
-		mUdp.Broadcast(mBuffer, mBroadcastPort);
 		mBuffer.Recycle();
 		mBuffer = null;
 	}

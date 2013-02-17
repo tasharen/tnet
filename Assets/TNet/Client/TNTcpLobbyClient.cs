@@ -16,8 +16,39 @@ using TNet;
 
 public class TNTcpLobbyClient : TNLobbyClient
 {
+	/// <summary>
+	/// Public address for the lobby client server's location.
+	/// </summary>
+
+	public string remoteAddress;
+
+	/// <summary>
+	/// Lobby server's port.
+	/// </summary>
+
+	public int remotePort = 5129;
+
 	TcpProtocol mTcp;
 	long mNextConnect = 0;
+	IPEndPoint mRemoteAddress;
+
+	void Awake ()
+	{
+		if (string.IsNullOrEmpty(remoteAddress))
+		{
+			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
+		}
+		else
+		{
+			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+		}
+
+		if (mRemoteAddress == null)
+		{
+			Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
+			enabled = false;
+		}
+	}
 
 	void Start ()
 	{

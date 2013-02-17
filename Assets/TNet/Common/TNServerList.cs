@@ -52,7 +52,7 @@ public class ServerList
 	/// Add a new entry to the list.
 	/// </summary>
 
-	public Entry Add (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
+	public Entry Add (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress, long time)
 	{
 		lock (list)
 		{
@@ -65,6 +65,7 @@ public class ServerList
 				{
 					ent.name = name;
 					ent.playerCount = playerCount;
+					ent.recordTime = time;
 					list[i] = ent;
 					return ent;
 				}
@@ -75,6 +76,7 @@ public class ServerList
 			e.playerCount = playerCount;
 			e.internalAddress = internalAddress;
 			e.externalAddress = externalAddress;
+			e.recordTime = time;
 			list.Add(e);
 			return e;
 		}
@@ -84,7 +86,7 @@ public class ServerList
 	/// Add a new entry.
 	/// </summary>
 
-	public Entry Add (Entry newEntry)
+	public Entry Add (Entry newEntry, long time)
 	{
 		lock (list)
 		{
@@ -97,9 +99,11 @@ public class ServerList
 				{
 					ent.name = newEntry.name;
 					ent.playerCount = newEntry.playerCount;
+					ent.recordTime = time;
 					return ent;
 				}
 			}
+			newEntry.recordTime = time;
 			list.Add(newEntry);
 		}
 		return newEntry;
@@ -137,17 +141,20 @@ public class ServerList
 		time -= 7000;
 		bool changed = false;
 
-		for (int i = 0; i < list.size; )
+		lock (list)
 		{
-			Entry ent = list[i];
-
-			if (ent.recordTime < time)
+			for (int i = 0; i < list.size; )
 			{
-				changed = true;
-				lock (list) list.RemoveAt(i);
-				continue;
+				Entry ent = list[i];
+
+				if (ent.recordTime < time)
+				{
+					changed = true;
+					list.RemoveAt(i);
+					continue;
+				}
+				++i;
 			}
-			++i;
 		}
 		return changed;
 	}
@@ -216,6 +223,7 @@ public class ServerList
 				return;
 			}
 		}
+		newEntry.recordTime = time;
 		list.Add(newEntry);
 	}
 }
