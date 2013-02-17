@@ -150,12 +150,11 @@ public class UPnP
 
 		try
 		{
-			EndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+			IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
 
 			for (; ; )
 			{
-				IPEndPoint remoteAddress = new IPEndPoint(IPAddress.Any, 0);
-				byte[] data = receiver.Receive(ref remoteAddress);
+				byte[] data = receiver.Receive(ref sourceAddress);
 
 				if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 				{
@@ -163,7 +162,7 @@ public class UPnP
 
 					lock (mThreads)
 					{
-						mGatewayAddress = remoteAddress.Address;
+						mGatewayAddress = sourceAddress.Address;
 						mStatus = Status.Success;
 						mThreads.Remove(th);
 					}
