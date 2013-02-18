@@ -259,14 +259,13 @@ public class GameClient
 		{
 			if (mTcp.name != value)
 			{
-				mTcp.name = value;
-
 				if (isConnected)
 				{
 					BinaryWriter writer = BeginSend(Packet.RequestSetName);
 					writer.Write(value);
 					EndSend();
 				}
+				else mTcp.name = value;
 			}
 		}
 	}

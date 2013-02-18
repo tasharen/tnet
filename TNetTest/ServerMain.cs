@@ -124,7 +124,7 @@ public class ServerMain
 					// Server lobby port should match the lobby port on the client
 #if UDP_LOBBY
 					lobbyServer = new UdpLobbyServer();
-					lobbyServer.Start(lobbyPort, udpPort);
+					lobbyServer.Start(lobbyPort);
 					if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
 #else
 					lobbyServer = new TcpLobbyServer();
@@ -144,7 +144,7 @@ public class ServerMain
 #if UDP_LOBBY
 				if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
 				lobbyServer = new UdpLobbyServer();
-				lobbyServer.Start(lobbyPort, udpPort);
+				lobbyServer.Start(lobbyPort);
 #else
 				if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
 				lobbyServer = new TcpLobbyServer();
