@@ -117,7 +117,9 @@ public class TNTcpLobbyClient : TNLobbyClient
 					}
 					else if (response == Packet.Error)
 					{
+#if UNITY_EDITOR
 						Debug.LogWarning(reader.ReadString());
+#endif
 					}
 				}
 				catch (System.Exception ex)

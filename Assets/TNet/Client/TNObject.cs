@@ -101,7 +101,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Automatically transfer the ownership.
 	/// </summary>
 
-	void OnNetworkPlayerLeave (Player p) { if (p.id == mOwner) p.id = TNManager.hostID; }
+	void OnNetworkPlayerLeave (Player p) { if (mOwner == p.id) mOwner = TNManager.hostID; }
 
 	/// <summary>
 	/// Retrieve the Tasharen Network Object by ID.

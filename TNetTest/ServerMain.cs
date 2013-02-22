@@ -39,7 +39,7 @@ public class ServerMain
 			Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Lobby only\n");
 			Console.WriteLine("To register with a remote lobby server, use this syntax:");
 			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 some.server.com 5129\n");
-			args = new string[] { "TNet Server", "5127" };
+			args = new string[] { "TNet Server", "5127", "5128", "5129" };
 		}
 
 		int tcpPort = 0;
