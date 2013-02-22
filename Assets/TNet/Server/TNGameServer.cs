@@ -278,7 +278,7 @@ public class GameServer
 			}
 
 			// Process datagrams first
-			while (mUdp.ReceivePacket(out buffer, out ip))
+			while (mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
 			{
 				if (buffer.size > 0)
 				{
