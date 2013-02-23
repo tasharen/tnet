@@ -1,4 +1,4 @@
-//------------------------------------------
+﻿//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -78,6 +78,8 @@ public class TcpChannel
 
 	public void RemovePlayer (TcpPlayer p, List<uint> destroyedObjects)
 	{
+		destroyedObjects.Clear();
+
 		if (p == host) host = null;
 
 		if (players.Remove(p))
@@ -85,7 +87,7 @@ public class TcpChannel
 			// Remove all of the non-persistent objects that were created by this player
 			for (int i = created.size; i > 0; )
 			{
-				TcpChannel.CreatedObject obj = created[i];
+				TcpChannel.CreatedObject obj = created[--i];
 
 				if (obj.type == 2 && obj.playerID == p.id)
 				{

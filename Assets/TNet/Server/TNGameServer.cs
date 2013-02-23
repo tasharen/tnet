@@ -837,8 +837,7 @@ public class GameServer
 					writer = BeginSend(Packet.ResponseDestroy);
 					writer.Write((ushort)mTemp.size);
 					for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
-					EndSend(true, player.channel, null);
-					mTemp.Clear();
+					EndSend(true, ch, null);
 				}
 
 				// If this player was the host, choose a new host
