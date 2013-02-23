@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -28,6 +28,7 @@ public class TcpChannel
 		public int playerID;
 		public ushort objectID;
 		public uint uniqueID;
+		public byte type;
 		public Buffer buffer;
 	}
 
@@ -75,20 +76,85 @@ public class TcpChannel
 	/// Remove the specified player from the channel.
 	/// </summary>
 
-	public void RemovePlayer (TcpPlayer p)
+	public void RemovePlayer (TcpPlayer p, List<uint> destroyedObjects)
 	{
 		if (p == host) host = null;
 
-		if (players.Remove(p) && (!persistent || playerLimit < 1) && players.size == 0)
+		if (players.Remove(p))
 		{
-			closed = true;
-
-			for (int i = 0; i < rfcs.size; ++i)
+			// Remove all of the non-persistent objects that were created by this player
+			for (int i = created.size; i > 0; )
 			{
-				RFC r = rfcs[i];
-				if (r.buffer != null) r.buffer.Recycle();
+				TcpChannel.CreatedObject obj = created[i];
+
+				if (obj.type == 2 && obj.playerID == p.id)
+				{
+					if (obj.buffer != null) obj.buffer.Recycle();
+					created.RemoveAt(i);
+					destroyedObjects.Add(obj.uniqueID);
+					DestroyObjectRFCs(obj.uniqueID);
+				}
 			}
-			rfcs.Clear();
+
+			// Close the channel if it wasn't persistent
+			if ((!persistent || playerLimit < 1) && players.size == 0)
+			{
+				closed = true;
+
+				for (int i = 0; i < rfcs.size; ++i)
+				{
+					RFC r = rfcs[i];
+					if (r.buffer != null) r.buffer.Recycle();
+				}
+				rfcs.Clear();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Remove an object with the specified unique identifier.
+	/// </summary>
+
+	public bool DestroyObject (uint uniqueID)
+	{
+		if (!destroyed.Contains(uniqueID))
+		{
+			for (int i = 0; i < created.size; ++i)
+			{
+				TcpChannel.CreatedObject obj = created[i];
+
+				if (obj.uniqueID == uniqueID)
+				{
+					if (obj.buffer != null) obj.buffer.Recycle();
+					created.RemoveAt(i);
+					DestroyObjectRFCs(uniqueID);
+					return true;
+				}
+			}
+			destroyed.Add(uniqueID);
+			DestroyObjectRFCs(uniqueID);
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Delete the specified remote function call.
+	/// </summary>
+
+	public void DestroyObjectRFCs (uint objectID)
+	{
+		for (int i = 0; i < rfcs.size; )
+		{
+			RFC r = rfcs[i];
+
+			if ((r.id >> 8) == objectID)
+			{
+				rfcs.RemoveAt(i);
+				r.buffer.Recycle();
+				continue;
+			}
+			++i;
 		}
 	}
 
@@ -135,26 +201,6 @@ public class TcpChannel
 				rfcs.RemoveAt(i);
 				r.buffer.Recycle();
 			}
-		}
-	}
-
-	/// <summary>
-	/// Delete the specified remote function call.
-	/// </summary>
-
-	public void DeleteObjectRFCs (uint objectID)
-	{
-		for (int i = 0; i < rfcs.size; )
-		{
-			RFC r = rfcs[i];
-
-			if ((r.id >> 8) == objectID)
-			{
-				rfcs.RemoveAt(i);
-				r.buffer.Recycle();
-				continue;
-			}
-			++i;
 		}
 	}
 

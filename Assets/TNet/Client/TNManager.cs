@@ -336,11 +336,32 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// RequestCreate flag.
+	/// 0 = Local-only object. Only echoed to other clients.
+	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
+	/// 2 = Saved on the server, destroyed when the owner leaves.
+	/// </summary>
+
+	static byte GetFlag (GameObject go, bool persistent)
+	{
+		TNObject tno = go.GetComponent<TNObject>();
+		if (tno == null) return 0;
+		return persistent ? (byte)1 : (byte)2;
+	}
+
+	/// <summary>
 	/// Create the specified game object on all connected clients.
 	/// Note that the object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go)
+	static public void Create (GameObject go) { Create(go, true); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients.
+	/// Note that the object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, bool persistent)
 	{
 		if (mInstance != null)
 		{
@@ -352,7 +373,7 @@ public class TNManager : MonoBehaviour
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 					writer.Write((ushort)index);
-					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)0);
 					mInstance.mClient.EndSend();
 					return;
@@ -371,7 +392,14 @@ public class TNManager : MonoBehaviour
 	/// Note that the object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot)
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot) { Create(go, pos, rot, true); }
+
+	/// <summary>
+	/// Create a new object at the specified position and rotation.
+	/// Note that the object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent)
 	{
 		if (mInstance != null)
 		{
@@ -383,7 +411,7 @@ public class TNManager : MonoBehaviour
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 					writer.Write((ushort)index);
-					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)1);
 					writer.Write(pos.x);
 					writer.Write(pos.y);
@@ -411,6 +439,16 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel)
 	{
+		Create(go, pos, rot, vel, angVel, true);
+	}
+
+	/// <summary>
+	/// Create a new object at the specified position and rotation.
+	/// Note that the object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent)
+	{
 		if (mInstance != null)
 		{
 			int index = mInstance.IndexOf(go);
@@ -421,7 +459,7 @@ public class TNManager : MonoBehaviour
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 					writer.Write((ushort)index);
-					writer.Write(go.GetComponent<TNObject>() != null ? (byte)1 : (byte)0);
+					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)2);
 					writer.Write(pos.x);
 					writer.Write(pos.y);

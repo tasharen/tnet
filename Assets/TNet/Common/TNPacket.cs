@@ -114,7 +114,10 @@ public enum Packet
 	/// <summary>
 	/// Instantiate a new object with the specified identifier.
 	/// ushort: Index of the object being created (within a static list of prefabs on the client).
-	/// byte: 1 if a new Object ID is requested, 0 otherwise.
+	/// byte:
+	/// 0 = Local-only object. Only echoed to other clients.
+	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
+	/// 2 = Saved on the server, destroyed when the owner leaves.
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
 

@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright � 2012 Tasharen Entertainment
+// Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
 
 using TNet;
@@ -50,17 +50,17 @@ public class TNAutoSyncInspector : Editor
 		int updates = EditorGUILayout.IntField("Updates Per Second", sync.updatesPerSecond);
 		bool persistent = EditorGUILayout.Toggle("Saved On Server", sync.isSavedOnServer);
 		bool important = EditorGUILayout.Toggle("Important", sync.isImportant);
-		bool host = EditorGUILayout.Toggle("Only Host Can Sync", sync.onlyHostCanSync);
+		bool owner = EditorGUILayout.Toggle("Only Owner Can Sync", sync.onlyOwnerCanSync);
 
 		if (sync.updatesPerSecond != updates ||
 			sync.isSavedOnServer != persistent ||
 			sync.isImportant != important ||
-			sync.onlyHostCanSync != host)
+			sync.onlyOwnerCanSync != owner)
 		{
 			sync.updatesPerSecond = updates;
 			sync.isSavedOnServer = persistent;
 			sync.isImportant = important;
-			sync.onlyHostCanSync = host;
+			sync.onlyOwnerCanSync = owner;
 			EditorUtility.SetDirty(sync);
 		}
 	}

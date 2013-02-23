@@ -810,6 +810,9 @@ public class GameServer
 		}
 	}
 
+	// Temporary buffer used in SendLeaveChannel below
+	List<uint> mTemp = new List<uint>();
+
 	/// <summary>
 	/// Leave the channel the player is in.
 	/// </summary>
@@ -820,17 +823,29 @@ public class GameServer
 		{
 			// Remove this player from the channel
 			TcpChannel ch = player.channel;
-			player.channel.RemovePlayer(player);
+			player.channel.RemovePlayer(player, mTemp);
 			player.channel = null;
 
 			// Are there other players left?
 			if (ch.players.size > 0)
 			{
+				BinaryWriter writer;
+
+				// Inform the other players that the player's objects should be destroyed
+				if (mTemp.size > 0)
+				{
+					writer = BeginSend(Packet.ResponseDestroy);
+					writer.Write((ushort)mTemp.size);
+					for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
+					EndSend(true, player.channel, null);
+					mTemp.Clear();
+				}
+
 				// If this player was the host, choose a new host
 				if (ch.host == null) SendSetHost(ch.players[0]);
 
 				// Inform everyone of this player leaving the channel
-				BinaryWriter writer = BeginSend(Packet.ResponsePlayerLeft);
+				writer = BeginSend(Packet.ResponsePlayerLeft);
 				writer.Write(player.id);
 				EndSend(true, ch, null);
 			}
@@ -1229,11 +1244,10 @@ public class GameServer
 			{
 				// Create a new object
 				ushort objectIndex = reader.ReadUInt16();
-
-				// Dynamically created Network Object IDs should always start out being negative
+				byte type = reader.ReadByte();
 				uint uniqueID = 0;
 
-				if (reader.ReadByte() != 0)
+				if (type != 0)
 				{
 					uniqueID = --player.channel.objectCounter;
 
@@ -1244,15 +1258,12 @@ public class GameServer
 						player.channel.objectCounter = 0xFFFFFF;
 						uniqueID = 0xFFFFFF;
 					}
-				}
 
-				// If a unique ID was requested then this call should be persistent
-				if (uniqueID != 0)
-				{
 					TcpChannel.CreatedObject obj = new TcpChannel.CreatedObject();
 					obj.playerID = player.id;
 					obj.objectID = objectIndex;
 					obj.uniqueID = uniqueID;
+					obj.type = type;
 
 					if (buffer.size > 0)
 					{
@@ -1276,37 +1287,15 @@ public class GameServer
 				// Destroy the specified network object
 				uint uniqueID = reader.ReadUInt32();
 
-				// If this object has already been destroyed, ignore this packet
-				if (player.channel.destroyed.Contains(uniqueID)) break;
-				bool wasCreated = false;
-
-				// Determine if we created this object earlier
-				for (int i = 0; i < player.channel.created.size; ++i)
+				// Remove this object
+				if (player.channel.DestroyObject(uniqueID))
 				{
-					TcpChannel.CreatedObject obj = player.channel.created[i];
-					
-					if (obj.uniqueID == uniqueID)
-					{
-						// Remove it
-						if (obj.buffer != null) obj.buffer.Recycle();
-						player.channel.created.RemoveAt(i);
-						wasCreated = true;
-						break;
-					}
+					// Inform all players in the channel that the object should be destroyed
+					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+					writer.Write((ushort)1);
+					writer.Write(uniqueID);
+					EndSend(true, player.channel, null);
 				}
-
-				// If the object was not created dynamically, we should remember it
-				if (!wasCreated)
-					player.channel.destroyed.Add(uniqueID);
-
-				// Remove all RFCs associated with this object
-				player.channel.DeleteObjectRFCs(uniqueID);
-
-				// Inform all players in the channel that the object should be destroyed
-				BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
-				writer.Write((ushort)1);
-				writer.Write(uniqueID);
-				EndSend(true, player.channel, null);
 				break;
 			}
 			case Packet.RequestLoadLevel:

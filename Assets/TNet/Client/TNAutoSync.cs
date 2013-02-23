@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright Â© 2012 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -29,7 +29,7 @@ public class TNAutoSync : TNBehaviour
 
 	public int updatesPerSecond = 20;
 	public bool isSavedOnServer = true;
-	public bool onlyHostCanSync = true;
+	public bool onlyOwnerCanSync = true;
 	public bool isImportant = true;
 
 	bool mCanSync = false;
@@ -133,7 +133,7 @@ public class TNAutoSync : TNBehaviour
 		for (; ; )
 		{
 			if (!TNManager.isConnected) break;
-			if (mCanSync && (!onlyHostCanSync || TNManager.isHosting)) Sync();
+			if (mCanSync && (!onlyOwnerCanSync || tno.isMine)) Sync();
 
 			if (updatesPerSecond > 0)
 			{
