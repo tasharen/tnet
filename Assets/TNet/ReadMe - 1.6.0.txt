@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.5.0
+                  Version 1.6.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.6.0:
+- NEW: Added a script that can instantiate an object when the player enters the scene (think: player avatar).
+- NEW: It's now possible to create temporary game objects: they will be destroyed when the player that created them leaves.
 
 1.5.0:
 - NEW: Added Universal Plug & Play functionality to easily open ports on the gateway/router.
