@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.6.0
+                  Version 1.6.5
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,16 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.6.5:
+- NEW: TNManager.channelID, in case you want to know what channel you're in.
+- NEW: Added the ability to specify a custom string with each channel that can be used to add information about the channel.
+- NEW: You will now get an error message in Unity when trying to execute an RFC function that doesn't exist.
+- FIX: Saved files will no longer be loaded if their version doesn't match.
+- FIX: TcpChannel is now just Channel, as it has nothing to do with TCP.
+- FIX: TNManager.isInChannel will now only return 'true' if the player is connected and in a channel.
+- FIX: Many cases of "if connected, send data" were replaced with "if in channel, send data", which is more correct.
+- FIX: Assortment of other minor fixes.
 
 1.6.0:
 - NEW: Added a script that can instantiate an object when the player enters the scene (think: player avatar).

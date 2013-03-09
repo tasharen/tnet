@@ -68,10 +68,10 @@
     <Compile Include="Assets\TNet\Common\TNTools.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUPnP.cs" />
+    <Compile Include="Assets\TNet\Server\TNChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNGameServer.cs" />
     <Compile Include="Assets\TNet\Server\TNLobbyLink.cs" />
     <Compile Include="Assets\TNet\Server\TNLobbyServer.cs" />
-    <Compile Include="Assets\TNet\Server\TNTcpChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpLobbyLink.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpLobbyServer.cs" />
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
