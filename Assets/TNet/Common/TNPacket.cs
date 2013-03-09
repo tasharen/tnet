@@ -161,6 +161,13 @@ public enum Packet
 	RequestNoDelay,
 
 	/// <summary>
+	/// Set the channel's data field.
+	/// string: Custom data
+	/// </summary>
+
+	RequestSetChannelData,
+
+	/// <summary>
 	/// Request the list of open channels from the server.
 	/// </summary>
 	
@@ -285,14 +292,23 @@ public enum Packet
 	ResponseLoadFile,
 
 	/// <summary>
+	/// The channel's data has been changed.
+	/// string: Custom data
+	/// </summary>
+
+	ResponseSetChannelData,
+
+	/// <summary>
 	/// List open channels on the server.
 	/// int32: number of channels to follow
 	/// For each channel:
 	/// int32: ID
-	/// int32: Number of players
+	/// ushort: Number of players
+	/// ushort: Player limit
 	/// bool: Has a password
 	/// bool: Is persistent
 	/// string: Level
+	/// string: Custom data
 	/// </summary>
 
 	ResponseChannelList,

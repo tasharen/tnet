@@ -36,17 +36,28 @@ static public class Tools
 		{
 			if (mLocalAddress == null)
 			{
-				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
-
-				for (int i = 0; i < ips.Length; ++i)
+				try
 				{
-					IPAddress addr = ips[i];
+					IPHostEntry ent = Dns.GetHostEntry(Dns.GetHostName());
 
-					if (IsValidAddress(addr))
+					foreach (IPAddress ip in ent.AddressList)
 					{
-						mLocalAddress = addr;
-						break;
+						if (IsValidAddress(ip))
+						{
+							mLocalAddress = ip;
+							break;
+						}
 					}
+				}
+#if DEBUG
+				catch (System.Exception ex)
+				{
+					System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message);
+#else
+				catch (System.Exception)
+				{
+#endif
+					mLocalAddress = IPAddress.Loopback;
 				}
 			}
 			return mLocalAddress;
@@ -214,5 +225,36 @@ static public class Tools
 		int port = reader.ReadUInt16();
 		ip = new IPEndPoint(new IPAddress(bytes), port);
 	}
+
+	/// <summary>
+	/// Write the channel's data into the specified writer.
+	/// </summary>
+
+	/*static public void Serialize (BinaryWriter writer, byte[] data)
+	{
+		int count = (data != null) ? data.Length : 0;
+
+		if (count < 255)
+		{
+			writer.Write((byte)count);
+		}
+		else
+		{
+			writer.Write((byte)255);
+			writer.Write(count);
+		}
+		if (count > 0) writer.Write(data);
+	}
+
+	/// <summary>
+	/// Read the channel's data from the specified reader.
+	/// </summary>
+
+	static public void Serialize (BinaryReader reader, out byte[] data)
+	{
+		int count = reader.ReadByte();
+		if (count == 255) count = reader.ReadInt32();
+		data = (count > 0) ? reader.ReadBytes(count) : null;
+	}*/
 }
 }

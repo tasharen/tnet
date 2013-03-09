@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
+// Copyright ï¿½ 2012 Tasharen Entertainment
 //------------------------------------------
 
 //#define TNDEBUG
@@ -56,7 +56,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	void FixedUpdate ()
 	{
-		if (updatesPerSecond > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isConnected)
+		if (updatesPerSecond > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isInChannel)
 		{
 			bool isSleeping = mRb.IsSleeping();
 
@@ -122,7 +122,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	public void Sync ()
 	{
-		if (TNManager.isConnected)
+		if (TNManager.isInChannel)
 		{
 			UpdateInterval();
 			mWasSleeping = false;

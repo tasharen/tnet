@@ -56,7 +56,7 @@ public class TNManager : MonoBehaviour
 	/// Whether the player is currently in a channel.
 	/// </summary>
 
-	static public bool isInChannel { get { return mInstance == null || mInstance.mClient.isInChannel; } }
+	static public bool isInChannel { get { return mInstance != null && mInstance.mClient.isConnected && mInstance.mClient.isInChannel; } }
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -105,6 +105,31 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSource : null; } }
+
+	/// <summary>
+	/// Custom data associated with the channel.
+	/// </summary>
+
+	static public string channelData
+	{
+		get
+		{
+			return (mInstance != null) ? mInstance.mClient.channelData : "";
+		}
+		set
+		{
+			if (mInstance != null)
+			{
+				mInstance.mClient.channelData = value;
+			}
+		}
+	}
+
+	/// <summary>
+	/// ID of the channel the player is in.
+	/// </summary>
+
+	static public int channelID { get { return isConnected ? mInstance.mClient.channelID : 0; } }
 
 	/// <summary>
 	/// ID of the host.
@@ -285,7 +310,7 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Join a random open game channel.
+	/// Join a random open game channel or create a new one. Guaranteed to load the specified level.
 	/// </summary>
 	/// <param name="levelName">Level that will be loaded first.</param>
 	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
@@ -295,6 +320,19 @@ public class TNManager : MonoBehaviour
 	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
 		if (mInstance != null) mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+	}
+
+	/// <summary>
+	/// Create a new channel.
+	/// </summary>
+	/// <param name="levelName">Level that will be loaded first.</param>
+	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
+	/// <param name="password">Password for the channel. First player sets the password.</param>
+
+	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password)
+	{
+		if (mInstance != null) mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 	}
 
 	/// <summary>
@@ -579,18 +617,18 @@ public class TNManager : MonoBehaviour
 			mInstance = this;
 			DontDestroyOnLoad(gameObject);
 
-			mClient.onError = OnError;
-			mClient.onConnect = OnConnect;
-			mClient.onDisconnect = OnDisconnect;
-			mClient.onJoinChannel = OnJoinChannel;
-			mClient.onLeftChannel = OnLeftChannel;
-			mClient.onLoadLevel = OnLoadLevel;
-			mClient.onPlayerJoined = OnPlayerJoined;
-			mClient.onPlayerLeft = OnPlayerLeft;
-			mClient.onRenamePlayer = OnRenamePlayer;
-			mClient.onCreate = OnCreateObject;
-			mClient.onDestroy = OnDestroyObject;
-			mClient.onForwardedPacket = OnForwardedPacket;
+			mClient.onError				+= OnError;
+			mClient.onConnect			+= OnConnect;
+			mClient.onDisconnect		+= OnDisconnect;
+			mClient.onJoinChannel		+= OnJoinChannel;
+			mClient.onLeftChannel		+= OnLeftChannel;
+			mClient.onLoadLevel			+= OnLoadLevel;
+			mClient.onPlayerJoined		+= OnPlayerJoined;
+			mClient.onPlayerLeft		+= OnPlayerLeft;
+			mClient.onRenamePlayer		+= OnRenamePlayer;
+			mClient.onCreate			+= OnCreateObject;
+			mClient.onDestroy			+= OnDestroyObject;
+			mClient.onForwardedPacket	+= OnForwardedPacket;
 		}
 	}
 

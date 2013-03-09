@@ -22,7 +22,7 @@ public class TcpPlayer : TcpProtocol
 	/// Channel that the player is currently in.
 	/// </summary>
 
-	public TcpChannel channel;
+	public Channel channel;
 
 	/// <summary>
 	/// UDP end point if the player has one open.
@@ -61,6 +61,14 @@ public class TcpPlayer : TcpProtocol
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
+		// Step 4: Send the channel's data
+		if (!string.IsNullOrEmpty(channel.data))
+		{
+			buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
+			writer.Write(channel.data);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
 		// Step 5: Inform the player of what level we're on
 		buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
@@ -69,7 +77,7 @@ public class TcpPlayer : TcpProtocol
 		// Step 6: Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
 		{
-			TcpChannel.CreatedObject obj = channel.created.buffer[i];
+			Channel.CreatedObject obj = channel.created.buffer[i];
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);

@@ -26,8 +26,9 @@ public class GameClient
 	public delegate void OnLoadLevel (string levelName);
 	public delegate void OnPlayerJoined (Player p);
 	public delegate void OnPlayerLeft (Player p);
-	public delegate void OnSetHost (bool hosting);
 	public delegate void OnRenamePlayer (Player p, string previous);
+	public delegate void OnSetHost (bool hosting);
+	public delegate void OnSetChannelData (string data);
 	public delegate void OnCreate (int creator, int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
@@ -89,16 +90,22 @@ public class GameClient
 	public OnPlayerLeft onPlayerLeft;
 
 	/// <summary>
+	/// Notification of some player changing their name.
+	/// </summary>
+
+	public OnRenamePlayer onRenamePlayer;
+
+	/// <summary>
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
 	public OnSetHost onSetHost;
 
 	/// <summary>
-	/// Notification of some player changing their name.
+	/// Notification of the channel's custom data changing.
 	/// </summary>
 
-	public OnRenamePlayer onRenamePlayer;
+	public OnSetChannelData onSetChannelData;
 
 	/// <summary>
 	/// Notification of a new object being created.
@@ -119,16 +126,16 @@ public class GameClient
 	public OnForwardedPacket onForwardedPacket;
 
 	/// <summary>
-	/// NAT punch-through facilitator address.
-	/// </summary>
-
-	//public IPEndPoint natFacilitator;
-
-	/// <summary>
 	/// List of players in the same channel as the client.
 	/// </summary>
 
 	public List<Player> players = new List<Player>();
+
+	/// <summary>
+	/// ID of the channel we're in.
+	/// </summary>
+
+	public int channelID { get { return mChannelID; } }
 
 	// Same list of players, but in a dictionary format for quick lookup
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
@@ -141,6 +148,7 @@ public class GameClient
 
 	// ID of the host
 	int mHost = 0;
+	int mChannelID = 0;
 
 	// Current time, time when the last ping was sent out, and time when connection was started
 	long mTime = 0;
@@ -150,6 +158,7 @@ public class GameClient
 	int mPing = 0;
 	bool mCanPing = false;
 	bool mIsInChannel = false;
+	string mData = "";
 
 	// Server's UDP address
 	IPEndPoint mServerUdpEndPoint;
@@ -176,13 +185,13 @@ public class GameClient
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return !mTcp.isConnected || mHost == mTcp.id; } }
+	public bool isHosting { get { return !mIsInChannel || mHost == mTcp.id; } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return mIsInChannel || !mTcp.isConnected; } }
+	public bool isInChannel { get { return mIsInChannel; } }
 
 	/// <summary>
 	/// Port used to listen for incoming UDP packets. Set via StartUDP().
@@ -195,6 +204,27 @@ public class GameClient
 	/// </summary>
 
 	public IPEndPoint packetSource { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
+
+	/// <summary>
+	/// Set the custom data associated with the channel we're in.
+	/// </summary>
+
+	public string channelData
+	{
+		get
+		{
+			return mData;
+		}
+		set
+		{
+			if (isHosting && isInChannel && !mData.Equals(value))
+			{
+				mData = value;
+				BeginSend(Packet.RequestSetChannelData).Write(value);
+				EndSend();
+			}
+		}
+	}
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -621,11 +651,11 @@ public class GameClient
 			}
 			case Packet.ResponseJoiningChannel:
 			{
+				mIsInChannel = true;
 				mDictionary.Clear();
 				players.Clear();
 
-				//int channelID =
-					reader.ReadInt32();
+				mChannelID = reader.ReadInt32();
 				int count = reader.ReadInt16();
 
 				for (int i = 0; i < count; ++i)
@@ -668,15 +698,21 @@ public class GameClient
 				if (onSetHost != null) onSetHost(isHosting);
 				break;
 			}
+			case Packet.ResponseSetChannelData:
+			{
+				mData = reader.ReadString();
+				if (onSetChannelData != null) onSetChannelData(mData);
+				break;
+			}
 			case Packet.ResponseJoinChannel:
 			{
-				bool success = reader.ReadBoolean();
-				if (success) mIsInChannel = true;
-				if (onJoinChannel != null) onJoinChannel(success, success ? null : reader.ReadString());
+				mIsInChannel = reader.ReadBoolean();
+				if (onJoinChannel != null) onJoinChannel(mIsInChannel, mIsInChannel ? null : reader.ReadString());
 				break;
 			}
 			case Packet.ResponseLeaveChannel:
 			{
+				mChannelID = 0;
 				mIsInChannel = false;
 				mDictionary.Clear();
 				players.Clear();

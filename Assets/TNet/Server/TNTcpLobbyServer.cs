@@ -125,11 +125,27 @@ public class TcpLobbyServer : LobbyServer
 
 				while (tc.ReceivePacket(out buffer))
 				{
-					try { if (!ProcessPacket(buffer, tc)) tc.Disconnect(); }
+					try
+					{
+						if (!ProcessPacket(buffer, tc))
+						{
+							RemoveServer(tc);
+							tc.Disconnect();
+						}
+					}
 #if STANDALONE
-					catch (System.Exception ex) { Console.WriteLine("ERROR: " + ex.Message); }
+					catch (System.Exception ex)
+					{
+						Console.WriteLine("ERROR: " + ex.Message);
+						RemoveServer(tc);
+						tc.Disconnect();
+					}
 #else
-					catch (System.Exception) {}
+					catch (System.Exception)
+					{
+						RemoveServer(tc);
+						tc.Disconnect();
+					}
 #endif
 					if (buffer != null)
 					{
@@ -243,9 +259,20 @@ public class TcpLobbyServer : LobbyServer
 			}
 			case Packet.Disconnect:
 			{
+#if STANDALONE
+				if (RemoveServer(tc)) Console.WriteLine(tc.address + " has disconnected");
+#else
 				RemoveServer(tc);
+#endif
 				mTcp.Remove(tc);
 				return true;
+			}
+			case Packet.Error:
+			{
+#if STANDALONE
+				Console.WriteLine(tc.address + " error: " + reader.ReadString());
+#endif
+				return false;
 			}
 		}
 #if STANDALONE
@@ -258,8 +285,10 @@ public class TcpLobbyServer : LobbyServer
 	/// Remove all entries added by the specified client.
 	/// </summary>
 
-	void RemoveServer (Player player)
+	bool RemoveServer (Player player)
 	{
+		bool changed = false;
+
 		lock (mList.list)
 		{
 			for (int i = mList.list.size; i > 0; )
@@ -270,9 +299,11 @@ public class TcpLobbyServer : LobbyServer
 				{
 					mList.list.RemoveAt(i);
 					mLastChange = mTime;
+					changed = true;
 				}
 			}
 		}
+		return changed;
 	}
 
 	/// <summary>

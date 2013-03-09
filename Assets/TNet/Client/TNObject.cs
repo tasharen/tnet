@@ -162,7 +162,7 @@ public sealed class TNObject : MonoBehaviour
 
 		if (id == 0 || tobj != null)
 		{
-			if (Application.isPlaying && TNManager.isConnected)
+			if (Application.isPlaying && TNManager.isInChannel)
 			{
 				if (tobj != null)
 				{
@@ -256,7 +256,7 @@ public sealed class TNObject : MonoBehaviour
 			{
 				retVal = true;
 #if UNITY_EDITOR
-				try
+				//try
 				{
 					ParameterInfo[] infos = ent.func.GetParameters();
 
@@ -269,7 +269,7 @@ public sealed class TNObject : MonoBehaviour
 						ent.func.Invoke(ent.obj, parameters);
 					}
 				}
-				catch (System.Exception ex)
+				/*catch (System.Exception ex)
 				{
 					string types = "";
 					
@@ -279,7 +279,7 @@ public sealed class TNObject : MonoBehaviour
 						types += parameters[b].GetType().ToString();
 					}
 					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
-				}
+				}*/
 #else
 				ParameterInfo[] infos = ent.func.GetParameters();
 
@@ -348,9 +348,14 @@ public sealed class TNObject : MonoBehaviour
 
 		if (obj != null)
 		{
-			obj.Execute(funcID, parameters);
+			if (!obj.Execute(funcID, parameters))
+			{
+#if UNITY_EDITOR
+				Debug.LogError("Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.", obj.gameObject);
+#endif
+			}
 		}
-		else if (TNManager.isConnected)
+		else if (TNManager.isInChannel)
 		{
 			DelayedCall dc = new DelayedCall();
 			dc.objID = objID;
@@ -374,9 +379,14 @@ public sealed class TNObject : MonoBehaviour
 
 		if (obj != null)
 		{
-			obj.Execute(funcName, parameters);
+			if (!obj.Execute(funcName, parameters))
+			{
+#if UNITY_EDITOR
+				Debug.LogError("Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?", obj.gameObject);
+#endif
+			}
 		}
-		else if (TNManager.isConnected)
+		else if (TNManager.isInChannel)
 		{
 			DelayedCall dc = new DelayedCall();
 			dc.objID = objID;
@@ -542,7 +552,7 @@ public sealed class TNObject : MonoBehaviour
 			}
 		}
 
-		if (!executeLocally && TNManager.isConnected)
+		if (!executeLocally && TNManager.isInChannel)
 		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 			BinaryWriter writer = TNManager.BeginSend(packetID);
@@ -575,7 +585,7 @@ public sealed class TNObject : MonoBehaviour
 
 	static void SendRFC (uint objID, byte rfcID, string rfcName, Player target, bool reliable, params object[] objs)
 	{
-		if (TNManager.isConnected)
+		if (TNManager.isInChannel)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
 			writer.Write(target.id);
@@ -605,7 +615,7 @@ public sealed class TNObject : MonoBehaviour
 
 	static void RemoveSavedRFC (uint objID, byte rfcID, string funcName)
 	{
-		if (TNManager.isConnected)
+		if (TNManager.isInChannel)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
 			writer.Write(GetUID(objID, rfcID));

@@ -117,11 +117,19 @@ public class TcpProtocol : Player
 		if (tcpEndPoint != null)
 		{
 			stage = Stage.Connecting;
-			mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			
-			IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
-			mCancelConnect = new Thread(CancelConnect);
-			mCancelConnect.Start(result);
+
+			try
+			{
+				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
+				mCancelConnect = new Thread(CancelConnect);
+				mCancelConnect.Start(result);
+			}
+			catch (System.Exception ex)
+			{
+				Error(ex.Message);
+				return;
+			}
 		}
 		else Error("Unable to resolve the specified address");
 	}

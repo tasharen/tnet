@@ -112,7 +112,7 @@ public class TNAutoSync : TNBehaviour
 			if (mList.size > 0)
 			{
 				// Only start the coroutine if we wanted to run periodic updates
-				if (updatesPerSecond > 0 && TNManager.isConnected)
+				if (updatesPerSecond > 0 && TNManager.isInChannel)
 				{
 					// If we're already in a channel, we can now sync this object
 					if (TNManager.isInChannel) mCanSync = true;
@@ -132,7 +132,7 @@ public class TNAutoSync : TNBehaviour
 	{
 		for (; ; )
 		{
-			if (!TNManager.isConnected) break;
+			if (!TNManager.isInChannel) break;
 			if (mCanSync && (!onlyOwnerCanSync || tno.isMine)) Sync();
 
 			if (updatesPerSecond > 0)
@@ -149,7 +149,7 @@ public class TNAutoSync : TNBehaviour
 
 	public void Sync ()
 	{
-		if (TNManager.isConnected && mList.size != 0 && enabled)
+		if (TNManager.isInChannel && mList.size != 0 && enabled)
 		{
 			bool initial = false;
 			bool changed = false;

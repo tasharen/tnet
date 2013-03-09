@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012 Tasharen Entertainment
 //------------------------------------------
@@ -13,7 +13,7 @@ namespace TNet
 /// All information broadcast by players is visible by others in the same channel.
 /// </summary>
 
-public class TcpChannel
+public class Channel
 {
 	public class RFC
 	{
@@ -35,6 +35,7 @@ public class TcpChannel
 	public int id;
 	public string password = "";
 	public string level = "";
+	public string data = "";
 	public bool persistent = false;
 	public bool closed = false;
 	public ushort playerLimit = 65535;
@@ -87,7 +88,7 @@ public class TcpChannel
 			// Remove all of the non-persistent objects that were created by this player
 			for (int i = created.size; i > 0; )
 			{
-				TcpChannel.CreatedObject obj = created[--i];
+				Channel.CreatedObject obj = created[--i];
 
 				if (obj.type == 2 && obj.playerID == p.id)
 				{
@@ -123,7 +124,7 @@ public class TcpChannel
 		{
 			for (int i = 0; i < created.size; ++i)
 			{
-				TcpChannel.CreatedObject obj = created[i];
+				Channel.CreatedObject obj = created[i];
 
 				if (obj.uniqueID == uniqueID)
 				{
@@ -212,7 +213,9 @@ public class TcpChannel
 
 	public void SaveTo (BinaryWriter writer)
 	{
+		writer.Write(Player.version);
 		writer.Write(level);
+		writer.Write(data);
 		writer.Write(objectCounter);
 		writer.Write(password);
 		writer.Write(persistent);
@@ -257,8 +260,11 @@ public class TcpChannel
 	/// Load the channel's data from the specified file.
 	/// </summary>
 
-	public void LoadFrom (BinaryReader reader)
+	public bool LoadFrom (BinaryReader reader)
 	{
+		int version = reader.ReadInt32();
+		if (version != Player.version) return false;
+
 		// Clear all RFCs, just in case
 		for (int i = 0; i < rfcs.size; ++i)
 		{
@@ -270,6 +276,7 @@ public class TcpChannel
 		destroyed.Clear();
 
 		level = reader.ReadString();
+		data = reader.ReadString();
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();
@@ -303,6 +310,7 @@ public class TcpChannel
 
 		size = reader.ReadInt32();
 		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadUInt32());
+		return true;
 	}
 }
 }

@@ -79,7 +79,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 		// Automatically try to connect and reconnect if not connected
 		if (mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)
 		{
-			mNextConnect = time + 15000;
+			mNextConnect = time + 5000;
 			mTcp.Connect(mRemoteAddress);
 		}
 

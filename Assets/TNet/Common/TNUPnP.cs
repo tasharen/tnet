@@ -194,7 +194,7 @@ public class UPnP
 	bool ParseResponse (string response)
 	{
 		// Find the "Location" header
-		int index = response.IndexOf("LOCATION:");
+		int index = response.IndexOf("LOCATION:", StringComparison.OrdinalIgnoreCase);
 		if (index == -1) return false;
 		index += 9;
 		int end = response.IndexOf('\r', index);
