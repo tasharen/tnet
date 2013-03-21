@@ -7,8 +7,6 @@
 // it doesn't seem to work with the Amazon EC2 cloud-hosted servers. They don't seem to accept inbound UDP traffic
 // without an active TPC connection from the same source... so it's your choice which protocol to use.
 
-#define UDP_LOBBY
-
 using System;
 using TNet;
 using System.IO;
@@ -33,36 +31,83 @@ public class ServerMain
 		{
 			Console.WriteLine("No arguments specified, assuming default values.");
 			Console.WriteLine("In the future you can specify your own ports like so:");
-			Console.WriteLine("  TNServer.exe \"Server Name\" 5127           <-- TCP only");
-			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128      <-- TCP and UDP");
-			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 5129 <-- TCP, UDP, Lobby");
-			Console.WriteLine("  TNServer.exe \"Server Name\" 0 0 5129       <-- Lobby only\n");
-			Console.WriteLine("To register with a remote lobby server, use this syntax:");
-			Console.WriteLine("  TNServer.exe \"Server Name\" 5127 5128 some.server.com 5129\n");
-			args = new string[] { "TNet Server", "5127", "5128", "5129" };
+			Console.WriteLine("   -name \"Your Server\"         <-- Name your server");
+			Console.WriteLine("   -tcp [port]                 <-- TCP port for clients to connect to");
+			Console.WriteLine("   -udp [port]                 <-- UDP port used for communication");
+			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
+			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
+			Console.WriteLine("For example:");
+			Console.WriteLine("TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
+			
+			args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
 		}
 
+		string name = "TNet Server";
 		int tcpPort = 0;
 		int udpPort = 0;
-		int lobbyPort = 0;
-		string name = "TNet Server";
 		string lobbyAddress = null;
+		int lobbyPort = 0;
+		bool tcpLobby = false;
 
-		if (args.Length > 0) name = args[0];
-		if (args.Length > 1) int.TryParse(args[1], out tcpPort);
-		if (args.Length > 2) int.TryParse(args[2], out udpPort);
-		if (args.Length > 4)
+		for (int i = 0; i < args.Length; )
 		{
-			if (int.TryParse(args[4], out lobbyPort))
+			string param = args[i];
+			string val0 = (i + 1 < args.Length) ? args[i + 1] : null;
+			string val1 = (i + 2 < args.Length) ? args[i + 2] : null;
+
+			if (val0 != null && val0.StartsWith("-"))
 			{
-				lobbyAddress = args[3];
+				val0 = null;
+				val1 = null;
 			}
+			else if (val1 != null && val1.StartsWith("-"))
+			{
+				val1 = null;
+			}
+
+			if (param == "-name")
+			{
+				if (val0 != null) name = val0;
+			}
+			else if (param == "-tcp")
+			{
+				if (val0 != null) int.TryParse(val0, out tcpPort);
+			}
+			else if (param == "-udp")
+			{
+				if (val0 != null) int.TryParse(val0, out udpPort);
+			}
+			else if (param == "-tcpLobby")
+			{
+				if (val1 != null)
+				{
+					lobbyAddress = val0;
+					int.TryParse(val1, out lobbyPort);
+				}
+				else int.TryParse(val0, out lobbyPort);
+				tcpLobby = true;
+			}
+			else if (param == "-udpLobby")
+			{
+				if (val1 != null)
+				{
+					lobbyAddress = val0;
+					int.TryParse(val1, out lobbyPort);
+				}
+				else int.TryParse(val0, out lobbyPort);
+				tcpLobby = false;
+			}
+			else if (param == "-lobby")
+			{
+				if (val0 != null) lobbyAddress = val0;
+			}
+
+			if (val1 != null) i += 3;
+			else if (val0 != null) i += 2;
+			else ++i;
 		}
-		else if (args.Length > 3)
-		{
-			int.TryParse(args[3], out lobbyPort);
-		}
-		Start(name, tcpPort, udpPort, lobbyPort, lobbyAddress);
+
+		Start(name, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby);
 		return 0;
 	}
 
@@ -70,7 +115,7 @@ public class ServerMain
 	/// Start the server.
 	/// </summary>
 
-	static void Start (string name, int tcpPort, int udpPort, int lobbyPort, string lobbyAddress)
+	static void Start (string name, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp)
 	{
 		Console.WriteLine("IP Addresses\n------------");
 		Console.WriteLine("External: " + Tools.externalAddress);
@@ -103,24 +148,26 @@ public class ServerMain
 				{
 					// Remote lobby address specified, so the lobby link should point to a remote location
 					IPEndPoint ip = Tools.ResolveEndPoint(lobbyAddress, lobbyPort);
-#if UDP_LOBBY
-					gameServer.lobbyLink = new UdpLobbyServerLink(ip);
-#else
-					gameServer.lobbyLink = new TcpLobbyServerLink(ip);
-#endif
+					if (useTcp) gameServer.lobbyLink = new TcpLobbyServerLink(ip);
+					else gameServer.lobbyLink = new UdpLobbyServerLink(ip);
+
 				}
 				else if (lobbyPort > 0)
 				{
 					// Server lobby port should match the lobby port on the client
-#if UDP_LOBBY
-					lobbyServer = new UdpLobbyServer();
-					lobbyServer.Start(lobbyPort);
-					if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
-#else
-					lobbyServer = new TcpLobbyServer();
-					lobbyServer.Start(lobbyPort);
-					if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
-#endif
+					if (useTcp)
+					{
+						lobbyServer = new TcpLobbyServer();
+						lobbyServer.Start(lobbyPort);
+						if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
+					}
+					else
+					{
+						lobbyServer = new UdpLobbyServer();
+						lobbyServer.Start(lobbyPort);
+						if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
+					}
+					
 					// Local lobby server
 					gameServer.lobbyLink = new LobbyServerLink(lobbyServer);
 				}
@@ -131,15 +178,18 @@ public class ServerMain
 			}
 			else if (lobbyPort > 0)
 			{
-#if UDP_LOBBY
-				if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
-				lobbyServer = new UdpLobbyServer();
-				lobbyServer.Start(lobbyPort);
-#else
-				if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
-				lobbyServer = new TcpLobbyServer();
-				lobbyServer.Start(lobbyPort);
-#endif
+				if (useTcp)
+				{
+					if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
+					lobbyServer = new TcpLobbyServer();
+					lobbyServer.Start(lobbyPort);
+				}
+				else
+				{
+					if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
+					lobbyServer = new UdpLobbyServer();
+					lobbyServer.Start(lobbyPort);
+				}
 			}
 
 			// Open up ports on the router / gateway

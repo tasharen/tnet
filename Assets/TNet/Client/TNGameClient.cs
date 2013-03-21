@@ -213,7 +213,7 @@ public class GameClient
 	{
 		get
 		{
-			return mData;
+			return isInChannel ? mData : "";
 		}
 		set
 		{
@@ -712,6 +712,7 @@ public class GameClient
 			}
 			case Packet.ResponseLeaveChannel:
 			{
+				mData = "";
 				mChannelID = 0;
 				mIsInChannel = false;
 				mDictionary.Clear();
@@ -761,6 +762,7 @@ public class GameClient
 			}
 			case Packet.Disconnect:
 			{
+				mData = "";
 				if (isInChannel && onLeftChannel != null) onLeftChannel();
 				players.Clear();
 				mDictionary.Clear();

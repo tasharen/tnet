@@ -33,21 +33,24 @@ public class TNUdpLobbyClient : TNLobbyClient
 	long mNextSend = 0;
 	IPEndPoint mRemoteAddress;
 
-	void Awake ()
+	void OnEnable ()
 	{
-		if (string.IsNullOrEmpty(remoteAddress))
-		{
-			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
-		}
-		else
-		{
-			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
-		}
-
 		if (mRemoteAddress == null)
 		{
-			Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
-			enabled = false;
+			if (string.IsNullOrEmpty(remoteAddress))
+			{
+				mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
+			}
+			else
+			{
+				mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+			}
+
+			if (mRemoteAddress == null)
+			{
+				Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
+				enabled = false;
+			}
 		}
 	}
 
@@ -123,6 +126,10 @@ public class TNUdpLobbyClient : TNLobbyClient
 			buffer.Recycle();
 		}
 
+		// Clean up old servers
+		if (knownServers.Cleanup(time))
+			changed = true;
+
 		// Trigger the listener callback
 		if (changed && onChange != null)
 		{
@@ -133,9 +140,6 @@ public class TNUdpLobbyClient : TNLobbyClient
 			// Send out the update request
 			mNextSend = time + 3000;
 			mUdp.Send(mRequest, mRemoteAddress);
-
-			// Clean up old servers
-			knownServers.Cleanup(time);
 		}
 	}
 }

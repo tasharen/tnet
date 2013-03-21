@@ -32,7 +32,6 @@ public class TNServerInstance : MonoBehaviour
 		Active,
 	}
 
-	State mState = State.Inactive;
 	GameServer mGame = new GameServer();
 	LobbyServer mLobby;
 	UPnP mUp = new UPnP();
@@ -56,13 +55,6 @@ public class TNServerInstance : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Current state of the server instance, since the startup happens on a separate thread.
-	/// This way the DNS queries / IP retrieval doesn't block the main thread.
-	/// </summary>
-
-	static public State state { get { return (mInstance != null) ? mInstance.mState : State.Inactive; } }
-
-	/// <summary>
 	/// Whether the server instance is currently active.
 	/// </summary>
 
@@ -79,6 +71,12 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public int listeningPort { get { return (mInstance != null) ? mInstance.mGame.tcpPort : 0; } }
+
+	/// <summary>
+	/// Set your server's name.
+	/// </summary>
+
+	static public string serverName { get { return (mInstance != null) ? mInstance.mGame.name : null; } set { if (instance != null) mInstance.mGame.name = value; } }
 
 	/// <summary>
 	/// How many players are currently connected to the server.

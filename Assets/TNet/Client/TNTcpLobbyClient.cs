@@ -32,21 +32,24 @@ public class TNTcpLobbyClient : TNLobbyClient
 	long mNextConnect = 0;
 	IPEndPoint mRemoteAddress;
 
-	void Awake ()
+	void OnEnable ()
 	{
-		if (string.IsNullOrEmpty(remoteAddress))
-		{
-			mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
-		}
-		else
-		{
-			mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
-		}
-
 		if (mRemoteAddress == null)
 		{
-			Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
-			enabled = false;
+			if (string.IsNullOrEmpty(remoteAddress))
+			{
+				mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
+			}
+			else
+			{
+				mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
+			}
+
+			if (mRemoteAddress == null)
+			{
+				Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
+				enabled = false;
+			}
 		}
 	}
 

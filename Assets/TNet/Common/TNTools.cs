@@ -36,6 +36,8 @@ static public class Tools
 		{
 			if (mLocalAddress == null)
 			{
+				mLocalAddress = IPAddress.Loopback;
+
 				try
 				{
 					IPHostEntry ent = Dns.GetHostEntry(Dns.GetHostName());
@@ -53,12 +55,10 @@ static public class Tools
 				catch (System.Exception ex)
 				{
 					System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message);
-#else
-				catch (System.Exception)
-				{
-#endif
-					mLocalAddress = IPAddress.Loopback;
 				}
+#else
+				catch (System.Exception) {}
+#endif
 			}
 			return mLocalAddress;
 		}
@@ -75,7 +75,7 @@ static public class Tools
 		{
 			if (mExternalAddress == null)
 				mExternalAddress = GetExternalAddress();
-			return mExternalAddress;
+			return mExternalAddress != null ? mExternalAddress : localAddress;
 		}
 	}
 
