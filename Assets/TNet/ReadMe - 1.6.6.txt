@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.6.5
+                  Version 1.6.6
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.6.6:
+- NEW: Restructured the server app to make it possible to use either TCP and UDP for the lobby.
+- FIX: Variety of tweaks and fixes resulted from my development of Star Dots.
 
 1.6.5:
 - NEW: TNManager.channelID, in case you want to know what channel you're in.
