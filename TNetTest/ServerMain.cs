@@ -27,6 +27,14 @@ public class ServerMain
 
 	static int Main (string[] args)
 	{
+		// TODO: Make it possible for the lobby servers to save & load files.
+		// - Client connects to the lobby.
+		// - Client gets a list of servers.
+		// - Client may request an AccountID if one was not found.
+		// - Lobby will provide an ever-incrementing AccountID for that player. This needs to be saved on server shutdown.
+		// - Player will pass this AccountID back to the server in order to save their progress (achievements and such).
+		// - This AccountID identifier makes it possible to send PMs, mail, and /friend the player.
+
 		if (args == null || args.Length == 0)
 		{
 			Console.WriteLine("No arguments specified, assuming default values.");
