@@ -536,10 +536,14 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		bool canSendToChannel = TNManager.isInChannel && (target == Target.Host || TNManager.isHosting);
 		bool executeLocally = false;
 
-		if (canSendToChannel)
+		if (target == Target.Host && TNManager.isHosting)
+		{
+			// We're the host, and the packet should be going to the host -- just echo it locally
+			executeLocally = true;
+		}
+		else if (TNManager.isInChannel)
 		{
 			// We want to echo UDP-based packets locally instead of having them bounce through the server
 			if (!reliable)
@@ -563,11 +567,12 @@ public sealed class TNObject : MonoBehaviour
 			UnityTools.Write(writer, objs);
 			TNManager.EndSend(reliable);
 		}
-		else if (target == Target.All || target == Target.AllSaved || (target == Target.Host && TNManager.isHosting))
+		else if (!TNManager.isConnected && (target == Target.All || target == Target.AllSaved))
 		{
+			// Offline packet
 			executeLocally = true;
 		}
-		
+
 		if (executeLocally)
 		{
 			if (rfcID != 0)

@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.6.6
+                  Version 1.6.8
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,12 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.6.8:
+- NEW: TCP lobby client can now handle file save/load requests.
+- FIX: Flat out disabled UDP in the Unity web player, since every UDP request requires the policy file.
+- FIX: Fixed an issue with how UDP packets were sent.
+- FIX: Fixed an issue with how UPnP would cause Unity to hang for a few seconds when the server would be stopped.
 
 1.6.6:
 - NEW: Restructured the server app to make it possible to use either TCP and UDP for the lobby.
