@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System.Net;
 using System.IO;
@@ -48,22 +48,27 @@ public class TNUdpLobbyClient : TNLobbyClient
 
 			if (mRemoteAddress == null)
 			{
-				Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
-				enabled = false;
+				mUdp.Error(new IPEndPoint(IPAddress.Loopback, mUdp.listeningPort), "Invalid address: " + remoteAddress + ":" + remotePort);
 			}
 		}
 	}
 
-	void Start ()
+	void Awake ()
 	{
+		isActive = false;
 		mUdp = new UdpProtocol();
 
 		// Server list request -- we'll be using it a lot, so just create it once
-		isActive = false;
-		mRequest = Buffer.Create();
-		mRequest.BeginPacket(Packet.RequestServerList).Write(GameServer.gameID);
-		mRequest.EndPacket();
+		if (mRequest == null)
+		{
+			mRequest = Buffer.Create();
+			mRequest.BeginPacket(Packet.RequestServerList).Write(GameServer.gameID);
+			mRequest.EndPacket();
+		}
+	}
 
+	void Start()
+	{
 		// Twice just in case the first try falls on a taken port
 		if (!mUdp.Start(Tools.randomPort)) mUdp.Start(Tools.randomPort);
 	}

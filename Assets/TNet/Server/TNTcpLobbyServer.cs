@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System;
 using System.IO;
@@ -28,6 +28,7 @@ public class TcpLobbyServer : LobbyServer
 	int mPort = 0;
 	Thread mThread;
 	bool mInstantUpdates = true;
+	Buffer mBuffer;
 
 	/// <summary>
 	/// If the number of simultaneous connected clients exceeds this number,
@@ -95,6 +96,29 @@ public class TcpLobbyServer : LobbyServer
 			mListener = null;
 		}
 		mList.Clear();
+	}
+
+	/// <summary>
+	/// Start the sending process.
+	/// </summary>
+
+	BinaryWriter BeginSend (Packet type)
+	{
+		mBuffer = Buffer.Create();
+		BinaryWriter writer = mBuffer.BeginPacket(type);
+		return writer;
+	}
+
+	/// <summary>
+	/// Send the outgoing buffer to the specified player.
+	/// </summary>
+
+	void EndSend (TcpProtocol tc)
+	{
+		mBuffer.EndPacket();
+		tc.SendTcpPacket(mBuffer);
+		mBuffer.Recycle();
+		mBuffer = null;
 	}
 
 	/// <summary>
@@ -266,6 +290,35 @@ public class TcpLobbyServer : LobbyServer
 #endif
 				mTcp.Remove(tc);
 				return true;
+			}
+			case Packet.RequestSaveFile:
+			{
+				string fileName = reader.ReadString();
+				byte[] data = reader.ReadBytes(reader.ReadInt32());
+				SaveFile(fileName, data);
+				break;
+			}
+			case Packet.RequestLoadFile:
+			{
+				string fn = reader.ReadString();
+				byte[] data = LoadFile(fn);
+
+				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
+				writer.Write(fn);
+
+				if (data != null)
+				{
+					writer.Write(data.Length);
+					writer.Write(data);
+				}
+				else writer.Write(0);
+				EndSend(tc);
+				break;
+			}
+			case Packet.RequestDeleteFile:
+			{
+				DeleteFile(reader.ReadString());
+				break;
 			}
 			case Packet.Error:
 			{

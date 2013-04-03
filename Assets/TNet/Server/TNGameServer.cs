@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System;
 using System.IO;
@@ -18,7 +18,7 @@ namespace TNet
 /// gs.Start(5127);
 /// </summary>
 
-public class GameServer
+public class GameServer : FileServer
 {
 	/// <summary>
 	/// You will want to make this a unique value.
@@ -106,18 +106,6 @@ public class GameServer
 	bool mAllowUdp = false;
 
 	/// <summary>
-	/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
-	/// </summary>
-
-	struct FileEntry
-	{
-		public string fileName;
-		public byte[] data;
-	}
-
-	List<FileEntry> mSavedFiles = new List<FileEntry>();
-
-	/// <summary>
 	/// Whether the server is currently actively serving players.
 	/// </summary>
 
@@ -170,7 +158,7 @@ public class GameServer
 		}
 		catch (System.Exception ex)
 		{
-			Error(null, ex.Message);
+			Error(ex.Message);
 			return false;
 		}
 
@@ -179,7 +167,7 @@ public class GameServer
 #endif
 		if (!mUdp.Start(udpPort))
 		{
-			Error(null, "Unable to listen to UDP port " + udpPort);
+			Error("Unable to listen to UDP port " + udpPort);
 			Stop();
 			return false;
 		}
@@ -480,202 +468,6 @@ public class GameServer
 	{
 		for (int i = 0; i < mChannels.size; ++i) if (mChannels[i].id == id) return true;
 		return false;
-	}
-
-#if !UNITY_WEBPLAYER
-	/// <summary>
-	/// Clean up the filename, ensuring that there is no funny business going on.
-	/// </summary>
-
-	string CleanupFilename (string fn) { return Path.GetFileName(fn); }
-#endif
-
-	/// <summary>
-	/// Save the specified file.
-	/// </summary>
-
-	public void SaveFile (string fileName, byte[] data)
-	{
-		bool exists = false;
-
-		for (int i = 0; i < mSavedFiles.size; ++i)
-		{
-			FileEntry fi = mSavedFiles[i];
-
-			if (fi.fileName == fileName)
-			{
-				fi.data = data;
-				exists = true;
-				break;
-			}
-		}
-
-		if (!exists)
-		{
-			FileEntry fi = new FileEntry();
-			fi.fileName = fileName;
-			fi.data = data;
-			mSavedFiles.Add(fi);
-		}
-#if !UNITY_WEBPLAYER
-		try
-		{
-			File.WriteAllBytes(CleanupFilename(fileName), data);
-		}
-		catch (System.Exception ex)
-		{
-			Error(null, fileName + ": " + ex.Message);
-		}
-#endif
-	}
-
-	/// <summary>
-	/// Load the specified file.
-	/// </summary>
-
-	public byte[] LoadFile (string fileName)
-	{
-		for (int i = 0; i < mSavedFiles.size; ++i)
-		{
-			FileEntry fi = mSavedFiles[i];
-			if (fi.fileName == fileName) return fi.data;
-		}
-#if !UNITY_WEBPLAYER
-		string fn = CleanupFilename(fileName);
-
-		if (File.Exists(fn))
-		{
-			try
-			{
-				byte[] bytes = File.ReadAllBytes(fn);
-
-				if (bytes != null)
-				{
-					FileEntry fi = new FileEntry();
-					fi.fileName = fileName;
-					fi.data = bytes;
-					mSavedFiles.Add(fi);
-					return bytes;
-				}
-			}
-			catch (System.Exception ex)
-			{
-				Error(null, fileName + ": " + ex.Message);
-			}
-		}
-#endif
-		return null;
-	}
-
-	/// <summary>
-	/// Delete the specified file.
-	/// </summary>
-
-	public void DeleteFile (string fileName)
-	{
-		for (int i = 0; i < mSavedFiles.size; ++i)
-		{
-			FileEntry fi = mSavedFiles[i];
-
-			if (fi.fileName == fileName)
-			{
-				mSavedFiles.RemoveAt(i);
-#if !UNITY_WEBPLAYER
-				File.Delete(CleanupFilename(fileName));
-#endif
-				break;
-			}
-		}
-	}
-
-	/// <summary>
-	/// Save the server's current state into the specified file so it can be easily restored later.
-	/// </summary>
-
-	public void SaveTo (string fileName)
-	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH
-		if (mListener == null) return;
-		fileName = CleanupFilename(fileName);
-		FileStream stream;
-
-		try
-		{
-			stream = new FileStream(fileName, FileMode.Create);
-		}
-		catch (System.Exception ex)
-		{
-			Error(null, ex.Message);
-			return;
-		}
-
-		BinaryWriter writer = new BinaryWriter(stream);
-		writer.Write(0);
-		int count = 0;
-
-		for (int i = 0; i < mChannels.size; ++i)
-		{
-			Channel ch = mChannels[i];
-			
-			if (!ch.closed && ch.persistent && ch.hasData)
-			{
-				writer.Write(ch.id);
-				ch.SaveTo(writer);
-				++count;
-			}
-		}
-
-		if (count > 0)
-		{
-			stream.Seek(0, SeekOrigin.Begin);
-			writer.Write(count);
-		}
-
-		stream.Flush();
-		stream.Close();
-#endif
-	}
-
-	/// <summary>
-	/// Load a previously saved server from the specified file.
-	/// </summary>
-
-	public bool LoadFrom (string fileName)
-	{
-#if UNITY_WEBPLAYER || UNITY_FLASH
-		// There is no file access in the web player.
-		return false;
-#else
-		fileName = CleanupFilename(fileName);
-		if (!File.Exists(fileName)) return false;
-
-		FileStream stream = null;
-
-		try
-		{
-			stream = new FileStream(fileName, FileMode.Open);
-			BinaryReader reader = new BinaryReader(stream);
-
-			int channels = reader.ReadInt32();
-
-			for (int i = 0; i < channels; ++i)
-			{
-				int chID = reader.ReadInt32();
-				bool isNew;
-				Channel ch = CreateChannel(chID, out isNew);
-				if (isNew) ch.LoadFrom(reader);
-			}
-
-			stream.Close();
-		}
-		catch (System.Exception ex)
-		{
-			Error(null, "Loading from " + fileName + ": " + ex.Message);
-			if (stream != null) stream.Close();
-			return false;
-		}
-		return true;
-#endif
 	}
 
 	/// <summary>
@@ -1384,6 +1176,96 @@ public class GameServer
 				break;
 			}
 		}
+	}
+
+	/// <summary>
+	/// Save the server's current state into the specified file so it can be easily restored later.
+	/// </summary>
+
+	public void SaveTo (string fileName)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH
+		if (mListener == null) return;
+		fileName = CleanupFilename(fileName);
+		FileStream stream;
+
+		try
+		{
+			stream = new FileStream(fileName, FileMode.Create);
+		}
+		catch (System.Exception ex)
+		{
+			Error(ex.Message);
+			return;
+		}
+
+		BinaryWriter writer = new BinaryWriter(stream);
+		writer.Write(0);
+		int count = 0;
+
+		for (int i = 0; i < mChannels.size; ++i)
+		{
+			Channel ch = mChannels[i];
+
+			if (!ch.closed && ch.persistent && ch.hasData)
+			{
+				writer.Write(ch.id);
+				ch.SaveTo(writer);
+				++count;
+			}
+		}
+
+		if (count > 0)
+		{
+			stream.Seek(0, SeekOrigin.Begin);
+			writer.Write(count);
+		}
+
+		stream.Flush();
+		stream.Close();
+#endif
+	}
+
+	/// <summary>
+	/// Load a previously saved server from the specified file.
+	/// </summary>
+
+	public bool LoadFrom (string fileName)
+	{
+#if UNITY_WEBPLAYER || UNITY_FLASH
+		// There is no file access in the web player.
+		return false;
+#else
+		fileName = CleanupFilename(fileName);
+		if (!File.Exists(fileName)) return false;
+
+		FileStream stream = null;
+
+		try
+		{
+			stream = new FileStream(fileName, FileMode.Open);
+			BinaryReader reader = new BinaryReader(stream);
+
+			int channels = reader.ReadInt32();
+
+			for (int i = 0; i < channels; ++i)
+			{
+				int chID = reader.ReadInt32();
+				bool isNew;
+				Channel ch = CreateChannel(chID, out isNew);
+				if (isNew) ch.LoadFrom(reader);
+			}
+
+			stream.Close();
+		}
+		catch (System.Exception ex)
+		{
+			Error("Loading from " + fileName + ": " + ex.Message);
+			if (stream != null) stream.Close();
+			return false;
+		}
+		return true;
+#endif
 	}
 }
 }

@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System.Net;
 using System.IO;
@@ -28,7 +28,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 
 	public int remotePort = 5129;
 
-	TcpProtocol mTcp;
+	TcpProtocol mTcp = new TcpProtocol();
 	long mNextConnect = 0;
 	IPEndPoint mRemoteAddress;
 
@@ -47,15 +47,9 @@ public class TNTcpLobbyClient : TNLobbyClient
 
 			if (mRemoteAddress == null)
 			{
-				Debug.LogError("Invalid address: " + remoteAddress + ":" + remotePort);
-				enabled = false;
+				mTcp.Error("Invalid address: " + remoteAddress + ":" + remotePort);
 			}
 		}
-	}
-
-	void Start ()
-	{
-		mTcp = new TcpProtocol();
 	}
 
 	void OnDestroy ()
@@ -80,7 +74,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 		long time = System.DateTime.Now.Ticks / 10000;
 
 		// Automatically try to connect and reconnect if not connected
-		if (mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)
+		if (mRemoteAddress != null && mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)
 		{
 			mNextConnect = time + 5000;
 			mTcp.Connect(mRemoteAddress);

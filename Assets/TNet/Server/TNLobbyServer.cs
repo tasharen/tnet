@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System.Net;
 namespace TNet
@@ -10,7 +10,7 @@ namespace TNet
 /// Abstract class for a lobby server.
 /// </summary>
 
-public abstract class LobbyServer
+public abstract class LobbyServer : FileServer
 {
 	/// <summary>
 	/// Port used to listen for incoming packets.

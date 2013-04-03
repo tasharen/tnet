@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System;
 using System.IO;
@@ -143,8 +143,12 @@ public class GameClient
 	// TCP connection is the primary method of communication with the server.
 	TcpProtocol mTcp = new TcpProtocol();
 
+#if !UNITY_WEBPLAYER
 	// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
+	// UDP is not available in the Unity web player because using UDP packets makes Unity request the
+	// policy file every time the packet gets sent... which is obviously quite retarded.
 	UdpProtocol mUdp = new UdpProtocol();
+#endif
 
 	// ID of the host
 	int mHost = 0;
@@ -197,7 +201,17 @@ public class GameClient
 	/// Port used to listen for incoming UDP packets. Set via StartUDP().
 	/// </summary>
 
-	public int listeningPort { get { return mUdp.listeningPort; } }
+	public int listeningPort
+	{
+		get
+		{
+#if UNITY_WEBPLAYER
+			return 0;
+#else
+			return mUdp.listeningPort;
+#endif
+		}
+	}
 
 	/// <summary>
 	/// Source of the last packet.
@@ -261,7 +275,17 @@ public class GameClient
 	/// Whether we can communicate with the server via UDP.
 	/// </summary>
 
-	public bool canUseUDP { get { return mUdp.isActive && mServerUdpEndPoint != null; } }
+	public bool canUseUDP
+	{
+		get
+		{
+#if UNITY_WEBPLAYER
+			return false;
+#else
+			return mUdp.isActive && mServerUdpEndPoint != null;
+#endif
+		}
+	}
 
 	/// <summary>
 	/// Return the local player.
@@ -356,7 +380,10 @@ public class GameClient
 	public void EndSend (bool reliable)
 	{
 		mBuffer.EndPacket();
-
+#if UNITY_WEBPLAYER
+		mTcp.SendTcpPacket(mBuffer);
+		mBuffer.Recycle();
+#else
 		if (reliable || mServerUdpEndPoint == null || !mUdp.isActive)
 		{
 			mTcp.SendTcpPacket(mBuffer);
@@ -367,6 +394,7 @@ public class GameClient
 			mBuffer.EndPacket();
 			mUdp.Send(mBuffer, mServerUdpEndPoint);
 		}
+#endif
 		mBuffer = null;
 	}
 
@@ -377,7 +405,9 @@ public class GameClient
 	public void EndSend (int port)
 	{
 		mBuffer.EndPacket();
+#if !UNITY_WEBPLAYER
 		mUdp.Broadcast(mBuffer, port);
+#endif
 		mBuffer = null;
 	}
 
@@ -388,7 +418,9 @@ public class GameClient
 	public void EndSend (IPEndPoint target)
 	{
 		mBuffer.EndPacket();
+#if !UNITY_WEBPLAYER
 		mUdp.Send(mBuffer, target);
+#endif
 		mBuffer = null;
 	}
 
@@ -414,6 +446,7 @@ public class GameClient
 
 	public bool StartUDP (int udpPort)
 	{
+#if !UNITY_WEBPLAYER
 		if (mUdp.Start(udpPort))
 		{
 			if (isConnected)
@@ -423,6 +456,7 @@ public class GameClient
 			}
 			return true;
 		}
+#endif
 		return false;
 	}
 
@@ -432,6 +466,7 @@ public class GameClient
 
 	public void StopUDP ()
 	{
+#if !UNITY_WEBPLAYER
 		if (mUdp.isActive)
 		{
 			if (isConnected)
@@ -441,6 +476,7 @@ public class GameClient
 			}
 			mUdp.Stop();
 		}
+#endif
 	}
 
 	/// <summary>
@@ -551,15 +587,17 @@ public class GameClient
 		}
 
 		Buffer buffer = null;
-		IPEndPoint ip = null;
 		bool keepGoing = true;
+
+#if !UNITY_WEBPLAYER
+		IPEndPoint ip = null;
 
 		while (keepGoing && mUdp.ReceivePacket(out buffer, out ip))
 		{
 			keepGoing = ProcessPacket(buffer, ip);
 			buffer.Recycle();
 		}
-
+#endif
 		while (keepGoing && mTcp.ReceivePacket(out buffer))
 		{
 			keepGoing = ProcessPacket(buffer, null);
@@ -585,13 +623,14 @@ public class GameClient
 		{
 			if (mTcp.VerifyResponseID(response, reader))
 			{
+#if !UNITY_WEBPLAYER
 				if (mUdp.isActive)
 				{
 					// If we have a UDP listener active, tell the server
 					BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0);
 					EndSend();
 				}
-
+#endif
 				mCanPing = true;
 				if (onConnect != null) onConnect(true, null);
 			}
@@ -635,6 +674,7 @@ public class GameClient
 			}
 			case Packet.ResponseSetUDP:
 			{
+#if !UNITY_WEBPLAYER
 				// The server has a new port for UDP traffic
 				ushort port = reader.ReadUInt16();
 
@@ -642,11 +682,11 @@ public class GameClient
 				{
 					IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
 					mServerUdpEndPoint = new IPEndPoint(ipa, port);
-
 					// Send an empty packet to the server, opening up the communication channel
 					if (mUdp.isActive) mUdp.SendEmptyPacket(mServerUdpEndPoint);
 				}
 				else mServerUdpEndPoint = null;
+#endif
 				break;
 			}
 			case Packet.ResponseJoiningChannel:

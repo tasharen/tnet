@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System;
 using System.IO;
@@ -107,6 +107,19 @@ public class UPnP
 
 	public void Close ()
 	{
+		if (mStatus != Status.Success)
+		{
+			lock (mThreads)
+			{
+				for (int i = mThreads.size; i > 0; )
+				{
+					Thread th = mThreads[--i];
+					th.Abort();
+				}
+				mThreads.Clear();
+			}
+		}
+
 		for (int i = mPorts.size; i > 0; )
 		{
 			int id = mPorts[--i];
@@ -173,7 +186,11 @@ public class UPnP
 #if DEBUG
 		catch (System.Exception ex)
 		{
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogWarning(ex.Message);
+#else
 			Console.WriteLine("ERROR: (UPnP) " + ex.Message);
+#endif
 		}
 #else
 		catch (System.Exception) { }
@@ -326,7 +343,7 @@ public class UPnP
 	{
 		int id = (port << 8) | (tcp ? 1 : 0);
 
-		if (mStatus != Status.Failure && !mPorts.Contains(id))
+		if (!mPorts.Contains(id) && mStatus != Status.Failure)
 		{
 			mPorts.Add(id);
 
@@ -344,7 +361,7 @@ public class UPnP
 				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 				"<NewLeaseDuration>0</NewLeaseDuration>\n";
 
-			xp.th = new Thread(ThreadRequest);
+			xp.th = new Thread(OpenRequest);
 			lock (mThreads) mThreads.Add(xp.th);
 			xp.th.Start(xp);
 		}
@@ -386,7 +403,7 @@ public class UPnP
 	{
 		int id = (port << 8) | (tcp ? 1 : 0);
 
-		if (mStatus != Status.Failure && mPorts.Remove(id))
+		if (mPorts.Remove(id) && mStatus == Status.Success)
 		{
 			ExtraParams xp = new ExtraParams();
 			xp.callback = callback;
@@ -399,11 +416,11 @@ public class UPnP
 
 			if (callback != null)
 			{
-				xp.th = new Thread(ThreadRequest);
+				xp.th = new Thread(CloseRequest);
 				lock (mThreads) mThreads.Add(xp.th);
 				xp.th.Start(xp);
 			}
-			else ThreadRequest(xp);
+			else CloseRequest(xp);
 		}
 		else if (callback != null)
 		{
@@ -415,10 +432,24 @@ public class UPnP
 	/// Thread callback that requests a port to be opened.
 	/// </summary>
 
-	void ThreadRequest (object obj)
+	void OpenRequest (object obj)
 	{
 		while (mStatus == Status.Searching) Thread.Sleep(1);
-		ExtraParams xp = (ExtraParams)obj;
+		SendRequest((ExtraParams)obj);
+	}
+
+	/// <summary>
+	/// Thread callback that requests a port to be closed.
+	/// </summary>
+
+	void CloseRequest (object obj) { SendRequest((ExtraParams)obj); }
+
+	/// <summary>
+	/// Open or close request.
+	/// </summary>
+
+	void SendRequest (ExtraParams xp)
+	{
 		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000, 3) : null;
 		if (xp.callback != null)
 			xp.callback(this, xp.port, xp.protocol, !string.IsNullOrEmpty(response));

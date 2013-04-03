@@ -1,7 +1,7 @@
-//------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2013 Tasharen Entertainment
+//---------------------------------------------
 
 using System.IO;
 using System.Reflection;
@@ -536,24 +536,26 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		bool executeLocally = (target == Target.Host && TNManager.isHosting);
+		bool canSendToChannel = TNManager.isInChannel && (target == Target.Host || TNManager.isHosting);
+		bool executeLocally = false;
 
-		if (!reliable)
+		if (canSendToChannel)
 		{
-			if (target == Target.All)
+			// We want to echo UDP-based packets locally instead of having them bounce through the server
+			if (!reliable)
 			{
-				target = Target.Others;
-				executeLocally = true;
+				if (target == Target.All)
+				{
+					target = Target.Others;
+					executeLocally = true;
+				}
+				else if (target == Target.AllSaved)
+				{
+					target = Target.OthersSaved;
+					executeLocally = true;
+				}
 			}
-			else if (target == Target.AllSaved)
-			{
-				target = Target.OthersSaved;
-				executeLocally = true;
-			}
-		}
 
-		if (!executeLocally && TNManager.isInChannel)
-		{
 			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 			BinaryWriter writer = TNManager.BeginSend(packetID);
 			writer.Write(GetUID(objID, rfcID));
@@ -561,7 +563,7 @@ public sealed class TNObject : MonoBehaviour
 			UnityTools.Write(writer, objs);
 			TNManager.EndSend(reliable);
 		}
-		else if (target == Target.All || target == Target.AllSaved)
+		else if (target == Target.All || target == Target.AllSaved || (target == Target.Host && TNManager.isHosting))
 		{
 			executeLocally = true;
 		}
