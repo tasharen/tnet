@@ -41,6 +41,7 @@ public class UPnP
 
 	Status mStatus = Status.Inactive;
 	IPAddress mGatewayAddress = IPAddress.None;
+	Thread mDiscover = null;
 	
 	string mGatewayURL = null;
 	string mControlURL = null;
@@ -91,6 +92,7 @@ public class UPnP
 	public UPnP ()
 	{
 		Thread th = new Thread(ThreadDiscover);
+		mDiscover = th;
 		mThreads.Add(th);
 		th.Start(th);
 	}
@@ -99,7 +101,7 @@ public class UPnP
 	/// Wait for all threads to finish.
 	/// </summary>
 
-	~UPnP () { Close(); WaitForThreads(); }
+	~UPnP () { mDiscover = null; Close(); WaitForThreads(); }
 
 	/// <summary>
 	/// Close all ports that we've opened.
@@ -114,9 +116,13 @@ public class UPnP
 				for (int i = mThreads.size; i > 0; )
 				{
 					Thread th = mThreads[--i];
-					th.Abort();
+
+					if (th != mDiscover)
+					{
+						th.Abort();
+						mThreads.RemoveAt(i);
+					}
 				}
-				mThreads.Clear();
 			}
 		}
 
@@ -151,18 +157,19 @@ public class UPnP
 						"MX:3\r\n\r\n";
 
 		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
-
 		int port = 10000 + (int)(DateTime.Now.Ticks % 45000);
-		UdpClient sender = new UdpClient(port);
-		sender.Connect(IPAddress.Broadcast, 1900);
-		sender.Send(requestBytes, requestBytes.Length);
-		sender.Close();
-
-		UdpClient receiver = new UdpClient(port);
-		receiver.Client.ReceiveTimeout = 3000;
+		UdpClient receiver = null;
 
 		try
 		{
+			UdpClient sender = new UdpClient(port);
+			sender.Connect(IPAddress.Broadcast, 1900);
+			sender.Send(requestBytes, requestBytes.Length);
+			sender.Close();
+
+			receiver = new UdpClient(port);
+			receiver.Client.ReceiveTimeout = 3000;
+
 			IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
 
 			for (; ; )
@@ -179,29 +186,26 @@ public class UPnP
 						mStatus = Status.Success;
 						mThreads.Remove(th);
 					}
+					mDiscover = null;
 					return;
 				}
 			}
 		}
-#if DEBUG
-		catch (System.Exception ex)
-		{
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogWarning(ex.Message);
+		catch (System.Exception ex) { UnityEngine.Debug.LogWarning(ex.Message); }
+#elif DEBUG
+		catch (System.Exception ex) { Console.WriteLine("ERROR: (UPnP) " + ex.Message); }
 #else
-			Console.WriteLine("ERROR: (UPnP) " + ex.Message);
+		catch (System.Exception) {}
 #endif
-		}
-#else
-		catch (System.Exception) { }
-#endif
-		receiver.Close();
+		if (receiver != null) receiver.Close();
 
 		lock (mThreads)
 		{
 			mStatus = Status.Failure;
 			mThreads.Remove(th);
 		}
+		mDiscover = null;
 	}
 
 	/// <summary>
@@ -343,7 +347,7 @@ public class UPnP
 	{
 		int id = (port << 8) | (tcp ? 1 : 0);
 
-		if (!mPorts.Contains(id) && mStatus != Status.Failure)
+		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
 			mPorts.Add(id);
 
@@ -403,7 +407,7 @@ public class UPnP
 	{
 		int id = (port << 8) | (tcp ? 1 : 0);
 
-		if (mPorts.Remove(id) && mStatus == Status.Success)
+		if (port > 0 && mPorts.Remove(id) && mStatus == Status.Success)
 		{
 			ExtraParams xp = new ExtraParams();
 			xp.callback = callback;

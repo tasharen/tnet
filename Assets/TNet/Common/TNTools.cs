@@ -17,6 +17,31 @@ namespace TNet
 
 static public class Tools
 {
+	static string mChecker = "http://checkip.dyndns.org";
+
+	/// <summary>
+	/// Get or set the URL that will perform the IP check. The URL-returned value should be in the format of:
+	/// "Current IP Address: 255.255.255.255".
+	/// Note that the server must have a valid policy XML if it's accessed from a Unity web player build.
+	/// </summary>
+
+	static public string ipCheckerUrl
+	{
+		get
+		{
+			return mChecker;
+		}
+		set
+		{
+			if (mChecker != value)
+			{
+				mChecker = value;
+				mLocalAddress = null;
+				mExternalAddress = null;
+			}
+		}
+	}
+
 	static IPAddress mLocalAddress;
 	static IPAddress mExternalAddress;
 
@@ -79,13 +104,37 @@ static public class Tools
 		}
 	}
 
+	public delegate void OnResolvedIPs (IPAddress local, IPAddress ext);
+	
+	/// <summary>
+	/// Since calling "localAddress" and "externalAddress" would lock up the application, it's better to do it asynchronously.
+	/// </summary>
+
+	static public void ResolveIPs (OnResolvedIPs del)
+	{
+		Thread th = new Thread(ResolveThread);
+		th.Start(del);
+	}
+
+	/// <summary>
+	/// Thread function that resolves IP addresses.
+	/// </summary>
+
+	static void ResolveThread (object obj)
+	{
+		OnResolvedIPs callback = (OnResolvedIPs)obj;
+		IPAddress local = localAddress;
+		IPAddress ext = externalAddress;
+		if (callback != null) callback(local, ext);
+	}
+
 	/// <summary>
 	/// Determine the external IP address by accessing an external web site.
 	/// </summary>
 
 	static IPAddress GetExternalAddress ()
 	{
-		WebRequest web = HttpWebRequest.Create("http://checkip.dyndns.org");
+		WebRequest web = HttpWebRequest.Create(mChecker);
 		web.Timeout = 3000;
 
 		// "Current IP Address: xxx.xxx.xxx.xxx"
@@ -135,7 +184,7 @@ static public class Tools
 #if UNITY_EDITOR
 		catch (System.Exception ex)
 		{
-			UnityEngine.Debug.LogError(ex.Message + " (" + address + ")");
+			UnityEngine.Debug.LogWarning(ex.Message + " (" + address + ")");
 		}
 #else
 		catch (System.Exception) {}

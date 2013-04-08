@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.6.8
+                  Version 1.6.9
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,12 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.6.9:
+- NEW: It's now possible to set the external IP discovery URL.
+- NEW: It's now possible to perform the IP discovery asynchronously when desired.
+- FIX: Starting the server should no longer break UPnP discovery.
+- FIX: A few exception-related fixes.
 
 1.6.8:
 - NEW: TCP lobby client can now handle file save/load requests.

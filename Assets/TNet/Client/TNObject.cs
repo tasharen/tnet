@@ -256,7 +256,7 @@ public sealed class TNObject : MonoBehaviour
 			{
 				retVal = true;
 #if UNITY_EDITOR
-				//try
+				try
 				{
 					ParameterInfo[] infos = ent.func.GetParameters();
 
@@ -269,7 +269,7 @@ public sealed class TNObject : MonoBehaviour
 						ent.func.Invoke(ent.obj, parameters);
 					}
 				}
-				/*catch (System.Exception ex)
+				catch (System.Exception ex)
 				{
 					string types = "";
 					
@@ -279,7 +279,7 @@ public sealed class TNObject : MonoBehaviour
 						types += parameters[b].GetType().ToString();
 					}
 					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
-				}*/
+				}
 #else
 				ParameterInfo[] infos = ent.func.GetParameters();
 

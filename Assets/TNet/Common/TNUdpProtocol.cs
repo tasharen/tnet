@@ -199,16 +199,19 @@ public class UdpProtocol
 
 	public void Broadcast (Buffer buffer, int port)
 	{
-		buffer.MarkAsUsed();
+		if (buffer != null)
+		{
+			buffer.MarkAsUsed();
 #if UNITY_WEBPLAYER || UNITY_FLASH
- #if UNITY_EDITOR
-		UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player or Flash");
- #endif
-#else
-		mBroadcastIP.Port = port;
-		mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player or Flash");
 #endif
-		buffer.Recycle();
+#else
+			mBroadcastIP.Port = port;
+			mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+#endif
+			buffer.Recycle();
+		}
 	}
 
 	/// <summary>

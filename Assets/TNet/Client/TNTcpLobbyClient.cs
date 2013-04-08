@@ -52,15 +52,12 @@ public class TNTcpLobbyClient : TNLobbyClient
 		}
 	}
 
-	void OnDestroy ()
+	protected override void OnDisable ()
 	{
-		if (mTcp != null)
-		{
-			mTcp.Disconnect();
-			mTcp = null;
-			knownServers.Clear();
-			onChange = null;
-		}
+		isActive = false;
+		mTcp.Disconnect();
+		knownServers.Clear();
+		if (onChange != null) onChange();
 	}
 
 	/// <summary>

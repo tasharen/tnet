@@ -28,13 +28,20 @@ public class TNUdpLobbyClient : TNLobbyClient
 
 	public int remotePort = 5129;
 
-	UdpProtocol mUdp;
+	UdpProtocol mUdp = new UdpProtocol();
 	Buffer mRequest;
 	long mNextSend = 0;
 	IPEndPoint mRemoteAddress;
 
-	void OnEnable ()
+	void OnEnable()
 	{
+		if (mRequest == null)
+		{
+			mRequest = Buffer.Create();
+			mRequest.BeginPacket(Packet.RequestServerList).Write(GameServer.gameID);
+			mRequest.EndPacket();
+		}
+
 		if (mRemoteAddress == null)
 		{
 			if (string.IsNullOrEmpty(remoteAddress))
@@ -51,39 +58,17 @@ public class TNUdpLobbyClient : TNLobbyClient
 				mUdp.Error(new IPEndPoint(IPAddress.Loopback, mUdp.listeningPort), "Invalid address: " + remoteAddress + ":" + remotePort);
 			}
 		}
-	}
 
-	void Awake ()
-	{
-		isActive = false;
-		mUdp = new UdpProtocol();
-
-		// Server list request -- we'll be using it a lot, so just create it once
-		if (mRequest == null)
-		{
-			mRequest = Buffer.Create();
-			mRequest.BeginPacket(Packet.RequestServerList).Write(GameServer.gameID);
-			mRequest.EndPacket();
-		}
-	}
-
-	void Start()
-	{
 		// Twice just in case the first try falls on a taken port
 		if (!mUdp.Start(Tools.randomPort)) mUdp.Start(Tools.randomPort);
 	}
 
-	void OnDestroy ()
+	protected override void OnDisable ()
 	{
-		if (mUdp != null)
-		{
-			mUdp.Stop();
-			mUdp = null;
-			knownServers.Clear();
-			onChange = null;
-		}
-
 		isActive = false;
+		mUdp.Stop();
+		knownServers.Clear();
+		if (onChange != null) onChange();
 
 		if (mRequest != null)
 		{

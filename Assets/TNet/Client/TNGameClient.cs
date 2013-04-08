@@ -509,7 +509,7 @@ public class GameClient
 
 	public void CloseChannel ()
 	{
-		if (isConnected)
+		if (isConnected && isInChannel)
 		{
 			BeginSend(Packet.RequestCloseChannel);
 			EndSend();
@@ -522,7 +522,7 @@ public class GameClient
 
 	public void LeaveChannel ()
 	{
-		if (isConnected)
+		if (isConnected && isInChannel)
 		{
 			BeginSend(Packet.RequestLeaveChannel);
 			EndSend();
@@ -535,7 +535,7 @@ public class GameClient
 
 	public void SetPlayerLimit (int max)
 	{
-		if (isConnected)
+		if (isConnected && isInChannel)
 		{
 			BeginSend(Packet.RequestSetPlayerLimit).Write((ushort)max);
 			EndSend();
@@ -548,7 +548,7 @@ public class GameClient
 
 	public void LoadLevel (string levelName)
 	{
-		if (isConnected)
+		if (isConnected && isInChannel)
 		{
 			BeginSend(Packet.RequestLoadLevel).Write(levelName);
 			EndSend();
@@ -561,7 +561,7 @@ public class GameClient
 
 	public void SetHost (Player player)
 	{
-		if (isConnected && isHosting)
+		if (isConnected && isInChannel && isHosting)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestSetHost);
 			writer.Write(player.id);

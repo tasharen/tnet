@@ -39,5 +39,5 @@ public abstract class TNLobbyClient : MonoBehaviour
 	/// Clear the list of known servers when the component is disabled.
 	/// </summary>
 
-	void OnDisable () { knownServers.Clear(); }
+	protected virtual void OnDisable () { knownServers.Clear(); }
 }

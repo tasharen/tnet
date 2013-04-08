@@ -148,7 +148,7 @@ public class TNServerInstance : MonoBehaviour
 	bool StartLocal (int tcpPort, int udpPort, string fileName, int lobbyPort)
 	{
 		// Ensure that everything has been stopped first
-		Disconnect();
+		if (mGame.isActive) Disconnect();
 
 		// If there is a lobby port, we should set up the lobby server and/or link first.
 		// Doing so will let us inform the lobby that we are starting a new server.
@@ -192,7 +192,7 @@ public class TNServerInstance : MonoBehaviour
 
 	bool StartRemote (int tcpPort, int udpPort, string fileName, IPEndPoint remoteLobby, Type type)
 	{
-		Disconnect();
+		if (mGame.isActive) Disconnect();
 
 		if (remoteLobby != null && remoteLobby.Port > 0)
 		{

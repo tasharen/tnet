@@ -626,6 +626,9 @@ public class TcpProtocol : Player
 				Close(false);
 			}
 		}
+#if UNITY_EDITOR
+		UnityEngine.Debug.LogWarning("VerifyResponseID expected ResponseID, got " + packet);
+#endif
 		return false;
 	}
 }

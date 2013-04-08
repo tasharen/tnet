@@ -253,7 +253,7 @@ public class TNManager : MonoBehaviour
 
 		if (ip == null)
 		{
-			Debug.LogError("Unable to resolve " + address);
+			if (mInstance != null) mInstance.OnConnect(false, "Unable to resolve " + address);
 		}
 		else if (mInstance != null)
 		{
