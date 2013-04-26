@@ -619,11 +619,12 @@ public class GameServer : FileServer
 
 	void SendLeaveChannel (TcpPlayer player, bool notify)
 	{
-		if (player.channel != null)
+		Channel ch = player.channel;
+
+		if (ch != null)
 		{
 			// Remove this player from the channel
-			Channel ch = player.channel;
-			player.channel.RemovePlayer(player, mTemp);
+			ch.RemovePlayer(player, mTemp);
 			player.channel = null;
 
 			// Are there other players left?

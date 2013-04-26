@@ -216,10 +216,19 @@ public class TcpProtocol : Player
 
 	public void Disconnect ()
 	{
-		Thread th = mCancelConnect;
-		mCancelConnect = null;
-		if (th != null) th.Abort();
-		if (mSocket != null) Close(mSocket.Connected);
+		try
+		{
+			Thread th = mCancelConnect;
+			mCancelConnect = null;
+			if (th != null) th.Abort();
+			if (mSocket != null) Close(mSocket.Connected);
+		}
+		catch (System.Exception)
+		{
+			// Web player sometimes throws an exception here for some reason... it's a Unity thing.
+			mCancelConnect = null;
+			mSocket = null;
+		}
 	}
 
 	/// <summary>
@@ -230,9 +239,16 @@ public class TcpProtocol : Player
 	{
 		stage = Stage.NotConnected;
 
-		Thread th = mCancelConnect;
-		mCancelConnect = null;
-		if (th != null) th.Abort();
+		try
+		{
+			Thread th = mCancelConnect;
+			mCancelConnect = null;
+			if (th != null) th.Abort();
+		}
+		catch (System.Exception)
+		{
+			mCancelConnect = null;
+		}
 
 		if (mReceiveBuffer != null)
 		{

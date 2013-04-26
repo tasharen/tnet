@@ -210,7 +210,7 @@ static public class Tools
 	static public IPEndPoint ResolveEndPoint (string address)
 	{
 		int port = 0;
-		string[] split = address.Split(new char[':']);
+		string[] split = address.Split(':');
 
 		// Automatically try to parse the port
 		if (split.Length > 1)
