@@ -292,7 +292,7 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, true, 65535, null);
+		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 	}
 
 	/// <summary>

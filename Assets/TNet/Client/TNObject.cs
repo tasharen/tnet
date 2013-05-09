@@ -92,6 +92,27 @@ public sealed class TNObject : MonoBehaviour
 	public bool isMine { get { return (mOwner == -1) ? TNManager.isThisMyObject : mOwner == TNManager.playerID; } }
 
 	/// <summary>
+	/// ID of the player that owns this object.
+	/// </summary>
+
+	public int ownerID
+	{
+		get
+		{
+			return mOwner;
+		}
+		set
+		{
+			if (mOwner != value)
+			{
+				Send("SetOwner", Target.All, value);
+			}
+		}
+	}
+
+	[RFC] void SetOwner (int val) { mOwner = val; }
+
+	/// <summary>
 	/// Remember the object's ownership, for convenience.
 	/// </summary>
 

@@ -215,11 +215,11 @@ public class TNServerInstance : MonoBehaviour
 		if (mGame.Start(tcpPort, udpPort))
 		{
 			if (!string.IsNullOrEmpty(fileName)) mGame.LoadFrom(fileName);
-			return false;
+			return true;
 		}
 
 		Disconnect();
-		return true;
+		return false;
 	}
 
 	/// <summary>
