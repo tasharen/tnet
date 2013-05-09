@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
       Copyright © 2012 Tasharen Entertainment
-                  Version 1.6.9
+                  Version 1.7.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,11 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.7.0:
+- NEW: Added TNObject.ownerID.
+- FIX: Joining a channel now defaults to non-persistent.
+- FIX: TNServerInstance.StartRemote now has correct return parameters.
 
 1.6.9:
 - NEW: It's now possible to set the external IP discovery URL.
