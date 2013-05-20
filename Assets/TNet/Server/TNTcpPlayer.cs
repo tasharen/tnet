@@ -31,6 +31,12 @@ public class TcpPlayer : TcpProtocol
 	public IPEndPoint udpEndPoint;
 
 	/// <summary>
+	/// Whether to allow UDP traffic for the player.
+	/// </summary>
+
+	public bool allowUdp = false;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
