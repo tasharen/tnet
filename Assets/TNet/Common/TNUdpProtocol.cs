@@ -208,7 +208,15 @@ public class UdpProtocol
 #endif
 #else
 			mBroadcastIP.Port = port;
-			mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+			
+			try
+			{
+				mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+			}
+			catch (System.Exception ex)
+			{
+				Error(null, ex.Message);
+			}
 #endif
 			buffer.Recycle();
 		}

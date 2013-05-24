@@ -682,13 +682,8 @@ public class GameClient
 				{
 					IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
 					mServerUdpEndPoint = new IPEndPoint(ipa, port);
-
 					// Send an empty packet to the server, opening up the communication channel
-					if (mUdp.isActive)
-					{
-						mUdp.SendEmptyPacket(mServerUdpEndPoint);
-						mUdp.SendEmptyPacket(mServerUdpEndPoint);
-					}
+					if (mUdp.isActive) mUdp.SendEmptyPacket(mServerUdpEndPoint);
 				}
 				else mServerUdpEndPoint = null;
 #endif

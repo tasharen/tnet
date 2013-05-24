@@ -274,8 +274,6 @@ public class GameServer : FileServer
 
 					if (player != null)
 					{
-						player.allowUdp = true;
-
 						try
 						{
 							if (ProcessPlayerPacket(buffer, player, false))
@@ -432,7 +430,6 @@ public class GameServer : FileServer
 	{
 		if (player.udpEndPoint != null) mDictionaryEP.Remove(player.udpEndPoint);
 		player.udpEndPoint = udp;
-		player.allowUdp = false;
 		if (udp != null) mDictionaryEP[udp] = player;
 	}
 
@@ -505,7 +502,7 @@ public class GameServer : FileServer
 		mBuffer.EndPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
-		if (reliable || player.udpEndPoint == null || !mAllowUdp || !player.allowUdp)
+		if (reliable || player.udpEndPoint == null || !mAllowUdp)
 		{
 			player.SendTcpPacket(mBuffer);
 		}
@@ -530,7 +527,7 @@ public class GameServer : FileServer
 			
 			if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 			{
-				if (reliable || player.udpEndPoint == null || !mAllowUdp || !player.allowUdp)
+				if (reliable || player.udpEndPoint == null || !mAllowUdp)
 				{
 					player.SendTcpPacket(mBuffer);
 				}
@@ -561,7 +558,7 @@ public class GameServer : FileServer
 				
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
-					if (reliable || player.udpEndPoint == null || !mAllowUdp || !player.allowUdp)
+					if (reliable || player.udpEndPoint == null || !mAllowUdp)
 					{
 						player.SendTcpPacket(mBuffer);
 					}
@@ -588,7 +585,7 @@ public class GameServer : FileServer
 			
 			if (player.stage == TcpProtocol.Stage.Connected)
 			{
-				if (reliable || player.udpEndPoint == null || !mAllowUdp || !player.allowUdp)
+				if (reliable || player.udpEndPoint == null || !mAllowUdp)
 				{
 					player.SendTcpPacket(mBuffer);
 				}
@@ -762,8 +759,12 @@ public class GameServer : FileServer
 				else SetPlayerUdpEndPoint(player, null);
 
 				// Let the player know if we are hosting an active UDP connection
-				BeginSend(Packet.ResponseSetUDP).Write((mUdp.isActive && player.udpEndPoint != null) ? (ushort)mUdp.listeningPort : (ushort)0);
+				ushort udp = mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0;
+				BeginSend(Packet.ResponseSetUDP).Write(udp);
 				EndSend(true, player);
+
+				// Send an empty packet to the target player to open up UDP for communication
+				if (player.udpEndPoint != null) mUdp.SendEmptyPacket(player.udpEndPoint);
 				break;
 			}
 			case Packet.RequestJoinChannel:
@@ -981,17 +982,13 @@ public class GameServer : FileServer
 			{
 				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
 				buffer.position = buffer.position - 5;
-				TcpPlayer host = player.channel.host;
 
-				if (host != null)
+				// Forward the packet to the channel's host
+				if (reliable || player.channel.host.udpEndPoint == null || !mAllowUdp)
 				{
-					// Forward the packet to the channel's host
-					if (reliable || host.udpEndPoint == null || !mAllowUdp || !host.allowUdp)
-					{
-						host.SendTcpPacket(buffer);
-					}
-					else mUdp.Send(buffer, host.udpEndPoint);
+					player.channel.host.SendTcpPacket(buffer);
 				}
+				else mUdp.Send(buffer, player.channel.host.udpEndPoint);
 				break;
 			}
 			case Packet.ForwardToPlayerBuffered:
@@ -1011,7 +1008,7 @@ public class GameServer : FileServer
 				// Forward the packet to the target player
 				if (targetPlayer != null && targetPlayer.isConnected)
 				{
-					if (reliable || targetPlayer.udpEndPoint == null || !mAllowUdp || !targetPlayer.allowUdp)
+					if (reliable || targetPlayer.udpEndPoint == null || !mAllowUdp)
 					{
 						targetPlayer.SendTcpPacket(buffer);
 					}
@@ -1046,7 +1043,7 @@ public class GameServer : FileServer
 					
 					if (tp != exclude)
 					{
-						if (reliable || tp.udpEndPoint == null || !mAllowUdp || !tp.allowUdp)
+						if (reliable || tp.udpEndPoint == null || !mAllowUdp)
 						{
 							tp.SendTcpPacket(buffer);
 						}

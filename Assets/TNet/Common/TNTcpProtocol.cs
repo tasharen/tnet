@@ -190,6 +190,8 @@ public class TcpProtocol : Player
 			// Begin a new connection attempt to the fallback address
 			if (tcpEndPoint != null)
 			{
+				if (mSocket != null) mSocket.Close();
+				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 				result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
 				mCancelConnect = new Thread(CancelConnect);
 				mCancelConnect.Start(result);
