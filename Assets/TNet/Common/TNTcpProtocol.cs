@@ -70,6 +70,12 @@ public class TcpProtocol : Player
 	public bool isConnected { get { return stage == Stage.Connected; } }
 
 	/// <summary>
+	/// Whether we are currently trying to establish a new connection.
+	/// </summary>
+
+	public bool isTryingToConnect { get { return mCancelConnect != null; } }
+
+	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
 	/// Enabling this flag will improve latency at the cost of increased bandwidth.
 	/// http://en.wikipedia.org/wiki/Nagle's_algorithm
@@ -110,10 +116,17 @@ public class TcpProtocol : Player
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
 		Disconnect();
-
 		tcpEndPoint = externalIP;
 		mFallback = internalIP;
+		ConnectToTcpEndPoint();
+	}
 
+	/// <summary>
+	/// Try to establish a connection with the current tcpEndPoint.
+	/// </summary>
+
+	bool ConnectToTcpEndPoint ()
+	{
 		if (tcpEndPoint != null)
 		{
 			stage = Stage.Connecting;
@@ -124,14 +137,26 @@ public class TcpProtocol : Player
 				IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
 				mCancelConnect = new Thread(CancelConnect);
 				mCancelConnect.Start(result);
+				return true;
 			}
 			catch (System.Exception ex)
 			{
 				Error(ex.Message);
-				return;
 			}
 		}
 		else Error("Unable to resolve the specified address");
+		return false;
+	}
+
+	/// <summary>
+	/// Try to establish a connection with the fallback end point.
+	/// </summary>
+
+	bool ConnectToFallback ()
+	{
+		tcpEndPoint = mFallback;
+		mFallback = null;
+		return (tcpEndPoint != null) && ConnectToTcpEndPoint();
 	}
 
 	/// <summary>
@@ -146,22 +171,22 @@ public class TcpProtocol : Player
 		{
 			if (result.AsyncWaitHandle.WaitOne(3000, true)) break;
 
-			IPEndPoint alternative = mFallback;
-			mFallback = null;
-			mSocket.Close();
-			mSocket = null;
+			Socket sock = (Socket)result.AsyncState;
 
-			if (alternative != null)
+			if (sock == mSocket)
 			{
-				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-				result = mSocket.BeginConnect(alternative, OnConnectResult, mSocket);
+				mSocket = null;
+				if (sock != null) sock.Close();
+				mCancelConnect = null;
+
+				if (!ConnectToFallback())
+				{
+					Error("Unable to connect");
+					Close(false);
+				}
+				return;
 			}
-			else
-			{
-				Error("Connection attempt timed out");
-				Close(false);
-				break;
-			}
+			else if (sock != null) sock.Close();
 		}
 		mCancelConnect = null;
 	}
@@ -174,42 +199,45 @@ public class TcpProtocol : Player
 	{
 		Socket sock = (Socket)result.AsyncState;
 
+		// Windows handles async sockets differently than other platforms, it seems.
+		// If a socket is closed, OnConnectResult() is never called on Windows.
+		// On the mac it does get called, however, and if the socket is used here
+		// then a null exception gets thrown because the socket is not usable by this point.
+		if (sock == null || mSocket == null || sock != mSocket) return;
+		string errMsg = "Failed to connect";
+
 		try
 		{
 			sock.EndConnect(result);
 		}
 		catch (System.Exception ex)
 		{
-			// Cancel the thread
-			Thread th = mCancelConnect;
-			mCancelConnect = null;
-			if (th != null) th.Abort();
-			tcpEndPoint = mFallback;
-			mFallback = null;
-
-			// Begin a new connection attempt to the fallback address
-			if (tcpEndPoint != null)
-			{
-				if (mSocket != null) mSocket.Close();
-				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-				result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
-				mCancelConnect = new Thread(CancelConnect);
-				mCancelConnect.Start(result);
-				return;
-			}
-			Error(ex.Message);
-			Close(false);
-			return;
+			if (sock == mSocket) mSocket = null;
+			sock.Close();
+			sock = null;
+			errMsg = ex.Message;
 		}
 
-		stage = Stage.Verifying;
+		// Cancel the thread
+		Thread th = mCancelConnect;
+		mCancelConnect = null;
+		if (th != null) th.Abort();
 
-		// Request a player ID
-		BinaryWriter writer = BeginSend(Packet.RequestID);
-		writer.Write(version);
-		writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-		EndSend();
-		StartReceiving();
+		if (sock != null)
+		{
+			// Request a player ID
+			stage = Stage.Verifying;
+			BinaryWriter writer = BeginSend(Packet.RequestID);
+			writer.Write(version);
+			writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+			EndSend();
+			StartReceiving();
+		}
+		else
+		{
+			Error(errMsg);
+			Close(false);
+		}
 	}
 
 	/// <summary>

@@ -74,6 +74,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added TNObject.ownerID.
 - FIX: Joining a channel now defaults to non-persistent.
 - FIX: TNServerInstance.StartRemote now has correct return parameters.
+- FIX: Non-windows platforms should now be able to properly join LAN servers on LANs that have no public IP access.
 
 1.6.9:
 - NEW: It's now possible to set the external IP discovery URL.

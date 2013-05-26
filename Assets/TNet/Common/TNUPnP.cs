@@ -192,9 +192,9 @@ public class UPnP
 			}
 		}
 #if UNITY_EDITOR
-		catch (System.Exception ex) { UnityEngine.Debug.LogWarning(ex.Message); }
+		catch (System.Exception ex) { UnityEngine.Debug.LogWarning("UPnP discovery failed (" + ex.Message + ")"); }
 #elif DEBUG
-		catch (System.Exception ex) { Console.WriteLine("ERROR: (UPnP) " + ex.Message); }
+		catch (System.Exception ex) { Console.WriteLine("UPnP discovery failed (" + ex.Message + ")"); }
 #else
 		catch (System.Exception) {}
 #endif

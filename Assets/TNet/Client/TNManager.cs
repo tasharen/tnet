@@ -47,6 +47,12 @@ public class TNManager : MonoBehaviour
 	static public bool isConnected { get { return mInstance != null && mInstance.mClient.isConnected; } }
 
 	/// <summary>
+	/// Whether we are currently trying to establish a new connection.
+	/// </summary>
+
+	static public bool isTryingToConnect { get { return mInstance != null && mInstance.mClient.isTryingToConnect; } }
+
+	/// <summary>
 	/// Whether we're currently hosting.
 	/// </summary>
 

@@ -186,6 +186,12 @@ public class GameClient
 	public bool isConnected { get { return mTcp.isConnected; } }
 
 	/// <summary>
+	/// Whether we are currently trying to establish a new connection.
+	/// </summary>
+
+	public bool isTryingToConnect { get { return mTcp.isTryingToConnect; } }
+
+	/// <summary>
 	/// Whether this player is hosting the game.
 	/// </summary>
 
