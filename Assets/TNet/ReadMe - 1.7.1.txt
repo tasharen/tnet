@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.7.0
+                  Version 1.7.1
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,11 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.7.1:
+- FIX: iOS Local Address resolving fix.
+- FIX: Connection fallback for certain routers.
+- FIX: TNManager.player's name will now always match TNManager.playerName.
 
 1.7.0:
 - NEW: Added TNObject.ownerID.

@@ -187,7 +187,7 @@ public class TNManager : MonoBehaviour
 	/// Get the local player.
 	/// </summary>
 
-	static public Player player { get { return (mInstance != null) ? mInstance.mClient.player : mPlayer; } }
+	static public Player player { get { return isConnected ? mInstance.mClient.player : mPlayer; } }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.

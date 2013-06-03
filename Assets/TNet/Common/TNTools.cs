@@ -9,6 +9,10 @@ using System.IO;
 using System.Text;
 using System.Threading;
 
+#if UNITY_IPHONE
+using System.Net.NetworkInformation;
+#endif
+
 namespace TNet
 {
 /// <summary>
@@ -61,6 +65,24 @@ static public class Tools
 		{
 			if (mLocalAddress == null)
 			{
+#if UNITY_IPHONE
+				NetworkInterface[] nis = NetworkInterface.GetAllNetworkInterfaces();
+
+				foreach (NetworkInterface ni in nis)
+				{
+					IPInterfaceProperties IPInterfaceProperties = ni.GetIPProperties();
+					UnicastIPAddressInformationCollection UnicastIPAddressInformationCollection = IPInterfaceProperties.UnicastAddresses;
+
+					foreach (UnicastIPAddressInformation UnicastIPAddressInformation in UnicastIPAddressInformationCollection)
+					{
+						if (UnicastIPAddressInformation.Address.AddressFamily == AddressFamily.InterNetwork)
+						{
+							mLocalAddress = UnicastIPAddressInformation.Address;
+							break;
+						}
+					}
+				}
+#else
 				mLocalAddress = IPAddress.Loopback;
 
 				try
@@ -77,12 +99,10 @@ static public class Tools
 					}
 				}
 #if DEBUG
-				catch (System.Exception ex)
-				{
-					System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message);
-				}
+				catch (System.Exception ex) { System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message); }
 #else
 				catch (System.Exception) {}
+#endif
 #endif
 			}
 			return mLocalAddress;

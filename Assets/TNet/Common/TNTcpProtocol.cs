@@ -233,7 +233,7 @@ public class TcpProtocol : Player
 			EndSend();
 			StartReceiving();
 		}
-		else
+		else if (!ConnectToFallback())
 		{
 			Error(errMsg);
 			Close(false);
