@@ -116,8 +116,19 @@ public class TcpProtocol : Player
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
 		Disconnect();
-		tcpEndPoint = externalIP;
-		mFallback = internalIP;
+
+		// Some routers, like Asus RT-N66U don't support NAT Loopback, and connecting to an external IP
+		// will connect to the router instead. So if it's a local IP, connect to it first.
+		if (internalIP != null && Tools.GetSubnet(Tools.localAddress) == Tools.GetSubnet(internalIP.Address))
+		{
+			tcpEndPoint = internalIP;
+			mFallback = externalIP;
+		}
+		else
+		{
+			tcpEndPoint = externalIP;
+			mFallback = internalIP;
+		}
 		ConnectToTcpEndPoint();
 	}
 

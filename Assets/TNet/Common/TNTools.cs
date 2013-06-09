@@ -244,6 +244,19 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Converts 192.168.1.1 to 192.168.1.
+	/// </summary>
+
+	static public string GetSubnet (IPAddress ip)
+	{
+		if (ip == null) return null;
+		string addr = ip.ToString();
+		int last = addr.LastIndexOf('.');
+		if (last == -1) return null;
+		return addr.Substring(0, last);
+	}
+
+	/// <summary>
 	/// Helper function that returns the response of the specified web request.
 	/// </summary>
 

@@ -73,6 +73,7 @@ http://www.tasharen.com/?page_id=4518
 1.7.1:
 - FIX: iOS Local Address resolving fix.
 - FIX: Connection fallback for certain routers.
+- FIX: NAT Loopback failure work-around.
 - FIX: TNManager.player's name will now always match TNManager.playerName.
 
 1.7.0:
