@@ -220,7 +220,25 @@ public sealed class TNObject : MonoBehaviour
 	/// Register the object with the lists.
 	/// </summary>
 
-	void Start () { Register(); }
+	void Start ()
+	{
+		Register();
+		
+		// Have there been any delayed function calls for this object? If so, execute them now.
+		for (int i = 0; i < mDelayed.size; )
+		{
+			DelayedCall dc = mDelayed[i];
+
+			if (dc.objID == uid)
+			{
+				if (!string.IsNullOrEmpty(dc.funcName)) Execute(dc.funcName, dc.parameters);
+				else Execute(dc.funcID, dc.parameters);
+				mDelayed.RemoveAt(i);
+				continue;
+			}
+			++i;
+		}
+	}
 
 	/// <summary>
 	/// Remove this object from the list.

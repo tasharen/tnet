@@ -914,18 +914,26 @@ public class GameServer : FileServer
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseChannelList);
 
-				writer.Write(mChannels.size);
+				int count = 0;
+				for (int i = 0; i < mChannels.size; ++i)
+					if (!mChannels[i].closed) ++count;
+
+				writer.Write(count);
 
 				for (int i = 0; i < mChannels.size; ++i)
 				{
 					Channel ch = mChannels[i];
-					writer.Write(ch.id);
-					writer.Write((ushort)ch.players.size);
-					writer.Write(ch.playerLimit);
-					writer.Write(!string.IsNullOrEmpty(ch.password));
-					writer.Write(ch.persistent);
-					writer.Write(ch.level);
-					writer.Write(ch.data);
+
+					if (!ch.closed)
+					{
+						writer.Write(ch.id);
+						writer.Write((ushort)ch.players.size);
+						writer.Write(ch.playerLimit);
+						writer.Write(!string.IsNullOrEmpty(ch.password));
+						writer.Write(ch.persistent);
+						writer.Write(ch.level);
+						writer.Write(ch.data);
+					}
 				}
 				EndSend(true, player);
 				break;
