@@ -15,7 +15,7 @@ using System.Reflection;
 [CustomEditor(typeof(TNAutoSync))]
 public class TNAutoSyncInspector : Editor
 {
-	override public void OnInspectorGUI ()
+	public override void OnInspectorGUI ()
 	{
 		TNAutoSync sync = target as TNAutoSync;
 

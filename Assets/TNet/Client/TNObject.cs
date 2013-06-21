@@ -311,11 +311,14 @@ public sealed class TNObject : MonoBehaviour
 				catch (System.Exception ex)
 				{
 					string types = "";
-					
-					for (int b = 0; b < parameters.Length; ++b)
+
+					if (parameters != null)
 					{
-						if (b != 0) types += ", ";
-						types += parameters[b].GetType().ToString();
+						for (int b = 0; b < parameters.Length; ++b)
+						{
+							if (b != 0) types += ", ";
+							types += parameters[b].GetType().ToString();
+						}
 					}
 					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
 				}
