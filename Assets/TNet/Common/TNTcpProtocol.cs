@@ -58,7 +58,7 @@ public class TcpProtocol : Player
 	Socket mSocket;
 	bool mNoDelay = false;
 	IPEndPoint mFallback;
-	Thread mCancelConnect;
+	List<Socket> mConnecting = new List<Socket>();
 
 	// Static as it's temporary
 	static Buffer mBuffer;
@@ -73,7 +73,7 @@ public class TcpProtocol : Player
 	/// Whether we are currently trying to establish a new connection.
 	/// </summary>
 
-	public bool isTryingToConnect { get { return mCancelConnect != null; } }
+	public bool isTryingToConnect { get { return mConnecting.size != 0; } }
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -144,10 +144,15 @@ public class TcpProtocol : Player
 
 			try
 			{
-				mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				lock (mConnecting)
+				{
+					mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+					mConnecting.Add(mSocket);
+				}
+				
 				IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
-				mCancelConnect = new Thread(CancelConnect);
-				mCancelConnect.Start(result);
+				Thread th = new Thread(CancelConnect);
+				th.Start(result);
 				return true;
 			}
 			catch (System.Exception ex)
@@ -178,28 +183,35 @@ public class TcpProtocol : Player
 	{
 		IAsyncResult result = (IAsyncResult)obj;
 
-		while (result != null)
+		if (result != null && !result.AsyncWaitHandle.WaitOne(3000, true))
 		{
-			if (result.AsyncWaitHandle.WaitOne(3000, true)) break;
-
-			Socket sock = (Socket)result.AsyncState;
-
-			if (sock == mSocket)
+			try
 			{
-				mSocket = null;
-				if (sock != null) sock.Close();
-				mCancelConnect = null;
+				Socket sock = (Socket)result.AsyncState;
 
-				if (!ConnectToFallback())
+				if (sock != null)
 				{
-					Error("Unable to connect");
-					Close(false);
+					sock.Close();
+
+					lock (mConnecting)
+					{
+						// Last active connection attempt
+						if (mConnecting.size > 0 && mConnecting[mConnecting.size-1] == sock)
+						{
+							mSocket = null;
+
+							if (!ConnectToFallback())
+							{
+								Error("Unable to connect");
+								Close(false);
+							}
+						}
+						mConnecting.Remove(sock);
+					}
 				}
-				return;
 			}
-			else if (sock != null) sock.Close();
+			catch (System.Exception) { }
 		}
-		mCancelConnect = null;
 	}
 
 	/// <summary>
@@ -214,41 +226,44 @@ public class TcpProtocol : Player
 		// If a socket is closed, OnConnectResult() is never called on Windows.
 		// On the mac it does get called, however, and if the socket is used here
 		// then a null exception gets thrown because the socket is not usable by this point.
-		if (sock == null || mSocket == null || sock != mSocket) return;
-		string errMsg = "Failed to connect";
+		if (sock == null) return;
 
-		try
+		if (mSocket != null && sock == mSocket)
 		{
-			sock.EndConnect(result);
-		}
-		catch (System.Exception ex)
-		{
-			if (sock == mSocket) mSocket = null;
-			sock.Close();
-			sock = null;
-			errMsg = ex.Message;
+			bool success = true;
+			string errMsg = "Failed to connect";
+
+			try
+			{
+				sock.EndConnect(result);
+			}
+			catch (System.Exception ex)
+			{
+				if (sock == mSocket) mSocket = null;
+				sock.Close();
+				errMsg = ex.Message;
+				success = false;
+			}
+
+			if (success)
+			{
+				// Request a player ID
+				stage = Stage.Verifying;
+				BinaryWriter writer = BeginSend(Packet.RequestID);
+				writer.Write(version);
+				writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+				EndSend();
+				StartReceiving();
+			}
+			else if (!ConnectToFallback())
+			{
+				Error(errMsg);
+				Close(false);
+			}
 		}
 
-		// Cancel the thread
-		Thread th = mCancelConnect;
-		mCancelConnect = null;
-		if (th != null) th.Abort();
-
-		if (sock != null)
-		{
-			// Request a player ID
-			stage = Stage.Verifying;
-			BinaryWriter writer = BeginSend(Packet.RequestID);
-			writer.Write(version);
-			writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-			EndSend();
-			StartReceiving();
-		}
-		else if (!ConnectToFallback())
-		{
-			Error(errMsg);
-			Close(false);
-		}
+		// We are no longer trying to connect via this socket
+		lock (mConnecting) mConnecting.Remove(sock);
 	}
 
 	/// <summary>
@@ -259,15 +274,20 @@ public class TcpProtocol : Player
 	{
 		try
 		{
-			Thread th = mCancelConnect;
-			mCancelConnect = null;
-			if (th != null) th.Abort();
+			lock (mConnecting)
+			{
+				for (int i = mConnecting.size; i > 0; )
+				{
+					Socket sock = mConnecting[--i];
+					mConnecting.RemoveAt(i);
+					if (sock != null) sock.Close();
+				}
+			}
 			if (mSocket != null) Close(mSocket.Connected);
 		}
 		catch (System.Exception)
 		{
-			// Web player sometimes throws an exception here for some reason... it's a Unity thing.
-			mCancelConnect = null;
+			lock (mConnecting) mConnecting.Clear();
 			mSocket = null;
 		}
 	}
@@ -279,17 +299,6 @@ public class TcpProtocol : Player
 	public void Close (bool notify)
 	{
 		stage = Stage.NotConnected;
-
-		try
-		{
-			Thread th = mCancelConnect;
-			mCancelConnect = null;
-			if (th != null) th.Abort();
-		}
-		catch (System.Exception)
-		{
-			mCancelConnect = null;
-		}
 
 		if (mReceiveBuffer != null)
 		{
