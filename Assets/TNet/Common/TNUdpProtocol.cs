@@ -63,7 +63,9 @@ public class UdpProtocol
 	// UDP is not supported by Flash.
 	public bool Start (int port)
 	{
+#if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("Unity doesn't support UDP on Flash or Web Player targets");
+#endif
 		return false;
 	}
 #else

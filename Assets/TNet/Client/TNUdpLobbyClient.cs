@@ -33,6 +33,16 @@ public class TNUdpLobbyClient : TNLobbyClient
 	long mNextSend = 0;
 	IPEndPoint mRemoteAddress;
 
+	void Awake ()
+	{
+#if UNITY_FLASH || UNITY_WEBPLAYER
+#if UNITY_EDITOR
+		Debug.LogWarning("UDP is not supported on Flash and Web Player platforms. UDP-based server discovery will not function.", this);
+#endif
+		enabled = false;
+#endif
+	}
+
 	void OnEnable()
 	{
 		if (mRequest == null)
