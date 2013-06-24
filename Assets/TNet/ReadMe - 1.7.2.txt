@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.7.1
+                  Version 1.7.2
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,11 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.7.2:
+- NEW: It's now possible to have nested TNObjects on prefabs.
+- FIX: Now only open channels will be returned by RequestChannelList.
+- FIX: TNObject's delayed function calls weren't being used. Now they are.
 
 1.7.1:
 - FIX: iOS Local Address resolving fix.

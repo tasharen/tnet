@@ -66,8 +66,15 @@ public sealed class TNObject : MonoBehaviour
 
 	public uint uid
 	{
-		get { return (uint)id; }
-		set { id = (int)(value & 0xFFFFFF); }
+		get
+		{
+			return (mParent != null) ? mParent.uid : (uint)id;
+		}
+		set
+		{
+			if (mParent != null) mParent.uid = value;
+			else id = (int)(value & 0xFFFFFF);
+		}
 	}
 
 	/// <summary>
@@ -85,6 +92,9 @@ public sealed class TNObject : MonoBehaviour
 	// ID of the object's owner
 	int mOwner = -1;
 
+	// Child objects don't get their own unique IDs, so if we have a parent TNObject, that's the object that will be getting all events.
+	TNObject mParent = null;
+
 	/// <summary>
 	/// Whether this object belongs to the player.
 	/// </summary>
@@ -99,11 +109,15 @@ public sealed class TNObject : MonoBehaviour
 	{
 		get
 		{
-			return mOwner;
+			return (mParent != null) ? mParent.ownerID : mOwner;
 		}
 		set
 		{
-			if (mOwner != value)
+			if (mParent != null)
+			{
+				mParent.ownerID = value;
+			}
+			else if (mOwner != value)
 			{
 				Send("SetOwner", Target.All, value);
 			}
@@ -208,7 +222,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void OnEnable ()
 	{
-		if (!Application.isPlaying)
+		if (!Application.isPlaying && id != 0)
 		{
 			Unregister();
 			Register();
@@ -217,11 +231,27 @@ public sealed class TNObject : MonoBehaviour
 #endif
 
 	/// <summary>
+	/// Finds the specified component on the game object or one of its parents.
+	/// </summary>
+
+	static TNObject FindParent (Transform t)
+	{
+		while (t != null)
+		{
+			TNObject tno = t.gameObject.GetComponent<TNObject>();
+			if (tno != null) return tno;
+			t = t.parent;
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Register the object with the lists.
 	/// </summary>
 
 	void Start ()
 	{
+		mParent = FindParent(transform.parent);
 		Register();
 		
 		// Have there been any delayed function calls for this object? If so, execute them now.
@@ -252,7 +282,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public void Register ()
 	{
-		if (!mIsRegistered)
+		if (!mIsRegistered && uid != 0 && mParent == null)
 		{
 #if UNITY_EDITOR
 			UniqueCheck();
@@ -283,6 +313,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public bool Execute (byte funcID, params object[] parameters)
 	{
+		if (mParent != null) return mParent.Execute(funcID, parameters);
 		if (rebuildMethodList) RebuildMethodList();
 
 		bool retVal = false;
@@ -345,6 +376,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public bool Execute (string funcName, params object[] parameters)
 	{
+		if (mParent != null) return mParent.Execute(funcName, parameters);
 		if (rebuildMethodList) RebuildMethodList();
 
 		bool retVal = false;
@@ -450,7 +482,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		rebuildMethodList = false;
 		mRFCs.Clear();
-		MonoBehaviour[] mbs = GetComponents<MonoBehaviour>();
+		MonoBehaviour[] mbs = GetComponentsInChildren<MonoBehaviour>();
 
 		for (int i = 0, imax = mbs.Length; i < imax; ++i)
 		{
