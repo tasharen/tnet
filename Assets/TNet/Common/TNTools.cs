@@ -154,6 +154,10 @@ static public class Tools
 
 	static IPAddress GetExternalAddress ()
 	{
+#if UNITY_WEBPLAYER
+		// HttpWebRequest.Create is not supported in the Unity web player
+		return localAddress;
+#else
 		WebRequest web = HttpWebRequest.Create(mChecker);
 		web.Timeout = 3000;
 
@@ -166,6 +170,7 @@ static public class Tools
 
 		string[] split2 = split1[1].Trim().Split('<');
 		return ResolveAddress(split2[0]);
+#endif
 	}
 
 	/// <summary>
