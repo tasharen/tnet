@@ -251,7 +251,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void Start ()
 	{
-		mParent = FindParent(transform.parent);
+		if (id == 0) mParent = FindParent(transform.parent);
 		Register();
 		
 		// Have there been any delayed function calls for this object? If so, execute them now.
