@@ -56,7 +56,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	void FixedUpdate ()
 	{
-		if (updatesPerSecond > 0 && mNext < Time.time && TNManager.isHosting && TNManager.isInChannel)
+		if (updatesPerSecond > 0 && mNext < Time.time && tno.isMine && TNManager.isInChannel)
 		{
 			bool isSleeping = mRb.IsSleeping();
 
