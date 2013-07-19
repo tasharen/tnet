@@ -402,7 +402,7 @@ public sealed class TNObject : MonoBehaviour
 						if (b != 0) types += ", ";
 						types += parameters[b].GetType().ToString();
 					}
-					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
+					Debug.LogError(ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")\n" + ex.Message);
 				}
 #else
 				ent.func.Invoke(ent.obj, parameters);
