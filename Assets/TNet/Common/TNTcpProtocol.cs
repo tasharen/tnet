@@ -44,6 +44,13 @@ public class TcpProtocol : Player
 
 	public long lastReceivedTime = 0;
 
+	/// <summary>
+	/// How long to allow this player to go without packets before disconnecting them.
+	/// This value is in milliseconds, so 1000 means 1 second.
+	/// </summary>
+
+	public long timeoutTime = 10000;
+
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();
 	Queue<Buffer> mOut = new Queue<Buffer>();

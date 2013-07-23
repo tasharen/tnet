@@ -380,6 +380,17 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Set the timeout for the player. By default it's 10 seconds. If you know you are about to load a large level,
+	/// and it's going to take, say 60 seconds, set this timeout to 120 seconds just to be safe. When the level
+	/// finishes loading, change this back to 10 seconds so that dropped connections gets detected correctly.
+	/// </summary>
+
+	static public void SetTimeout (int seconds)
+	{
+		if (mInstance != null) mInstance.mClient.SetTimeout(seconds);
+	}
+
+	/// <summary>
 	/// RequestCreate flag.
 	/// 0 = Local-only object. Only echoed to other clients.
 	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.

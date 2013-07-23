@@ -576,6 +576,21 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Set the timeout for the player. By default it's 10 seconds. If you know you are about to load a large level,
+	/// and it's going to take, say 60 seconds, set this timeout to 120 seconds just to be safe. When the level
+	/// finishes loading, change this back to 10 seconds so that dropped connections gets detected correctly.
+	/// </summary>
+
+	public void SetTimeout (int seconds)
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestSetTimeout).Write(seconds);
+			EndSend();
+		}
+	}
+
+	/// <summary>
 	/// Process all incoming packets.
 	/// </summary>
 

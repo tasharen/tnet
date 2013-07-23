@@ -413,5 +413,14 @@ public enum Packet
 	/// </summary>
 
 	ResponseServerList,
+
+	/// <summary>
+	/// By default, the player gets disconnected after 10 seconds of inactivity. You can change this on a per-player basis.
+	/// Setting this value to '0' will turn off this functionality altogether -- however it's a good idea to keep it at some
+	/// valid non-zero value. If you know the player is going to be loading a level for up to a minute, set it to 2 minutes (120).
+	/// int: timeout delay in seconds
+	/// </summary>
+
+	RequestSetTimeout,
 }
 }

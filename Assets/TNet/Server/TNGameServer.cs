@@ -316,8 +316,8 @@ public class GameServer : FileServer
 				// Time out -- disconnect this player
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
-					// Up to 10 seconds can go without a single packet before the player is removed
-					if (player.lastReceivedTime + 10000 < mTime)
+					// If the player doesn't send any packets in a while, disconnect him
+					if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
 					{
 #if STANDALONE
 						Console.WriteLine(player.address + " has timed out");
@@ -936,6 +936,12 @@ public class GameServer : FileServer
 					}
 				}
 				EndSend(true, player);
+				break;
+			}
+			case Packet.RequestSetTimeout:
+			{
+				// The passed value is in seconds, but the stored value is in milliseconds (to avoid a math operation)
+				player.timeoutTime = reader.ReadInt32() * 1000;
 				break;
 			}
 			case Packet.ForwardToPlayer:
