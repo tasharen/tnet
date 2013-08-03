@@ -109,19 +109,16 @@ public class UPnP
 
 	public void Close ()
 	{
-		if (mStatus != Status.Success)
+		lock (mThreads)
 		{
-			lock (mThreads)
+			for (int i = mThreads.size; i > 0; )
 			{
-				for (int i = mThreads.size; i > 0; )
-				{
-					Thread th = mThreads[--i];
+				Thread th = mThreads[--i];
 
-					if (th != mDiscover)
-					{
-						th.Abort();
-						mThreads.RemoveAt(i);
-					}
+				if (th != mDiscover)
+				{
+					th.Abort();
+					mThreads.RemoveAt(i);
 				}
 			}
 		}
@@ -139,7 +136,11 @@ public class UPnP
 	/// Wait for all threads to finish.
 	/// </summary>
 
-	public void WaitForThreads () { while (mThreads.size > 0) Thread.Sleep(1); }
+	public void WaitForThreads ()
+	{
+		for (int i = 0; mThreads.size > 0 && i < 2000; ++i)
+			Thread.Sleep(1);
+	}
 
 	/// <summary>
 	/// Gateway lobby logic is done on a separate thread so that it's not blocking the main thread.
