@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.7.2c
+                  Version 1.7.3
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,11 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.7.3:
+- NEW: Added the ability to specify player timeout on a per-player basis.
+- FIX: SyncRigidbody was a bit out of date.
+- FIX: Updated the server executable.
 
 1.7.2:
 - NEW: It's now possible to have nested TNObjects on prefabs.
