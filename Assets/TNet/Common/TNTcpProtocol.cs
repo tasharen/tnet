@@ -406,8 +406,17 @@ public class TcpProtocol : Player
 
 				if (mOut.Count == 1)
 				{
-					// If it's the first packet, let's begin the send process
-					mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+					try
+					{
+						// If it's the first packet, let's begin the send process
+						mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+					}
+					catch (System.Exception ex)
+					{
+						Error(ex.Message);
+						Close(false);
+						Release();
+					}
 				}
 			}
 		}
