@@ -404,25 +404,25 @@ public class TNManager : MonoBehaviour
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go, bool persistent = true) { CreateEx(0, go, persistent); }
+	static public void Create (GameObject go, bool persistent = true) { CreateEx(0, persistent, go); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
 	/// </summary>
 
-	static public void Create (string path, bool persistent = true) { CreateEx(0, path, persistent); }
+	static public void Create (string path, bool persistent = true) { CreateEx(0, persistent, path); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, go, persistent, pos, rot); }
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, persistent, go, pos, rot); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
 	/// </summary>
 
-	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, path, persistent, pos, rot); }
+	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, persistent, path, pos, rot); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
@@ -430,7 +430,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(1, go, persistent, pos, rot, vel, angVel);
+		CreateEx(1, persistent, go, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
@@ -439,7 +439,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(1, path, persistent, pos, rot, vel, angVel);
+		CreateEx(1, persistent, path, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
@@ -447,7 +447,7 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (int rccID, GameObject go, bool persistent, params object[] objs)
+	static public void CreateEx (int rccID, bool persistent, GameObject go, params object[] objs)
 	{
 		if (go != null)
 		{
@@ -477,7 +477,7 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (int rccID, string path, bool persistent, params object[] objs)
+	static public void CreateEx (int rccID, bool persistent, string path, params object[] objs)
 	{
 		GameObject go = LoadGameObject(path);
 
