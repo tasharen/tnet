@@ -72,6 +72,7 @@ http://www.tasharen.com/?page_id=4518
 
 1.8.0:
 - NEW: Redesigned the object creation code. It's now fully extensible.
+- NEW: It's now possible to do TNManager.Create using a string name of an object in the Resources folder.
 - FIX: TNBehaviours being enabled now force TNObjects to rebuild the list of RFCs.
 
 1.7.3:
