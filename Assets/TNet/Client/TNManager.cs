@@ -7,6 +7,7 @@ using System.IO;
 using UnityEngine;
 using TNet;
 using System.Net;
+using System.Reflection;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
@@ -16,13 +17,13 @@ using System.Net;
 public class TNManager : MonoBehaviour
 {
 	/// <summary>
-	/// List of objects that can be instantiated by the network.
+	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
 	/// </summary>
 
-	public GameObject[] objects;
+	static public bool rebuildMethodList = true;
 
-	// Network client
-	GameClient mClient = new GameClient();
+	// Cached list of creation functions
+	static List<CachedFunc> mRCCs = new List<CachedFunc>();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 	static Player mPlayer = new Player("Guest");
@@ -33,6 +34,15 @@ public class TNManager : MonoBehaviour
 	// Instance pointer
 	static TNManager mInstance;
 	static int mObjectOwner = 1;
+
+	/// <summary>
+	/// List of objects that can be instantiated by the network.
+	/// </summary>
+
+	public GameObject[] objects;
+
+	// Network client
+	GameClient mClient = new GameClient();
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -391,172 +401,174 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// RequestCreate flag.
-	/// 0 = Local-only object. Only echoed to other clients.
-	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
-	/// 2 = Saved on the server, destroyed when the owner leaves.
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static byte GetFlag (GameObject go, bool persistent)
+	static public void Create (GameObject go, bool persistent = true) { CreateEx(0, go, persistent); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (string path, bool persistent = true) { CreateEx(0, path, persistent); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, go, persistent, pos, rot); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, path, persistent, pos, rot); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		TNObject tno = go.GetComponent<TNObject>();
-		if (tno == null) return 0;
-		return persistent ? (byte)1 : (byte)2;
+		CreateEx(1, go, persistent, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
-	/// Create the specified game object on all connected clients.
-	/// Note that the object must be present in the TNManager's list of objects.
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
 	/// </summary>
 
-	static public void Create (GameObject go) { Create(go, true); }
+	static public void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
+	{
+		CreateEx(1, path, persistent, pos, rot, vel, angVel);
+	}
 
 	/// <summary>
-	/// Create the specified game object on all connected clients.
-	/// Note that the object must be present in the TNManager's list of objects.
+	/// Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void Create (GameObject go, bool persistent)
+	static public void CreateEx (int rccID, GameObject go, bool persistent, params object[] objs)
 	{
-		if (mInstance != null)
+		if (go != null)
 		{
-			int index = mInstance.IndexOf(go);
+			int index = IndexOf(go);
 
-			if (index != -1)
+			if (index != -1 && isConnected)
 			{
-				if (mInstance.mClient.isConnected)
+				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+
+				writer.Write((ushort)index);
+				writer.Write(GetFlag(go, persistent));
+				writer.Write((byte)rccID);
+
+				UnityTools.Write(writer, objs);
+				EndSend();
+				return;
+			}
+
+			objs = UnityTools.Combine(go, objs);
+			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
+			UnityTools.Clear(objs);
+		}
+	}
+
+	/// <summary>
+	/// Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// </summary>
+
+	static public void CreateEx (int rccID, string path, bool persistent, params object[] objs)
+	{
+		GameObject go = LoadGameObject(path);
+
+		if (go != null)
+		{
+			if (isConnected)
+			{
+				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+
+				writer.Write((ushort)65535);
+				writer.Write(GetFlag(go, persistent));
+				writer.Write(path);
+				writer.Write((byte)rccID);
+
+				UnityTools.Write(writer, objs);
+				EndSend();
+				return;
+			}
+
+			objs = UnityTools.Combine(go, objs);
+			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
+			UnityTools.Clear(objs);
+		}
+	}
+
+	/// <summary>
+	/// Get the list of creation functions, registering default ones as necessary.
+	/// </summary>
+
+	static public List<CachedFunc> GetRCCs ()
+	{
+		if (rebuildMethodList)
+		{
+			rebuildMethodList = false;
+			mRCCs.Clear();
+
+			if (mInstance != null)
+			{
+				MonoBehaviour[] mbs = mInstance.GetComponentsInChildren<MonoBehaviour>();
+
+				for (int i = 0, imax = mbs.Length; i < imax; ++i)
 				{
-					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-					writer.Write((ushort)index);
-					writer.Write(GetFlag(go, persistent));
-					writer.Write((byte)0);
-					mInstance.mClient.EndSend();
-					return;
+					MonoBehaviour mb = mbs[i];
+					AddRCC(mb, mb.GetType());
 				}
 			}
 			else
 			{
-				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
+				// Add the built-in remote creation calls
+				AddRCC(null, typeof(TNManager));
 			}
 		}
-		Instantiate(go);
+		return mRCCs;
 	}
 
 	/// <summary>
-	/// Create a new object at the specified position and rotation.
-	/// Note that the object must be present in the TNManager's list of objects.
+	/// Add a new Remote Creation Call.
 	/// </summary>
 
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot) { Create(go, pos, rot, true); }
-
-	/// <summary>
-	/// Create a new object at the specified position and rotation.
-	/// Note that the object must be present in the TNManager's list of objects.
-	/// </summary>
-
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent)
+	static void AddRCC (object obj, System.Type type)
 	{
-		if (mInstance != null)
-		{
-			int index = mInstance.IndexOf(go);
+		MethodInfo[] methods = type.GetMethods(
+					BindingFlags.Public |
+					BindingFlags.NonPublic |
+					BindingFlags.Instance |
+					BindingFlags.Static);
 
-			if (index != -1)
+		for (int b = 0; b < methods.Length; ++b)
+		{
+			if (methods[b].IsDefined(typeof(RCC), true))
 			{
-				if (mInstance.mClient.isConnected)
-				{
-					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-					writer.Write((ushort)index);
-					writer.Write(GetFlag(go, persistent));
-					writer.Write((byte)1);
-					writer.Write(pos.x);
-					writer.Write(pos.y);
-					writer.Write(pos.z);
-					writer.Write(rot.x);
-					writer.Write(rot.y);
-					writer.Write(rot.z);
-					writer.Write(rot.w);
-					mInstance.mClient.EndSend();
-					return;
-				}
-			}
-			else
-			{
-				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
+				CachedFunc ent = new CachedFunc();
+				ent.obj = obj;
+				ent.func = methods[b];
+
+				RCC tnc = (RCC)ent.func.GetCustomAttributes(typeof(RCC), true)[0];
+				ent.id = tnc.id;
+				mRCCs.Add(ent);
 			}
 		}
-		Instantiate(go, pos, rot);
 	}
 
 	/// <summary>
-	/// Create a new object at the specified position and rotation.
-	/// Note that the object must be present in the TNManager's list of objects.
+	/// Built-in Remote Creation Calls.
 	/// </summary>
 
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel)
+	[RCC(0)] static GameObject OnCreate0 (GameObject go) { return Instantiate(go) as GameObject; }
+	[RCC(1)] static GameObject OnCreate1 (GameObject go, Vector3 pos, Quaternion rot) { return Instantiate(go, pos, rot) as GameObject; }
+	[RCC(2)] static GameObject OnCreate2 (GameObject go, Vector3 pos, Quaternion rot, Vector3 velocity, Vector3 angularVelocity)
 	{
-		Create(go, pos, rot, vel, angVel, true);
-	}
-
-	/// <summary>
-	/// Create a new object at the specified position and rotation.
-	/// Note that the object must be present in the TNManager's list of objects.
-	/// </summary>
-
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent)
-	{
-		if (mInstance != null)
-		{
-			int index = mInstance.IndexOf(go);
-
-			if (index != -1)
-			{
-				if (mInstance.mClient.isConnected)
-				{
-					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-					writer.Write((ushort)index);
-					writer.Write(GetFlag(go, persistent));
-					writer.Write((byte)2);
-					writer.Write(pos.x);
-					writer.Write(pos.y);
-					writer.Write(pos.z);
-					writer.Write(rot.x);
-					writer.Write(rot.y);
-					writer.Write(rot.z);
-					writer.Write(rot.w);
-					writer.Write(vel.x);
-					writer.Write(vel.y);
-					writer.Write(vel.z);
-					writer.Write(angVel.x);
-					writer.Write(angVel.y);
-					writer.Write(angVel.z);
-					mInstance.mClient.EndSend();
-					return;
-				}
-			}
-			else
-			{
-				Debug.LogError("You must add the object you're trying to create to the TNManager's list of objects", go);
-			}
-		}
-
-		go = Instantiate(go, pos, rot) as GameObject;
-		Rigidbody rb = go.rigidbody;
-
-		if (rb != null)
-		{
-			if (rb.isKinematic)
-			{
-				rb.isKinematic = false;
-				rb.velocity = vel;
-				rb.angularVelocity = angVel;
-				rb.isKinematic = true;
-			}
-			else
-			{
-				rb.velocity = vel;
-				rb.angularVelocity = angVel;
-			}
-		}
+		return UnityTools.Instantiate(go, pos, rot, velocity, angularVelocity);
 	}
 
 	/// <summary>
@@ -616,8 +628,7 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
 
-
-#region MonoBehaviour Functions -- it's unlikely that you will need to modify these
+	#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
 	/// <summary>
 	/// Ensure that there is only one instance of this class present.
@@ -632,6 +643,7 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			mInstance = this;
+			rebuildMethodList = true;
 			DontDestroyOnLoad(gameObject);
 
 			mClient.onError				+= OnError;
@@ -667,10 +679,45 @@ public class TNManager : MonoBehaviour
 	/// Find the index of the specified game object.
 	/// </summary>
 
-	int IndexOf (GameObject go)
+	static public int IndexOf (GameObject go)
 	{
-		for (int i = 0, imax = objects.Length; i < imax; ++i) if (objects[i] == go) return i;
+		if (go != null && mInstance != null)
+		{
+			for (int i = 0, imax = mInstance.objects.Length; i < imax; ++i)
+				if (mInstance.objects[i] == go) return i;
+
+			Debug.LogError("The game object was not found in the TNManager's list of objects. Did you forget to add it?", go);
+		}
 		return -1;
+	}
+
+	/// <summary>
+	/// Load a game object at the specified path in the Resources folder.
+	/// </summary>
+
+	static GameObject LoadGameObject (string path)
+	{
+		GameObject go = Resources.Load(path, typeof(GameObject)) as GameObject;
+
+		if (go == null)
+		{
+			Debug.LogError("Attempting to create a game object that can't be found in the Resources folder: " + path);
+		}
+		return go;
+	}
+
+	/// <summary>
+	/// RequestCreate flag.
+	/// 0 = Local-only object. Only echoed to other clients.
+	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
+	/// 2 = Saved on the server, destroyed when the owner leaves.
+	/// </summary>
+
+	static byte GetFlag (GameObject go, bool persistent)
+	{
+		TNObject tno = go.GetComponent<TNObject>();
+		if (tno == null) return 0;
+		return persistent ? (byte)1 : (byte)2;
 	}
 
 	/// <summary>
@@ -679,54 +726,29 @@ public class TNManager : MonoBehaviour
 
 	void OnCreateObject (int creator, int index, uint objectID, BinaryReader reader)
 	{
-		if (index >= objects.Length)
+		mObjectOwner = creator;
+		GameObject go = null;
+
+		if (index == 65535)
+		{
+			// Load the object from the resources folder
+			go = LoadGameObject(reader.ReadString());
+		}
+		else if (index >= 0 && index < objects.Length)
+		{
+			// Reference the object from the provided list
+			go = objects[index];
+		}
+		else
 		{
 			Debug.LogError("Attempting to create an invalid object. Index: " + index);
 			return;
 		}
-		GameObject go = null;
 
-		mObjectOwner = creator;
-		int type = reader.ReadByte();
+		// Create the object
+		go = CreateGameObject(go, reader);
 
-		if (type == 2)
-		{
-			Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-			Quaternion rot = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
-				reader.ReadSingle(), reader.ReadSingle());
-			Vector3 vel = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-			Vector3 ang = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-			go = Instantiate(objects[index], pos, rot) as GameObject;
-			Rigidbody rb = go.rigidbody;
-
-			if (rb != null)
-			{
-				if (rb.isKinematic)
-				{
-					rb.isKinematic = false;
-					rb.velocity = vel;
-					rb.angularVelocity = ang;
-					rb.isKinematic = true;
-				}
-				else
-				{
-					rb.velocity = vel;
-					rb.angularVelocity = ang;
-				}
-			}
-		}
-		else if (type == 1)
-		{
-			Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-			Quaternion rot = new Quaternion(reader.ReadSingle(), reader.ReadSingle(),
-				reader.ReadSingle(), reader.ReadSingle());
-			go = Instantiate(objects[index], pos, rot) as GameObject;
-		}
-		else
-		{
-			go = Instantiate(objects[index]) as GameObject;
-		}
-
+		// If an object ID was requested, assign it to the TNObject
 		if (go != null && objectID != 0)
 		{
 			TNObject obj = go.GetComponent<TNObject>();
@@ -738,9 +760,38 @@ public class TNManager : MonoBehaviour
 			}
 			else
 			{
-				Debug.LogWarning("The instantiated object has no TNObject component. Don't request a ObjectID when creating it.", go);
+				Debug.LogWarning("The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Create a new game object.
+	/// </summary>
+
+	static GameObject CreateGameObject (GameObject prefab, BinaryReader reader)
+	{
+		if (prefab != null)
+		{
+			// The first byte is always the type that identifies what kind of data will follow
+			byte type = reader.ReadByte();
+
+			if (type == 0)
+			{
+				// Just a plain game object
+				return Instantiate(prefab) as GameObject;
+			}
+			else
+			{
+				// Custom creation function
+				object[] objs = UnityTools.Read(prefab, reader);
+				object retVal;
+				UnityTools.ExecuteFirst(GetRCCs(), (byte)type, out retVal, objs);
+				UnityTools.Clear(objs);
+				return retVal as GameObject;
+			}
+		}
+		return null;
 	}
 
 	/// <summary>
@@ -778,9 +829,9 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	void Update () { mClient.ProcessPackets(); }
+	#endregion
 
-#endregion
-#region Callbacks -- Modify these if you don't like the broadcast approach
+	#region Callbacks -- Modify these if you don't like the broadcast approach
 
 	/// <summary>
 	/// Error notification.
@@ -846,5 +897,5 @@ public class TNManager : MonoBehaviour
 		mPlayer.name = p.name;
 		UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous);
 	}
-#endregion
+	#endregion
 }

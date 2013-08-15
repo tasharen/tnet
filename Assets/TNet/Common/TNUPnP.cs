@@ -422,8 +422,12 @@ public class UPnP
 			if (callback != null)
 			{
 				xp.th = new Thread(CloseRequest);
-				lock (mThreads) mThreads.Add(xp.th);
-				xp.th.Start(xp);
+
+				lock (mThreads)
+				{
+					mThreads.Add(xp.th);
+					xp.th.Start(xp);
+				}
 			}
 			else CloseRequest(xp);
 		}

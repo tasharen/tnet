@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.7.3
+                  Version 1.8.0
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.8.0:
+- NEW: Redesigned the object creation code. It's now fully extensible.
+- FIX: TNBehaviours being enabled now force TNObjects to rebuild the list of RFCs.
 
 1.7.3:
 - NEW: Added the ability to specify player timeout on a per-player basis.

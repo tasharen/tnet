@@ -30,19 +30,6 @@ public sealed class TNObject : MonoBehaviour
 		public object[] parameters;
 	}
 
-	/// <summary>
-	/// Remote function calls consist of a method called on some object (such as a MonoBehavior).
-	/// This method may or may not have an explicitly specified RFC ID. If an ID is specified, the function
-	/// will require less data to be sent across the network as the ID will be sent instead of the function's name.
-	/// </summary>
-
-	struct CachedRFC
-	{
-		public byte rfcID;
-		public object obj;
-		public MethodInfo func;
-	}
-
 	// List of network objs to iterate through
 	static List<TNObject> mList = new List<TNObject>();
 
@@ -84,7 +71,7 @@ public sealed class TNObject : MonoBehaviour
 	[HideInInspector] public bool rebuildMethodList = true;
 
 	// Cached RFC functions
-	List<CachedRFC> mRFCs = new List<CachedRFC>();
+	List<CachedFunc> mRFCs = new List<CachedFunc>();
 
 	// Whether the object has been registered with the lists
 	bool mIsRegistered = false;
@@ -150,6 +137,10 @@ public sealed class TNObject : MonoBehaviour
 		return tno;
 	}
 
+#if UNITY_EDITOR
+	// Last used ID
+	static uint mLastID = 0;
+
 	/// <summary>
 	/// Helper function that returns the game object's hierarchy in a human-readable format.
 	/// </summary>
@@ -165,10 +156,6 @@ public sealed class TNObject : MonoBehaviour
 		}
 		return "\"" + path + "\"";
 	}
-
-#if UNITY_EDITOR
-	// Last used ID
-	static uint mLastID = 0;
 
 	/// <summary>
 	/// Get a new unique object identifier.
@@ -315,59 +302,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (mParent != null) return mParent.Execute(funcID, parameters);
 		if (rebuildMethodList) RebuildMethodList();
-
-		bool retVal = false;
-
-		for (int i = 0; i < mRFCs.size; ++i)
-		{
-			CachedRFC ent = mRFCs[i];
-
-			if (ent.rfcID == funcID)
-			{
-				retVal = true;
-#if UNITY_EDITOR
-				try
-				{
-					ParameterInfo[] infos = ent.func.GetParameters();
-
-					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
-					{
-						ent.func.Invoke(ent.obj, new object[] { parameters });
-					}
-					else
-					{
-						ent.func.Invoke(ent.obj, parameters);
-					}
-				}
-				catch (System.Exception ex)
-				{
-					string types = "";
-
-					if (parameters != null)
-					{
-						for (int b = 0; b < parameters.Length; ++b)
-						{
-							if (b != 0) types += ", ";
-							types += parameters[b].GetType().ToString();
-						}
-					}
-					Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
-				}
-#else
-				ParameterInfo[] infos = ent.func.GetParameters();
-
-				if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
-				{
-					ent.func.Invoke(ent.obj, new object[] { parameters });
-				}
-				else
-				{
-					ent.func.Invoke(ent.obj, parameters);
-				}
-#endif
-			}
-		}
-		return retVal;
+		return UnityTools.ExecuteAll(mRFCs, funcID, parameters);
 	}
 
 	/// <summary>
@@ -378,38 +313,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (mParent != null) return mParent.Execute(funcName, parameters);
 		if (rebuildMethodList) RebuildMethodList();
-
-		bool retVal = false;
-
-		for (int i = 0; i < mRFCs.size; ++i)
-		{
-			CachedRFC ent = mRFCs[i];
-
-			if (ent.func.Name == funcName)
-			{
-				retVal = true;
-#if UNITY_EDITOR
-				try
-				{
-					ent.func.Invoke(ent.obj, parameters);
-				}
-				catch (System.Exception ex)
-				{
-					string types = "";
-
-					for (int b = 0; b < parameters.Length; ++b)
-					{
-						if (b != 0) types += ", ";
-						types += parameters[b].GetType().ToString();
-					}
-					Debug.LogError(ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")\n" + ex.Message);
-				}
-#else
-				ent.func.Invoke(ent.obj, parameters);
-#endif
-			}
-		}
-		return retVal;
+		return UnityTools.ExecuteAll(mRFCs, funcName, parameters);
 	}
 
 	/// <summary>
@@ -425,7 +329,8 @@ public sealed class TNObject : MonoBehaviour
 			if (!obj.Execute(funcID, parameters))
 			{
 #if UNITY_EDITOR
-				Debug.LogError("Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.", obj.gameObject);
+				Debug.LogError("Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
+					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
 		}
@@ -456,7 +361,8 @@ public sealed class TNObject : MonoBehaviour
 			if (!obj.Execute(funcName, parameters))
 			{
 #if UNITY_EDITOR
-				Debug.LogError("Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?", obj.gameObject);
+				Debug.LogError("Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
+					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
 		}
@@ -498,12 +404,12 @@ public sealed class TNObject : MonoBehaviour
 			{
 				if (methods[b].IsDefined(typeof(RFC), true))
 				{
-					CachedRFC ent = new CachedRFC();
+					CachedFunc ent = new CachedFunc();
 					ent.obj = mb;
 					ent.func = methods[b];
 
 					RFC tnc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
-					ent.rfcID = tnc.id;
+					ent.id = tnc.id;
 					mRFCs.Add(ent);
 				}
 			}

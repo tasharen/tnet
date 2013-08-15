@@ -17,6 +17,188 @@ namespace TNet
 
 static public class UnityTools
 {
+	static System.Collections.Generic.Dictionary<byte, object[]> mTemp =
+		new System.Collections.Generic.Dictionary<byte, object[]>();
+
+	/// <summary>
+	/// Get a temporary array of specified size.
+	/// </summary>
+
+	static public object[] Allocate (int count)
+	{
+		object[] temp;
+
+		if (!mTemp.TryGetValue((byte)count, out temp))
+		{
+			temp = new object[count];
+			mTemp[(byte)count] = temp;
+		}
+		return temp;
+	}
+
+	/// <summary>
+	/// Combine the specified object and array into one array in an efficient manner.
+	/// </summary>
+
+	static public object[] Combine (object obj, params object[] objs)
+	{
+		int count = objs.Length;
+		object[] temp = Allocate(count + 1);
+
+		temp[0] = obj;
+		for (int i = 0; i < count; ++i)
+			temp[i + 1] = objs[i];
+
+		return temp;
+	}
+
+	/// <summary>
+	/// Clear the array references.
+	/// </summary>
+
+	static public void Clear (object[] objs)
+	{
+		for (int i = 0, imax = objs.Length; i < imax; ++i)
+			objs[i] = null;
+	}
+
+#if UNITY_EDITOR
+
+	/// <summary>
+	/// Print out useful information about an exception that occurred when trying to call a function.
+	/// </summary>
+
+	static void PrintException (System.Exception ex, CachedFunc ent, params object[] parameters)
+	{
+		string types = "";
+
+		if (parameters != null)
+		{
+			for (int b = 0; b < parameters.Length; ++b)
+			{
+				if (b != 0) types += ", ";
+				types += parameters[b].GetType().ToString();
+			}
+		}
+		Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
+	}
+#endif
+
+	/// <summary>
+	/// Execute the first function matching the specified ID.
+	/// </summary>
+
+	static public bool ExecuteFirst (List<CachedFunc> rfcs, byte funcID, out object retVal, params object[] parameters)
+	{
+		retVal = null;
+
+		for (int i = 0; i < rfcs.size; ++i)
+		{
+			CachedFunc ent = rfcs[i];
+
+			if (ent.id == funcID)
+			{
+#if UNITY_EDITOR
+				try
+				{
+#endif
+					ParameterInfo[] infos = ent.func.GetParameters();
+
+					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+					{
+						retVal = ent.func.Invoke(ent.obj, new object[] { parameters });
+						return true;
+					}
+					else
+					{
+						retVal = ent.func.Invoke(ent.obj, parameters);
+						return true;
+					}
+#if UNITY_EDITOR
+				}
+				catch (System.Exception ex)
+				{
+					PrintException(ex, ent, parameters);
+				}
+#endif
+			}
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Invoke the function specified by the ID.
+	/// </summary>
+
+	static public bool ExecuteAll (List<CachedFunc> rfcs, byte funcID, params object[] parameters)
+	{
+		bool retVal = false;
+
+		for (int i = 0; i < rfcs.size; ++i)
+		{
+			CachedFunc ent = rfcs[i];
+
+			if (ent.id == funcID)
+			{
+				retVal = true;
+#if UNITY_EDITOR
+				try
+				{
+#endif
+					ParameterInfo[] infos = ent.func.GetParameters();
+
+					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+					{
+						ent.func.Invoke(ent.obj, new object[] { parameters });
+					}
+					else
+					{
+						ent.func.Invoke(ent.obj, parameters);
+					}
+#if UNITY_EDITOR
+				}
+				catch (System.Exception ex)
+				{
+					PrintException(ex, ent, parameters);
+				}
+#endif
+			}
+		}
+		return retVal;
+	}
+
+	/// <summary>
+	/// Invoke the function specified by the function name.
+	/// </summary>
+
+	static public bool ExecuteAll (List<CachedFunc> rfcs, string funcName, params object[] parameters)
+	{
+		bool retVal = false;
+
+		for (int i = 0; i < rfcs.size; ++i)
+		{
+			CachedFunc ent = rfcs[i];
+
+			if (ent.func.Name == funcName)
+			{
+				retVal = true;
+#if UNITY_EDITOR
+				try
+				{
+					ent.func.Invoke(ent.obj, parameters);
+				}
+				catch (System.Exception ex)
+				{
+					PrintException(ex, ent, parameters);
+				}
+#else
+				ent.func.Invoke(ent.obj, parameters);
+#endif
+			}
+		}
+		return retVal;
+	}
+
 	/// <summary>
 	/// Call the specified function on all the scripts. It's an expensive function, so use sparingly.
 	/// </summary>
@@ -88,7 +270,7 @@ static public class UnityTools
 
 	static public void Write (BinaryWriter bw, params object[] objs)
 	{
-		WriteInt(bw, objs.Length);
+		Write(bw, objs.Length);
 		if (objs.Length == 0) return;
 
 		for (int b = 0, bmax = objs.Length; b < bmax; ++b)
@@ -106,7 +288,7 @@ static public class UnityTools
 	/// Write an integer value using the smallest number of bytes possible.
 	/// </summary>
 
-	static public void WriteInt (BinaryWriter bw, int val)
+	static public void Write (BinaryWriter bw, int val)
 	{
 		if (val < 255)
 		{
@@ -117,6 +299,75 @@ static public class UnityTools
 			bw.Write((byte)255);
 			bw.Write(val);
 		}
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Vector2 v)
+	{
+		writer.Write(v.x);
+		writer.Write(v.y);
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Vector3 v)
+	{
+		writer.Write(v.x);
+		writer.Write(v.y);
+		writer.Write(v.z);
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Vector4 v)
+	{
+		writer.Write(v.x);
+		writer.Write(v.y);
+		writer.Write(v.z);
+		writer.Write(v.w);
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Quaternion q)
+	{
+		writer.Write(q.x);
+		writer.Write(q.y);
+		writer.Write(q.z);
+		writer.Write(q.w);
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Color32 c)
+	{
+		writer.Write(c.r);
+		writer.Write(c.g);
+		writer.Write(c.b);
+		writer.Write(c.a);
+	}
+
+	/// <summary>
+	/// Write a value to the stream.
+	/// </summary>
+
+	static public void Write (BinaryWriter writer, Color c)
+	{
+		writer.Write(c.r);
+		writer.Write(c.g);
+		writer.Write(c.b);
+		writer.Write(c.a);
 	}
 
 	/// <summary>
@@ -164,54 +415,33 @@ static public class UnityTools
 		}
 		else if (type == typeof(Vector2))
 		{
-			Vector2 v = (Vector2)obj;
 			bw.Write('h');
-			bw.Write(v.x);
-			bw.Write(v.y);
+			Write(bw, (Vector2)obj);
 		}
 		else if (type == typeof(Vector3))
 		{
-			Vector3 v = (Vector3)obj;
 			bw.Write('i');
-			bw.Write(v.x);
-			bw.Write(v.y);
-			bw.Write(v.z);
+			Write(bw, (Vector3)obj);
 		}
 		else if (type == typeof(Vector4))
 		{
-			Vector4 v = (Vector4)obj;
 			bw.Write('j');
-			bw.Write(v.x);
-			bw.Write(v.y);
-			bw.Write(v.z);
-			bw.Write(v.w);
+			Write(bw, (Vector4)obj);
 		}
 		else if (type == typeof(Quaternion))
 		{
-			Quaternion q = (Quaternion)obj;
 			bw.Write('k');
-			bw.Write(q.x);
-			bw.Write(q.y);
-			bw.Write(q.z);
-			bw.Write(q.w);
+			Write(bw, (Quaternion)obj);
 		}
 		else if (type == typeof(Color32))
 		{
-			Color32 c = (Color32)obj;
 			bw.Write('l');
-			bw.Write(c.r);
-			bw.Write(c.g);
-			bw.Write(c.b);
-			bw.Write(c.a);
+			Write(bw, (Color32)obj);
 		}
 		else if (type == typeof(Color))
 		{
-			Color c = (Color)obj;
 			bw.Write('m');
-			bw.Write(c.r);
-			bw.Write(c.g);
-			bw.Write(c.b);
-			bw.Write(c.a);
+			Write(bw, (Color)obj);
 		}
 		else if (type == typeof(DateTime))
 		{
@@ -294,13 +524,29 @@ static public class UnityTools
 		int count = ReadInt(reader);
 		if (count == 0) return null;
 
-		object[] data = new object[count];
+		object[] temp = Allocate(count);
 
 		for (int i = 0; i < count; ++i)
-		{
-			data[i] = ReadObject(reader);
-		}
-		return data;
+			temp[i] = ReadObject(reader);
+
+		return temp;
+	}
+
+	/// <summary>
+	/// Read the object array from the specified reader. The first value will be set to the specified object.
+	/// </summary>
+
+	static public object[] Read (object obj, BinaryReader reader)
+	{
+		int count = ReadInt(reader) + 1;
+
+		object[] temp = Allocate(count);
+
+		temp[0] = obj;
+		for (int i = 1; i < count; ++i)
+			temp[i] = ReadObject(reader);
+
+		return temp;
 	}
 
 	/// <summary>
@@ -312,6 +558,60 @@ static public class UnityTools
 		int count = reader.ReadByte();
 		if (count == 255) count = reader.ReadInt32();
 		return count;
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Vector2 ReadVector2 (BinaryReader reader)
+	{
+		return new Vector2(reader.ReadSingle(), reader.ReadSingle());
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Vector3 ReadVector3 (BinaryReader reader)
+	{
+		return new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Vector4 ReadVector4 (BinaryReader reader)
+	{
+		return new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Quaternion ReadQuaternion (BinaryReader reader)
+	{
+		return new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Color32 ReadColor32 (BinaryReader reader)
+	{
+		return new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte());
+	}
+
+	/// <summary>
+	/// Read a value from the stream.
+	/// </summary>
+
+	static public Color ReadColor (BinaryReader reader)
+	{
+		return new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
 	}
 
 	/// <summary>
@@ -332,12 +632,12 @@ static public class UnityTools
 			case 'e': obj = reader.ReadUInt32(); break;
 			case 'f': obj = reader.ReadSingle(); break;
 			case 'g': obj = reader.ReadString(); break;
-			case 'h': obj = new Vector2(reader.ReadSingle(), reader.ReadSingle()); break;
-			case 'i': obj = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-			case 'j': obj = new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-			case 'k': obj = new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
-			case 'l': obj = new Color32(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), reader.ReadByte()); break;
-			case 'm': obj = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()); break;
+			case 'h': obj = ReadVector2(reader); break;
+			case 'i': obj = ReadVector3(reader); break;
+			case 'j': obj = ReadVector4(reader); break;
+			case 'k': obj = ReadQuaternion(reader); break;
+			case 'l': obj = ReadColor32(reader); break;
+			case 'm': obj = ReadColor(reader); break;
 			case 'n': obj = new DateTime(reader.ReadInt64()); break;
 			case 'o':
 			{
@@ -460,6 +760,36 @@ static public class UnityTools
 			child = child.parent;
 		}
 		return false;
+	}
+
+	/// <summary>
+	/// Convenience function that instantiates a game object and sets its velocity.
+	/// </summary>
+
+	static public GameObject Instantiate (GameObject go, Vector3 pos, Quaternion rot, Vector3 velocity, Vector3 angularVelocity)
+	{
+		if (go != null)
+		{
+			go = GameObject.Instantiate(go, pos, rot) as GameObject;
+			Rigidbody rb = go.rigidbody;
+
+			if (rb != null)
+			{
+				if (rb.isKinematic)
+				{
+					rb.isKinematic = false;
+					rb.velocity = velocity;
+					rb.angularVelocity = angularVelocity;
+					rb.isKinematic = true;
+				}
+				else
+				{
+					rb.velocity = velocity;
+					rb.angularVelocity = angularVelocity;
+				}
+			}
+		}
+		return go;
 	}
 }
 }

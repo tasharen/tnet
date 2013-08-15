@@ -373,10 +373,13 @@ public class GameClient
 
 	public void EndSend ()
 	{
-		mBuffer.EndPacket();
-		mTcp.SendTcpPacket(mBuffer);
-		mBuffer.Recycle();
-		mBuffer = null;
+		if (mBuffer != null)
+		{
+			mBuffer.EndPacket();
+			mTcp.SendTcpPacket(mBuffer);
+			mBuffer.Recycle();
+			mBuffer = null;
+		}
 	}
 
 	/// <summary>
@@ -794,7 +797,7 @@ public class GameClient
 				if (onCreate != null)
 				{
 					int playerID = reader.ReadInt32();
-					short index = reader.ReadInt16();
+					ushort index = reader.ReadUInt16();
 					uint objID = reader.ReadUInt32();
 					onCreate(playerID, index, objID, reader);
 				}

@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright � 2012-2013 Tasharen Entertainment
+// Copyright © 2012-2013 Tasharen Entertainment
 //---------------------------------------------
 
 using UnityEngine;
@@ -19,11 +19,16 @@ public abstract class TNBehaviour : MonoBehaviour
 	{
 		get
 		{
-			if (mTNO == null)
-			{
-				mTNO = GetComponent<TNObject>();
-			}
+			if (mTNO == null) mTNO = GetComponent<TNObject>();
 			return mTNO;
+		}
+	}
+
+	protected virtual void OnEnable ()
+	{
+		if (Application.isPlaying)
+		{
+			tno.rebuildMethodList = true;
 		}
 	}
 }
