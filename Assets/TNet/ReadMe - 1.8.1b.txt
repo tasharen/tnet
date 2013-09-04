@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.8.1
+                  Version 1.8.1b
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -72,6 +72,7 @@ http://www.tasharen.com/?page_id=4518
 
 1.8.1:
 - FIX: Executing remote function calls while offline should now work as expected.
+- FIX: Default TNManager.Create function for pos/rot/vel/angVel should now work correctly again.
 
 1.8.0:
 - NEW: Redesigned the object creation code. It's now fully extensible.

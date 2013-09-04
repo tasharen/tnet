@@ -24,7 +24,8 @@ public class TNAutoJoin : MonoBehaviour
 	public string firstLevel = "Example 1";
 	public int channelID = 1;
 	public string disconnectLevel;
-	
+
+	public bool allowUDP = true;
 	public bool connectOnStart = true;
 	public string successFunctionName;
 	public string failureFunctionName;
@@ -50,9 +51,6 @@ public class TNAutoJoin : MonoBehaviour
 		// We don't want mobile devices to dim their screen and go to sleep while the app is running
 		Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
-		// Make it possible to use UDP using a random port
-		TNManager.StartUDP(Random.Range(10000, 50000));
-
 		// Connect to the remote server
 		TNManager.Connect(serverAddress, serverPort);
 	}
@@ -65,6 +63,8 @@ public class TNAutoJoin : MonoBehaviour
 	{
 		if (result)
 		{
+			// Make it possible to use UDP using a random port
+			if (allowUDP) TNManager.StartUDP(Random.Range(10000, 50000));
 			TNManager.JoinChannel(channelID, firstLevel);
 		}
 		else if (!string.IsNullOrEmpty(failureFunctionName))

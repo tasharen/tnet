@@ -269,7 +269,10 @@ public class TNManager : MonoBehaviour
 
 		if (ip == null)
 		{
-			if (mInstance != null) mInstance.OnConnect(false, "Unable to resolve " + address);
+			if (mInstance != null)
+			{
+				mInstance.OnConnect(false, "Unable to resolve [" + address + "]");
+			}
 		}
 		else if (mInstance != null)
 		{
@@ -430,7 +433,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(1, persistent, go, pos, rot, vel, angVel);
+		CreateEx(2, persistent, go, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
@@ -439,7 +442,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(1, persistent, path, pos, rot, vel, angVel);
+		CreateEx(2, persistent, path, pos, rot, vel, angVel);
 	}
 
 	/// <summary>

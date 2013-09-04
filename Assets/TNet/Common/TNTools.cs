@@ -192,7 +192,8 @@ static public class Tools
 
 	static public IPAddress ResolveAddress (string address)
 	{
-		if (string.IsNullOrEmpty(address)) return null;
+		if (string.IsNullOrEmpty(address))
+			return null;
 
 		IPAddress ip;
 		if (IPAddress.TryParse(address, out ip))
