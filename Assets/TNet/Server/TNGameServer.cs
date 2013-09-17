@@ -957,6 +957,24 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.Broadcast:
+			{
+				// 4 bytes for size, 1 byte for ID
+				buffer.position = buffer.position - 5;
+
+				// Forward the packet to everyone connected to the server
+				for (int i = 0; i < mPlayers.size; ++i)
+				{
+					TcpPlayer tp = mPlayers[i];
+
+					if (reliable || tp.udpEndPoint == null || !mAllowUdp)
+					{
+						tp.SendTcpPacket(buffer);
+					}
+					else mUdp.Send(buffer, tp.udpEndPoint);
+				}
+				break;
+			}
 			default:
 			{
 				if (player.channel != null && (int)request <= (int)Packet.ForwardToPlayerBuffered)

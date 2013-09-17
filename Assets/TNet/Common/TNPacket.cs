@@ -422,5 +422,15 @@ public enum Packet
 	/// </summary>
 
 	RequestSetTimeout,
+
+	//===================================================================================
+
+	/// <summary>
+	/// Echo this message to everyone connected to the server.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	Broadcast,
 }
 }

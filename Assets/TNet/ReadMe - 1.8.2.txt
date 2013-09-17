@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.8.1b
+                  Version 1.8.2
        http://www.tasharen.com/?page_id=4518
                support@tasharen.com
 -----------------------------------------------------
@@ -69,6 +69,9 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.8.2:
+- NEW: Added Target.Broadcast for when you want to send an RFC call to everyone connected to the server (ex: world chat).
 
 1.8.1:
 - FIX: Executing remote function calls while offline should now work as expected.

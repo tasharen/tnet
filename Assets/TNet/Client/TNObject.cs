@@ -518,7 +518,19 @@ public sealed class TNObject : MonoBehaviour
 #endif
 		bool executeLocally = false;
 
-		if (target == Target.Host && TNManager.isHosting)
+		if (target == Target.Broadcast)
+		{
+			if (TNManager.isConnected)
+			{
+				BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
+				UnityTools.Write(writer, objs);
+				TNManager.EndSend(reliable);
+			}
+			else executeLocally = true;
+		}
+		else if (target == Target.Host && TNManager.isHosting)
 		{
 			// We're the host, and the packet should be going to the host -- just echo it locally
 			executeLocally = true;

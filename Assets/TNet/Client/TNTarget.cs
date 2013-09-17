@@ -40,5 +40,11 @@ public enum Target
 	/// </summary>
 
 	Host,
+
+	/// <summary>
+	/// Broadcast this packet to everyone connected to the server.
+	/// </summary>
+
+	Broadcast,
 }
 }
