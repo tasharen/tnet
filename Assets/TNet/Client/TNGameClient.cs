@@ -679,6 +679,7 @@ public class GameClient
 			case Packet.ForwardToAllSaved:
 			case Packet.ForwardToOthersSaved:
 			case Packet.ForwardToHost:
+			case Packet.Broadcast:
 			{
 				if (onForwardedPacket != null) onForwardedPacket(reader);
 				break;
