@@ -449,7 +449,7 @@ public class TcpProtocol : Player
 			// The buffer has been sent and can now be safely recycled
 			mOut.Dequeue().Recycle();
 
-			if (bytes > 0)
+			if (bytes > 0 && mSocket != null && mSocket.Connected)
 			{
 				// If there is another packet to send out, let's send it
 				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
