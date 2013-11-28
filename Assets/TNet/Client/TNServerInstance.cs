@@ -214,6 +214,8 @@ public class TNServerInstance : MonoBehaviour
 
 		if (mGame.Start(tcpPort, udpPort))
 		{
+			mUp.OpenTCP(tcpPort);
+			mUp.OpenUDP(udpPort);
 			if (!string.IsNullOrEmpty(fileName)) mGame.LoadFrom(fileName);
 			return true;
 		}
