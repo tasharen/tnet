@@ -1,9 +1,8 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.8.3
+                  Version 1.8.4
        http://www.tasharen.com/?page_id=4518
-               support@tasharen.com
 -----------------------------------------------------
 
 Thank you for buying TNet!
@@ -69,6 +68,9 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.8.4:
+- FIX: Host player will now assume ownership of TNObjects with no owner when joining a persistent channel.
 
 1.8.3:
 - FIX: Eliminated obsolete warnings in the latest version of Unity.
