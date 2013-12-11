@@ -117,7 +117,12 @@ public sealed class TNObject : MonoBehaviour
 	/// Remember the object's ownership, for convenience.
 	/// </summary>
 
-	void Awake () { mOwner = TNManager.objectOwnerID; }
+	void Awake ()
+	{
+		mOwner = TNManager.objectOwnerID;
+		if (TNManager.GetPlayer(mOwner) == null)
+			mOwner = TNManager.hostID;
+	}
 
 	/// <summary>
 	/// Automatically transfer the ownership.
