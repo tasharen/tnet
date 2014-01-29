@@ -587,9 +587,8 @@ public class TcpProtocol : Player
 			if (mExpected == 0)
 			{
 				mExpected = mReceiveBuffer.PeekInt(mOffset);
-				if (mExpected == -1) break;
 
-				if (mExpected == 0)
+				if (mExpected < 0 || mExpected > 16777216)
 				{
 					Close(true);
 					return false;
