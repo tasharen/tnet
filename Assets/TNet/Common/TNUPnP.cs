@@ -11,7 +11,7 @@ using System.Threading;
 using System.Text;
 
 // Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
-#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_4
+#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_5 && !UNITY_4_6
 using System.Net.NetworkInformation;
 #endif
 
@@ -350,6 +350,9 @@ public class UPnP
 
 		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
+			string addr = Tools.localAddress.ToString();
+			if (addr == "127.0.0.1") return;
+
 			mPorts.Add(id);
 
 			ExtraParams xp = new ExtraParams();
@@ -361,7 +364,7 @@ public class UPnP
 				"<NewExternalPort>" + port + "</NewExternalPort>\n" +
 				"<NewProtocol>" + (tcp ? "TCP" : "UDP") + "</NewProtocol>\n" +
 				"<NewInternalPort>" + port + "</NewInternalPort>\n" +
-				"<NewInternalClient>" + Tools.localAddress + "</NewInternalClient>\n" +
+				"<NewInternalClient>" + addr + "</NewInternalClient>\n" +
 				"<NewEnabled>1</NewEnabled>\n" +
 				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 				"<NewLeaseDuration>0</NewLeaseDuration>\n";

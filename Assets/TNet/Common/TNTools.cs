@@ -83,27 +83,40 @@ static public class Tools
 					}
 				}
 #else
-				mLocalAddress = IPAddress.Loopback;
-
 				try
 				{
-					IPHostEntry ent = Dns.GetHostEntry(Dns.GetHostName());
+					IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
 
-					foreach (IPAddress ip in ent.AddressList)
+					for (int i = 0; i < ips.Length; ++i)
 					{
-						if (IsValidAddress(ip))
+						if (IsValidAddress(ips[i]))
 						{
-							mLocalAddress = ip;
+							mLocalAddress = ips[i];
 							break;
 						}
 					}
+
+					//IPHostEntry ent = Dns.GetHostEntry(Dns.GetHostName());
+
+					//foreach (IPAddress ip in ent.AddressList)
+					//{
+					//    if (IsValidAddress(ip))
+					//    {
+					//        mLocalAddress = ip;
+					//        break;
+					//    }
+					//}
 				}
 #if DEBUG
-				catch (System.Exception ex) { System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message); }
+				catch (System.Exception ex)
+				{
+					System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message);
+					mLocalAddress = IPAddress.Loopback;
+				}
 #else
-				catch (System.Exception) {}
-#endif
-#endif
+				catch (System.Exception) { mLocalAddress = IPAddress.Loopback; }
+#endif // DEBUG
+#endif // UNITY_IPHONE
 			}
 			return mLocalAddress;
 		}
