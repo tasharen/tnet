@@ -7,6 +7,7 @@ using UnityEngine;
 using TNet;
 using System.IO;
 using System.Collections;
+using UnityTools = TNet.UnityTools;
 
 /// <summary>
 /// This script provides a main menu for all examples.

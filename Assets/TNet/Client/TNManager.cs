@@ -8,6 +8,7 @@ using UnityEngine;
 using TNet;
 using System.Net;
 using System.Reflection;
+using UnityTools = TNet.UnityTools;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.

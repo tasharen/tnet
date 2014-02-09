@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using TNet;
+using UnityTools = TNet.UnityTools;
 
 /// <summary>
 /// Extremely simplified "join a server" functionality. Attaching this script will
@@ -69,7 +70,7 @@ public class TNAutoJoin : MonoBehaviour
 		}
 		else if (!string.IsNullOrEmpty(failureFunctionName))
 		{
-			TNet.UnityTools.Broadcast(failureFunctionName, message);
+			UnityTools.Broadcast(failureFunctionName, message);
 		}
 		else Debug.LogError(message);
 	}
@@ -96,14 +97,14 @@ public class TNAutoJoin : MonoBehaviour
 		{
 			if (!string.IsNullOrEmpty(successFunctionName))
 			{
-				TNet.UnityTools.Broadcast(successFunctionName);
+				UnityTools.Broadcast(successFunctionName);
 			}
 		}
 		else
 		{
 			if (!string.IsNullOrEmpty(failureFunctionName))
 			{
-				TNet.UnityTools.Broadcast(failureFunctionName, message);
+				UnityTools.Broadcast(failureFunctionName, message);
 			}
 			else Debug.LogError(message);
 

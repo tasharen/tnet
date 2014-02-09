@@ -7,6 +7,7 @@ using TNet;
 using UnityEngine;
 using UnityEditor;
 using System.Reflection;
+using UnityTools = TNet.UnityTools;
 
 /// <summary>
 /// Inspector class used to view and edit TNAutoSync.
@@ -149,7 +150,7 @@ public class TNAutoSyncInspector : Editor
 
 		for (int i = 0; i < fields.Length; ++i)
 		{
-			if (TNet.UnityTools.CanBeSerialized(fields[i].FieldType))
+			if (UnityTools.CanBeSerialized(fields[i].FieldType))
 			{
 				if (fields[i].Name == saved.propertyName) oldIndex = names.size;
 				names.Add(fields[i].Name);
@@ -160,7 +161,7 @@ public class TNAutoSyncInspector : Editor
 		{
 			PropertyInfo pi = properties[i];
 
-			if (TNet.UnityTools.CanBeSerialized(pi.PropertyType) && pi.CanWrite && pi.CanRead)
+			if (UnityTools.CanBeSerialized(pi.PropertyType) && pi.CanWrite && pi.CanRead)
 			{
 				if (pi.Name == saved.propertyName) oldIndex = names.size;
 				names.Add(pi.Name);

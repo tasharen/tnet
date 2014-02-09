@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using TNet;
+using UnityTools = TNet.UnityTools;
 
 /// <summary>
 /// Tasharen Network Object makes it possible to easily send and receive remote function calls.
