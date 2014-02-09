@@ -69,7 +69,7 @@ public class TNAutoJoin : MonoBehaviour
 		}
 		else if (!string.IsNullOrEmpty(failureFunctionName))
 		{
-			UnityTools.Broadcast(failureFunctionName, message);
+			TNet.UnityTools.Broadcast(failureFunctionName, message);
 		}
 		else Debug.LogError(message);
 	}
@@ -96,14 +96,14 @@ public class TNAutoJoin : MonoBehaviour
 		{
 			if (!string.IsNullOrEmpty(successFunctionName))
 			{
-				UnityTools.Broadcast(successFunctionName);
+				TNet.UnityTools.Broadcast(successFunctionName);
 			}
 		}
 		else
 		{
 			if (!string.IsNullOrEmpty(failureFunctionName))
 			{
-				UnityTools.Broadcast(failureFunctionName, message);
+				TNet.UnityTools.Broadcast(failureFunctionName, message);
 			}
 			else Debug.LogError(message);
 
