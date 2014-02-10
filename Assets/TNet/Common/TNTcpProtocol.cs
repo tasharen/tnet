@@ -453,8 +453,19 @@ public class TcpProtocol : Player
 			{
 				// If there is another packet to send out, let's send it
 				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
-				if (next != null) mSocket.BeginSend(next.buffer, next.position, next.size,
-					SocketFlags.None, OnSend, next);
+
+				if (next != null)
+				{
+					try
+					{
+						mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
+					}
+					catch (Exception ex)
+					{
+						Error(ex.Message);
+						Close(false);
+					}
+				}
 			}
 			else Close(true);
 		}
