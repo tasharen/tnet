@@ -432,5 +432,12 @@ public enum Packet
 	/// </summary>
 
 	Broadcast,
+
+	/// <summary>
+	/// Activate UDP functionality on the server for this client. This must be sent via UDP and it has no response.
+	/// int: Player ID.
+	/// </summary>
+
+	RequestActivateUDP,
 }
 }

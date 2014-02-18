@@ -532,7 +532,6 @@ public class TNManager : MonoBehaviour
 		if (rebuildMethodList)
 		{
 			rebuildMethodList = false;
-			mRCCs.Clear();
 
 			if (mInstance != null)
 			{
@@ -541,13 +540,13 @@ public class TNManager : MonoBehaviour
 				for (int i = 0, imax = mbs.Length; i < imax; ++i)
 				{
 					MonoBehaviour mb = mbs[i];
-					AddRCC(mb, mb.GetType());
+					AddRCCs(mb, mb.GetType());
 				}
 			}
 			else
 			{
 				// Add the built-in remote creation calls
-				AddRCC(null, typeof(TNManager));
+				AddRCCs(null, typeof(TNManager));
 			}
 		}
 		return mRCCs;
@@ -557,7 +556,13 @@ public class TNManager : MonoBehaviour
 	/// Add a new Remote Creation Call.
 	/// </summary>
 
-	static void AddRCC (object obj, System.Type type)
+	static public void AddRCCs (MonoBehaviour mb) { AddRCCs(mb, mb.GetType()); }
+
+	/// <summary>
+	/// Add a new Remote Creation Call.
+	/// </summary>
+
+	static void AddRCCs (object obj, System.Type type)
 	{
 		MethodInfo[] methods = type.GetMethods(
 					BindingFlags.Public |

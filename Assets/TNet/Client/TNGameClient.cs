@@ -148,6 +148,7 @@ public class GameClient
 	// UDP is not available in the Unity web player because using UDP packets makes Unity request the
 	// policy file every time the packet gets sent... which is obviously quite retarded.
 	UdpProtocol mUdp = new UdpProtocol();
+	bool mUdpIsUsable = false;
 #endif
 
 	// ID of the host
@@ -391,19 +392,14 @@ public class GameClient
 		mBuffer.EndPacket();
 #if UNITY_WEBPLAYER
 		mTcp.SendTcpPacket(mBuffer);
-		mBuffer.Recycle();
 #else
-		if (reliable || mServerUdpEndPoint == null || !mUdp.isActive)
+		if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
 		{
 			mTcp.SendTcpPacket(mBuffer);
-			mBuffer.Recycle();
 		}
-		else
-		{
-			mBuffer.EndPacket();
-			mUdp.Send(mBuffer, mServerUdpEndPoint);
-		}
+		else mUdp.Send(mBuffer, mServerUdpEndPoint);
 #endif
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -417,6 +413,7 @@ public class GameClient
 #if !UNITY_WEBPLAYER
 		mUdp.Broadcast(mBuffer, port);
 #endif
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -430,6 +427,7 @@ public class GameClient
 #if !UNITY_WEBPLAYER
 		mUdp.Send(mBuffer, target);
 #endif
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -484,6 +482,7 @@ public class GameClient
 				EndSend();
 			}
 			mUdp.Stop();
+			mUdpIsUsable = false;
 		}
 #endif
 	}
@@ -618,6 +617,7 @@ public class GameClient
 
 		while (keepGoing && mUdp.ReceivePacket(out buffer, out ip))
 		{
+			mUdpIsUsable = true;
 			keepGoing = ProcessPacket(buffer, ip);
 			buffer.Recycle();
 		}
@@ -651,7 +651,7 @@ public class GameClient
 				if (mUdp.isActive)
 				{
 					// If we have a UDP listener active, tell the server
-					BeginSend(Packet.RequestSetUDP).Write(mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0);
+					BeginSend(Packet.RequestSetUDP).Write((ushort)mUdp.listeningPort);
 					EndSend();
 				}
 #endif
@@ -707,8 +707,17 @@ public class GameClient
 				{
 					IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
 					mServerUdpEndPoint = new IPEndPoint(ipa, port);
-					// Send an empty packet to the server, opening up the communication channel
-					if (mUdp.isActive) mUdp.SendEmptyPacket(mServerUdpEndPoint);
+
+					// Send the first UDP packet to the server
+					if (mUdp.isActive)
+					{
+						mBuffer = Buffer.Create();
+						mBuffer.BeginPacket(Packet.RequestActivateUDP).Write(playerID);
+						mBuffer.EndPacket();
+						mUdp.Send(mBuffer, mServerUdpEndPoint);
+						mBuffer.Recycle();
+						mBuffer = null;
+					}
 				}
 				else mServerUdpEndPoint = null;
 #endif

@@ -132,15 +132,12 @@ static public class UnityTools
 
 	static public bool ExecuteAll (List<CachedFunc> rfcs, byte funcID, params object[] parameters)
 	{
-		bool retVal = false;
-
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			CachedFunc ent = rfcs[i];
 
 			if (ent.id == funcID)
 			{
-				retVal = true;
 #if UNITY_EDITOR
 				try
 				{
@@ -150,21 +147,24 @@ static public class UnityTools
 					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
+						return true;
 					}
 					else
 					{
 						ent.func.Invoke(ent.obj, parameters);
+						return true;
 					}
 #if UNITY_EDITOR
 				}
 				catch (System.Exception ex)
 				{
 					PrintException(ex, ent, parameters);
+					return false;
 				}
 #endif
 			}
 		}
-		return retVal;
+		return false;
 	}
 
 	/// <summary>

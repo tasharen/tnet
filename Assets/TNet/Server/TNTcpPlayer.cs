@@ -31,6 +31,12 @@ public class TcpPlayer : TcpProtocol
 	public IPEndPoint udpEndPoint;
 
 	/// <summary>
+	/// Whether the UDP has been confirmed as active and usable.
+	/// </summary>
+
+	public bool udpIsUsable = false;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
