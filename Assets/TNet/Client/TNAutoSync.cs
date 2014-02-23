@@ -25,12 +25,36 @@ public class TNAutoSync : TNBehaviour
 		public string propertyName;
 	}
 
+	/// <summary>
+	/// Serialized synchronized entries.
+	/// </summary>
+
 	public System.Collections.Generic.List<SavedEntry> entries = new System.Collections.Generic.List<SavedEntry>();
 
-	public int updatesPerSecond = 20;
+	/// <summary>
+	/// Maximum possible number of updates per second. If the values don't change, nothing will be sent.
+	/// </summary>
+
+	public int updatesPerSecond = 10;
+
+	/// <summary>
+	/// Whether the result will be saved on the server or not. In most cases it should remain as 'true'.
+	/// </summary>
+
 	public bool isSavedOnServer = true;
+
+	/// <summary>
+	/// Whether only the object's owner can send sync messages. In most cases it should remain as 'true'.
+	/// </summary>
+
 	public bool onlyOwnerCanSync = true;
-	public bool isImportant = true;
+
+	/// <summary>
+	/// Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.
+	/// If you have a lot of frequent updates, leave it as not important.
+	/// </summary>
+
+	public bool isImportant = false;
 
 	bool mCanSync = false;
 

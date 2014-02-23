@@ -27,6 +27,13 @@ public class TNSyncRigidbody : TNBehaviour
 
 	public int updatesPerSecond = 10;
 
+	/// <summary>
+	/// Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.
+	/// If you have a lot of frequent updates, mark it as not important.
+	/// </summary>
+
+	public bool isImportant = false;
+
 	Transform mTrans;
 	Rigidbody mRb;
 	float mNext;
@@ -84,8 +91,12 @@ public class TNSyncRigidbody : TNBehaviour
 				// Using an ID speeds up the function lookup time and reduces the size of the packet.
 				// Since the target is "OthersSaved", even players that join later will receive this update.
 				// Each consecutive Send() updates the previous, so only the latest one is kept on the server.
-				// Note that you can also replace "Send" with "SendQuickly" in order to decrease bandwidth usage.
-				tno.Send(1, Target.OthersSaved, pos, rot, mRb.velocity, mRb.angularVelocity);
+
+				if (isImportant)
+				{
+					tno.Send(1, Target.OthersSaved, pos, rot, mRb.velocity, mRb.angularVelocity);
+				}
+				else tno.SendQuickly(1, Target.OthersSaved, pos, rot, mRb.velocity, mRb.angularVelocity);
 			}
 			mWasSleeping = isSleeping;
 		}
