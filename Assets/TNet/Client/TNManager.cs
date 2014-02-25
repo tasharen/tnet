@@ -83,11 +83,11 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return mInstance != null && mInstance.enabled;
+			return mInstance != null && mInstance.mClient.isActive;
 		}
 		set
 		{
-			if (mInstance != null) mInstance.enabled = value;
+			if (mInstance != null) mInstance.mClient.isActive = value;
 		}
 	}
 
@@ -896,9 +896,7 @@ public class TNManager : MonoBehaviour
 	void OnLoadLevel (string levelName)
 	{
 		if (!string.IsNullOrEmpty(levelName))
-		{
 			Application.LoadLevel(levelName);
-		}
 	}
 
 	/// <summary>

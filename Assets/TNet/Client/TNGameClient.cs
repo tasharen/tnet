@@ -132,6 +132,12 @@ public class GameClient
 	public List<Player> players = new List<Player>();
 
 	/// <summary>
+	/// Whether the game client should be actively processing messages or not.
+	/// </summary>
+
+	public bool isActive = true;
+
+	/// <summary>
 	/// ID of the channel we're in.
 	/// </summary>
 
@@ -615,14 +621,14 @@ public class GameClient
 #if !UNITY_WEBPLAYER
 		IPEndPoint ip = null;
 
-		while (keepGoing && mUdp.ReceivePacket(out buffer, out ip))
+		while (keepGoing && isActive && mUdp.ReceivePacket(out buffer, out ip))
 		{
 			mUdpIsUsable = true;
 			keepGoing = ProcessPacket(buffer, ip);
 			buffer.Recycle();
 		}
 #endif
-		while (keepGoing && mTcp.ReceivePacket(out buffer))
+		while (keepGoing && isActive && mTcp.ReceivePacket(out buffer))
 		{
 			keepGoing = ProcessPacket(buffer, null);
 			buffer.Recycle();
