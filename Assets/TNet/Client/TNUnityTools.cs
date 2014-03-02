@@ -80,7 +80,15 @@ static public class UnityTools
 				types += parameters[b].GetType().ToString();
 			}
 		}
-		Debug.LogError(ex.Message + "\n" + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
+
+		if (ex.InnerException != null)
+		{
+			Debug.LogError(ex.Message + ":\n" + ex.InnerException.Message + "\nCaller: " + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
+		}
+		else
+		{
+			Debug.LogError(ex.Message + "\nCaller: " + ent.obj.GetType() + "." + ent.func.Name + " (" + types + ")");
+		}
 	}
 #endif
 
