@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2013 Tasharen Entertainment
+// Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
 using UnityEngine;
@@ -16,6 +16,12 @@ using TNet;
 public abstract class TNLobbyClient : MonoBehaviour
 {
 	public delegate void OnListChange ();
+
+	/// <summary>
+	/// Error string set if something goes wrong.
+	/// </summary>
+
+	static public string errorString = "";
 
 	/// <summary>
 	/// List of known servers.
@@ -39,5 +45,9 @@ public abstract class TNLobbyClient : MonoBehaviour
 	/// Clear the list of known servers when the component is disabled.
 	/// </summary>
 
-	protected virtual void OnDisable () { knownServers.Clear(); }
+	protected virtual void OnDisable ()
+	{
+		errorString = "";
+		knownServers.Clear();
+	}
 }

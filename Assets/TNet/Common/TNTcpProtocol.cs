@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2013 Tasharen Entertainment
+// Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
 using System;
@@ -714,8 +714,9 @@ public class TcpProtocol : Player
 			else
 			{
 				id = 0;
-				Error("Version mismatch! Server is running version " + serverVersion + " while you have version " + version);
+				Error("Version mismatch! Server is running protocol version " + serverVersion + " while you are on version " + version);
 				Close(false);
+				return false;
 			}
 		}
 #if UNITY_EDITOR

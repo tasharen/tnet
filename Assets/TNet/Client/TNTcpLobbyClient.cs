@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2013 Tasharen Entertainment
+// Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
 using System.Net;
@@ -36,19 +36,12 @@ public class TNTcpLobbyClient : TNLobbyClient
 	{
 		if (mRemoteAddress == null)
 		{
-			if (string.IsNullOrEmpty(remoteAddress))
-			{
-				mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
-			}
-			else
-			{
-				mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
-			}
+			mRemoteAddress = string.IsNullOrEmpty(remoteAddress) ?
+				new IPEndPoint(IPAddress.Broadcast, remotePort) :
+				Tools.ResolveEndPoint(remoteAddress, remotePort);
 
 			if (mRemoteAddress == null)
-			{
 				mTcp.Error("Invalid address: " + remoteAddress + ":" + remotePort);
-			}
 		}
 	}
 
@@ -56,7 +49,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 	{
 		isActive = false;
 		mTcp.Disconnect();
-		knownServers.Clear();
+		base.OnDisable();
 		if (onChange != null) onChange();
 	}
 
@@ -87,7 +80,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 					BinaryReader reader = buffer.BeginReading();
 					Packet response = (Packet)reader.ReadByte();
 
-					if (mTcp.stage == TcpProtocol.Stage.Verifying)
+					if (response == Packet.ResponseID)
 					{
 						if (mTcp.VerifyResponseID(response, reader))
 						{
@@ -111,13 +104,14 @@ public class TNTcpLobbyClient : TNLobbyClient
 					}
 					else if (response == Packet.Error)
 					{
-#if UNITY_EDITOR
-						Debug.LogWarning(reader.ReadString());
-#endif
+						errorString = reader.ReadString();
+						Debug.LogWarning(errorString);
+						changed = true;
 					}
 				}
 				catch (System.Exception ex)
 				{
+					errorString = ex.Message;
 					Debug.LogWarning(ex.Message);
 					mTcp.Close(false);
 				}

@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2013 Tasharen Entertainment
+// Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
 using System.Net;
@@ -54,19 +54,13 @@ public class TNUdpLobbyClient : TNLobbyClient
 
 		if (mRemoteAddress == null)
 		{
-			if (string.IsNullOrEmpty(remoteAddress))
-			{
-				mRemoteAddress = new IPEndPoint(IPAddress.Broadcast, remotePort);
-			}
-			else
-			{
-				mRemoteAddress = Tools.ResolveEndPoint(remoteAddress, remotePort);
-			}
+			mRemoteAddress = string.IsNullOrEmpty(remoteAddress) ?
+				new IPEndPoint(IPAddress.Broadcast, remotePort) :
+				Tools.ResolveEndPoint(remoteAddress, remotePort);
 
 			if (mRemoteAddress == null)
-			{
-				mUdp.Error(new IPEndPoint(IPAddress.Loopback, mUdp.listeningPort), "Invalid address: " + remoteAddress + ":" + remotePort);
-			}
+				mUdp.Error(new IPEndPoint(IPAddress.Loopback, mUdp.listeningPort),
+					"Invalid address: " + remoteAddress + ":" + remotePort);
 		}
 
 		// Twice just in case the first try falls on a taken port
@@ -77,7 +71,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 	{
 		isActive = false;
 		mUdp.Stop();
-		knownServers.Clear();
+		base.OnDisable();
 		if (onChange != null) onChange();
 
 		if (mRequest != null)
@@ -118,7 +112,9 @@ public class TNUdpLobbyClient : TNLobbyClient
 					}
 					else if (response == Packet.Error)
 					{
-						Debug.LogWarning(reader.ReadString());
+						errorString = reader.ReadString();
+						Debug.LogWarning(errorString);
+						changed = true;
 					}
 				}
 				catch (System.Exception) { }
