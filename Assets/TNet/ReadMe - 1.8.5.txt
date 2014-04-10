@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
-    Copyright © 2012-2013 Tasharen Entertainment
-                  Version 1.8.4
+    Copyright © 2012-2014 Tasharen Entertainment
+                  Version 1.8.5
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -9,6 +9,8 @@ Thank you for buying TNet!
 
 If you have any questions, suggestions, comments or feature requests, please
 drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php
+
+Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 
 -----------------------------------------------------
   Basic Usage
@@ -68,6 +70,14 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.8.5:
+- NEW: It's now possible to add RCCs via TNManager.AddRCCs function that are not under TNManager.
+- NEW: TNSyncRigidbody now has the "isImportant" flag just like TNAutoSync.
+- FIX: TNManager.isActive set to false no longer prevents ping requests from being sent out.
+- FIX: Added an extra step before enabling UDP traffic to avoid cases where it gets enabled erroneously.
+- FIX: TNet.Tools.localAddress will now use GetHostAddresses instead of GetHostEntry.
+- FIX: Unity 4.5 and 4.6 compile fixes.
 
 1.8.4:
 - FIX: Host player will now assume ownership of TNObjects with no owner when joining a persistent channel.
