@@ -149,7 +149,6 @@ public class UPnP
 	void ThreadDiscover (object obj)
 	{
 		Thread th = (Thread)obj;
-		mStatus = Status.Searching;
 
 		string request = "M-SEARCH * HTTP/1.1\r\n" +
 						"HOST: 239.255.255.250:1900\r\n" +
@@ -159,54 +158,73 @@ public class UPnP
 
 		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
 		int port = 10000 + (int)(DateTime.Now.Ticks % 45000);
-		UdpClient receiver = null;
+		List<IPAddress> ips = Tools.localAddresses;
 
-		try
+		// UPnP discovery should happen on all network interfaces
+		for (int i = 0; i < ips.size; ++i)
 		{
-			UdpClient sender = new UdpClient(port);
-			sender.Connect(IPAddress.Broadcast, 1900);
-			sender.Send(requestBytes, requestBytes.Length);
-			sender.Close();
+			IPAddress ip = ips[i];
+			mStatus = Status.Searching;
+			UdpClient receiver = null;
 
-			receiver = new UdpClient(port);
-			receiver.Client.ReceiveTimeout = 3000;
-
-			IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
-
-			for (; ; )
+			try
 			{
-				byte[] data = receiver.Receive(ref sourceAddress);
+				UdpClient sender = new UdpClient(new IPEndPoint(ip, port));
 
-				if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
+				sender.Connect(IPAddress.Broadcast, 1900);
+				sender.Send(requestBytes, requestBytes.Length);
+				sender.Close();
+
+				receiver = new UdpClient(new IPEndPoint(ip, port));
+				receiver.Client.ReceiveTimeout = 3000;
+
+				IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+
+				for (; ; )
 				{
-					receiver.Close();
+					byte[] data = receiver.Receive(ref sourceAddress);
 
-					lock (mThreads)
+					if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 					{
-						mGatewayAddress = sourceAddress.Address;
-						mStatus = Status.Success;
-						mThreads.Remove(th);
+						receiver.Close();
+
+						lock (mThreads)
+						{
+							mGatewayAddress = sourceAddress.Address;
+#if UNITY_EDITOR
+							UnityEngine.Debug.Log("[TNet] UPnP Gateway: " + mGatewayAddress);
+#endif
+							mStatus = Status.Success;
+							mThreads.Remove(th);
+						}
+						mDiscover = null;
+						return;
 					}
-					mDiscover = null;
-					return;
 				}
 			}
-		}
-#if UNITY_EDITOR
-		catch (System.Exception ex) { UnityEngine.Debug.LogWarning("UPnP discovery failed (" + ex.Message + ")"); }
-#elif DEBUG
-		catch (System.Exception ex) { Console.WriteLine("UPnP discovery failed (" + ex.Message + ")"); }
-#else
-		catch (System.Exception) {}
-#endif
-		if (receiver != null) receiver.Close();
+			catch (System.Exception) {}
 
-		lock (mThreads)
-		{
-			mStatus = Status.Failure;
-			mThreads.Remove(th);
+			if (receiver != null) receiver.Close();
+
+			lock (mThreads)
+			{
+				mStatus = Status.Failure;
+				mThreads.Remove(th);
+			}
+			mDiscover = null;
+
+			// If we found one, we're done
+			if (mStatus == Status.Success) break;
 		}
-		mDiscover = null;
+
+		if (mStatus != Status.Success)
+		{
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogWarning("[TNet] UPnP discovery failed. TNet won't be able to open ports automatically.");
+#else
+			Console.WriteLine("UPnP discovery failed. TNet won't be able to open ports automatically.");
+#endif
+		}
 	}
 
 	/// <summary>
@@ -222,10 +240,10 @@ public class UPnP
 		int end = response.IndexOf('\r', index);
 		if (end == -1) return false;
 
-		// Base URL: http://192.168.2.1:2555/upnp/f3710630-b3ce-348c-b5a5-4c9d74f6ee99/desc.xml
+		// Base URL: http://192.168.1.1:2555/upnp/f3710630-b3ce-348c-b5a5-4c9d74f6ee99/desc.xml
 		string baseURL = response.Substring(index, end - index).Trim();
 
-		// Gateway URL: http://192.168.2.1:2555
+		// Gateway URL: http://192.168.1.1:2555
 		int offset = baseURL.IndexOf("://");
 		offset = baseURL.IndexOf('/', offset + 3);
 		mGatewayURL = baseURL.Substring(0, offset);

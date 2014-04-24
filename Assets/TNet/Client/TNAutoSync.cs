@@ -33,12 +33,14 @@ public class TNAutoSync : TNBehaviour
 
 	/// <summary>
 	/// Maximum possible number of updates per second. If the values don't change, nothing will be sent.
+	/// If to set it to zero, the value will only be synchronized when new players join.
 	/// </summary>
 
 	public int updatesPerSecond = 10;
 
 	/// <summary>
 	/// Whether the result will be saved on the server or not. In most cases it should remain as 'true'.
+	/// In any case the values will be sent to newly joined players automatically.
 	/// </summary>
 
 	public bool isSavedOnServer = true;
@@ -56,8 +58,6 @@ public class TNAutoSync : TNBehaviour
 
 	public bool isImportant = false;
 
-	bool mCanSync = false;
-
 	class ExtendedEntry : SavedEntry
 	{
 		public FieldInfo field;
@@ -67,12 +67,6 @@ public class TNAutoSync : TNBehaviour
 
 	List<ExtendedEntry> mList = new List<ExtendedEntry>();
 	object[] mCached = null;
-
-	/// <summary>
-	/// Can only sync once we've joined a channel.
-	/// </summary>
-
-	void OnNetworkJoinChannel (bool success, string err) { mCanSync = success; }
 
 	/// <summary>
 	/// Locate the property that we should be synchronizing.
@@ -125,26 +119,21 @@ public class TNAutoSync : TNBehaviour
 							mList.Add(ext);
 							continue;
 						}
-						else
-						{
-							Debug.LogError("Unable to find property: '" + ent.propertyName + "' on " + ent.target.GetType());
-						}
+						else Debug.LogError("Unable to find property: '" + ent.propertyName + "' on " + ent.target.GetType());
 					}
 				}
 			}
 
 			if (mList.size > 0)
 			{
-				// Only start the coroutine if we wanted to run periodic updates
-				if (updatesPerSecond > 0 && TNManager.isInChannel)
-				{
-					// If we're already in a channel, we can now sync this object
-					if (TNManager.isInChannel) mCanSync = true;
+				if (updatesPerSecond > 0)
 					StartCoroutine(PeriodicSync());
-				}
-				else enabled = false;
 			}
-			else enabled = false;
+			else
+			{
+				Debug.LogWarning("Nothing to sync", this);
+				enabled = false;
+			}
 		}
 	}
 
@@ -156,63 +145,73 @@ public class TNAutoSync : TNBehaviour
 	{
 		for (; ; )
 		{
-			if (!TNManager.isInChannel) break;
-			if (mCanSync && (!onlyOwnerCanSync || tno.isMine)) Sync();
-
-			if (updatesPerSecond > 0)
+			if (TNManager.isInChannel && updatesPerSecond > 0)
 			{
+				if (mList.size != 0 && (!onlyOwnerCanSync || tno.isMine) && Cache()) Sync();
 				yield return new WaitForSeconds(1f / updatesPerSecond);
 			}
-			else yield return new WaitForSeconds(0.01f);
+			else yield return new WaitForSeconds(0.1f);
 		}
 	}
 
 	/// <summary>
-	/// Sync everything now.
+	/// If this values are not saved on the server, at least send them to the newly joined player.
+	/// </summary>
+
+	void OnNetworkPlayerJoin (Player p)
+	{
+		if (mList.size != 0 && !isSavedOnServer && TNManager.isHosting)
+		{
+			if (Cache()) Sync();
+			else tno.Send(255, p, mCached);
+		}
+	}
+
+	/// <summary>
+	/// Immediately cache all synchronized values and return whether something actually changed.
+	/// </summary>
+
+	bool Cache ()
+	{
+		bool initial = false;
+		bool changed = false;
+
+		if (mCached == null)
+		{
+			initial = true;
+			mCached = new object[mList.size];
+		}
+
+		for (int i = 0; i < mList.size; ++i)
+		{
+			ExtendedEntry ext = mList[i];
+
+			object val = (ext.field != null) ?
+				val = ext.field.GetValue(ext.target) :
+				val = ext.property.GetValue(ext.target, null);
+
+			if (!val.Equals(ext.lastValue))
+				changed = true;
+
+			if (initial || changed)
+			{
+				ext.lastValue = val;
+				mCached[i] = val;
+			}
+		}
+		return changed;
+	}
+
+	/// <summary>
+	/// Immediately synchronize all data by sending current values to everyone else.
 	/// </summary>
 
 	public void Sync ()
 	{
-		if (TNManager.isInChannel && mList.size != 0 && enabled)
+		if (TNManager.isInChannel && mList.size != 0)
 		{
-			bool initial = false;
-			bool changed = false;
-
-			if (mCached == null)
-			{
-				initial = true;
-				mCached = new object[mList.size];
-			}
-
-			for (int i = 0; i < mList.size; ++i)
-			{
-				ExtendedEntry ext = mList[i];
-
-				object val = (ext.field != null) ?
-					val = ext.field.GetValue(ext.target) :
-					val = ext.property.GetValue(ext.target, null);
-
-				if (!val.Equals(ext.lastValue))
-					changed = true;
-
-				if (initial || changed)
-				{
-					ext.lastValue = val;
-					mCached[i] = val;
-				}
-			}
-
-			if (changed)
-			{
-				if (isImportant)
-				{
-					tno.Send(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
-				}
-				else
-				{
-					tno.SendQuickly(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
-				}
-			}
+			if (isImportant) tno.Send(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
+			else tno.SendQuickly(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
 		}
 	}
 

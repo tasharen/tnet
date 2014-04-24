@@ -217,6 +217,26 @@ public class TNManager : MonoBehaviour
 	static public Player player { get { return isConnected ? mInstance.mClient.player : mPlayer; } }
 
 	/// <summary>
+	/// Ensure that we have a TNManager to work with.
+	/// </summary>
+
+	static TNManager instance
+	{
+		get
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying) return mInstance;
+#endif
+			if (mInstance == null)
+			{
+				GameObject go = new GameObject("Network Manager");
+				mInstance = go.AddComponent<TNManager>();
+			}
+			return mInstance;
+		}
+	}
+
+	/// <summary>
 	/// Get the player associated with the specified ID.
 	/// </summary>
 
@@ -233,10 +253,7 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (byte packetID, GameClient.OnPacket callback)
 	{
-		if (mInstance != null)
-		{
-			mInstance.mClient.packetHandlers[packetID] = callback;
-		}
+		instance.mClient.packetHandlers[packetID] = callback;
 	}
 
 	/// <summary>
@@ -245,10 +262,7 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (Packet packet, GameClient.OnPacket callback)
 	{
-		if (mInstance != null)
-		{
-			mInstance.mClient.packetHandlers[(byte)packet] = callback;
-		}
+		instance.mClient.packetHandlers[(byte)packet] = callback;
 	}
 
 	/// <summary>
@@ -269,11 +283,8 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
-		if (mInstance != null)
-		{
-			mInstance.mClient.playerName = mPlayer.name;
-			mInstance.mClient.Connect(externalIP, internalIP);
-		}
+		instance.mClient.playerName = mPlayer.name;
+		instance.mClient.Connect(externalIP, internalIP);
 	}
 
 	/// <summary>
@@ -286,15 +297,12 @@ public class TNManager : MonoBehaviour
 
 		if (ip == null)
 		{
-			if (mInstance != null)
-			{
-				mInstance.OnConnect(false, "Unable to resolve [" + address + "]");
-			}
+			instance.OnConnect(false, "Unable to resolve [" + address + "]");
 		}
-		else if (mInstance != null)
+		else
 		{
-			mInstance.mClient.playerName = mPlayer.name;
-			mInstance.mClient.Connect(ip, null);
+			instance.mClient.playerName = mPlayer.name;
+			instance.mClient.Connect(ip, null);
 		}
 	}
 
@@ -304,13 +312,10 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (string address)
 	{
-		if (mInstance != null)
-		{
-			string[] split = address.Split(new char[] { ':' });
-			int port = 5127;
-			if (split.Length > 1) int.TryParse(split[1], out port);
-			Connect(split[0], port);
-		}
+		string[] split = address.Split(new char[] { ':' });
+		int port = 5127;
+		if (split.Length > 1) int.TryParse(split[1], out port);
+		Connect(split[0], port);
 	}
 
 	/// <summary>
@@ -683,6 +688,18 @@ public class TNManager : MonoBehaviour
 			mClient.onCreate			+= OnCreateObject;
 			mClient.onDestroy			+= OnDestroyObject;
 			mClient.onForwardedPacket	+= OnForwardedPacket;
+
+#if UNITY_EDITOR
+			List<IPAddress> ips = Tools.localAddresses;
+			string text = "[TNet] Local IPs: " + ips.size;
+
+			for (int i = 0; i < ips.size; ++i)
+			{
+				text += "\n  " + (i + 1) + ": " + ips[i];
+				if (ips[i] == Tools.localAddress) text += " (Primary)";
+			}
+			Debug.Log(text);
+#endif
 		}
 	}
 

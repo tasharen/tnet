@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Net.NetworkInformation;
 
 #if UNITY_IPHONE
 using System.Net.NetworkInformation;
@@ -61,8 +62,66 @@ static public class Tools
 
 	static public int randomPort { get { return 10000 + (int)(System.DateTime.Now.Ticks % 50000); } }
 
+	static List<NetworkInterface> mInterfaces = null;
+
 	/// <summary>
-	/// Local IP address.
+	/// Return the list of operational network interfaces.
+	/// </summary>
+
+	static public List<NetworkInterface> networkInterfaces
+	{
+		get
+		{
+			if (mInterfaces == null)
+			{
+				mInterfaces = new List<NetworkInterface>();
+				NetworkInterface[] list = NetworkInterface.GetAllNetworkInterfaces();
+
+				foreach (NetworkInterface ni in list)
+				{
+					if (ni.Supports(NetworkInterfaceComponent.IPv4) &&
+						ni.OperationalStatus == OperationalStatus.Up)
+						mInterfaces.Add(ni);
+				}
+			}
+			return mInterfaces;
+		}
+	}
+
+	static List<IPAddress> mAddresses = null;
+
+	/// <summary>
+	/// Return the list of local addresses. There can be more than one if there is more than one network (for example: Hamachi).
+	/// </summary>
+
+	static public List<IPAddress> localAddresses
+	{
+		get
+		{
+			if (mAddresses == null)
+			{
+				mAddresses = new List<IPAddress>();
+				List<NetworkInterface> list = networkInterfaces;
+
+				for (int i = 0; i < list.size; ++i)
+				{
+					NetworkInterface ni = list[i];
+					IPInterfaceProperties props = ni.GetIPProperties();
+					UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+
+					foreach (UnicastIPAddressInformation uni in uniAddresses)
+					{
+						if (IsValidAddress(uni.Address))
+							mAddresses.Add(uni.Address);
+					}
+				}
+			}
+			return mAddresses;
+		}
+	}
+
+	/// <summary>
+	/// Default local IP address. Note that there can be more than one address in case of more than one network.
 	/// </summary>
 
 	static public IPAddress localAddress
@@ -71,60 +130,45 @@ static public class Tools
 		{
 			if (mLocalAddress == null)
 			{
-#if UNITY_IPHONE
-				NetworkInterface[] nis = NetworkInterface.GetAllNetworkInterfaces();
+				mLocalAddress = IPAddress.None;
+				List<IPAddress> list = localAddresses;
 
-				foreach (NetworkInterface ni in nis)
+				if (list.size > 0)
 				{
-					IPInterfaceProperties IPInterfaceProperties = ni.GetIPProperties();
-					UnicastIPAddressInformationCollection UnicastIPAddressInformationCollection = IPInterfaceProperties.UnicastAddresses;
+					mLocalAddress = mAddresses[0];
 
-					foreach (UnicastIPAddressInformation UnicastIPAddressInformation in UnicastIPAddressInformationCollection)
+					for (int i = 0; i < mAddresses.size; ++i)
 					{
-						if (UnicastIPAddressInformation.Address.AddressFamily == AddressFamily.InterNetwork)
-						{
-							mLocalAddress = UnicastIPAddressInformation.Address;
-							break;
-						}
+						IPAddress addr = mAddresses[i];
+						string str = addr.ToString();
+						
+						// Hamachi IPs begin with 25
+						if (str.StartsWith("25.")) continue;
+
+						// This is a valid address
+						mLocalAddress = addr;
+						break;
 					}
 				}
-#else
-				try
-				{
-					IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
-
-					for (int i = 0; i < ips.Length; ++i)
-					{
-						if (IsValidAddress(ips[i]))
-						{
-							mLocalAddress = ips[i];
-							break;
-						}
-					}
-
-					//IPHostEntry ent = Dns.GetHostEntry(Dns.GetHostName());
-
-					//foreach (IPAddress ip in ent.AddressList)
-					//{
-					//    if (IsValidAddress(ip))
-					//    {
-					//        mLocalAddress = ip;
-					//        break;
-					//    }
-					//}
-				}
-#if DEBUG
-				catch (System.Exception ex)
-				{
-					System.Console.WriteLine("TNTools.LocalAddress: " + ex.Message);
-					mLocalAddress = IPAddress.Loopback;
-				}
-#else
-				catch (System.Exception) { mLocalAddress = IPAddress.Loopback; }
-#endif // DEBUG
-#endif // UNITY_IPHONE
 			}
 			return mLocalAddress;
+		}
+		set
+		{
+			mLocalAddress = value;
+
+			if (value != null)
+			{
+				List<IPAddress> list = localAddresses;
+				for (int i = 0; i < list.size; ++i)
+					if (list[i] == value)
+						return;
+			}
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogWarning("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
+#else
+			Console.WriteLine("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
+#endif
 		}
 	}
 
@@ -212,6 +256,7 @@ static public class Tools
 		if (address.Equals(IPAddress.Loopback)) return false;
 		if (address.Equals(IPAddress.None)) return false;
 		if (address.Equals(IPAddress.Any)) return false;
+		if (address.ToString().StartsWith("169.")) return false;
 		return true;
 	}
 
@@ -223,6 +268,8 @@ static public class Tools
 	{
 		if (string.IsNullOrEmpty(address))
 			return null;
+
+		if (address == "localhost") return IPAddress.Loopback;
 
 		IPAddress ip;
 		if (IPAddress.TryParse(address, out ip))

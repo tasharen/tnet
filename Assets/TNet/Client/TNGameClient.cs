@@ -649,7 +649,7 @@ public class GameClient
 		Packet response = (Packet)packetID;
 
 		// Verification step must be passed first
-		if (mTcp.stage == TcpProtocol.Stage.Verifying)
+		if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
 		{
 			if (mTcp.VerifyResponseID(response, reader))
 			{
@@ -663,10 +663,6 @@ public class GameClient
 #endif
 				mCanPing = true;
 				if (onConnect != null) onConnect(true, null);
-			}
-			else if (onConnect != null)
-			{
-				onConnect(false, "Protocol version mismatch!");
 			}
 			return true;
 		}

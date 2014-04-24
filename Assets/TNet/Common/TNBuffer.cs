@@ -95,7 +95,6 @@ public class Buffer
 		if (mPool.size == 0)
 		{
 			b = new Buffer();
-			//Console.WriteLine("NEW");
 		}
 		else
 		{
@@ -105,13 +104,8 @@ public class Buffer
 				{
 					b = mPool.Pop();
 					b.mInPool = false;
-					//Console.WriteLine("+++");
 				}
-				else
-				{
-					b = new Buffer();
-					//Console.WriteLine("NEW");
-				}
+				else b = new Buffer();
 			}
 		}
 		b.mCounter = markAsUsed ? 1 : 0;
@@ -132,12 +126,6 @@ public class Buffer
 	{
 		if (!mInPool && (!checkUsedFlag || MarkAsUnused()))
 		{
-#if UNITY_EDITOR
-			//Packet packet = (Packet)PeekByte(4);
-			//UnityEngine.Debug.Log("Recycle " + packet);
-#else
-			//Console.WriteLine("---");
-#endif
 			mInPool = true;
 
 			lock (mPool)

@@ -18,9 +18,18 @@ namespace TNet
 
 public class UdpProtocol
 {
+	/// <summary>
+	/// When you have multiple network interfaces, it's often important to be able to specify
+	/// which interface will actually be used to send UDP messages. By default this will be set
+	/// to Tools.localAddress, but you can change it to be something else if you desire.
+	/// </summary>
+
+	static public IPAddress defaultNetworkInterface = IPAddress.Any;
+
 	// Port used to listen and socket used to send and receive
 	int mPort = -1;
 	Socket mSocket;
+	//List<UdpClient> mClients = new List<UdpClient>();
 
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
@@ -64,7 +73,7 @@ public class UdpProtocol
 	public bool Start (int port)
 	{
 #if UNITY_EDITOR
-		UnityEngine.Debug.LogWarning("Unity doesn't support UDP on Flash or Web Player targets");
+		UnityEngine.Debug.LogWarning("[TNet] Unity doesn't support UDP on Flash or Web Player targets");
 #endif
 		return false;
 	}
@@ -75,20 +84,40 @@ public class UdpProtocol
 
 		mPort = port;
 		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+		mSocket.MulticastLoopback = true;
 #if !UNITY_WEBPLAYER
 		// Web player doesn't seem to support broadcasts
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+
+		//IPAddress group = IPAddress.Parse("224.168.100.17");
+		//List<IPAddress> ips = Tools.localAddresses;
+
+		//foreach (IPAddress ip in ips)
+		//{
+		//    MulticastOption opt = new MulticastOption(group, ip);
+		//    mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
+		//}
 #endif
 		// Port zero means we will be able to send, but not receive
 		if (mPort == 0) return true;
 
+		// Choose a specific network interface
+		if (defaultNetworkInterface == IPAddress.Any)
+			defaultNetworkInterface = Tools.localAddress;
+
 		try
 		{
-			mSocket.Bind(new IPEndPoint(IPAddress.Any, mPort));
+			// Bind the socket to the specific network interface and start listening for incoming packets
+			mSocket.Bind(new IPEndPoint(defaultNetworkInterface, mPort));
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 #if UNITY_EDITOR
-		catch (System.Exception ex) { UnityEngine.Debug.LogError("Udp.Start: " + ex.Message); Stop(); return false; }
+		catch (System.Exception ex)
+		{
+			UnityEngine.Debug.LogError("[TNet] Udp.Start: " + ex.Message);
+			Stop();
+			return false;
+		}
 #elif DEBUG
 		catch (System.Exception ex) { Console.WriteLine("Udp.Start: " + ex.Message); Stop(); return false; }
 #else
@@ -206,7 +235,7 @@ public class UdpProtocol
 			buffer.MarkAsUsed();
 #if UNITY_WEBPLAYER || UNITY_FLASH
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogError("Sending broadcasts doesn't work in the Unity Web Player or Flash");
+			UnityEngine.Debug.LogError("[TNet] Sending broadcasts doesn't work in the Unity Web Player or Flash");
 #endif
 #else
 			mBroadcastIP.Port = port;
@@ -283,9 +312,8 @@ public class UdpProtocol
 #if STANDALONE
 			Console.WriteLine(ex.Message);
 #else
-			UnityEngine.Debug.Log(ex.Message);
+			UnityEngine.Debug.Log("[TNet] " + ex.Message);
 #endif
-			//Error(new IPEndPoint(Tools.localAddress, 0), ex.Message);
 		}
 
 		lock (mOut)

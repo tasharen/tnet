@@ -719,8 +719,10 @@ public class TcpProtocol : Player
 				return false;
 			}
 		}
+		Error("Expected a response ID, got " + packet);
+		Close(false);
 #if UNITY_EDITOR
-		UnityEngine.Debug.LogWarning("VerifyResponseID expected ResponseID, got " + packet);
+		UnityEngine.Debug.LogWarning("[TNet] VerifyResponseID expected ResponseID, got " + packet);
 #endif
 		return false;
 	}
