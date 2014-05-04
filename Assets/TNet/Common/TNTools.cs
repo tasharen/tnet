@@ -167,7 +167,7 @@ static public class Tools
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
 #else
-			Console.WriteLine("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
+			System.Console.WriteLine("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
 #endif
 		}
 	}

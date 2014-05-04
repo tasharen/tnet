@@ -531,7 +531,7 @@ public sealed class TNObject : MonoBehaviour
 				BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
-				UnityTools.Write(writer, objs);
+				Serialization.WriteObject(writer, objs);
 				TNManager.EndSend(reliable);
 			}
 			else executeLocally = true;
@@ -562,7 +562,7 @@ public sealed class TNObject : MonoBehaviour
 			BinaryWriter writer = TNManager.BeginSend(packetID);
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
-			UnityTools.Write(writer, objs);
+			Serialization.WriteObject(writer, objs);
 			TNManager.EndSend(reliable);
 		}
 		else if (!TNManager.isConnected && (target == Target.All || target == Target.AllSaved))
@@ -590,7 +590,7 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(target.id);
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
-			UnityTools.Write(writer, objs);
+			Serialization.WriteObject(writer, objs);
 			TNManager.EndSend(reliable);
 		}
 	}
@@ -604,7 +604,7 @@ public sealed class TNObject : MonoBehaviour
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write(GetUID(uid, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);
-		UnityTools.Write(writer, objs);
+		Serialization.WriteObject(writer, objs);
 		TNManager.EndSend(port);
 	}
 

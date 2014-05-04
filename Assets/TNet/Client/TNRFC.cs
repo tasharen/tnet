@@ -12,7 +12,7 @@ namespace TNet
 /// Remote Function Call attribute. Used to identify functions that are supposed to be executed remotely.
 /// </summary>
 
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class RFC : Attribute
 {
 	public byte id = 0;
@@ -25,7 +25,7 @@ public sealed class RFC : Attribute
 /// Remote Creation Call attribute. Used to identify functions that are supposed to executed when custom OnCreate packets arrive.
 /// </summary>
 
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class RCC : System.Attribute
 {
 	public byte id;

@@ -238,7 +238,9 @@ public class TNServerInstance : MonoBehaviour
 	{
 		if (mInstance != null && mInstance.mGame.isActive)
 		{
-			mInstance.mGame.SaveTo(fileName);
+			if (!string.IsNullOrEmpty(fileName))
+				mInstance.mGame.SaveTo(fileName);
+
 			Stop();
 		}
 	}

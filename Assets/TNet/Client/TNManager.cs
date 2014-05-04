@@ -293,7 +293,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (string address, int port)
 	{
-		IPEndPoint ip = Tools.ResolveEndPoint(address, port);
+		IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
 
 		if (ip == null)
 		{
@@ -486,12 +486,12 @@ public class TNManager : MonoBehaviour
 				writer.Write(GetFlag(go, persistent));
 				writer.Write((byte)rccID);
 
-				UnityTools.Write(writer, objs);
+				Serialization.WriteObject(writer, objs);
 				EndSend();
 				return;
 			}
 
-			objs = UnityTools.Combine(go, objs);
+			objs = Serialization.CombineArrays(go, objs);
 			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
 			UnityTools.Clear(objs);
 		}
@@ -517,15 +517,16 @@ public class TNManager : MonoBehaviour
 				writer.Write(path);
 				writer.Write((byte)rccID);
 
-				UnityTools.Write(writer, objs);
+				Serialization.WriteObject(writer, objs);
 				EndSend();
 				return;
 			}
 
-			objs = UnityTools.Combine(go, objs);
+			objs = Serialization.CombineArrays(go, objs);
 			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
 			UnityTools.Clear(objs);
 		}
+		else Debug.LogError("Unable to load " + path);
 	}
 
 	/// <summary>
@@ -690,13 +691,13 @@ public class TNManager : MonoBehaviour
 			mClient.onForwardedPacket	+= OnForwardedPacket;
 
 #if UNITY_EDITOR
-			List<IPAddress> ips = Tools.localAddresses;
+			List<IPAddress> ips = TNet.Tools.localAddresses;
 			string text = "[TNet] Local IPs: " + ips.size;
 
 			for (int i = 0; i < ips.size; ++i)
 			{
 				text += "\n  " + (i + 1) + ": " + ips[i];
-				if (ips[i] == Tools.localAddress) text += " (Primary)";
+				if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
 			}
 			Debug.Log(text);
 #endif
@@ -826,7 +827,7 @@ public class TNManager : MonoBehaviour
 			else
 			{
 				// Custom creation function
-				object[] objs = UnityTools.Read(prefab, reader);
+				object[] objs = reader.ReadArray(prefab);
 				object retVal;
 				UnityTools.ExecuteFirst(GetRCCs(), (byte)type, out retVal, objs);
 				UnityTools.Clear(objs);
@@ -858,11 +859,11 @@ public class TNManager : MonoBehaviour
 
 		if (funcID == 0)
 		{
-			TNObject.FindAndExecute(objID, reader.ReadString(), UnityTools.Read(reader));
+			TNObject.FindAndExecute(objID, reader.ReadString(), Serialization.ReadArray(reader));
 		}
 		else
 		{
-			TNObject.FindAndExecute(objID, funcID, UnityTools.Read(reader));
+			TNObject.FindAndExecute(objID, funcID, Serialization.ReadArray(reader));
 		}
 	}
 

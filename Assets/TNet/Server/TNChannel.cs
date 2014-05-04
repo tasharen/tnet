@@ -18,9 +18,12 @@ public class Channel
 	public class RFC
 	{
 		// Object ID (24 bytes), RFC ID (8 bytes)
-		public uint id;
-		public string funcName;
+		public uint uid;
+		public string functionName;
 		public Buffer buffer;
+
+		public uint objectID { get { return (uid >> 8); } }
+		public uint functionID { get { return (uid & 0xFF); } }
 	}
 
 	public class CreatedObject
@@ -151,7 +154,7 @@ public class Channel
 		{
 			RFC r = rfcs[i];
 
-			if ((r.id >> 8) == objectID)
+			if (r.objectID == objectID)
 			{
 				rfcs.RemoveAt(i);
 				r.buffer.Recycle();
@@ -173,8 +176,8 @@ public class Channel
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
-			
-			if (r.id == inID && r.funcName == funcName)
+
+			if (r.uid == inID && r.functionName == funcName)
 			{
 				if (r.buffer != null) r.buffer.Recycle();
 				r.buffer = buffer;
@@ -183,9 +186,9 @@ public class Channel
 		}
 
 		RFC rfc = new RFC();
-		rfc.id = inID;
+		rfc.uid = inID;
 		rfc.buffer = buffer;
-		rfc.funcName = funcName;
+		rfc.functionName = funcName;
 		rfcs.Add(rfc);
 	}
 
@@ -199,7 +202,7 @@ public class Channel
 		{
 			RFC r = rfcs[i];
 
-			if (r.id == inID && r.funcName == funcName)
+			if (r.uid == inID && r.functionName == funcName)
 			{
 				rfcs.RemoveAt(i);
 				r.buffer.Recycle();
@@ -225,7 +228,8 @@ public class Channel
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC rfc = rfcs[i];
-			writer.Write(rfc.id);
+			writer.Write(rfc.uid);
+			if (rfc.functionID == 0) writer.Write(rfc.functionName);
 			writer.Write(rfc.buffer.size);
 			
 			if (rfc.buffer.size > 0)
@@ -287,7 +291,8 @@ public class Channel
 		for (int i = 0; i < size; ++i)
 		{
 			RFC rfc = new RFC();
-			rfc.id = reader.ReadUInt32();
+			rfc.uid = reader.ReadUInt32();
+			if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 			rfc.buffer = b;

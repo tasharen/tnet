@@ -3,14 +3,28 @@
 // Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
+using System.Diagnostics;
 namespace TNet
 {
+/// <summary>
+/// Generic interface with an Add function so that it can be used by the Serializer.
+/// </summary>
+
+public interface TList
+{
+	int Count { get; }
+	object Get (int index);
+	void Add (object obj);
+	void RemoveAt (int index);
+	void Clear ();
+}
 /// <summary>
 /// This improved version of the System.Collections.Generic.List that doesn't release the buffer on Clear(),
 /// resulting in better performance and less garbage collection.
 /// </summary>
 
-public class List<T>
+[System.Serializable]
+public class List<T> : TList
 {
 	/// <summary>
 	/// Direct access to the buffer. Note that you should not use its 'Length' parameter, but instead use List.size.
@@ -48,6 +62,18 @@ public class List<T>
 		get { return buffer[i]; }
 		set { buffer[i] = value; }
 	}
+
+	/// <summary>
+	/// For compatibility with Systems.Collections.Generic.List. It's faster to use 'size' instead.
+	/// </summary>
+
+	public int Count { get { return size; } }
+
+	/// <summary>
+	/// Used by the TList interface, needed to be able to iterate through the data in the Serializer.
+	/// </summary>
+
+	public object Get (int index) { return buffer[index]; }
 
 	/// <summary>
 	/// Helper function that expands the size of the array, maintaining the content.
@@ -104,6 +130,16 @@ public class List<T>
 	}
 
 	/// <summary>
+	/// Add the specified item to the end of the list.
+	/// </summary>
+
+	public void Add (object item)
+	{
+		if (buffer == null || size == buffer.Length) AllocateMore();
+		buffer[size++] = (T)item;
+	}
+
+	/// <summary>
 	/// Insert an item at the specified index, pushing the entries back.
 	/// </summary>
 
@@ -129,6 +165,17 @@ public class List<T>
 		if (buffer == null) return false;
 		for (int i = 0; i < size; ++i) if (buffer[i].Equals(item)) return true;
 		return false;
+	}
+
+	/// <summary>
+	/// Return the index of the specified item.
+	/// </summary>
+
+	public int IndexOf (T item)
+	{
+		if (buffer == null) return -1;
+		for (int i = 0; i < size; ++i) if (buffer[i].Equals(item)) return i;
+		return -1;
 	}
 
 	/// <summary>
@@ -192,25 +239,42 @@ public class List<T>
 	public T[] ToArray () { Trim(); return buffer; }
 
 	/// <summary>
+	/// Comparison function should return -1 if left is less than right, 1 if left is greater than right, and 0 if they match.
+	/// </summary>
+
+	public delegate int CompareFunc (T left, T right);
+
+	/// <summary>
 	/// List.Sort equivalent.
 	/// </summary>
 
-	public void Sort (System.Comparison<T> comparer)
+	[DebuggerHidden]
+	[DebuggerStepThrough]
+	public void Sort (CompareFunc comparer)
 	{
+		int start = 0;
+		int max = size - 1;
 		bool changed = true;
 
 		while (changed)
 		{
 			changed = false;
 
-			for (int i = 1; i < size; ++i)
+			for (int i = start; i < max; ++i)
 			{
-				if (comparer.Invoke(buffer[i - 1], buffer[i]) > 0)
+				// Compare the two values
+				if (comparer(buffer[i], buffer[i + 1]) > 0)
 				{
+					// Swap the values
 					T temp = buffer[i];
-					buffer[i] = buffer[i - 1];
-					buffer[i - 1] = temp;
+					buffer[i] = buffer[i + 1];
+					buffer[i + 1] = temp;
 					changed = true;
+				}
+				else if (!changed)
+				{
+					// Nothing has changed -- we can start here next time
+					start = (i == 0) ? 0 : i - 1;
 				}
 			}
 		}
