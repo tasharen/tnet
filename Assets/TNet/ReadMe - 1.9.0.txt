@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.8.5
+                  Version 1.9.0
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,19 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.0:
+- NEW: TNManager no longer needs to be present in the scene for you to use TNet.
+- NEW: You can now send just about any type of data across the network via RFCs, not just specific types.
+- NEW: Added custom serialization functionality to send custom classes via RFCs more efficiently.
+- NEW: Added a DataNode tree-like data structure that's capable of serializing both to binary and to text format.
+- NEW: AutoSync can now be set to only sync when new players join.
+- NEW: Added support for multiple network interfaces (Hamachi etc).
+- NEW: You can now send all serializable types via RFC parameters.
+- NEW: Added a class capable of hierarchical serialization.
+- NEW: Added a bunch of serialization extension methods to BinaryWriter.
+- NEW: TNet will now show the inner exception when an RFC fails.
+- FIX: Better handling of mis-matched protocol IDs.
 
 1.8.5:
 - NEW: It's now possible to add RCCs via TNManager.AddRCCs function that are not under TNManager.

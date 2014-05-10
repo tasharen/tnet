@@ -775,14 +775,19 @@ public class TNManager : MonoBehaviour
 
 #if UNITY_EDITOR
 			List<IPAddress> ips = TNet.Tools.localAddresses;
-			string text = "[TNet] Local IPs: " + ips.size;
 
-			for (int i = 0; i < ips.size; ++i)
+			if (ips != null && ips.size > 0)
 			{
-				text += "\n  " + (i + 1) + ": " + ips[i];
-				if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+				string text = "[TNet] Local IPs: " + ips.size;
+
+				for (int i = 0; i < ips.size; ++i)
+				{
+					text += "\n  " + (i + 1) + ": " + ips[i];
+					if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+				}
+				Debug.Log(text);
 			}
-			Debug.Log(text);
+			else Debug.LogError("IP address cannot be determined!", this);
 #endif
 		}
 	}

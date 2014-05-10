@@ -27,25 +27,18 @@ public class ServerMain
 
 	static int Main (string[] args)
 	{
-		// TODO: Make it possible for the lobby servers to save & load files.
-		// - Client connects to the lobby.
-		// - Client gets a list of servers.
-		// - Client may request an AccountID if one was not found.
-		// - Lobby will provide an ever-incrementing AccountID for that player. This needs to be saved on server shutdown.
-		// - Player will pass this AccountID back to the server in order to save their progress (achievements and such).
-		// - This AccountID identifier makes it possible to send PMs, mail, and /friend the player.
-
 		if (args == null || args.Length == 0)
 		{
 			Console.WriteLine("No arguments specified, assuming default values.");
-			Console.WriteLine("In the future you can specify your own ports like so:");
+			Console.WriteLine("In the future you can specify your own ports like so:\n");
 			Console.WriteLine("   -name \"Your Server\"         <-- Name your server");
 			Console.WriteLine("   -tcp [port]                 <-- TCP port for clients to connect to");
 			Console.WriteLine("   -udp [port]                 <-- UDP port used for communication");
 			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
-			Console.WriteLine("For example:");
-			Console.WriteLine("TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
+			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
+			Console.WriteLine("\nFor example:");
+			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 			
 			args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
 		}
@@ -84,6 +77,10 @@ public class ServerMain
 			else if (param == "-udp")
 			{
 				if (val0 != null) int.TryParse(val0, out udpPort);
+			}
+			else if (param == "-ip")
+			{
+				if (val0 != null) UdpProtocol.defaultNetworkInterface = Tools.ResolveAddress(val0);
 			}
 			else if (param == "-tcpLobby")
 			{
@@ -125,9 +122,19 @@ public class ServerMain
 
 	static void Start (string name, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp)
 	{
-		Console.WriteLine("IP Addresses\n------------");
-		Console.WriteLine("External: " + Tools.externalAddress);
-		Console.WriteLine("Internal: " + Tools.localAddress);
+		//Console.WriteLine("External: " + Tools.externalAddress);
+		//Console.WriteLine("Internal: " + Tools.localAddress);
+
+		List<IPAddress> ips = Tools.localAddresses;
+		string text = "\nLocal IPs: " + ips.size;
+
+		for (int i = 0; i < ips.size; ++i)
+		{
+			text += "\n  " + (i + 1) + ": " + ips[i];
+			if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+		}
+		Console.WriteLine(text + "\n");
+
 		{
 			// Universal Plug & Play is used to determine the external IP address,
 			// and to automatically open up ports on the router / gateway.
@@ -209,7 +216,7 @@ public class ServerMain
 
 			for (; ; )
 			{
-				Console.WriteLine("Press 'q' followed by ENTER when you want to quit.");
+				Console.WriteLine("Press 'q' followed by ENTER when you want to quit.\n");
 				string command = Console.ReadLine();
 				if (command == "q") break;
 			}

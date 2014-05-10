@@ -163,7 +163,7 @@ public class GameServer : FileServer
 		}
 
 #if STANDALONE
-		Console.WriteLine("Game server started on port " + tcpPort);
+		Console.WriteLine("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
 		if (!mUdp.Start(udpPort))
 		{

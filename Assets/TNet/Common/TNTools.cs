@@ -101,18 +101,46 @@ static public class Tools
 			if (mAddresses == null)
 			{
 				mAddresses = new List<IPAddress>();
-				List<NetworkInterface> list = networkInterfaces;
 
-				for (int i = 0; i < list.size; ++i)
+				try
 				{
-					NetworkInterface ni = list[i];
-					IPInterfaceProperties props = ni.GetIPProperties();
-					UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+					List<NetworkInterface> list = networkInterfaces;
 
-					foreach (UnicastIPAddressInformation uni in uniAddresses)
+					for (int i = 0; i < list.size; ++i)
 					{
-						if (IsValidAddress(uni.Address))
-							mAddresses.Add(uni.Address);
+						NetworkInterface ni = list[i];
+						if (ni == null) continue;
+
+						IPInterfaceProperties props = ni.GetIPProperties();
+						if (props == null) continue;
+
+						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+
+						foreach (UnicastIPAddressInformation uni in uniAddresses)
+						{
+							// BUG: Accessing 'uni.Address' crashes when executed in a stand-alone build in Unity,
+							// yet works perfectly fine when launched from within the Unity Editor or any other platform.
+							// The stack trace reads:
+							//
+							// Argument cannot be null. Parameter name: src
+							// at (wrapper managed-to-native) System.Runtime.InteropServices.Marshal:PtrToStructure (intptr,System.Type)
+							// at System.Net.NetworkInformation.Win32_SOCKET_ADDRESS.GetIPAddress () [0x00000] in <filename unknown>:0 
+							// at System.Net.NetworkInformation.Win32UnicastIPAddressInformation.get_Address () [0x00000] in <filename unknown>:0
+
+							if (IsValidAddress(uni.Address))
+								mAddresses.Add(uni.Address);
+						}
+					}
+				}
+				catch (System.Exception)
+				{
+					// Fallback method. This won't work on the iPhone.
+					IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+
+					foreach (IPAddress ad in ips)
+					{
+						if (IsValidAddress(ad))
+							mAddresses.Add(ad);
 					}
 				}
 			}
@@ -141,7 +169,7 @@ static public class Tools
 					{
 						IPAddress addr = mAddresses[i];
 						string str = addr.ToString();
-						
+
 						// Hamachi IPs begin with 25
 						if (str.StartsWith("25.")) continue;
 
