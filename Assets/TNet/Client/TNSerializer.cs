@@ -22,6 +22,7 @@ namespace TNet
 {
 /// <summary>
 /// If custom or simply more efficient serialization is desired, derive your class from IBinarySerializable.
+/// Ideal use case would be to reduce the amount of data sent over the network via RFCs.
 /// </summary>
 
 public interface IBinarySerializable
@@ -42,12 +43,12 @@ public interface IBinarySerializable
 /// <summary>
 /// This class contains various serialization extension methods that make it easy to serialize
 /// any object into binary form that's smaller in size than what you would get by simply using
-/// the Binary Formatter.
-/// 
-/// Basic usage:
-/// binaryWriter.Write(data);
-/// binaryReader.Read<DataType>();
+/// the Binary Formatter. If you want more efficient serialization, implement IBinarySerializable.
 /// </summary>
+
+// Basic usage:
+// binaryWriter.Write(data);
+// binaryReader.Read<DataType>();
 
 public static class Serialization
 {
@@ -66,17 +67,35 @@ public static class Serialization
 
 	static public Type NameToType (string name)
 	{
-		Type type;
+		Type type = null;
 
 		if (!mNameToType.TryGetValue(name, out type))
 		{
 			if (name == "Vector2") type = typeof(Vector2);
 			else if (name == "Vector3") type = typeof(Vector3);
 			else if (name == "Vector4") type = typeof(Vector4);
-			else if (name == "Quaternion") type = typeof(Quaternion);
+			else if (name == "Euler" || name == "Quaternion") type = typeof(Quaternion);
 			else if (name == "Rect") type = typeof(Rect);
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
+			else if (name.StartsWith("IList"))
+			{
+				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
+				{
+					Type elemType = NameToType(name.Substring(6, name.Length - 7));
+					type = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+				}
+				else Debug.LogWarning("Malformed type: " + name);
+			}
+			else if (name.StartsWith("TList"))
+			{
+				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
+				{
+					Type elemType = NameToType(name.Substring(6, name.Length - 7));
+					type = typeof(TNet.List<>).MakeGenericType(elemType);
+				}
+				else Debug.LogWarning("Malformed type: " + name);
+			}
 			else type = Type.GetType(name);
 			mNameToType[name] = type;
 		}
@@ -89,6 +108,11 @@ public static class Serialization
 
 	static public string TypeToName (Type type)
 	{
+		if (type == null)
+		{
+			Debug.LogError("Type cannot be null");
+			return null;
+		}
 		string name;
 
 		if (!mTypeToName.TryGetValue(type, out name))
@@ -96,18 +120,177 @@ public static class Serialization
 			if (type == typeof(Vector2)) name = "Vector2";
 			else if (type == typeof(Vector3)) name = "Vector3";
 			else if (type == typeof(Vector4)) name = "Vector4";
-			else if (type == typeof(Quaternion)) name = "Quaternion";
+			else if (type == typeof(Quaternion)) name = "Euler";
 			else if (type == typeof(Rect)) name = "Rect";
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
-			else name = type.ToString();
+			else
+			{
+				if (type.Implements(typeof(IList)))
+				{
+					Type arg = type.GetGenericArgument();
+					if (arg != null) name = "IList<" + arg.ToString() + ">";
+					else name = type.ToString();
+				}
+				else if (type.Implements(typeof(TList)))
+				{
+					Type arg = type.GetGenericArgument();
+					if (arg != null) name = "TList<" + arg.ToString() + ">";
+					else name = type.ToString();
+				}
+				else name = type.ToString();
+			}
 			mTypeToName[type] = name;
 		}
 		return name;
 	}
 
+	/// <summary>
+	/// Helper function to convert the specified value into the provided type.
+	/// </summary>
+
+	static public object ConvertValue (object value, Type desiredType)
+	{
+		if (value == null) return null;
+
+		Type valueType = value.GetType();
+		if (desiredType.IsAssignableFrom(valueType)) return value;
+
+		if (valueType == typeof(int))
+		{
+			// Integer conversion
+			if (desiredType == typeof(byte)) return (byte)(int)value;
+			if (desiredType == typeof(short)) return (short)(int)value;
+			if (desiredType == typeof(ushort)) return (ushort)(int)value;
+		}
+		else if (valueType == typeof(float))
+		{
+			// Float conversion
+			if (desiredType == typeof(byte)) return (byte)Mathf.RoundToInt((float)value);
+			if (desiredType == typeof(short)) return (short)Mathf.RoundToInt((float)value);
+			if (desiredType == typeof(ushort)) return (ushort)Mathf.RoundToInt((float)value);
+			if (desiredType == typeof(int)) return Mathf.RoundToInt((float)value);
+		}
+		else if (valueType == typeof(Color32))
+		{
+			if (desiredType == typeof(Color))
+			{
+				Color32 c = (Color32)value;
+				return new Color(c.r / 255f, c.g / 255f, c.b / 255f, c.a / 255f);
+			}
+		}
+		else if (valueType == typeof(Vector3))
+		{
+			if (desiredType == typeof(Color))
+			{
+				Vector3 v = (Vector3)value;
+				return new Color(v.x, v.y, v.z);
+			}
+			else if (desiredType == typeof(Quaternion))
+			{
+				return Quaternion.Euler((Vector3)value);
+			}
+		}
+		else if (valueType == typeof(Color))
+		{
+			if (desiredType == typeof(Quaternion))
+			{
+				Color c = (Color)value;
+				return new Quaternion(c.r, c.g, c.b, c.a);
+			}
+			else if (desiredType == typeof(Rect))
+			{
+				Color c = (Color)value;
+				return new Rect(c.r, c.g, c.b, c.a);
+			}
+			else if (desiredType == typeof(Vector4))
+			{
+				Color c = (Color)value;
+				return new Vector4(c.r, c.g, c.b, c.a);
+			}
+		}
+
 #if REFLECTION_SUPPORT
+		if (desiredType.IsEnum)
+		{
+			if (valueType == typeof(Int32))
+				return value;
+
+			if (valueType == typeof(string))
+			{
+				string strVal = (string)value;
+
+				if (!string.IsNullOrEmpty(strVal))
+				{
+					string[] enumNames = Enum.GetNames(desiredType);
+					for (int i = 0; i < enumNames.Length; ++i)
+						if (enumNames[i] == strVal)
+							return Enum.GetValues(desiredType).GetValue(i);
+				}
+			}
+		}
+#endif
+		Debug.LogError("Unable to convert " + value.GetType() + " to " + desiredType);
+		return null;
+	}
+
+#if REFLECTION_SUPPORT
+	// Cached for speed
+	static Type[] mVoid = new Type[] { };
+	static Type[] mInt = new Type[1] { typeof(int) };
+	static Dictionary<Type, ConstructorInfo> mVoidConstructor = new Dictionary<Type, ConstructorInfo>();
+	static Dictionary<Type, ConstructorInfo> mIntConstructor = new Dictionary<Type, ConstructorInfo>();
 	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
+
+	/// <summary>
+	/// Retrieve the generic element type from the templated type.
+	/// </summary>
+
+	static public Type GetGenericArgument (this Type type)
+	{
+		Type[] elems = type.GetGenericArguments();
+		return (elems != null && elems.Length == 1) ? elems[0] : null;
+	}
+
+	/// <summary>
+	/// Create a new instance of the specified object.
+	/// </summary>
+
+	static public object Create (this Type type)
+	{
+		ConstructorInfo cons = null;
+
+		if (!mVoidConstructor.TryGetValue(type, out cons))
+		{
+			cons = type.GetConstructor(mVoid);
+			mVoidConstructor[type] = cons;
+		}
+		return (cons != null) ? cons.Invoke(null) : null;
+	}
+
+	/// <summary>
+	/// Create a new instance of the specified object.
+	/// </summary>
+
+	static public object Create (this Type type, int size)
+	{
+		ConstructorInfo cons = null;
+
+		if (!mIntConstructor.TryGetValue(type, out cons))
+		{
+			cons = type.GetConstructor(mInt);
+			mIntConstructor[type] = cons;
+		}
+
+		if (cons != null) return cons.Invoke(new object[] { size });
+
+		if (!mVoidConstructor.TryGetValue(type, out cons))
+		{
+			cons = type.GetConstructor(mVoid);
+			mVoidConstructor[type] = cons;
+		}
+		return (cons != null) ? cons.Invoke(null) : null;
+	}
 
 	/// <summary>
 	/// Collect all serializable fields on the class of specified type.
@@ -144,7 +327,7 @@ public static class Serialization
 				// Ignore fields that were marked as non-serializable
 				if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
 
-				// It's a valid serialiable field
+				// It's a valid serializable field
 				list.Add(field);
 			}
 			mFieldDict[type] = list;
@@ -167,8 +350,66 @@ public static class Serialization
 		}
 		return null;
 	}
+
+	/// <summary>
+	/// Set the specified field's value using reflection.
+	/// </summary>
+
+	static public bool SetSerializableField (this object obj, string name, object value)
+	{
+		if (obj == null) return false;
+		FieldInfo fi = GetSerializableField(obj.GetType(), name);
+		if (fi == null) return false;
+
+		try
+		{
+			fi.SetValue(obj, ConvertValue(value, fi.FieldType));
+		}
+		catch (Exception ex)
+		{
+			Debug.LogError(ex.Message);
+			return false;
+		}
+		return true;
+	}
+
+	/// <summary>
+	/// Extension function that deserializes the specified object into the chosen file using binary format.
+	/// Returns the size of the buffer written into the file.
+	/// </summary>
+
+	static public int Deserialize (this object obj, string path)
+	{
+		FileStream stream = File.Open(path, FileMode.Create);
+		if (stream == null) return 0;
+		BinaryWriter writer = new BinaryWriter(stream);
+		writer.WriteObject(obj);
+		int size = (int)stream.Position;
+		writer.Close();
+		return size;
+	}
+#else
+	/// <summary>
+	/// Create a new instance of the specified object.
+	/// </summary>
+
+	static public object Create (this Type type)
+	{
+		Debug.LogError("Can't create a " + type + " (reflection is not supported on this platform)");
+		return null;
+	}
+
+	/// <summary>
+	/// Set the specified field's value using reflection.
+	/// </summary>
+
+	static public bool SetSerializableField (this object obj, string name, object value)
+	{
+		Debug.LogError("Can't assign " + obj.GetType() + "." + name + " (reflection is not supported on this platform)");
+		return false;
+	}
 #endif
-#region Write
+	#region Write
 	/// <summary>
 	/// Write an integer value using the smallest number of bytes possible.
 	/// </summary>
@@ -271,8 +512,7 @@ public static class Serialization
 
 	/// <summary>
 	/// Get the identifier prefix for the specified type.
-	/// If this is not one of the common types, the returned value will be 253 if this type derives from IBinarySerializable,
-	/// 254 if reflection is supported and 255 otherwise.
+	/// If this is not one of the common types, the returned value will be 254 if reflection is supported and 255 otherwise.
 	/// </summary>
 
 	static int GetPrefix (Type type)
@@ -336,21 +576,42 @@ public static class Serialization
 			case 13: return typeof(Color);
 			case 14: return typeof(DataNode);
 
-			case 101: return typeof(bool);
-			case 102: return typeof(byte);
-			case 103: return typeof(ushort);
-			case 104: return typeof(int);
-			case 105: return typeof(uint);
-			case 106: return typeof(float);
-			case 107: return typeof(string);
-			case 108: return typeof(Vector2);
-			case 109: return typeof(Vector3);
-			case 110: return typeof(Vector4);
-			case 111: return typeof(Quaternion);
-			case 112: return typeof(Color32);
-			case 113: return typeof(Color);
+			case 101: return typeof(bool[]);
+			case 102: return typeof(byte[]);
+			case 103: return typeof(ushort[]);
+			case 104: return typeof(int[]);
+			case 105: return typeof(uint[]);
+			case 106: return typeof(float[]);
+			case 107: return typeof(string[]);
+			case 108: return typeof(Vector2[]);
+			case 109: return typeof(Vector3[]);
+			case 110: return typeof(Vector4[]);
+			case 111: return typeof(Quaternion[]);
+			case 112: return typeof(Color32[]);
+			case 113: return typeof(Color[]);
 		}
 		return null;
+	}
+
+	/// <summary>
+	/// Write the specified type to the binary writer.
+	/// </summary>
+
+	static public void Write (this BinaryWriter bw, Type type)
+	{
+		int prefix = GetPrefix(type);
+		bw.Write((byte)prefix);
+		if (prefix > 250) bw.Write(TypeToName(type));
+	}
+
+	/// <summary>
+	/// Write the specified type to the binary writer.
+	/// </summary>
+
+	static public void Write (this BinaryWriter bw, int prefix, Type type)
+	{
+		bw.Write((byte)prefix);
+		if (prefix > 250) bw.Write(TypeToName(type));
 	}
 
 	/// <summary>
@@ -386,106 +647,140 @@ public static class Serialization
 			return;
 		}
 
-		// If it's a TNet list, serialize all of its elements
-		if (obj is TList)
+		Type type;
+
+		if (!typeIsKnown)
 		{
-#if REFLECTION_SUPPORT
-			if (useReflection)
+			type = obj.GetType();
+			prefix = GetPrefix(type);
+		}
+		else type = GetType(prefix);
+
+		// If this is a custom type, there is more work to be done
+		if (prefix > 250)
+		{
+			// If it's a TNet list, serialize all of its elements
+			if (obj is TList)
 			{
-				Type type = obj.GetType();
-				TList list = obj as TList;
-				if (!typeIsKnown) bw.Write((byte)99);
-
-				// Determine the prefix for this type
-				Type elemType = type.GetGenericArguments()[0];
-				int elemPrefix = GetPrefix(elemType);
-				bool sameType = true;
-
-				// Make sure that all elements are of the same type
-				for (int i = 0, imax = list.Count; i < imax; ++i)
+#if REFLECTION_SUPPORT
+				if (useReflection)
 				{
-					object o = list.Get(i);
+					Type elemType = type.GetGenericArgument();
 
-					if (o != null && elemType != o.GetType())
+					if (elemType != null)
 					{
-						sameType = false;
-						elemPrefix = 255;
-						break;
+						TList list = obj as TList;
+
+						// Determine the prefix for this type
+						int elemPrefix = GetPrefix(elemType);
+						bool sameType = true;
+
+						// Make sure that all elements are of the same type
+						for (int i = 0, imax = list.Count; i < imax; ++i)
+						{
+							object o = list.Get(i);
+
+							if (o != null && elemType != o.GetType())
+							{
+								sameType = false;
+								elemPrefix = 255;
+								break;
+							}
+						}
+
+						if (!typeIsKnown) bw.Write((byte)98);
+						bw.Write(elemType);
+						bw.Write((byte)(sameType ? 1 : 0));
+						bw.WriteInt(list.Count);
+
+						for (int i = 0, imax = list.Count; i < imax; ++i)
+							bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
+						return;
 					}
 				}
-
-				bw.Write((byte)elemPrefix);
-				bw.Write(TypeToName(elemType));
-				bw.Write((byte)(sameType ? 1 : 0));
-				bw.WriteInt(list.Count);
-
-				for (int i = 0, imax = list.Count; i < imax; ++i)
-					bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
+#endif
+				if (!typeIsKnown) bw.Write((byte)255);
+				formatter.Serialize(bw.BaseStream, obj);
 				return;
 			}
-#endif
-			if (!typeIsKnown) bw.Write((byte)255);
-			formatter.Serialize(bw.BaseStream, obj);
-			return;
-		}
 
-		// If it's a generic list, serialize all of its elements
-		if (obj is IList)
-		{
-#if REFLECTION_SUPPORT
-			if (useReflection)
+			// If it's a generic list, serialize all of its elements
+			if (obj is IList)
 			{
-				Type type = obj.GetType();
-				Type[] types = type.GetGenericArguments();
-
-				if (types.Length == 1)
+#if REFLECTION_SUPPORT
+				if (useReflection)
 				{
-					IList list = obj as IList;
-					if (!typeIsKnown) bw.Write((byte)100);
+					Type elemType = type.GetGenericArgument();
+					bool fixedSize = false;
 
-					// It's a simple list with just one argument
-					Type elemType = types[0];
-
-					// Determine the prefix for this type
-					int elemPrefix = GetPrefix(elemType);
-					bool sameType = true;
-
-					// Make sure that all elements are of the same type
-					foreach (object o in list)
+					if (elemType == null)
 					{
-						if (o != null && elemType != o.GetType())
-						{
-							sameType = false;
-							elemPrefix = 255;
-							break;
-						}
+						elemType = type.GetElementType();
+						fixedSize = (type != null);
 					}
 
-					bw.Write((byte)elemPrefix);
-					bw.Write(TypeToName(elemType));
-					bw.Write((byte)(sameType ? 1 : 0));
-					bw.WriteInt(list.Count);
+					if (fixedSize)
+					{
+						// Determine the prefix for this type
+						int elemPrefix = GetPrefix(elemType);
+						IList list = obj as IList;
+						bool sameType = true;
 
-					foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
-					return;
+						// Make sure that all elements are of the same type
+						foreach (object o in list)
+						{
+							if (o != null && elemType != o.GetType())
+							{
+								sameType = false;
+								elemPrefix = 255;
+								break;
+							}
+						}
+
+						if (!typeIsKnown) bw.Write((byte)100);
+						bw.Write(type);
+						bw.Write((byte)(sameType ? 1 : 0));
+						bw.WriteInt(list.Count);
+
+						foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
+						return;
+					}
+					else if (elemType != null)
+					{
+						// Determine the prefix for this type
+						int elemPrefix = GetPrefix(elemType);
+						bool sameType = true;
+						IList list = obj as IList;
+
+						// Make sure that all elements are of the same type
+						foreach (object o in list)
+						{
+							if (o != null && elemType != o.GetType())
+							{
+								sameType = false;
+								elemPrefix = 255;
+								break;
+							}
+						}
+
+						if (!typeIsKnown) bw.Write((byte)99);
+						bw.Write(elemType);
+						bw.Write((byte)(sameType ? 1 : 0));
+						bw.WriteInt(list.Count);
+
+						foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
+						return;
+					}
 				}
-			}
 #endif
-			if (!typeIsKnown) bw.Write((byte)255);
-			formatter.Serialize(bw.BaseStream, obj);
-			return;
+				if (!typeIsKnown) bw.Write((byte)255);
+				formatter.Serialize(bw.BaseStream, obj);
+				return;
+			}
 		}
 
 		// Prefix is what identifies what type is going to follow
-		if (!typeIsKnown)
-		{
-			Type type = obj.GetType();
-			prefix = GetPrefix(type);
-			bw.Write((byte)prefix);
-
-			// If this is not a common type then we need to write down what type it is
-			if (prefix > 250) bw.Write(TypeToName(type));
-		}
+		if (!typeIsKnown) bw.Write(prefix, type);
 
 		switch (prefix)
 		{
@@ -595,7 +890,7 @@ public static class Serialization
 				break;
 			}
 #if REFLECTION_SUPPORT
-			case 254:
+			case 254: // Serialization using Reflection
 			{
 				FilterFields(obj);
 				bw.WriteInt(mFieldNames.size);
@@ -608,7 +903,7 @@ public static class Serialization
 				break;
 			}
 #endif
-			case 255:
+			case 255: // Serialization using a Binary Formatter
 			{
 				formatter.Serialize(bw.BaseStream, obj);
 				break;
@@ -647,6 +942,16 @@ public static class Serialization
 				mFieldValues.Add(val);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Helper extension that returns 'true' if the type implements the specified interface.
+	/// </summary>
+
+	static public bool Implements (this Type t, Type interfaceType)
+	{
+		if (interfaceType == null) return false;
+		return interfaceType.IsAssignableFrom(t);
 	}
 
 #endregion
@@ -733,6 +1038,26 @@ public static class Serialization
 	}
 
 	/// <summary>
+	/// Read a previously encoded type from the reader.
+	/// </summary>
+
+	static public Type ReadType (this BinaryReader reader)
+	{
+		int prefix = reader.ReadByte();
+		return (prefix > 250) ? NameToType(reader.ReadString()) : GetType(prefix);
+	}
+
+	/// <summary>
+	/// Read a previously encoded type from the reader.
+	/// </summary>
+
+	static public Type ReadType (this BinaryReader reader, out int prefix)
+	{
+		prefix = reader.ReadByte();
+		return (prefix > 250) ? NameToType(reader.ReadString()) : GetType(prefix);
+	}
+
+	/// <summary>
 	/// Read a single object from the binary reader and cast it to the chosen type.
 	/// </summary>
 
@@ -747,19 +1072,21 @@ public static class Serialization
 	/// Read a single object from the binary reader.
 	/// </summary>
 
-	static public object ReadObject (this BinaryReader reader) { return reader.ReadObject(0, null, false); }
+	static public object ReadObject (this BinaryReader reader) { return reader.ReadObject(null, 0, null, false); }
 
 	/// <summary>
 	/// Read a single object from the binary reader.
 	/// </summary>
 
-	static object ReadObject (this BinaryReader reader, int prefix, Type type, bool typeIsKnown)
+	static public object ReadObject (this BinaryReader reader, object obj) { return reader.ReadObject(obj, 0, null, false); }
+
+	/// <summary>
+	/// Read a single object from the binary reader.
+	/// </summary>
+
+	static object ReadObject (this BinaryReader reader, object obj, int prefix, Type type, bool typeIsKnown)
 	{
-		if (!typeIsKnown)
-		{
-			prefix = reader.ReadByte();
-			type = (prefix > 250) ? Type.GetType(reader.ReadString()) : GetType(prefix);
-		}
+		if (!typeIsKnown) type = reader.ReadType(out prefix);
 
 		switch (prefix)
 		{
@@ -778,50 +1105,79 @@ public static class Serialization
 			case 12: return reader.ReadColor32();
 			case 13: return reader.ReadColor();
 			case 14: return reader.ReadDataNode();
-			case 99: // TNet.List
+			case 98: // TNet.List
 			{
-#if REFLECTION_SUPPORT
-				prefix = reader.ReadByte();
-				type = (prefix > 250) ? Type.GetType(reader.ReadString()) : GetType(prefix);
-
-				if (type == null)
-				{
-					Debug.LogError("Unknown type " + prefix);
-					return null;
-				}
-
+				type = reader.ReadType(out prefix);
 				bool sameType = (reader.ReadByte() == 1);
-				Type arrType = typeof(TNet.List<>).MakeGenericType(type);
-				TList arr = (TList)Activator.CreateInstance(arrType);
 				int elements = reader.ReadInt();
+				TList arr = null;
 
-				for (int i = 0; i < elements; ++i)
-					arr.Add(reader.ReadObject(prefix, type, sameType));
-				return arr;
+				if (obj != null)
+				{
+					arr = (TList)obj;
+				}
+				else
+				{
+#if REFLECTION_SUPPORT
+					Type arrType = typeof(TNet.List<>).MakeGenericType(type);
+					arr = (TList)Activator.CreateInstance(arrType);
 #else
-				Debug.LogError("Reflection is not supported on this platform");
-				return null;
+					Debug.LogError("Reflection is not supported on this platform");
 #endif
-			}
-			case 100: // System.Collections.Generic.List
-			{
-#if REFLECTION_SUPPORT
-				prefix = reader.ReadByte();
-				type = (prefix > 250) ? Type.GetType(reader.ReadString()) : GetType(prefix);
+				}
 				
-				if (type == null)
+				for (int i = 0; i < elements; ++i)
 				{
-					Debug.LogError("Unknown type " + prefix);
-					return null;
+					object val = reader.ReadObject(null, prefix, type, sameType);
+					if (arr != null) arr.Add(val);
+				}
+				return arr;
+			}
+			case 99: // System.Collections.Generic.List
+			{
+				type = reader.ReadType(out prefix);
+				bool sameType = (reader.ReadByte() == 1);
+				int elements = reader.ReadInt();
+				IList arr = null;
+
+				if (obj != null)
+				{
+					arr = (IList)obj;
+				}
+				else
+				{
+#if REFLECTION_SUPPORT
+					Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(type);
+					arr = (IList)Activator.CreateInstance(arrType);
+#else
+					Debug.LogError("Reflection is not supported on this platform");
+#endif
 				}
 
+				for (int i = 0; i < elements; ++i)
+				{
+					object val = reader.ReadObject(null, prefix, type, sameType);
+					if (arr != null) arr.Add(val);
+				}
+				return arr;
+			}
+			case 100: // Array
+			{
+#if REFLECTION_SUPPORT
+				type = reader.ReadType(out prefix);
 				bool sameType = (reader.ReadByte() == 1);
-				Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(type);
-				IList arr = (IList)Activator.CreateInstance(arrType);
 				int elements = reader.ReadInt();
 
-				for (int i = 0; i < elements; ++i)
-					arr.Add(reader.ReadObject(prefix, type, sameType));
+				IList arr = (IList)type.Create(elements);
+
+				if (arr != null)
+				{
+					type = type.GetElementType();
+					prefix = GetPrefix(type);
+					for (int i = 0; i < elements; ++i)
+						arr[i] = reader.ReadObject(null, prefix, type, sameType);
+				}
+				else Debug.LogError("Failed to create a " + type);
 				return arr;
 #else
 				Debug.LogError("Reflection is not supported on this platform");
@@ -919,40 +1275,45 @@ public static class Serialization
 			}
 			case 253:
 			{
-				IBinarySerializable ser = (IBinarySerializable)type.GetConstructor(mVoid).Invoke(null);
-				ser.Deserialize(reader);
+				IBinarySerializable ser = (obj != null) ? (IBinarySerializable)obj : (IBinarySerializable)type.Create();
+				if (ser != null) ser.Deserialize(reader);
 				return ser;
 			}
-			case 254:
+			case 254: // Serialization using Reflection
 			{
-#if REFLECTION_SUPPORT
 				// Create the object
-				object obj = type.GetConstructor(mVoid).Invoke(null);
-
-				// How many fields have been serialized?
-				int count = ReadInt(reader);
-
-				for (int i = 0; i < count; ++i)
+				if (obj == null)
 				{
-					// Read the name of the field
-					string fieldName = reader.ReadString();
+#if REFLECTION_SUPPORT
+					obj = type.Create();
+#else
+					Debug.LogError("Reflection is not supported on this platform");
+#endif
+				}
 
-					// Try to find this field
-					FieldInfo fi = type.GetField(fieldName);
+				if (obj != null)
+				{
+					// How many fields have been serialized?
+					int count = ReadInt(reader);
 
-					// Read the value
-					object val = reader.ReadObject();
+					for (int i = 0; i < count; ++i)
+					{
+						// Read the name of the field
+						string fieldName = reader.ReadString();
 
-					// Assign the value
-					if (fi != null) fi.SetValue(obj, val);
+						// Try to find this field
+						FieldInfo fi = type.GetField(fieldName);
+
+						// Read the value
+						object val = reader.ReadObject();
+
+						// Assign the value
+						if (fi != null) fi.SetValue(obj, Serialization.ConvertValue(val, fi.FieldType));
+					}
 				}
 				return obj;
-#else
-				Debug.LogError("Reflection is not supported on this platform");
-				return null;
-#endif
 			}
-			case 255:
+			case 255: // Serialization using a Binary Formatter
 			{
 				return formatter.Deserialize(reader.BaseStream);
 			}
@@ -960,93 +1321,6 @@ public static class Serialization
 		return null;
 	}
 
-#if REFLECTION_SUPPORT
-	static Type[] mVoid = new Type[] { };
-#endif
-
-#endregion
-#region Arrays
-	static System.Collections.Generic.Dictionary<byte, object[]> mTemp =
-		new System.Collections.Generic.Dictionary<byte, object[]>();
-
-	/// <summary>
-	/// Get a temporary array of specified size.
-	/// </summary>
-
-	static object[] GetTempBuffer (int count)
-	{
-		object[] temp;
-
-		if (!mTemp.TryGetValue((byte)count, out temp))
-		{
-			temp = new object[count];
-			mTemp[(byte)count] = temp;
-		}
-		return temp;
-	}
-
-	/// <summary>
-	/// Write the array of objects into the specified writer.
-	/// </summary>
-
-	static public void WriteArray (this BinaryWriter bw, params object[] objs)
-	{
-		bw.WriteInt(objs.Length);
-		if (objs.Length == 0) return;
-
-		for (int b = 0, bmax = objs.Length; b < bmax; ++b)
-			bw.WriteObject(objs[b]);
-	}
-
-	/// <summary>
-	/// Read the object array from the specified reader.
-	/// </summary>
-
-	static public object[] ReadArray (this BinaryReader reader)
-	{
-		int count = reader.ReadInt();
-		if (count == 0) return null;
-
-		object[] temp = GetTempBuffer(count);
-
-		for (int i = 0; i < count; ++i)
-			temp[i] = reader.ReadObject();
-
-		return temp;
-	}
-
-	/// <summary>
-	/// Read the object array from the specified reader. The first value will be set to the specified object.
-	/// </summary>
-
-	static public object[] ReadArray (this BinaryReader reader, object obj)
-	{
-		int count = reader.ReadInt() + 1;
-
-		object[] temp = GetTempBuffer(count);
-
-		temp[0] = obj;
-		for (int i = 1; i < count; ++i)
-			temp[i] = reader.ReadObject();
-
-		return temp;
-	}
-
-	/// <summary>
-	/// Combine the specified object and array into one array in an efficient manner.
-	/// </summary>
-
-	static public object[] CombineArrays (object obj, params object[] objs)
-	{
-		int count = objs.Length;
-		object[] temp = GetTempBuffer(count + 1);
-
-		temp[0] = obj;
-		for (int i = 0; i < count; ++i)
-			temp[i + 1] = objs[i];
-
-		return temp;
-	}
 #endregion
 }
 }

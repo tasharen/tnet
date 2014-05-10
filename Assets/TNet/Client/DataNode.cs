@@ -21,6 +21,26 @@ using System.Runtime.Serialization.Formatters.Binary;
 namespace TNet
 {
 /// <summary>
+/// Implementing the IDataNodeSerializable interface in your class will make it possible to serialize
+/// that class into the Data Node format more efficiently.
+/// </summary>
+
+public interface IDataNodeSerializable
+{
+	/// <summary>
+	/// Serialize the object's data into Data Node.
+	/// </summary>
+
+	void Serialize (DataNode node);
+
+	/// <summary>
+	/// Deserialize the object's data from Data Node.
+	/// </summary>
+
+	void Deserialize (DataNode node);
+}
+
+/// <summary>
 /// Data Node is a hierarchical data type containing a name and a value, as well as a variable number of children.
 /// Data Nodes can be serialized to and from IO data streams.
 /// Think of it as an alternative to having to include a huge 1 MB+ XML parsing library in your project.
@@ -29,29 +49,17 @@ namespace TNet
 /// To create a new node: new DataNode (name, value).
 /// To add a new child node: dataNode.AddChild("Scale", Vector3.one).
 /// To retrieve a Vector3 value: dataNode.GetChild<Vector3>("Scale").
-/// 
-/// To make it possible to serialize custom classes into text format, make sure to override your class's ToString()
-/// function, and add a "static object FromString (string data);" function to actually perform parsing of the same
-/// string, returning an instance of your class created from the text data. For example:
-/// 
-/// public class MyClass
-/// {
-///     public int someID = 0;
-///     
-///     public override string ToString () { return someID.ToString(); }
-///     
-///     static object FromString (string data)
-///     {
-///         MyClass inst = new MyClass();
-///         int.TryParse(data, out inst.someID);
-///         return inst;
-///     }
-/// }
 /// </summary>
 
 [Serializable]
 public class DataNode
 {
+	// Actual saved value
+	object mValue = null;
+
+	// Temporary flag that gets set to 'true' after text-based deserialization
+	[NonSerialized] bool mResolved = true;
+
 	/// <summary>
 	/// Data node's name.
 	/// </summary>
@@ -62,7 +70,19 @@ public class DataNode
 	/// Data node's value.
 	/// </summary>
 
-	public object value;
+	public object value
+	{
+		set
+		{
+			mValue = value;
+			mResolved = true;
+		}
+		get
+		{
+			if (!mResolved) ResolveValue(null);
+			return mValue;
+		}
+	}
 
 	/// <summary>
 	/// List of child nodes.
@@ -74,7 +94,7 @@ public class DataNode
 	/// Type the value is currently in.
 	/// </summary>
 
-	public Type type { get { return (value != null) ? value.GetType() : typeof(void); } }
+	public Type type { get { return (value != null) ? mValue.GetType() : typeof(void); } }
 
 	public DataNode () { }
 	public DataNode (string name) { this.name = name; }
@@ -94,7 +114,7 @@ public class DataNode
 	/// Get the node's value cast into the specified type.
 	/// </summary>
 
-	public object Get (Type type) { return ConvertValue(value, type); }
+	public object Get (Type type) { return Serialization.ConvertValue(value, type); }
 
 	/// <summary>
 	/// Retrieve the value cast into the appropriate type.
@@ -102,9 +122,9 @@ public class DataNode
 
 	public T Get<T> ()
 	{
-		if (value is T) return (T)value;
+		if (value is T) return (T)mValue;
 		object retVal = Get(typeof(T));
-		return (value != null) ? (T)retVal : default(T);
+		return (mValue != null) ? (T)retVal : default(T);
 	}
 
 	/// <summary>
@@ -271,40 +291,15 @@ public class DataNode
 
 	public override string ToString ()
 	{
-		string text = "";
-		Write(ref text, 0);
+		MemoryStream stream = new MemoryStream();
+		StreamWriter writer = new StreamWriter(stream);
+		Write(writer, 0);
+		string text = writer.ToString();
+		writer.Close();
 		return text;
 	}
-
-	/// <summary>
-	/// Convert the node's value to a human-readable string.
-	/// </summary>
-
-	string GetValueString ()
-	{
-		if (type == typeof(string)) return "\"" + value + "\"";
-		if (type == typeof(Int32) || type == typeof(float)) return value.ToString();
-		if (type == typeof(Vector2) || type == typeof(Vector3) || type == typeof(Color))
-			return "(" + GetValueDataString() + ")";
-		return string.Format("{0}({1})", Serialization.TypeToName(type), GetValueDataString());
-	}
-
-	/// <summary>
-	/// Write the node into the string.
-	/// </summary>
-
-	void Write (ref string data, int tab)
-	{
-		if (!string.IsNullOrEmpty(name))
-		{
-			for (int i = 0; i < tab; ++i) data += "\t";
-			data += Escape(name);
-			if (value != null) data += " = " + GetValueString();
-			data += "\n";
-			for (int i = 0; i < children.size; ++i)
-				children[i].Write(ref data, tab + 1);
-		}
-	}
+#endregion
+#region Private Functions
 
 	/// <summary>
 	/// Write the node into the stream writer.
@@ -312,23 +307,221 @@ public class DataNode
 
 	void Write (StreamWriter writer, int tab)
 	{
-		if (!string.IsNullOrEmpty(name))
+		// Only proceed if this node has some data associated with it
+		if (value != null || children.size > 0)
 		{
-			for (int i = 0; i < tab; ++i)
-				writer.Write("\t");
+			// Write down its own data
+			Write(writer, tab, name, value, true);
 
-			writer.Write(Escape(name));
-
-			if (value != null)
-			{
-				writer.Write(" = ");
-				writer.Write(GetValueString());
-			}
-			writer.Write("\n");
-
+			// Iterate through children
 			for (int i = 0; i < children.size; ++i)
 				children[i].Write(writer, tab + 1);
 		}
+	}
+
+	/// <summary>
+	/// Write the values into the stream writer.
+	/// </summary>
+
+	static void Write (StreamWriter writer, int tab, string name, object value, bool writeType)
+	{
+		if (!string.IsNullOrEmpty(name))
+		{
+			WriteTabs(writer, tab);
+			writer.Write(Escape(name));
+
+			if (value == null)
+			{
+				writer.Write('\n');
+				return;
+			}
+
+			Type type = value.GetType();
+
+			if (type == typeof(string))
+			{
+				writer.Write(" = \"");
+				writer.Write((string)value);
+				writer.Write('"');
+				writer.Write('\n');
+			}
+			else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+			{
+				writer.Write(" = ");
+				writer.Write(value.ToString());
+				writer.Write('\n');
+			}
+			else if (type == typeof(Vector2))
+			{
+				Vector2 v = (Vector2)value;
+				writer.Write(" = (");
+				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+				writer.Write(")\n");
+			}
+			else if (type == typeof(Vector3))
+			{
+				Vector3 v = (Vector3)value;
+				writer.Write(" = (");
+				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+				writer.Write(")\n");
+			}
+			else if (type == typeof(Color))
+			{
+				Color c = (Color)value;
+				writer.Write(" = (");
+				writer.Write(c.r.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(c.g.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(c.b.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(c.a.ToString(CultureInfo.InvariantCulture));
+				writer.Write(")\n");
+			}
+			else if (type == typeof(Color32))
+			{
+				Color32 c = (Color32)value;
+				writer.Write(" = 0x");
+				
+				if (c.a == 255)
+				{
+					int i = (c.r << 16) | (c.g << 8) | c.b;
+					writer.Write(i.ToString("X6"));
+				}
+				else
+				{
+					int i = (c.r << 24) | (c.g << 16) | (c.b << 8) | c.a;
+					writer.Write(i.ToString("X8"));
+				}
+				writer.Write('\n');
+			}
+			else
+			{
+				if (type == typeof(Vector4))
+				{
+					Vector4 v = (Vector4)value;
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
+					writer.Write('(');
+					writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
+					writer.Write(")\n");
+				}
+				else if (type == typeof(Quaternion))
+				{
+					Quaternion q = (Quaternion)value;
+					Vector3 v = q.eulerAngles;
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
+					writer.Write('(');
+					writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+					writer.Write(")\n");
+				}
+				else if (type == typeof(Rect))
+				{
+					Rect r = (Rect)value;
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
+					writer.Write('(');
+					writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
+					writer.Write(", ");
+					writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
+					writer.Write(")\n");
+				}
+				else if (value is TList)
+				{
+					TList list = value as TList;
+
+					if (list.Count > 0)
+					{
+						writer.Write(" = ");
+						writer.Write(Serialization.TypeToName(type));
+						writer.Write('\n');
+
+						for (int i = 0, imax = list.Count; i < imax; ++i)
+							Write(writer, tab + 1, "Add", list.Get(i), false);
+					}
+				}
+				else if (value is System.Collections.IList)
+				{
+					System.Collections.IList list = value as System.Collections.IList;
+
+					if (list.Count > 0)
+					{
+						writer.Write(" = ");
+						writer.Write(Serialization.TypeToName(type));
+						writer.Write('\n');
+
+						for (int i = 0, imax = list.Count; i < imax; ++i)
+							Write(writer, tab + 1, "Add", list[i], false);
+					}
+				}
+				else if (value is IDataNodeSerializable)
+				{
+				    IDataNodeSerializable ser = value as IDataNodeSerializable;
+				    DataNode node = new DataNode();
+				    ser.Serialize(node);
+
+				    writer.Write(" = ");
+				    writer.Write(Serialization.TypeToName(type));
+					writer.Write('\n');
+
+					for (int i = 0; i < node.children.size; ++i)
+					{
+						DataNode child = node.children[i];
+						child.Write(writer, tab + 1);
+					}
+				}
+				else
+				{
+					if (writeType)
+					{
+						writer.Write(" = ");
+						writer.Write(Serialization.TypeToName(type));
+					}
+					writer.Write('\n');
+
+#if REFLECTION_SUPPORT
+					List<FieldInfo> fields = type.GetSerializableFields();
+
+					if (fields.size > 0)
+					{
+						for (int i = 0; i < fields.size; ++i)
+						{
+							FieldInfo field = fields[i];
+							object val = field.GetValue(value);
+							if (val != null) Write(writer, tab + 1, field.Name, val, true);
+						}
+					}
+#endif
+				}
+			}
+		}
+	}
+
+	static void WriteTabs (StreamWriter writer, int count)
+	{
+		for (int i = 0; i < count; ++i)
+			writer.Write('\t');
 	}
 
 	/// <summary>
@@ -340,7 +533,19 @@ public class DataNode
 		if (line != null)
 		{
 			int expected = offset;
-			SetFromLine(line, expected);
+			int divider = line.IndexOf("=", expected);
+
+			if (divider == -1)
+			{
+				name = Unescape(line.Substring(offset)).Trim();
+				value = null;
+			}
+			else
+			{
+				name = Unescape(line.Substring(offset, divider - offset)).Trim();
+				mValue = line.Substring(divider + 1).Trim();
+				mResolved = false;
+			}
 
 			line = GetNextLine(reader);
 			offset = CalculateTabs(line);
@@ -356,135 +561,160 @@ public class DataNode
 		}
 		return line;
 	}
-#endregion
-#region Private Functions
 
 	/// <summary>
-	/// Convert the node's value to a human-readable string.
+	/// Process the string values, converting them to proper objects.
+	/// Returns whether child nodes should be processed in turn.
 	/// </summary>
 
-	string GetValueDataString ()
+	bool ResolveValue (Type type)
 	{
-		if (value is float)
-		{
-			float f = (float)value;
-			return f.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Vector2)
-		{
-			Vector2 v = (Vector2)value;
-			return v.x.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.y.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Vector3)
-		{
-			Vector3 v = (Vector3)value;
-			return v.x.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.y.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.z.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Vector4)
-		{
-			Vector4 v = (Vector4)value;
-			return v.x.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.y.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.z.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.w.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Quaternion)
-		{
-			Quaternion q = (Quaternion)value;
-			Vector3 v = q.eulerAngles;
-			return v.x.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.y.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.z.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Color)
-		{
-			Color v = (Color)value;
-			return v.r.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.g.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.b.ToString(CultureInfo.InvariantCulture) + ", " +
-				v.a.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value is Color32)
-		{
-			Color v = (Color32)value;
-			return v.r + ", " + v.g + ", " + v.b + ", " + v.a;
-		}
-		else if (value is Rect)
-		{
-			Rect r = (Rect)value;
-			return r.x.ToString(CultureInfo.InvariantCulture) + ", " +
-				r.y.ToString(CultureInfo.InvariantCulture) + ", " +
-				r.width.ToString(CultureInfo.InvariantCulture) + ", " +
-				r.height.ToString(CultureInfo.InvariantCulture);
-		}
-		else if (value != null)
-		{
-			//if (value.GetType().IsClass) return "Class";
-			return value.ToString().Replace("\n", "\\n");
-		}
-		return "";
-	}
+		mResolved = true;
+		string line = mValue as string;
 
-#if REFLECTION_SUPPORT
-	static object[] mInvokeParams = new object[1];
-#endif
+		if (string.IsNullOrEmpty(line))
+			return SetValue(line, type, null);
+
+		if (line.Length > 2)
+		{
+			// If the line starts with a quote, it must also end with a quote
+			if (line[0] == '"' && line[line.Length - 1] == '"')
+			{
+				mValue = line.Substring(1, line.Length - 2);
+				return true;
+			}
+			else if (line[0] == '0' && line[1] == 'x' && line.Length > 7)
+			{
+				mValue = ParseColor32(line, 2);
+				return true;
+			}
+
+			// If the line starts with an opening bracket, it must always end with a closing bracket
+			if (line[0] == '(' && line[line.Length - 1] == ')')
+			{
+				line = line.Substring(1, line.Length - 2);
+				string[] parts = line.Split(',');
+
+				if (parts.Length == 1) return SetValue(line, typeof(float), null);
+				if (parts.Length == 2) return SetValue(line, typeof(Vector2), parts);
+				if (parts.Length == 3) return SetValue(line, typeof(Vector3), parts);
+				if (parts.Length == 4) return SetValue(line, typeof(Color), parts);
+
+				mValue = line;
+				return true;
+			}
+		}
+
+		int dataStart = line.IndexOf('(');
+
+		// Is there embedded data in brackets?
+		if (dataStart == -1)
+		{
+			// Is it a number?
+			if (line[0] == '-' || (line[0] >= '0' && line[0] <= '9'))
+			{
+				if (line.IndexOf('.') != -1)
+				{
+					float f;
+
+					if (float.TryParse(line, out f))
+					{
+						mValue = f;
+						return true;
+					}
+				}
+				else
+				{
+					int i;
+
+					if (int.TryParse(line, out i))
+					{
+						mValue = i;
+						return true;
+					}
+				}
+			}
+		}
+		else
+		{
+			// For some odd reason LastIndexOf() fails to find the last character of the string
+			int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
+
+			if (dataEnd != -1 && line.Length > 2)
+			{
+				// Set the type and extract the embedded data
+				string strType = line.Substring(0, dataStart);
+				type = Serialization.NameToType(strType);
+				line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
+			}
+			else if (type == null)
+			{
+				// No type specified, so just treat this line as a string
+				type = typeof(string);
+				mValue = line;
+				return true;
+			}
+		}
+
+		// Resolve the type and set the value
+		if (type == null) type = Serialization.NameToType(line);
+		return SetValue(line, type, null);
+	}
 
 	/// <summary>
 	/// Set the node's value using its text representation.
+	/// Returns whether the child nodes should be processed or not.
 	/// </summary>
 
 	bool SetValue (string text, Type type, string[] parts)
 	{
 		if (type == null || type == typeof(void))
 		{
-			value = null;
+			mValue = null;
 		}
 		else if (type == typeof(string))
 		{
-			value = text;
+			mValue = text;
 		}
 		else if (type == typeof(bool))
 		{
 			bool b;
-			if (bool.TryParse(text, out b)) value = b;
+			if (bool.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(byte))
 		{
 			byte b;
-			if (byte.TryParse(text, out b)) value = b;
+			if (byte.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(Int16))
 		{
 			Int16 b;
-			if (Int16.TryParse(text, out b)) value = b;
+			if (Int16.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(UInt16))
 		{
 			UInt16 b;
-			if (UInt16.TryParse(text, out b)) value = b;
+			if (UInt16.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(Int32))
 		{
 			Int32 b;
-			if (Int32.TryParse(text, out b)) value = b;
+			if (Int32.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(UInt32))
 		{
 			UInt32 b;
-			if (UInt32.TryParse(text, out b)) value = b;
+			if (UInt32.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(float))
 		{
 			float b;
-			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) value = b;
+			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) mValue = b;
 		}
 		else if (type == typeof(double))
 		{
 			double b;
-			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) value = b;
+			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) mValue = b;
 		}
 		else if (type == typeof(Vector2))
 		{
@@ -495,7 +725,7 @@ public class DataNode
 				Vector2 v;
 				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y))
-					value = v;
+					mValue = v;
 			}
 		}
 		else if (type == typeof(Vector3))
@@ -508,7 +738,7 @@ public class DataNode
 				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
-					value = v;
+					mValue = v;
 			}
 		}
 		else if (type == typeof(Vector4))
@@ -522,35 +752,29 @@ public class DataNode
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
 					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					value = v;
+					mValue = v;
 			}
 		}
 		else if (type == typeof(Quaternion))
 		{
 			if (parts == null) parts = text.Split(',');
 
-			if (parts.Length == 4)
+			if (parts.Length == 3)
+			{
+				Vector3 v;
+				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
+					mValue = Quaternion.Euler(v);
+			}
+			else if (parts.Length == 4)
 			{
 				Quaternion v;
 				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
 					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					value = v;
-			}
-		}
-		else if (type == typeof(Color32))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 4)
-			{
-				Color32 v;
-				if (byte.TryParse(parts[0], out v.r) &&
-					byte.TryParse(parts[1], out v.g) &&
-					byte.TryParse(parts[2], out v.b) &&
-					byte.TryParse(parts[3], out v.a))
-					value = v;
+					mValue = v;
 			}
 		}
 		else if (type == typeof(Color))
@@ -564,7 +788,7 @@ public class DataNode
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.g) &&
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.b) &&
 					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.a))
-					value = v;
+					mValue = v;
 			}
 		}
 		else if (type == typeof(Rect))
@@ -578,123 +802,91 @@ public class DataNode
 					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
 					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					value = new Rect(v.x, v.y, v.z, v.w);
+					mValue = new Rect(v.x, v.y, v.z, v.w);
 			}
 		}
-#if REFLECTION_SUPPORT
+		else if (type.Implements(typeof(IDataNodeSerializable)))
+		{
+			IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
+			ds.Deserialize(this);
+			mValue = ds;
+			return false;
+		}
 		else if (!type.IsSubclassOf(typeof(Component)))
 		{
-			try
-			{
-				MethodInfo info = type.GetMethod("FromString",
-					BindingFlags.Public |
-					BindingFlags.NonPublic |
-					BindingFlags.Static);
+			mValue = type.Create(children.size);
 
-				if (info != null)
-				{
-					mInvokeParams[0] = text.Replace("\\n", "\n");
-					value = info.Invoke(null, mInvokeParams);
-				}
-				else return false;
-			}
-			catch (Exception ex)
+			if (mValue == null)
 			{
-				Debug.LogWarning(ex.Message);
+				Debug.LogError("Unable to create a " + type);
 				return false;
 			}
+
+			if (mValue is TList)
+			{
+				TList list = mValue as TList;
+				Type elemType = type.GetGenericArgument();
+
+				if (elemType != null)
+				{
+					for (int i = 0; i < children.size; )
+					{
+						DataNode child = children[i];
+
+						if (child.name == "Add")
+						{
+							child.ResolveValue(elemType);
+							list.Add(child.mValue);
+							children.RemoveAt(i);
+						}
+						else ++i;
+					}
+				}
+				else Debug.LogError("Unable to determine the element type of " + type);
+			}
+			else if (mValue is System.Collections.IList)
+			{
+				// This is for both List<Type> and Type[] arrays.
+				System.Collections.IList list = mValue as System.Collections.IList;
+				Type elemType = type.GetGenericArgument();
+				if (elemType == null) elemType = type.GetElementType();
+				bool fixedSize = (list.Count == children.size);
+
+				if (elemType != null)
+				{
+					for (int i = 0, index = 0; i < children.size; ++index)
+					{
+						DataNode child = children[i];
+
+						if (child.name == "Add")
+						{
+							child.ResolveValue(elemType);
+							if (fixedSize) list[index] = child.mValue;
+							else list.Add(child.mValue);
+							children.RemoveAt(i);
+						}
+						else ++i;
+					}
+				}
+				else Debug.LogError("Unable to determine the element type of " + type);
+			}
+			else if (type.IsClass)
+			{
+				for (int i = 0; i < children.size; )
+				{
+					DataNode child = children[i];
+
+					if (mValue.SetSerializableField(child.name, child.value))
+					{
+						child.mValue = null;
+						children.RemoveAt(i);
+					}
+					else ++i;
+				}
+			}
+			else Debug.LogError("Unhandled type: " + type);
 		}
-#endif
-		else return false;
 		return true;
-	}
-
-	/// <summary>
-	/// Helper function to set the node's name and value using the line that was read from a stream.
-	/// </summary>
-
-	void SetFromLine (string line, int offset)
-	{
-		int divider = line.IndexOf("=", offset);
-
-		if (divider == -1)
-		{
-			name = Unescape(line.Substring(offset)).Trim();
-			return;
-		}
-
-		name = Unescape(line.Substring(offset, divider - offset)).Trim();
-
-		// Skip past the divider
-		line = line.Substring(divider + 1).Trim();
-
-		// No data available
-		if (line.Length < 1) return;
-
-		// There must be at least 3 characters present at this point
-		if (line.Length > 2)
-		{
-			// If the line starts with a quote, it must also end with a quote
-			if (line[0] == '"' && line[line.Length - 1] == '"')
-			{
-				value = line.Substring(1, line.Length - 2);
-				return;
-			}
-
-			// If the line starts with an opening bracket, it must always end with a closing bracket
-			if (line[0] == '(' && line[line.Length - 1] == ')')
-			{
-				line = line.Substring(1, line.Length - 2);
-				string[] parts = line.Split(',');
-
-				if (parts.Length == 1) { SetValue(line, typeof(float), null); return; }
-				if (parts.Length == 2) { SetValue(line, typeof(Vector2), parts); return; }
-				if (parts.Length == 3) { SetValue(line, typeof(Vector3), parts); return; }
-				if (parts.Length == 4) { SetValue(line, typeof(Color), parts); return; }
-
-				value = line;
-				return;
-			}
-		}
-
-		int dataStart = line.IndexOf('(');
-
-		if (dataStart != -1)
-		{
-			Type type = typeof(string);
-
-			// For some odd reason LastIndexOf() fails to find the last character of the string
-			int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
-
-			if (dataEnd != -1 && line.Length > 2)
-			{
-				string strType = line.Substring(0, dataStart);
-				type = Serialization.NameToType(strType);
-				line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
-			}
-			SetValue(line, type, null);
-		}
-		else if (line.IndexOf('.') != -1)
-		{
-			float f;
-
-			if (float.TryParse(line, out f))
-			{
-				value = f;
-				return;
-			}
-		}
-		else
-		{
-			int i;
-
-			if (int.TryParse(line, out i))
-			{
-				value = i;
-				return;
-			}
-		}
-		value = line;
 	}
 #endregion
 #region Static Helper Functions
@@ -761,35 +953,52 @@ public class DataNode
 	}
 
 	/// <summary>
-	/// Helper function to convert the specified value into the provided type.
+	/// Convert a hexadecimal character to its decimal value.
 	/// </summary>
 
-	static object ConvertValue (object value, Type type)
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static int HexToDecimal (char ch)
 	{
-		if (value == null) return null;
-		if (type.IsAssignableFrom(value.GetType())) return value;
-
-#if REFLECTION_SUPPORT
-		if (type.IsEnum)
+		switch (ch)
 		{
-			if (value.GetType() == typeof(Int32))
-				return value;
-
-			if (value.GetType() == typeof(string))
-			{
-				string strVal = (string)value;
-
-				if (!string.IsNullOrEmpty(strVal))
-				{
-					string[] enumNames = Enum.GetNames(type);
-					for (int i = 0; i < enumNames.Length; ++i)
-						if (enumNames[i] == strVal)
-							return Enum.GetValues(type).GetValue(i);
-				}
-			}
+			case '0': return 0x0;
+			case '1': return 0x1;
+			case '2': return 0x2;
+			case '3': return 0x3;
+			case '4': return 0x4;
+			case '5': return 0x5;
+			case '6': return 0x6;
+			case '7': return 0x7;
+			case '8': return 0x8;
+			case '9': return 0x9;
+			case 'a':
+			case 'A': return 0xA;
+			case 'b':
+			case 'B': return 0xB;
+			case 'c':
+			case 'C': return 0xC;
+			case 'd':
+			case 'D': return 0xD;
+			case 'e':
+			case 'E': return 0xE;
+			case 'f':
+			case 'F': return 0xF;
 		}
-#endif
-		return null;
+		return 0xF;
+	}
+
+	/// <summary>
+	/// Parse a RrGgBbAa color encoded in the string.
+	/// </summary>
+
+	static Color32 ParseColor32 (string text, int offset)
+	{
+		byte r = (byte)((HexToDecimal(text[offset]) << 4) | HexToDecimal(text[offset + 1]));
+		byte g = (byte)((HexToDecimal(text[offset + 2]) << 4) | HexToDecimal(text[offset + 3]));
+		byte b = (byte)((HexToDecimal(text[offset + 4]) << 4) | HexToDecimal(text[offset + 5]));
+		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
+		return new Color32(r, g, b, a);
 	}
 #endregion
 }

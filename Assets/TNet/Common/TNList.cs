@@ -18,6 +18,7 @@ public interface TList
 	void RemoveAt (int index);
 	void Clear ();
 }
+
 /// <summary>
 /// This improved version of the System.Collections.Generic.List that doesn't release the buffer on Clear(),
 /// resulting in better performance and less garbage collection.
