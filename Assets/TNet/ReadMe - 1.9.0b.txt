@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.0
+                  Version 1.9.0b
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -78,8 +78,6 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added a DataNode tree-like data structure that's capable of serializing both to binary and to text format.
 - NEW: AutoSync can now be set to only sync when new players join.
 - NEW: Added support for multiple network interfaces (Hamachi etc).
-- NEW: You can now send all serializable types via RFC parameters.
-- NEW: Added a class capable of hierarchical serialization.
 - NEW: Added a bunch of serialization extension methods to BinaryWriter.
 - NEW: TNet will now show the inner exception when an RFC fails.
 - FIX: Better handling of mis-matched protocol IDs.
