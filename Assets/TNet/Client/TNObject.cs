@@ -244,8 +244,17 @@ public sealed class TNObject : MonoBehaviour
 
 	void Start ()
 	{
-		if (id == 0) mParent = FindParent(transform.parent);
-		Register();
+		if (id == 0)
+		{
+			mParent = FindParent(transform.parent);
+
+			if (mParent == null)
+			{
+				Debug.LogError("Objects that are not instantiated via TNManager.Create must have a non-zero ID.", this);
+				return;
+			}
+		}
+		else Register();
 		
 		// Have there been any delayed function calls for this object? If so, execute them now.
 		for (int i = 0; i < mDelayed.size; )

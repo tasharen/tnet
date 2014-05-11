@@ -80,7 +80,8 @@ static public class Tools
 				foreach (NetworkInterface ni in list)
 				{
 					if (ni.Supports(NetworkInterfaceComponent.IPv4) &&
-						ni.OperationalStatus == OperationalStatus.Up)
+						(ni.OperationalStatus == OperationalStatus.Up ||
+						ni.OperationalStatus == OperationalStatus.Unknown))
 						mInterfaces.Add(ni);
 				}
 			}
@@ -132,17 +133,21 @@ static public class Tools
 						}
 					}
 				}
-				catch (System.Exception)
-				{
-					// Fallback method. This won't work on the iPhone.
-					IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+				catch (System.Exception) {}
 
-					foreach (IPAddress ad in ips)
-					{
-						if (IsValidAddress(ad))
-							mAddresses.Add(ad);
-					}
+#if !UNITY_IPHONE
+				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
+				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
+				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+
+				foreach (IPAddress ad in ips)
+				{
+					if (IsValidAddress(ad) && !mAddresses.Contains(ad))
+						mAddresses.Add(ad);
 				}
+#endif
+				// If everything else fails, simply use the loopback address
+				if (mAddresses.size == 0) mAddresses.Add(IPAddress.Loopback);
 			}
 			return mAddresses;
 		}

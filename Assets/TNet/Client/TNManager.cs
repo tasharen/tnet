@@ -354,7 +354,7 @@ public class TNManager : MonoBehaviour
 	/// Start listening for incoming UDP packets on the specified port.
 	/// </summary>
 
-	static public bool StartUDP (int udpPort) { return (mInstance != null) ? mInstance.mClient.StartUDP(udpPort) : false; }
+	static public bool StartUDP (int udpPort) { return instance.mClient.StartUDP(udpPort); }
 
 	/// <summary>
 	/// Stop listening to incoming UDP packets.
