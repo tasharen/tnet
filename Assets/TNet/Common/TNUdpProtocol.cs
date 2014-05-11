@@ -22,6 +22,7 @@ public class UdpProtocol
 	/// When you have multiple network interfaces, it's often important to be able to specify
 	/// which interface will actually be used to send UDP messages. By default this will be set
 	/// to Tools.localAddress, but you can change it to be something else if you desire.
+	/// It's important to set this prior to calling StartUDP.
 	/// </summary>
 
 	static public IPAddress defaultNetworkInterface = IPAddress.Any;
@@ -84,9 +85,9 @@ public class UdpProtocol
 
 		mPort = port;
 		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		mSocket.MulticastLoopback = true;
 #if !UNITY_WEBPLAYER
 		// Web player doesn't seem to support broadcasts
+		mSocket.MulticastLoopback = true;
 		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 
 		//IPAddress group = IPAddress.Parse("224.168.100.17");
@@ -100,10 +101,6 @@ public class UdpProtocol
 #endif
 		// Port zero means we will be able to send, but not receive
 		if (mPort == 0) return true;
-
-		// Choose a specific network interface
-		if (defaultNetworkInterface == IPAddress.Any)
-			defaultNetworkInterface = Tools.localAddress;
 
 		try
 		{
@@ -239,7 +236,7 @@ public class UdpProtocol
 #endif
 #else
 			mBroadcastIP.Port = port;
-			
+
 			try
 			{
 				mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
