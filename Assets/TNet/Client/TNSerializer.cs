@@ -531,6 +531,7 @@ public static class Serialization
 		if (type == typeof(Color32)) return 12;
 		if (type == typeof(Color)) return 13;
 		if (type == typeof(DataNode)) return 14;
+		if (type == typeof(double)) return 15;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -545,6 +546,7 @@ public static class Serialization
 		if (type == typeof(Quaternion[])) return 111;
 		if (type == typeof(Color32[])) return 112;
 		if (type == typeof(Color[])) return 113;
+		if (type == typeof(double[])) return 115;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -575,6 +577,7 @@ public static class Serialization
 			case 12: return typeof(Color32);
 			case 13: return typeof(Color);
 			case 14: return typeof(DataNode);
+			case 15: return typeof(double);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -589,6 +592,7 @@ public static class Serialization
 			case 111: return typeof(Quaternion[]);
 			case 112: return typeof(Color32[]);
 			case 113: return typeof(Color[]);
+			case 115: return typeof(double[]);
 		}
 		return null;
 	}
@@ -798,6 +802,7 @@ public static class Serialization
 			case 12: bw.Write((Color32)obj); break;
 			case 13: bw.Write((Color)obj); break;
 			case 14: bw.Write((DataNode)obj); break;
+			case 15: bw.Write((double)obj); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -885,6 +890,13 @@ public static class Serialization
 			case 113:
 			{
 				Color[] arr = (Color[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 115:
+			{
+				double[] arr = (double[])obj;
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
@@ -1105,6 +1117,7 @@ public static class Serialization
 			case 12: return reader.ReadColor32();
 			case 13: return reader.ReadColor();
 			case 14: return reader.ReadDataNode();
+			case 15: return reader.ReadDouble();
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -1271,6 +1284,13 @@ public static class Serialization
 				int elements = reader.ReadInt();
 				Color[] arr = new Color[elements];
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadColor();
+				return arr;
+			}
+			case 115:
+			{
+				int elements = reader.ReadInt();
+				double[] arr = new double[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadDouble();
 				return arr;
 			}
 			case 253:

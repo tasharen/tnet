@@ -8,9 +8,8 @@ using System.Net.Sockets;
 using System.IO;
 using System.Text;
 using System.Threading;
-using System.Net.NetworkInformation;
 
-#if UNITY_IPHONE
+#if UNITY_IPHONE || !UNITY_WEBPLAYER
 using System.Net.NetworkInformation;
 #endif
 
@@ -62,6 +61,7 @@ static public class Tools
 
 	static public int randomPort { get { return 10000 + (int)(System.DateTime.Now.Ticks % 50000); } }
 
+#if !UNITY_WEBPLAYER
 	static List<NetworkInterface> mInterfaces = null;
 
 	/// <summary>
@@ -88,6 +88,7 @@ static public class Tools
 			return mInterfaces;
 		}
 	}
+#endif
 
 	static List<IPAddress> mAddresses = null;
 
@@ -102,7 +103,7 @@ static public class Tools
 			if (mAddresses == null)
 			{
 				mAddresses = new List<IPAddress>();
-
+#if !UNITY_WEBPLAYER
 				try
 				{
 					List<NetworkInterface> list = networkInterfaces;
@@ -134,7 +135,7 @@ static public class Tools
 					}
 				}
 				catch (System.Exception) {}
-
+#endif
 #if !UNITY_IPHONE
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
 				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
