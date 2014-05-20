@@ -43,5 +43,6 @@ public struct CachedFunc
 	public byte id;
 	public object obj;
 	public MethodInfo func;
+	public ParameterInfo[] parameters;
 }
 }

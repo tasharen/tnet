@@ -24,24 +24,52 @@ static public class UnityTools
 			objs[i] = null;
 	}
 
-#if UNITY_EDITOR
-
 	/// <summary>
 	/// Print out useful information about an exception that occurred when trying to call a function.
 	/// </summary>
 
-	static void PrintException (System.Exception ex, CachedFunc ent, params object[] parameters)
+	static void PrintException (System.Exception ex, CachedFunc ent, int funcID, string funcName, params object[] parameters)
 	{
-		if (ex.InnerException != null)
+		string received = "";
+
+		if (parameters != null)
 		{
-			Debug.LogError(ex.InnerException.Message + "\n" + ex.InnerException.StackTrace + "\n");
+			for (int b = 0; b < parameters.Length; ++b)
+			{
+				if (b != 0) received += ", ";
+				received += parameters[b].GetType().ToString();
+			}
 		}
-		else
+
+		string expected = "";
+
+		if (ent.parameters != null)
 		{
-			Debug.LogError(ex.Message + "\n" + ex.StackTrace + "\n");
+			for (int b = 0; b < ent.parameters.Length; ++b)
+			{
+				if (b != 0) expected += ", ";
+				expected += ent.parameters[b].ParameterType.ToString();
+			}
 		}
+
+		string err = "Failed to call RFC ";
+		if (string.IsNullOrEmpty(funcName)) err += "#" + funcID + " on " + ent.obj.GetType();
+		else err += ent.obj.GetType() + "." + funcName;
+
+		if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";
+		else err += ": " + ex.Message + "\n";
+
+		if (received != expected)
+		{
+			err += "  Expected args: " + expected + "\n";
+			err += "  Received args: " + received + "\n\n";
+		}
+
+		if (ex.InnerException != null) err += ex.InnerException.StackTrace + "\n";
+		else err += ex.StackTrace + "\n";
+
+		Debug.LogError(err);
 	}
-#endif
 
 	/// <summary>
 	/// Execute the first function matching the specified ID.
@@ -57,13 +85,12 @@ static public class UnityTools
 
 			if (ent.id == funcID)
 			{
-#if UNITY_EDITOR
+				if (ent.parameters == null)
+					ent.parameters = ent.func.GetParameters();
+
 				try
 				{
-#endif
-					ParameterInfo[] infos = ent.func.GetParameters();
-
-					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						retVal = ent.func.Invoke(ent.obj, new object[] { parameters });
 						return true;
@@ -73,13 +100,11 @@ static public class UnityTools
 						retVal = ent.func.Invoke(ent.obj, parameters);
 						return true;
 					}
-#if UNITY_EDITOR
 				}
 				catch (System.Exception ex)
 				{
-					PrintException(ex, ent, parameters);
+					PrintException(ex, ent, funcID, "", parameters);
 				}
-#endif
 			}
 		}
 		return false;
@@ -97,13 +122,12 @@ static public class UnityTools
 
 			if (ent.id == funcID)
 			{
-#if UNITY_EDITOR
+				if (ent.parameters == null)
+					ent.parameters = ent.func.GetParameters();
+
 				try
 				{
-#endif
-					ParameterInfo[] infos = ent.func.GetParameters();
-
-					if (infos.Length == 1 && infos[0].ParameterType == typeof(object[]))
+					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
 						return true;
@@ -113,14 +137,12 @@ static public class UnityTools
 						ent.func.Invoke(ent.obj, parameters);
 						return true;
 					}
-#if UNITY_EDITOR
 				}
 				catch (System.Exception ex)
 				{
-					PrintException(ex, ent, parameters);
+					PrintException(ex, ent, funcID, "", parameters);
 					return false;
 				}
-#endif
 			}
 		}
 		return false;
@@ -141,18 +163,27 @@ static public class UnityTools
 			if (ent.func.Name == funcName)
 			{
 				retVal = true;
-#if UNITY_EDITOR
+
+				if (ent.parameters == null)
+					ent.parameters = ent.func.GetParameters();
+
 				try
 				{
-					ent.func.Invoke(ent.obj, parameters);
+					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
+					{
+						ent.func.Invoke(ent.obj, new object[] { parameters });
+						return true;
+					}
+					else
+					{
+						ent.func.Invoke(ent.obj, parameters);
+						return true;
+					}
 				}
 				catch (System.Exception ex)
 				{
-					PrintException(ex, ent, parameters);
+					PrintException(ex, ent, 0, funcName, parameters);
 				}
-#else
-				ent.func.Invoke(ent.obj, parameters);
-#endif
 			}
 		}
 		return retVal;
@@ -176,7 +207,6 @@ static public class UnityTools
 
 			if (method != null)
 			{
-#if UNITY_EDITOR
 				try
 				{
 					method.Invoke(mb, parameters);
@@ -185,9 +215,6 @@ static public class UnityTools
 				{
 					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")", mb);
 				}
-#else
-				method.Invoke(mb, parameters);
-#endif
 			}
 		}
 	}

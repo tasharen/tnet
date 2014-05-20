@@ -248,7 +248,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			mParent = FindParent(transform.parent);
 
-			if (mParent == null)
+			if (mParent == null && Application.isPlaying)
 			{
 				Debug.LogError("Objects that are not instantiated via TNManager.Create must have a non-zero ID.", this);
 				return;
