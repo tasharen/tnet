@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.0c
+                  Version 1.9.1
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,10 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.1:
+- FIX: Error about TNObjects with ID of 0 will now only show up when playing the game.
+- FIX: If an RFC cannot be executed, the error message will explain why.
 
 1.9.0:
 - NEW: TNManager no longer needs to be present in the scene for you to use TNet.
