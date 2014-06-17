@@ -281,7 +281,11 @@ public class GameServer : FileServer
 							if (ProcessPlayerPacket(buffer, player, false))
 								received = true;
 						}
-						catch (System.Exception) { RemovePlayer(player); }
+						catch (System.Exception ex)
+						{
+							Error(ex.Message);
+							RemovePlayer(player);
+						}
 					}
 					else if (buffer.size > 4)
 					{
@@ -305,8 +309,17 @@ public class GameServer : FileServer
 									mUdp.SendEmptyPacket(player.udpEndPoint);
 								}
 							}
+							else if (request == Packet.RequestPing)
+							{
+								BeginSend(Packet.ResponsePing);
+								EndSend(ip);
+							}
 						}
-						catch (System.Exception) { RemovePlayer(player); }
+						catch (System.Exception ex)
+						{
+							Error(ex.Message);
+							RemovePlayer(player);
+						}
 					}
 				}
 				buffer.Recycle();
@@ -334,7 +347,11 @@ public class GameServer : FileServer
 							RemovePlayer(player);
 						}
 #else
-						catch (System.Exception) { RemovePlayer(player); }
+						catch (System.Exception ex)
+						{
+							Error(ex.Message);
+							RemovePlayer(player);
+						}
 #endif
 					}
 					buffer.Recycle();
@@ -348,6 +365,8 @@ public class GameServer : FileServer
 					{
 #if STANDALONE
 						Console.WriteLine(player.address + " has timed out");
+#elif UNITY_EDITOR
+						UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
 						RemovePlayer(player);
 						continue;
@@ -357,6 +376,8 @@ public class GameServer : FileServer
 				{
 #if STANDALONE
 					Console.WriteLine(player.address + " has timed out");
+#elif UNITY_EDITOR
+					UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
 					RemovePlayer(player);
 					continue;
@@ -712,6 +733,7 @@ public class GameServer : FileServer
 			{
 				writer.Write(player.id);
 				writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
+				writer.WriteObject(player.data);
 			}
 			EndSend(true, channel, null);
 
@@ -908,17 +930,73 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.SyncPlayerData:
+			{
+				// 4 bytes for size, 1 byte for ID
+				int origin = buffer.position - 5;
+
+				// Find the player
+				TcpPlayer target = GetPlayer(reader.ReadInt32());
+				if (target == null) break;
+
+				// Read the player's custom data
+				target.data = reader.ReadObject();
+
+				if (target.channel != null)
+				{
+					// We want to forward the packet as-is
+					buffer.position = origin;
+
+					// Forward the packet to everyone except the sender
+					for (int i = 0; i < target.channel.players.size; ++i)
+					{
+						TcpPlayer tp = target.channel.players[i];
+
+						if (tp != player)
+						{
+							if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
+							{
+								tp.SendTcpPacket(buffer);
+							}
+							else mUdp.Send(buffer, tp.udpEndPoint);
+						}
+					}
+				}
+				else if (target != player)
+				{
+					buffer.position = origin;
+					target.SendTcpPacket(buffer);
+				}
+				break;
+			}
 			case Packet.RequestSaveFile:
 			{
 				string fileName = reader.ReadString();
 				byte[] data = reader.ReadBytes(reader.ReadInt32());
-				SaveFile(fileName, data);
+
+				try
+				{
+					SaveFile(fileName, data);
+				}
+				catch (Exception ex)
+				{
+					player.Error(ex.Message);
+				}
 				break;
 			}
 			case Packet.RequestLoadFile:
 			{
 				string fn = reader.ReadString();
-				byte[] data = LoadFile(fn);
+				byte[] data = null;
+
+				try
+				{
+					data = LoadFile(fn);
+				}
+				catch (Exception ex)
+				{
+					player.Error(ex.Message);
+				}
 
 				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
 				writer.Write(fn);
@@ -1254,19 +1332,8 @@ public class GameServer : FileServer
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		if (mListener == null) return;
-		fileName = CleanupFilename(fileName);
-		FileStream stream;
 
-		try
-		{
-			stream = new FileStream(fileName, FileMode.Create);
-		}
-		catch (System.Exception ex)
-		{
-			Error(ex.Message);
-			return;
-		}
-
+		MemoryStream stream = new MemoryStream();
 		BinaryWriter writer = new BinaryWriter(stream);
 		writer.Write(0);
 		int count = 0;
@@ -1289,7 +1356,7 @@ public class GameServer : FileServer
 			writer.Write(count);
 		}
 
-		stream.Flush();
+		Tools.WriteFile(fileName, stream.ToArray());
 		stream.Close();
 #endif
 	}
@@ -1304,14 +1371,13 @@ public class GameServer : FileServer
 		// There is no file access in the web player.
 		return false;
 #else
-		fileName = CleanupFilename(fileName);
-		if (!File.Exists(fileName)) return false;
+		byte[] bytes = Tools.ReadFile(fileName);
+		if (bytes == null) return false;
 
-		FileStream stream = null;
+		MemoryStream stream = new MemoryStream(bytes);
 
 		try
 		{
-			stream = new FileStream(fileName, FileMode.Open);
 			BinaryReader reader = new BinaryReader(stream);
 
 			int channels = reader.ReadInt32();
@@ -1323,13 +1389,10 @@ public class GameServer : FileServer
 				Channel ch = CreateChannel(chID, out isNew);
 				if (isNew) ch.LoadFrom(reader);
 			}
-
-			stream.Close();
 		}
 		catch (System.Exception ex)
 		{
 			Error("Loading from " + fileName + ": " + ex.Message);
-			if (stream != null) stream.Close();
 			return false;
 		}
 		return true;

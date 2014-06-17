@@ -246,6 +246,19 @@ public class TNServerInstance : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Save the server's current state to the specified file.
+	/// </summary>
+
+	static public void SaveTo (string fileName)
+	{
+		if (mInstance != null && mInstance.mGame.isActive)
+		{
+			if (!string.IsNullOrEmpty(fileName))
+				mInstance.mGame.SaveTo(fileName);
+		}
+	}
+
+	/// <summary>
 	/// Make the server private by no longer accepting new connections.
 	/// </summary>
 

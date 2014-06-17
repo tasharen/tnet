@@ -36,6 +36,7 @@ public enum Packet
 	/// This should be the very first packet sent by the client.
 	/// int32: Protocol version.
 	/// string: Player Name.
+	/// object: Player data.
 	/// </summary>
 
 	RequestID,
@@ -210,6 +211,7 @@ public enum Packet
 	/// Parameters:
 	/// int32: Player ID,
 	/// string: Player name.
+	/// object: Player data.
 	/// </summary>
 
 	ResponsePlayerJoined,
@@ -224,6 +226,7 @@ public enum Packet
 	/// Then for each player:
 	/// int32: Player ID,
 	/// string: Player Name.
+	/// object: Player data.
 	/// </summary>
 
 	ResponseJoiningChannel,
@@ -439,5 +442,13 @@ public enum Packet
 	/// </summary>
 
 	RequestActivateUDP,
+
+	/// <summary>
+	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
+	/// int32: Player ID who's data should be synchronized.
+	/// object: Player's data.
+	/// </summary>
+
+	SyncPlayerData,
 }
 }

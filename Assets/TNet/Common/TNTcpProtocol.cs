@@ -259,6 +259,7 @@ public class TcpProtocol : Player
 				BinaryWriter writer = BeginSend(Packet.RequestID);
 				writer.Write(version);
 				writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+				writer.WriteObject(data);
 				EndSend();
 				StartReceiving();
 			}
@@ -279,6 +280,8 @@ public class TcpProtocol : Player
 
 	public void Disconnect ()
 	{
+		if (!isConnected) return;
+
 		try
 		{
 			lock (mConnecting)
@@ -306,6 +309,8 @@ public class TcpProtocol : Player
 	public void Close (bool notify)
 	{
 		stage = Stage.NotConnected;
+		name = "Guest";
+		data = null;
 
 		if (mReceiveBuffer != null)
 		{
@@ -321,7 +326,6 @@ public class TcpProtocol : Player
 				mSocket.Close();
 			}
 			catch (System.Exception) {}
-
 			mSocket = null;
 
 			if (notify)
@@ -340,19 +344,7 @@ public class TcpProtocol : Player
 
 	public void Release ()
 	{
-		stage = Stage.NotConnected;
-
-		if (mSocket != null)
-		{
-			try
-			{
-				if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
-				mSocket.Close();
-			}
-			catch (System.Exception) {}
-			mSocket = null;
-		}
-
+		Close(false);
 		Buffer.Recycle(mIn);
 		Buffer.Recycle(mOut);
 	}
@@ -675,6 +667,7 @@ public class TcpProtocol : Player
 			{
 				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
 				name = reader.ReadString();
+				data = reader.ReadObject();
 				stage = TcpProtocol.Stage.Connected;
 
 				BinaryWriter writer = BeginSend(Packet.ResponseID);

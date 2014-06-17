@@ -254,12 +254,37 @@ public class DataNode
 			FileStream stream = File.OpenRead(path);
 			BinaryReader reader = new BinaryReader(stream);
 			DataNode node = reader.ReadObject<DataNode>();
-			stream.Close();
+			reader.Close();
 			return node;
 		}
 		else
 		{
 			StreamReader reader = new StreamReader(path);
+			DataNode node = Read(reader);
+			reader.Close();
+			return node;
+		}
+	}
+
+	/// <summary>
+	/// Read the node hierarchy from the specified buffer.
+	/// </summary>
+
+	static public DataNode Read (byte[] bytes, bool binary)
+	{
+		if (bytes == null || bytes.Length == 0) return null;
+		MemoryStream stream = new MemoryStream(bytes);
+
+		if (binary)
+		{
+			BinaryReader reader = new BinaryReader(stream);
+			DataNode node = reader.ReadObject<DataNode>();
+			reader.Close();
+			return node;
+		}
+		else
+		{
+			StreamReader reader = new StreamReader(stream);
 			DataNode node = Read(reader);
 			reader.Close();
 			return node;
@@ -294,8 +319,11 @@ public class DataNode
 		MemoryStream stream = new MemoryStream();
 		StreamWriter writer = new StreamWriter(stream);
 		Write(writer, 0);
-		string text = writer.ToString();
-		writer.Close();
+
+		stream.Seek(0, SeekOrigin.Begin);
+		StreamReader reader = new StreamReader(stream);
+		string text = reader.ReadToEnd();
+		stream.Close();
 		return text;
 	}
 #endregion
@@ -317,6 +345,7 @@ public class DataNode
 			for (int i = 0; i < children.size; ++i)
 				children[i].Write(writer, tab + 1);
 		}
+		if (tab == 0) writer.Flush();
 	}
 
 	/// <summary>
@@ -490,6 +519,16 @@ public class DataNode
 						DataNode child = node.children[i];
 						child.Write(writer, tab + 1);
 					}
+				}
+				else if (value is GameObject)
+				{
+					Debug.LogError("It's not possible to save game objects.");
+					writer.Write('\n');
+				}
+				else if ((value as Component) != null)
+				{
+					Debug.LogError("It's not possible to save components.");
+					writer.Write('\n');
 				}
 				else
 				{

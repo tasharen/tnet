@@ -69,19 +69,19 @@ public sealed class TNObject : MonoBehaviour
 	/// When set to 'true', it will cause the list of remote function calls to be rebuilt next time they're needed.
 	/// </summary>
 
-	[HideInInspector] public bool rebuildMethodList = true;
+	[System.NonSerialized][HideInInspector] public bool rebuildMethodList = true;
 
 	// Cached RFC functions
-	List<CachedFunc> mRFCs = new List<CachedFunc>();
+	[System.NonSerialized] List<CachedFunc> mRFCs = new List<CachedFunc>();
 
 	// Whether the object has been registered with the lists
-	bool mIsRegistered = false;
+	[System.NonSerialized] bool mIsRegistered = false;
 
 	// ID of the object's owner
-	int mOwner = -1;
+	[System.NonSerialized] int mOwner = -1;
 
 	// Child objects don't get their own unique IDs, so if we have a parent TNObject, that's the object that will be getting all events.
-	TNObject mParent = null;
+	[System.NonSerialized] TNObject mParent = null;
 
 	/// <summary>
 	/// Whether this object belongs to the player.
@@ -247,6 +247,7 @@ public sealed class TNObject : MonoBehaviour
 		if (id == 0)
 		{
 			mParent = FindParent(transform.parent);
+			if (!TNManager.isConnected) return;
 
 			if (mParent == null && Application.isPlaying)
 			{
@@ -254,21 +255,24 @@ public sealed class TNObject : MonoBehaviour
 				return;
 			}
 		}
-		else Register();
-		
-		// Have there been any delayed function calls for this object? If so, execute them now.
-		for (int i = 0; i < mDelayed.size; )
+		else
 		{
-			DelayedCall dc = mDelayed[i];
+			Register();
 
-			if (dc.objID == uid)
+			// Have there been any delayed function calls for this object? If so, execute them now.
+			for (int i = 0; i < mDelayed.size; )
 			{
-				if (!string.IsNullOrEmpty(dc.funcName)) Execute(dc.funcName, dc.parameters);
-				else Execute(dc.funcID, dc.parameters);
-				mDelayed.RemoveAt(i);
-				continue;
+				DelayedCall dc = mDelayed[i];
+
+				if (dc.objID == uid)
+				{
+					if (!string.IsNullOrEmpty(dc.funcName)) Execute(dc.funcName, dc.parameters);
+					else Execute(dc.funcID, dc.parameters);
+					mDelayed.RemoveAt(i);
+					continue;
+				}
+				++i;
 			}
-			++i;
 		}
 	}
 
@@ -403,7 +407,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		rebuildMethodList = false;
 		mRFCs.Clear();
-		MonoBehaviour[] mbs = GetComponentsInChildren<MonoBehaviour>();
+		MonoBehaviour[] mbs = GetComponentsInChildren<MonoBehaviour>(true);
 
 		for (int i = 0, imax = mbs.Length; i < imax; ++i)
 		{

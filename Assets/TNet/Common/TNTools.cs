@@ -454,5 +454,48 @@ static public class Tools
 		if (count == 255) count = reader.ReadInt32();
 		data = (count > 0) ? reader.ReadBytes(count) : null;
 	}*/
+
+	/// <summary>
+	/// Write the specified file, creating all the subdirectories in the process.
+	/// </summary>
+
+	static public void WriteFile (string fileName, byte[] data)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		if (data == null || data.Length == 0)
+		{
+			DeleteFile(fileName);
+		}
+		else
+		{
+			string dir = Path.GetDirectoryName(fileName);
+			if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+			File.WriteAllBytes(fileName, data);
+		}
+#endif
+	}
+
+	/// <summary>
+	/// Read the specified file, returning all bytes read.
+	/// </summary>
+
+	static public byte[] ReadFile (string fileName)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		if (File.Exists(fileName)) return File.ReadAllBytes(fileName);
+#endif
+		return null;
+	}
+
+	/// <summary>
+	/// Delete the specified file, if it exists.
+	/// </summary>
+
+	static public void DeleteFile (string fileName)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		if (File.Exists(fileName)) File.Delete(fileName);
+#endif
+	}
 }
 }

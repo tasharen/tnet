@@ -26,14 +26,6 @@ public class FileServer
 
 	List<FileEntry> mSavedFiles = new List<FileEntry>();
 
-#if !UNITY_WEBPLAYER
-	/// <summary>
-	/// Clean up the filename, ensuring that there is no funny business going on.
-	/// </summary>
-
-	protected string CleanupFilename (string fn) { return Path.GetFileName(fn); }
-#endif
-
 	/// <summary>
 	/// Log an error message.
 	/// </summary>
@@ -74,16 +66,15 @@ public class FileServer
 			fi.data = data;
 			mSavedFiles.Add(fi);
 		}
-#if !UNITY_WEBPLAYER
+
 		try
 		{
-			File.WriteAllBytes(CleanupFilename(fileName), data);
+			Tools.WriteFile(fileName, data);
 		}
 		catch (System.Exception ex)
 		{
 			Error(fileName + ": " + ex.Message);
 		}
-#endif
 	}
 
 	/// <summary>
@@ -97,31 +88,7 @@ public class FileServer
 			FileEntry fi = mSavedFiles[i];
 			if (fi.fileName == fileName) return fi.data;
 		}
-#if !UNITY_WEBPLAYER
-		string fn = CleanupFilename(fileName);
-
-		if (File.Exists(fn))
-		{
-			try
-			{
-				byte[] bytes = File.ReadAllBytes(fn);
-
-				if (bytes != null)
-				{
-					FileEntry fi = new FileEntry();
-					fi.fileName = fileName;
-					fi.data = bytes;
-					mSavedFiles.Add(fi);
-					return bytes;
-				}
-			}
-			catch (System.Exception ex)
-			{
-				Error(fileName + ": " + ex.Message);
-			}
-		}
-#endif
-		return null;
+		return Tools.ReadFile(fileName);
 	}
 
 	/// <summary>
@@ -137,9 +104,7 @@ public class FileServer
 			if (fi.fileName == fileName)
 			{
 				mSavedFiles.RemoveAt(i);
-#if !UNITY_WEBPLAYER
-				File.Delete(CleanupFilename(fileName));
-#endif
+				Tools.DeleteFile(fileName);
 				break;
 			}
 		}

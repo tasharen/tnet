@@ -17,7 +17,7 @@ public class Player
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 10;
+	public const int version = 11;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.
@@ -32,7 +32,7 @@ public class Player
 	public string name = "Guest";
 
 	/// <summary>
-	/// Any custom data you may want to associate with the player.
+	/// Player's custom data. Set via TNManger.playerData.
 	/// </summary>
 
 	public object data = null;

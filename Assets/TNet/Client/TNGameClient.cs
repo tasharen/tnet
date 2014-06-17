@@ -18,6 +18,7 @@ namespace TNet
 
 public class GameClient
 {
+	public delegate void OnPing (IPEndPoint ip, int milliSeconds);
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
 	public delegate void OnDisconnect ();
@@ -26,6 +27,7 @@ public class GameClient
 	public delegate void OnLoadLevel (string levelName);
 	public delegate void OnPlayerJoined (Player p);
 	public delegate void OnPlayerLeft (Player p);
+	public delegate void OnPlayerSync (Player p);
 	public delegate void OnRenamePlayer (Player p, string previous);
 	public delegate void OnSetHost (bool hosting);
 	public delegate void OnSetChannelData (string data);
@@ -33,12 +35,19 @@ public class GameClient
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
+	public delegate void OnLoadFile (string filename, byte[] data);
 
 	/// <summary>
 	/// Custom packet listeners. You can set these to handle custom packets.
 	/// </summary>
 
 	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
+
+	/// <summary>
+	/// Ping notification.
+	/// </summary>
+
+	public OnPing onPing;
 
 	/// <summary>
 	/// Error notification.
@@ -88,6 +97,12 @@ public class GameClient
 	/// </summary>
 
 	public OnPlayerLeft onPlayerLeft;
+
+	/// <summary>
+	/// Notification sent when player data gets synchronized.
+	/// </summary>
+
+	public OnPlayerSync onPlayerSync;
 
 	/// <summary>
 	/// Notification of some player changing their name.
@@ -170,6 +185,9 @@ public class GameClient
 	bool mCanPing = false;
 	bool mIsInChannel = false;
 	string mData = "";
+
+	// Each LoadFile() call can specify its own callback
+	List<OnLoadFile> mLoadFiles = new List<OnLoadFile>();
 
 	// Server's UDP address
 	IPEndPoint mServerUdpEndPoint;
@@ -334,6 +352,38 @@ public class GameClient
 				}
 				else mTcp.name = value;
 			}
+		}
+	}
+
+	/// <summary>
+	/// Get or set the player's data.
+	/// </summary>
+
+	public object playerData
+	{
+		get
+		{
+			return mTcp.data;
+		}
+		set
+		{
+			mTcp.data = value;
+			SyncPlayerData();
+		}
+	}
+
+	/// <summary>
+	/// Immediately sync the player's data.
+	/// </summary>
+
+	public void SyncPlayerData ()
+	{
+		if (isConnected)
+		{
+			BinaryWriter writer = BeginSend(Packet.SyncPlayerData);
+			writer.Write(mTcp.id);
+			writer.WriteObject(mTcp.data);
+			EndSend();
 		}
 	}
 
@@ -599,6 +649,42 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Send a remote ping request to the specified TNet server.
+	/// </summary>
+
+	public void Ping (IPEndPoint udpEndPoint, OnPing callback)
+	{
+		onPing = callback;
+		BeginSend(Packet.RequestPing);
+		EndSend(udpEndPoint);
+	}
+
+	/// <summary>
+	/// Load the specified file from the server.
+	/// </summary>
+
+	public void LoadFile (string filename, OnLoadFile callback)
+	{
+		mLoadFiles.Add(callback);
+		BinaryWriter writer = BeginSend(Packet.RequestLoadFile);
+		writer.Write(filename);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Save the specified file on the server.
+	/// </summary>
+
+	public void SaveFile (string filename, byte[] data)
+	{
+		BinaryWriter writer = BeginSend(Packet.RequestSaveFile);
+		writer.Write(filename);
+		writer.Write(data.Length);
+		writer.Write(data);
+		EndSend();
+	}
+
+	/// <summary>
 	/// Process all incoming packets.
 	/// </summary>
 
@@ -668,10 +754,18 @@ public class GameClient
 		}
 
 //#if !UNITY_EDITOR // DEBUG
-//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//		if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#else
-//        if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//		if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#endif
+
+		OnPacket callback;
+
+		if (packetHandlers.TryGetValue((byte)response, out callback) && callback != null)
+		{
+			callback(response, reader, ip);
+			return true;
+		}
 
 		switch (response)
 		{
@@ -693,10 +787,30 @@ public class GameClient
 				if (onForwardedPacket != null) onForwardedPacket(reader);
 				break;
 			}
+			case Packet.SyncPlayerData:
+			{
+				Player target = GetPlayer(reader.ReadInt32());
+
+				if (target != null)
+				{
+					target.data = reader.ReadObject();
+					if (onPlayerSync != null) onPlayerSync(target);
+				}
+				break;
+			}
 			case Packet.ResponsePing:
 			{
-				mPing = (int)(mTime - mPingTime);
-				mCanPing = true;
+				int ping = (int)(mTime - mPingTime);
+
+				if (ip != null)
+				{
+					if (onPing != null && ip != null) onPing(ip, ping);
+				}
+				else
+				{
+					mCanPing = true;
+					mPing = ping;
+				}
 				break;
 			}
 			case Packet.ResponseSetUDP:
@@ -739,6 +853,7 @@ public class GameClient
 					Player p = new Player();
 					p.id = reader.ReadInt32();
 					p.name = reader.ReadString();
+					p.data = reader.ReadObject();
 					mDictionary.Add(p.id, p);
 					players.Add(p);
 				}
@@ -763,6 +878,7 @@ public class GameClient
 				Player p = new Player();
 				p.id = reader.ReadInt32();
 				p.name = reader.ReadString();
+				p.data = reader.ReadObject();
 				mDictionary.Add(p.id, p);
 				players.Add(p);
 				if (onPlayerJoined != null) onPlayerJoined(p);
@@ -843,20 +959,17 @@ public class GameClient
 				players.Clear();
 				mDictionary.Clear();
 				mTcp.Close(false);
+				mLoadFiles.Clear();
 				if (onDisconnect != null) onDisconnect();
 				break;
 			}
-			default:
+			case Packet.ResponseLoadFile:
 			{
-				OnPacket callback;
-				
-				if (packetHandlers.TryGetValue((byte)response, out callback))
-				{
-					if (callback != null)
-					{
-						callback(response, reader, ip);
-					}
-				}
+				string filename = reader.ReadString();
+				int size = reader.ReadInt32();
+				byte[] data = reader.ReadBytes(size);
+				OnLoadFile lfc = mLoadFiles.Pop();
+				if (lfc != null) lfc(filename, data);
 				break;
 			}
 		}

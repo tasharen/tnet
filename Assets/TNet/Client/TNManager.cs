@@ -282,6 +282,29 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Get or set the player's data, synchronizing it with the server.
+	/// </summary>
+
+	static public object playerData
+	{
+		get
+		{
+			return (isConnected) ? mInstance.mClient.playerData : mPlayer.data;
+		}
+		set
+		{
+			mPlayer.data = value;
+			if (isConnected) mInstance.mClient.playerData = value;
+		}
+	}
+
+	/// <summary>
+	/// Sync the player's data with the server.
+	/// </summary>
+
+	static public void SyncPlayerData () { if (isConnected) mInstance.mClient.SyncPlayerData(); }
+
+	/// <summary>
 	/// List of players in the same channel as the client.
 	/// </summary>
 
@@ -363,12 +386,20 @@ public class TNManager : MonoBehaviour
 	static public void StopUDP () { if (mInstance != null) mInstance.mClient.StopUDP(); }
 
 	/// <summary>
+	/// Send a remote ping request to the specified TNet server.
+	/// </summary>
+
+	static public void Ping (IPEndPoint udpEndPoint, GameClient.OnPing callback) { instance.mClient.Ping(udpEndPoint, callback); }
+
+	/// <summary>
 	/// Connect to the specified remote destination.
 	/// </summary>
 
 	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
+		instance.mClient.Disconnect();
 		instance.mClient.playerName = mPlayer.name;
+		instance.mClient.playerData = mPlayer.data;
 		instance.mClient.Connect(externalIP, internalIP);
 	}
 
@@ -387,6 +418,7 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			instance.mClient.playerName = mPlayer.name;
+			instance.mClient.playerData = mPlayer.data;
 			instance.mClient.Connect(ip, null);
 		}
 	}
@@ -488,6 +520,45 @@ public class TNManager : MonoBehaviour
 	{
 		if (isConnected) mInstance.mClient.LoadLevel(levelName);
 		else Application.LoadLevel(levelName);
+	}
+
+	/// <summary>
+	/// Save the specified file on the server.
+	/// </summary>
+
+	static public void SaveFile (string filename, byte[] data)
+	{
+		if (isConnected)
+		{
+			mInstance.mClient.SaveFile(filename, data);
+		}
+		else
+		{
+			try
+			{
+				Tools.WriteFile(filename, data);
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogError(ex.Message + " (" + filename + ")");
+			}
+		}
+	}
+
+	/// <summary>
+	/// Load the specified file residing on the server.
+	/// </summary>
+
+	static public void LoadFile (string filename, GameClient.OnLoadFile callback)
+	{
+		if (callback != null)
+		{
+			if (isConnected)
+			{
+				mInstance.mClient.LoadFile(filename, callback);
+			}
+			else callback(filename, Tools.ReadFile(filename));
+		}
 	}
 
 	/// <summary>

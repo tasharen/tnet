@@ -303,8 +303,7 @@ public static class Serialization
 		if (!mFieldDict.TryGetValue(type, out list))
 		{
 			list = new List<FieldInfo>();
-			FieldInfo[] fields = type.GetFields();
-
+			FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 			bool serializable = type.IsDefined(typeof(System.SerializableAttribute), true);
 
 			for (int i = 0, imax = fields.Length; i < imax; ++i)
@@ -532,6 +531,7 @@ public static class Serialization
 		if (type == typeof(Color)) return 13;
 		if (type == typeof(DataNode)) return 14;
 		if (type == typeof(double)) return 15;
+		if (type == typeof(short)) return 16;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -547,6 +547,7 @@ public static class Serialization
 		if (type == typeof(Color32[])) return 112;
 		if (type == typeof(Color[])) return 113;
 		if (type == typeof(double[])) return 115;
+		if (type == typeof(short[])) return 116;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -578,6 +579,7 @@ public static class Serialization
 			case 13: return typeof(Color);
 			case 14: return typeof(DataNode);
 			case 15: return typeof(double);
+			case 16: return typeof(short);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -593,6 +595,7 @@ public static class Serialization
 			case 112: return typeof(Color32[]);
 			case 113: return typeof(Color[]);
 			case 115: return typeof(double[]);
+			case 116: return typeof(short[]);
 		}
 		return null;
 	}
@@ -645,8 +648,7 @@ public static class Serialization
 		// The object implements IBinarySerializable
 		if (obj is IBinarySerializable)
 		{
-			bw.Write((byte)253);
-			if (!typeIsKnown) bw.Write(TypeToName(obj.GetType()));
+			if (!typeIsKnown) bw.Write(253, obj.GetType());
 			(obj as IBinarySerializable).Serialize(bw);
 			return;
 		}
@@ -663,6 +665,22 @@ public static class Serialization
 		// If this is a custom type, there is more work to be done
 		if (prefix > 250)
 		{
+#if UNITY_EDITOR
+			if (obj is GameObject)
+			{
+				Debug.LogError("It's not possible to send entire game objects as parameters because Unity has no consistent way to identify them.\n" +
+					"Consider sending a path to the game object or its TNObject's ID instead.");
+				bw.Write((byte)0);
+				return;
+			}
+
+			if ((obj as Component) != null)
+			{
+				Debug.LogError("It's not possible to send components as parameters because Unity has no consistent way to identify them.");
+				bw.Write((byte)0);
+				return;
+			}
+#endif
 			// If it's a TNet list, serialize all of its elements
 			if (obj is TList)
 			{
@@ -723,7 +741,7 @@ public static class Serialization
 						fixedSize = (type != null);
 					}
 
-					if (fixedSize)
+					if (fixedSize || elemType != null)
 					{
 						// Determine the prefix for this type
 						int elemPrefix = GetPrefix(elemType);
@@ -741,34 +759,8 @@ public static class Serialization
 							}
 						}
 
-						if (!typeIsKnown) bw.Write((byte)100);
+						if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
 						bw.Write(type);
-						bw.Write((byte)(sameType ? 1 : 0));
-						bw.WriteInt(list.Count);
-
-						foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
-						return;
-					}
-					else if (elemType != null)
-					{
-						// Determine the prefix for this type
-						int elemPrefix = GetPrefix(elemType);
-						bool sameType = true;
-						IList list = obj as IList;
-
-						// Make sure that all elements are of the same type
-						foreach (object o in list)
-						{
-							if (o != null && elemType != o.GetType())
-							{
-								sameType = false;
-								elemPrefix = 255;
-								break;
-							}
-						}
-
-						if (!typeIsKnown) bw.Write((byte)99);
-						bw.Write(elemType);
 						bw.Write((byte)(sameType ? 1 : 0));
 						bw.WriteInt(list.Count);
 
@@ -803,6 +795,7 @@ public static class Serialization
 			case 13: bw.Write((Color)obj); break;
 			case 14: bw.Write((DataNode)obj); break;
 			case 15: bw.Write((double)obj); break;
+			case 16: bw.Write((short)obj); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -897,6 +890,13 @@ public static class Serialization
 			case 115:
 			{
 				double[] arr = (double[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 116:
+			{
+				short[] arr = (short[])obj;
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
@@ -1099,6 +1099,7 @@ public static class Serialization
 	static object ReadObject (this BinaryReader reader, object obj, int prefix, Type type, bool typeIsKnown)
 	{
 		if (!typeIsKnown) type = reader.ReadType(out prefix);
+		if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
 
 		switch (prefix)
 		{
@@ -1118,6 +1119,7 @@ public static class Serialization
 			case 13: return reader.ReadColor();
 			case 14: return reader.ReadDataNode();
 			case 15: return reader.ReadDouble();
+			case 16: return reader.ReadInt16();
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -1180,7 +1182,6 @@ public static class Serialization
 				type = reader.ReadType(out prefix);
 				bool sameType = (reader.ReadByte() == 1);
 				int elements = reader.ReadInt();
-
 				IList arr = (IList)type.Create(elements);
 
 				if (arr != null)
@@ -1293,6 +1294,13 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadDouble();
 				return arr;
 			}
+			case 116:
+			{
+				int elements = reader.ReadInt();
+				short[] arr = new short[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt16();
+				return arr;
+			}
 			case 253:
 			{
 				IBinarySerializable ser = (obj != null) ? (IBinarySerializable)obj : (IBinarySerializable)type.Create();
@@ -1306,6 +1314,7 @@ public static class Serialization
 				{
 #if REFLECTION_SUPPORT
 					obj = type.Create();
+					if (obj == null) Debug.LogError("Unable to create an instance of " + type);
 #else
 					Debug.LogError("Reflection is not supported on this platform");
 #endif
@@ -1321,14 +1330,21 @@ public static class Serialization
 						// Read the name of the field
 						string fieldName = reader.ReadString();
 
+						if (string.IsNullOrEmpty(fieldName))
+						{
+							Debug.LogError("Null field specified when serializing " + type);
+							continue;
+						}
+
 						// Try to find this field
-						FieldInfo fi = type.GetField(fieldName);
+						FieldInfo fi = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
 						// Read the value
 						object val = reader.ReadObject();
 
 						// Assign the value
 						if (fi != null) fi.SetValue(obj, Serialization.ConvertValue(val, fi.FieldType));
+						else Debug.LogError("Unable to set field " + type + "." + fieldName);
 					}
 				}
 				return obj;
@@ -1336,6 +1352,11 @@ public static class Serialization
 			case 255: // Serialization using a Binary Formatter
 			{
 				return formatter.Deserialize(reader.BaseStream);
+			}
+			default:
+			{
+				Debug.LogError("Unknown prefix: " + prefix);
+				break;
 			}
 		}
 		return null;
