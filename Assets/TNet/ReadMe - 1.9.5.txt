@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.1
+                  Version 1.9.5
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,16 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.5:
+- NEW: TNManager.SaveFile, TNManager.LoadFile, TNManager.Ping.
+- NEW: TNManager.playerData, synchronized across the network. SyncPlayerData() to sync it if modified via TNManager.playerDataNode.
+- NEW: Added DataNode.Read(byte[] data, bool binary) for creating a data node tree from raw data.
+- NEW: Added OnPing, OnPlayerSync, and OnLoadFile notifications to the Game Client.
+- NEW: Custom packet handlers will now be checked first, in case you want to overwrite the default handling.
+- NEW: TNServerInstance.SaveTo can now be used to save the server's state manually.
+- FIX: Variety of serialization-related fixes and additions.
+- FIX: Better error handling when connecting and better error messages.
 
 1.9.1:
 - FIX: Error about TNObjects with ID of 0 will now only show up when playing the game.
