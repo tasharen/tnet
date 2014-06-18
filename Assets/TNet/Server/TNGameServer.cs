@@ -733,7 +733,12 @@ public class GameServer : FileServer
 			{
 				writer.Write(player.id);
 				writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
+#if STANDALONE
+				if (player.data == null) writer.Write((byte)0);
+				else writer.Write((byte[])player.data);
+#else
 				writer.WriteObject(player.data);
+#endif
 			}
 			EndSend(true, channel, null);
 
@@ -749,19 +754,10 @@ public class GameServer : FileServer
 
 	bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 	{
-		BinaryReader reader = buffer.BeginReading();
-		Packet request = (Packet)reader.ReadByte();
-
-//#if UNITY_EDITOR // DEBUG
-//		if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
-//#else
-//		if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
-//#endif
-
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (player.VerifyRequestID(request, reader, true))
+			if (player.VerifyRequestID(buffer, true))
 			{
 				mDictionaryID.Add(player.id, player);
 				if (lobbyLink != null) lobbyLink.SendUpdate(this);
@@ -774,6 +770,15 @@ public class GameServer : FileServer
 			RemovePlayer(player);
 			return false;
 		}
+
+		BinaryReader reader = buffer.BeginReading();
+		Packet request = (Packet)reader.ReadByte();
+
+//#if UNITY_EDITOR // DEBUG
+//		if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
+//#else
+//		if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
+//#endif
 
 		switch (request)
 		{
@@ -940,8 +945,11 @@ public class GameServer : FileServer
 				if (target == null) break;
 
 				// Read the player's custom data
+#if STANDALONE
+				target.data = reader.ReadBytes(buffer.size);
+#else
 				target.data = reader.ReadObject();
-
+#endif
 				if (target.channel != null)
 				{
 					// We want to forward the packet as-is

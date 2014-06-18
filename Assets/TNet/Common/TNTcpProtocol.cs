@@ -259,7 +259,12 @@ public class TcpProtocol : Player
 				BinaryWriter writer = BeginSend(Packet.RequestID);
 				writer.Write(version);
 				writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+#if STANDALONE
+				if (data == null) writer.Write((byte)0);
+				else writer.Write((byte[])data);
+#else
 				writer.WriteObject(data);
+#endif
 				EndSend();
 				StartReceiving();
 			}
@@ -659,15 +664,22 @@ public class TcpProtocol : Player
 	/// Verify the connection.
 	/// </summary>
 
-	public bool VerifyRequestID (Packet packet, BinaryReader reader, bool uniqueID)
+	public bool VerifyRequestID (Buffer buffer, bool uniqueID)
 	{
-		if (packet == Packet.RequestID)
+		BinaryReader reader = buffer.BeginReading();
+		Packet request = (Packet)reader.ReadByte();
+
+		if (request == Packet.RequestID)
 		{
 			if (reader.ReadInt32() == version)
 			{
 				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
 				name = reader.ReadString();
+#if STANDALONE
+				data = reader.ReadBytes(buffer.size);
+#else
 				data = reader.ReadObject();
+#endif
 				stage = TcpProtocol.Stage.Connected;
 
 				BinaryWriter writer = BeginSend(Packet.ResponseID);

@@ -55,7 +55,12 @@ public class TcpPlayer : TcpProtocol
 				TcpPlayer tp = channel.players[i];
 				writer.Write(tp.id);
 				writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
+#if STANDALONE
+				if (tp.data == null) writer.Write((byte)0);
+				else writer.Write((byte[])tp.data);
+#else
 				writer.WriteObject(tp.data);
+#endif
 			}
 		}
 

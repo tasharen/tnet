@@ -228,18 +228,18 @@ public class TcpLobbyServer : LobbyServer
 
 	bool ProcessPacket (Buffer buffer, TcpProtocol tc)
 	{
-		BinaryReader reader = buffer.BeginReading();
-		Packet request = (Packet)reader.ReadByte();
-
 		// TCP connections must be verified first to ensure that they are using the correct protocol
 		if (tc.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (tc.VerifyRequestID(request, reader, false)) return true;
+			if (tc.VerifyRequestID(buffer, false)) return true;
 #if STANDALONE
 			Console.WriteLine(tc.address + " has failed the verification step");
 #endif
 			return false;
 		}
+
+		BinaryReader reader = buffer.BeginReading();
+		Packet request = (Packet)reader.ReadByte();
 
 		switch (request)
 		{
