@@ -945,11 +945,16 @@ public class GameServer : FileServer
 				if (target == null) break;
 
 				// Read the player's custom data
+				if (buffer.size > 1)
+				{
 #if STANDALONE
-				target.data = reader.ReadBytes(buffer.size);
+					target.data = reader.ReadBytes(buffer.size);
 #else
-				target.data = reader.ReadObject();
+					target.data = reader.ReadObject();
 #endif
+				}
+				else target.data = null;
+
 				if (target.channel != null)
 				{
 					// We want to forward the packet as-is

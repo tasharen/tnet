@@ -675,11 +675,17 @@ public class TcpProtocol : Player
 			{
 				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
 				name = reader.ReadString();
+
+				if (buffer.size > 1)
+				{
 #if STANDALONE
-				data = reader.ReadBytes(buffer.size);
+					data = reader.ReadBytes(buffer.size);
 #else
-				data = reader.ReadObject();
+					data = reader.ReadObject();
 #endif
+				}
+				else data = null;
+
 				stage = TcpProtocol.Stage.Connected;
 
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
