@@ -37,6 +37,24 @@ public class Player
 
 	public object data = null;
 
+#if !STANDALONE
+	static DataNode mDummy = new DataNode("Version", version);
+
+	/// <summary>
+	/// Player's data converted to DataNode form. Always returns a valid DataNode.
+	/// It's a convenience property, intended for read-only purposes.
+	/// </summary>
+
+	public DataNode dataNode
+	{
+		get
+		{
+			DataNode node = data as DataNode;
+			return node ?? mDummy;
+		}
+	}
+#endif
+
 	public Player () { }
 	public Player (string playerName) { name = playerName; }
 }

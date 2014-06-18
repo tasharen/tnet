@@ -269,7 +269,7 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return (isConnected) ? mInstance.mClient.playerName : mPlayer.name;
+			return isConnected ? mInstance.mClient.playerName : mPlayer.name;
 		}
 		set
 		{
@@ -289,12 +289,32 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return (isConnected) ? mInstance.mClient.playerData : mPlayer.data;
+			return isConnected ? mInstance.mClient.playerData : mPlayer.data;
 		}
 		set
 		{
 			mPlayer.data = value;
 			if (isConnected) mInstance.mClient.playerData = value;
+		}
+	}
+
+	/// <summary>
+	/// Gets the player's data in DataNode format. It's a convenience property.
+	/// After changing the values, call TNManager.SyncPlayerData().
+	/// </summary>
+
+	static public DataNode playerDataNode
+	{
+		get
+		{
+			DataNode node = playerData as DataNode;
+			
+			if (node == null)
+			{
+				node = new DataNode("Version", TNet.Player.version);
+				playerData = node;
+			}
+			return node;
 		}
 	}
 
