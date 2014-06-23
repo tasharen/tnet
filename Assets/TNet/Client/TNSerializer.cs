@@ -236,10 +236,6 @@ public static class Serialization
 
 #if REFLECTION_SUPPORT
 	// Cached for speed
-	static Type[] mVoid = new Type[] { };
-	static Type[] mInt = new Type[1] { typeof(int) };
-	static Dictionary<Type, ConstructorInfo> mVoidConstructor = new Dictionary<Type, ConstructorInfo>();
-	static Dictionary<Type, ConstructorInfo> mIntConstructor = new Dictionary<Type, ConstructorInfo>();
 	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
 
 	/// <summary>
@@ -258,14 +254,15 @@ public static class Serialization
 
 	static public object Create (this Type type)
 	{
-		ConstructorInfo cons = null;
-
-		if (!mVoidConstructor.TryGetValue(type, out cons))
+		try
 		{
-			cons = type.GetConstructor(mVoid);
-			mVoidConstructor[type] = cons;
+			return Activator.CreateInstance(type);
 		}
-		return (cons != null) ? cons.Invoke(null) : null;
+		catch (Exception ex)
+		{
+			Debug.LogError(ex.Message);
+			return null;
+		}
 	}
 
 	/// <summary>
@@ -274,22 +271,15 @@ public static class Serialization
 
 	static public object Create (this Type type, int size)
 	{
-		ConstructorInfo cons = null;
-
-		if (!mIntConstructor.TryGetValue(type, out cons))
+		try
 		{
-			cons = type.GetConstructor(mInt);
-			mIntConstructor[type] = cons;
+			return Activator.CreateInstance(type, size);
 		}
-
-		if (cons != null) return cons.Invoke(new object[] { size });
-
-		if (!mVoidConstructor.TryGetValue(type, out cons))
+		catch (Exception ex)
 		{
-			cons = type.GetConstructor(mVoid);
-			mVoidConstructor[type] = cons;
+			Debug.LogError(ex.Message);
+			return null;
 		}
-		return (cons != null) ? cons.Invoke(null) : null;
 	}
 
 	/// <summary>
