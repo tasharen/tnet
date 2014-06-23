@@ -139,14 +139,22 @@ public class ExampleMenu : MonoBehaviour
 #if UNITY_WEBPLAYER
 					mMessage = "Can't host from the Web Player due to Unity's security restrictions";
 #else
-					int udpPort = Random.Range(10000, 40000);
-
 					// Start a local server, loading the saved data if possible
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
-					TNUdpLobbyClient lan = GetComponent<TNUdpLobbyClient>();
-					int lobbyPort = (lan != null) ? lan.remotePort : 0;
-					TNServerInstance.Start(serverTcpPort, udpPort, "server.dat", lobbyPort);
+					int udpPort = Random.Range(10000, 40000);
+					TNLobbyClient lobby = GetComponent<TNLobbyClient>();
+
+					if (lobby == null)
+					{
+						TNServerInstance.Start(serverTcpPort, udpPort, "server.dat");
+					}
+					else
+					{
+						TNServerInstance.Type type = (lobby is TNUdpLobbyClient) ?
+							TNServerInstance.Type.Udp : TNServerInstance.Type.Tcp;
+						TNServerInstance.Start(serverTcpPort, udpPort, lobby.remotePort, "server.dat", type);
+					}
 					mMessage = "Server started";
 #endif
 				}

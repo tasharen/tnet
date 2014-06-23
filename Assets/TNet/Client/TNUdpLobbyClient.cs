@@ -16,18 +16,6 @@ using TNet;
 
 public class TNUdpLobbyClient : TNLobbyClient
 {
-	/// <summary>
-	/// Public address for the lobby client server's location.
-	/// </summary>
-
-	public string remoteAddress;
-
-	/// <summary>
-	/// Lobby server's port.
-	/// </summary>
-
-	public int remotePort = 5129;
-
 	UdpProtocol mUdp = new UdpProtocol();
 	Buffer mRequest;
 	long mNextSend = 0;

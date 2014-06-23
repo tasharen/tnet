@@ -135,7 +135,6 @@ public class TcpLobbyServer : LobbyServer
 			while (mListener != null && mListener.Pending())
 			{
 				TcpProtocol tc = new TcpProtocol();
-				tc.data = (long)(-1);
 				tc.StartReceiving(mListener.AcceptSocket());
 				mTcp.Add(tc);
 			}
@@ -186,10 +185,9 @@ public class TcpLobbyServer : LobbyServer
 			for (int i = 0; i < mTcp.size; ++i)
 			{
 				TcpProtocol tc = mTcp[i];
-				long customTimestamp = (long)tc.data;
+				if (tc.stage != TcpProtocol.Stage.Connected || tc.data == null || !(tc.data is long)) continue;
 
-				// Timestamp of -1 means we don't want updates to be sent
-				if (tc.stage != TcpProtocol.Stage.Connected || customTimestamp == -1) continue;
+				long customTimestamp = (long)tc.data;
 
 				// If timestamp was set then the list was already sent previously
 				if (customTimestamp != 0)

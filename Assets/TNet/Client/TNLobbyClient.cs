@@ -42,6 +42,18 @@ public abstract class TNLobbyClient : MonoBehaviour
 	static public bool isActive = false;
 
 	/// <summary>
+	/// Public address for the lobby client server's location.
+	/// </summary>
+
+	public string remoteAddress;
+
+	/// <summary>
+	/// Lobby server's port.
+	/// </summary>
+
+	public int remotePort = 5129;
+
+	/// <summary>
 	/// Clear the list of known servers when the component is disabled.
 	/// </summary>
 

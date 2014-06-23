@@ -16,18 +16,6 @@ using TNet;
 
 public class TNTcpLobbyClient : TNLobbyClient
 {
-	/// <summary>
-	/// Public address for the lobby client server's location.
-	/// </summary>
-
-	public string remoteAddress;
-
-	/// <summary>
-	/// Lobby server's port.
-	/// </summary>
-
-	public int remotePort = 5129;
-
 	TcpProtocol mTcp = new TcpProtocol();
 	long mNextConnect = 0;
 	IPEndPoint mRemoteAddress;

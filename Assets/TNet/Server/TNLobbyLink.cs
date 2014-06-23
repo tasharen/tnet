@@ -55,11 +55,8 @@ public class LobbyServerLink
 		if (!mShutdown)
 		{
 			mShutdown = true;
-
 			if (mExternal != null && mLobby != null)
-			{
 				mLobby.RemoveServer(mInternal, mExternal);
-			}
 		}
 	}
 
@@ -96,6 +93,7 @@ public class LobbyServerLink
 		mInternal = new IPEndPoint(Tools.localAddress, mGameServer.tcpPort);
 		mExternal = new IPEndPoint(Tools.externalAddress, mGameServer.tcpPort);
 
+		// UDP updates need to be periodic, while the TCP update only needs to happen once
 		if (mLobby is UdpLobbyServer)
 		{
 			while (!mShutdown)
@@ -110,6 +108,7 @@ public class LobbyServerLink
 				Thread.Sleep(10);
 			}
 		}
+		else mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
 		mThread = null;
 	}
 }
