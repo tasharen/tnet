@@ -374,6 +374,11 @@ public class DataNode
 				writer.Write('"');
 				writer.Write('\n');
 			}
+			else if (type == typeof(bool))
+			{
+				writer.Write(" = ");
+				writer.Write((bool)value ? "true" : "false");
+			}
 			else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
 			{
 				writer.Write(" = ");
@@ -417,7 +422,7 @@ public class DataNode
 			{
 				Color32 c = (Color32)value;
 				writer.Write(" = 0x");
-				
+
 				if (c.a == 255)
 				{
 					int i = (c.r << 16) | (c.g << 8) | c.b;
@@ -506,12 +511,12 @@ public class DataNode
 				}
 				else if (value is IDataNodeSerializable)
 				{
-				    IDataNodeSerializable ser = value as IDataNodeSerializable;
-				    DataNode node = new DataNode();
-				    ser.Serialize(node);
+					IDataNodeSerializable ser = value as IDataNodeSerializable;
+					DataNode node = new DataNode();
+					ser.Serialize(node);
 
-				    writer.Write(" = ");
-				    writer.Write(Serialization.TypeToName(type));
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
 					writer.Write('\n');
 
 					for (int i = 0; i < node.children.size; ++i)
@@ -642,6 +647,18 @@ public class DataNode
 				mValue = line;
 				return true;
 			}
+
+			if (line == "true")
+			{
+				mValue = true;
+				return true;
+			}
+
+			if (line == "false")
+			{
+				mValue = false;
+				return true;
+			}
 		}
 
 		int dataStart = line.IndexOf('(');
@@ -717,8 +734,7 @@ public class DataNode
 		}
 		else if (type == typeof(bool))
 		{
-			bool b;
-			if (bool.TryParse(text, out b)) mValue = b;
+			mValue = (text == "true" || text == "True");
 		}
 		else if (type == typeof(byte))
 		{

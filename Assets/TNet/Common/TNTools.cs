@@ -21,11 +21,11 @@ namespace TNet
 
 static public class Tools
 {
-	static string mChecker = "http://checkip.dyndns.org";
+	static string mChecker = null;
 
 	/// <summary>
-	/// Get or set the URL that will perform the IP check. The URL-returned value should be in the format of:
-	/// "Current IP Address: 255.255.255.255".
+	/// Get or set the URL that will perform the IP check. The URL-returned value should be simply the IP address:
+	/// "255.255.255.255".
 	/// Note that the server must have a valid policy XML if it's accessed from a Unity web player build.
 	/// </summary>
 
@@ -229,20 +229,43 @@ static public class Tools
 
 	static public void ResolveIPs (OnResolvedIPs del)
 	{
-		Thread th = new Thread(ResolveThread);
-		th.Start(del);
+		if (isExternalIPReliable)
+		{
+			del(localAddress, externalAddress);
+		}
+		else
+		{
+			lock (mOnResolve)
+			{
+				mOnResolve += del;
+
+				if (mResolveThread == null)
+				{
+					mResolveThread = new Thread(ResolveThread);
+					mResolveThread.Start();
+				}
+			}
+		}
 	}
+
+	static OnResolvedIPs mOnResolve;
+	static Thread mResolveThread;
 
 	/// <summary>
 	/// Thread function that resolves IP addresses.
 	/// </summary>
 
-	static void ResolveThread (object obj)
+	static void ResolveThread ()
 	{
-		OnResolvedIPs callback = (OnResolvedIPs)obj;
 		IPAddress local = localAddress;
 		IPAddress ext = externalAddress;
-		if (callback != null) callback(local, ext);
+
+		lock (mOnResolve)
+		{
+			if (mOnResolve != null) mOnResolve(local, ext);
+			mResolveThread = null;
+			mOnResolve = null;
+		}
 	}
 
 	/// <summary>
@@ -251,33 +274,48 @@ static public class Tools
 
 	static IPAddress GetExternalAddress ()
 	{
+		if (mExternalAddress != null) return mExternalAddress;
+
 #if UNITY_WEBPLAYER
 		// HttpWebRequest.Create is not supported in the Unity web player
 		return localAddress;
 #else
-		for (int i = 0; i < 5; ++i)
-		{
-			WebRequest web = HttpWebRequest.Create(mChecker);
-			web.Timeout = 5000;
-
-			// "Current IP Address: xxx.xxx.xxx.xxx"
-			string response = GetResponse(web);
-			if (string.IsNullOrEmpty(response)) continue;
-
-			string[] split1 = response.Split(':');
-			if (split1.Length < 2) continue;
-
-			// We have reliably determined the external IP address
-			isExternalIPReliable = true;
-			string[] split2 = split1[1].Trim().Split('<');
-			return ResolveAddress(split2[0]);
-		}
-#if UNITY_EDITOR
+		if (ResolveExternalIP(ipCheckerUrl)) return mExternalAddress;
+		if (ResolveExternalIP("http://icanhazip.com")) return mExternalAddress;
+		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return mExternalAddress;
+		if (ResolveExternalIP("http://ipinfo.io/ip")) return mExternalAddress;
+ #if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
-#endif
-		isExternalIPReliable = false;
+ #endif
 		return localAddress;
 #endif
+	}
+
+	/// <summary>
+	/// Resolve the external IP using the specified URL.
+	/// </summary>
+
+	static bool ResolveExternalIP (string url)
+	{
+		if (string.IsNullOrEmpty(url)) return false;
+
+		WebClient web = new WebClient();
+		string text = web.DownloadString(url).Trim();
+		string[] split1 = text.Split(':');
+
+		if (split1.Length >= 2)
+		{
+			string[] split2 = split1[1].Trim().Split('<');
+			mExternalAddress = ResolveAddress(split2[0]);
+		}
+		else mExternalAddress = ResolveAddress(text);
+
+		if (mExternalAddress != null)
+		{
+			isExternalIPReliable = true;
+			return true;
+		}
+		return false;
 	}
 
 	/// <summary>
