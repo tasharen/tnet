@@ -118,6 +118,12 @@ public class UdpLobbyServer : LobbyServer
 
 		switch (request)
 		{
+			case Packet.RequestPing:
+			{
+				BeginSend(Packet.ResponsePing);
+				EndSend(ip);
+				break;
+			}
 			case Packet.RequestAddServer:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;

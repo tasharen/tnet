@@ -241,6 +241,12 @@ public class TcpLobbyServer : LobbyServer
 
 		switch (request)
 		{
+			case Packet.RequestPing:
+			{
+				BeginSend(Packet.ResponsePing);
+				EndSend(tc);
+				break;
+			}
 			case Packet.RequestServerList:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;

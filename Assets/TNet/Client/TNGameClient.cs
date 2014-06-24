@@ -655,6 +655,7 @@ public class GameClient
 	public void Ping (IPEndPoint udpEndPoint, OnPing callback)
 	{
 		onPing = callback;
+		mPingTime = DateTime.Now.Ticks / 10000;
 		BeginSend(Packet.RequestPing);
 		EndSend(udpEndPoint);
 	}
