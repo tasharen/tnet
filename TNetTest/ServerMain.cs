@@ -122,9 +122,6 @@ public class ServerMain
 
 	static void Start (string name, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp)
 	{
-		//Console.WriteLine("External: " + Tools.externalAddress);
-		//Console.WriteLine("Internal: " + Tools.localAddress);
-
 		List<IPAddress> ips = Tools.localAddresses;
 		string text = "\nLocal IPs: " + ips.size;
 
@@ -134,7 +131,6 @@ public class ServerMain
 			if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
 		}
 		Console.WriteLine(text + "\n");
-
 		{
 			// Universal Plug & Play is used to determine the external IP address,
 			// and to automatically open up ports on the router / gateway.
@@ -143,13 +139,16 @@ public class ServerMain
 
 			if (up.status == UPnP.Status.Success)
 			{
-				Console.WriteLine("Gateway:  " + up.gatewayAddress + "\n");
+				Console.WriteLine("Gateway IP:  " + up.gatewayAddress);
 			}
 			else
 			{
-				Console.WriteLine("Gateway:  None found\n");
+				Console.WriteLine("Gateway IP:  None found");
 				up = null;
 			}
+
+			Console.WriteLine("External IP: " + Tools.externalAddress);
+			Console.WriteLine("");
 
 			GameServer gameServer = null;
 			LobbyServer lobbyServer = null;
