@@ -485,12 +485,12 @@ public class DataNode
 				{
 					TList list = value as TList;
 
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
+					writer.Write('\n');
+
 					if (list.Count > 0)
 					{
-						writer.Write(" = ");
-						writer.Write(Serialization.TypeToName(type));
-						writer.Write('\n');
-
 						for (int i = 0, imax = list.Count; i < imax; ++i)
 							Write(writer, tab + 1, "Add", list.Get(i), false);
 					}
@@ -499,12 +499,12 @@ public class DataNode
 				{
 					System.Collections.IList list = value as System.Collections.IList;
 
+					writer.Write(" = ");
+					writer.Write(Serialization.TypeToName(type));
+					writer.Write('\n');
+
 					if (list.Count > 0)
 					{
-						writer.Write(" = ");
-						writer.Write(Serialization.TypeToName(type));
-						writer.Write('\n');
-
 						for (int i = 0, imax = list.Count; i < imax; ++i)
 							Write(writer, tab + 1, "Add", list[i], false);
 					}
