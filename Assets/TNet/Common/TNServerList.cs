@@ -191,7 +191,6 @@ public class ServerList
 		{
 			lock (list)
 			{
-				list.Clear();
 				int count = reader.ReadUInt16();
 
 				for (int i = 0; i < count; ++i)
