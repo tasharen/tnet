@@ -32,6 +32,7 @@ public class ExampleMenu : MonoBehaviour
 	public string[] examples;
 	public GUIStyle button;
 	public GUIStyle text;
+	public GUIStyle textLeft;
 	public GUIStyle input;
 
 	string mAddress = "127.0.0.1";
@@ -46,6 +47,9 @@ public class ExampleMenu : MonoBehaviour
 	{
 		if (Application.isPlaying)
 		{
+			// Start resolving IPs
+			Tools.ResolveIPs(null);
+
 			// We don't want mobile devices to dim their screen and go to sleep while the app is running
 			Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
@@ -88,8 +92,8 @@ public class ExampleMenu : MonoBehaviour
 				DrawExampleMenu();
 			}
 			DrawDisconnectButton();
-			DrawDebugInfo();
 		}
+		DrawDebugInfo();
 	}
 
 	/// <summary>
@@ -259,7 +263,17 @@ public class ExampleMenu : MonoBehaviour
 
 	void DrawDebugInfo ()
 	{
-		GUILayout.Label("Ping: " + TNManager.ping + " (" + (TNManager.canUseUDP ? "TCP+UDP" : "TCP") + ")", text);
+		GUILayout.Label("LAN: " + Tools.localAddress.ToString(), textLeft);
+
+		if (Application.isPlaying)
+		{
+			if (Tools.isExternalIPReliable)
+				GUILayout.Label("WAN: " + Tools.externalAddress, textLeft);
+			else GUILayout.Label("WAN: Resolving...", textLeft);
+
+			if (TNManager.isConnected)
+				GUILayout.Label("Ping: " + TNManager.ping + " (" + (TNManager.canUseUDP ? "TCP+UDP" : "TCP") + ")", textLeft);
+		}
 	}
 
 	/// <summary>
@@ -284,9 +298,11 @@ public class ExampleMenu : MonoBehaviour
 			{
 				ServerList.Entry ent = list[i];
 
-				if (GUILayout.Button(ent.externalAddress.ToString(), button))
+				// NOTE: I am using 'internalAddress' here because I know all servers are hosted on LAN.
+				// If you are hosting outside of your LAN, you should probably use 'externalAddress' instead.
+				if (GUILayout.Button(ent.internalAddress.ToString(), button))
 				{
-					TNManager.Connect(ent.externalAddress, ent.internalAddress);
+					TNManager.Connect(ent.internalAddress, ent.internalAddress);
 					mMessage = "Connecting...";
 				}
 			}

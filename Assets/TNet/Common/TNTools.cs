@@ -227,17 +227,25 @@ static public class Tools
 	/// Since calling "localAddress" and "externalAddress" would lock up the application, it's better to do it asynchronously.
 	/// </summary>
 
+	static public void ResolveIPs () { ResolveIPs(null); }
+
+	/// <summary>
+	/// Since calling "localAddress" and "externalAddress" would lock up the application, it's better to do it asynchronously.
+	/// </summary>
+
 	static public void ResolveIPs (OnResolvedIPs del)
 	{
 		if (isExternalIPReliable)
 		{
-			del(localAddress, externalAddress);
+			if (del != null) del(localAddress, externalAddress);
 		}
 		else
 		{
+			if (mOnResolve == null) mOnResolve = ResolveDummyFunc;
+
 			lock (mOnResolve)
 			{
-				mOnResolve += del;
+				if (del != null) mOnResolve += del;
 
 				if (mResolveThread == null)
 				{
@@ -248,6 +256,7 @@ static public class Tools
 		}
 	}
 
+	static void ResolveDummyFunc (IPAddress a, IPAddress b) {}
 	static OnResolvedIPs mOnResolve;
 	static Thread mResolveThread;
 
@@ -497,19 +506,25 @@ static public class Tools
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 
-	static public void WriteFile (string fileName, byte[] data)
+	static public bool WriteFile (string fileName, byte[] data)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		if (data == null || data.Length == 0)
 		{
-			DeleteFile(fileName);
+			return DeleteFile(fileName);
 		}
 		else
 		{
-			string dir = Path.GetDirectoryName(fileName);
-			if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-			File.WriteAllBytes(fileName, data);
+			try
+			{
+				string dir = Path.GetDirectoryName(fileName);
+				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+				File.WriteAllBytes(fileName, data);
+				return true;
+			}
+			catch (System.Exception) { }
 		}
+		return false;
 #endif
 	}
 
@@ -520,7 +535,12 @@ static public class Tools
 	static public byte[] ReadFile (string fileName)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
-		if (File.Exists(fileName)) return File.ReadAllBytes(fileName);
+		try
+		{
+			if (File.Exists(fileName))
+				return File.ReadAllBytes(fileName);
+		}
+		catch (System.Exception) { }
 #endif
 		return null;
 	}
@@ -529,10 +549,17 @@ static public class Tools
 	/// Delete the specified file, if it exists.
 	/// </summary>
 
-	static public void DeleteFile (string fileName)
+	static public bool DeleteFile (string fileName)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
-		if (File.Exists(fileName)) File.Delete(fileName);
+		try
+		{
+			if (File.Exists(fileName))
+				File.Delete(fileName);
+			return true;
+		}
+		catch (System.Exception) { }
+		return false;
 #endif
 	}
 }

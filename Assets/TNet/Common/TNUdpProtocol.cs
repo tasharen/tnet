@@ -35,8 +35,11 @@ public class UdpProtocol
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
 
-	// Buffer that's currently used to receive incoming data
-	EndPoint mEndPoint = new IPEndPoint(IPAddress.Any, 0);
+	// End point of where the data is coming from
+	EndPoint mEndPoint;
+
+	// Default end point -- mEndPoint is reset to this value after every receive operation.
+	static EndPoint mDefaultEndPoint;
 
 #if !UNITY_WEBPLAYER
 	// Cached broadcast end-point
@@ -104,6 +107,13 @@ public class UdpProtocol
 
 		try
 		{
+			// Choose the default network interface if there is more than one, and no interface was explicitly chosen
+			if (defaultNetworkInterface == IPAddress.Any && Tools.localAddresses.size > 1)
+				defaultNetworkInterface = Tools.localAddress;
+
+			mEndPoint = new IPEndPoint(defaultNetworkInterface, 0);
+			mDefaultEndPoint = new IPEndPoint(defaultNetworkInterface, 0);
+
 			// Bind the socket to the specific network interface and start listening for incoming packets
 			mSocket.Bind(new IPEndPoint(defaultNetworkInterface, mPort));
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
@@ -167,7 +177,7 @@ public class UdpProtocol
 			buffer.BeginWriting(false).Write(mTemp, 0, bytes);
 			buffer.BeginReading(4);
 
-			// See the note above. The 'endPoint', gets reassigned rather than updated.
+			// The 'endPoint', gets reassigned rather than updated.
 			Datagram dg = new Datagram();
 			dg.buffer = buffer;
 			dg.ip = (IPEndPoint)mEndPoint;
@@ -177,6 +187,7 @@ public class UdpProtocol
 		// Queue up the next receive operation
 		if (mSocket != null)
 		{
+			mEndPoint = mDefaultEndPoint;
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 	}
