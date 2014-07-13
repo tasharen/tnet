@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.5c
+                  Version 1.9.6
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,18 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.6:
+- NEW: Added convenience methods to retrieve player data in DataNode form.
+- NEW: Faster way of getting the external IP address.
+- NEW: Example menu now shows your internal and external IPs.
+- NEW: TNet.Tools.ResolveIPs can now be called by itself with no callback.
+- NEW: TNet.UdpProtocol will now choose the default network interface on its own.
+- FIX: LAN server list is now no longer cleared every time a new server arrives.
+- FIX: Read/write/delete file functions are now wrapped in try/catch blocks.
+- FIX: Fixed the TCP lobby server (it was throwing exceptions).
+- FIX: Fixed the ability to host a local TCP-based lobby server alongside the game server.
+- FIX: Added Ping packet handling to the lobby servers.
 
 1.9.5:
 - NEW: TNManager.SaveFile, TNManager.LoadFile, TNManager.Ping.
