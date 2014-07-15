@@ -378,6 +378,7 @@ public class DataNode
 			{
 				writer.Write(" = ");
 				writer.Write((bool)value ? "true" : "false");
+				writer.Write('\n');
 			}
 			else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
 			{
@@ -869,7 +870,9 @@ public class DataNode
 		}
 		else if (!type.IsSubclassOf(typeof(Component)))
 		{
-			mValue = type.Create(children.size);
+			bool isIList = type.Implements(typeof(System.Collections.IList));
+			bool isTList = (!isIList && type.Implements(typeof(TList)));
+			mValue = (isTList || isIList) ? type.Create(children.size) : type.Create();
 
 			if (mValue == null)
 			{
@@ -877,7 +880,7 @@ public class DataNode
 				return false;
 			}
 
-			if (mValue is TList)
+			if (isTList)
 			{
 				TList list = mValue as TList;
 				Type elemType = type.GetGenericArgument();
@@ -899,7 +902,7 @@ public class DataNode
 				}
 				else Debug.LogError("Unable to determine the element type of " + type);
 			}
-			else if (mValue is System.Collections.IList)
+			else if (isIList)
 			{
 				// This is for both List<Type> and Type[] arrays.
 				System.Collections.IList list = mValue as System.Collections.IList;

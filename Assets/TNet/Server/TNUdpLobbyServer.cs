@@ -48,7 +48,8 @@ public class UdpLobbyServer : LobbyServer
 		mUdp = new UdpProtocol();
 		if (!mUdp.Start(listenPort)) return false;
 #if STANDALONE
-		Console.WriteLine("UDP Lobby Server started on port " + listenPort + " using interface " + UdpProtocol.defaultNetworkInterface);
+		Console.WriteLine("UDP Lobby Server started on port " + listenPort + " using interface " + 
+			(UdpProtocol.defaultNetworkInterface ?? IPAddress.Any));
 #endif
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();

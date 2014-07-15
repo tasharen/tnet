@@ -19,17 +19,26 @@ namespace TNet
 public class UdpProtocol
 {
 	/// <summary>
-	/// When you have multiple network interfaces, it's often important to be able to specify
-	/// which interface will actually be used to send UDP messages. By default this will be set
-	/// to Tools.localAddress, but you can change it to be something else if you desire.
-	/// It's important to set this prior to calling StartUDP.
+	/// If 'true', TNet will use multicasting with new UDP sockets. If 'false', TNet will use broadcasting instead.
+	/// Multicasting is the suggested way to go as it supports multiple network interfaces properly.
+	/// It's important to set this prior to calling StartUDP or the change won't have any effect.
 	/// </summary>
 
-	static public IPAddress defaultNetworkInterface = IPAddress.Any;
+	static public bool useMulticasting = true;
+
+	/// <summary>
+	/// When you have multiple network interfaces, it's often important to be able to specify
+	/// which interface will actually be used to send UDP messages. By default this will be set
+	/// to IPAddress.Any, but you can change it to be something else if you desire.
+	/// It's important to set this prior to calling StartUDP or the change won't have any effect.
+	/// </summary>
+
+	static public IPAddress defaultNetworkInterface = null;
 
 	// Port used to listen and socket used to send and receive
 	int mPort = -1;
 	Socket mSocket;
+	bool mMulticast = true;
 	//List<UdpClient> mClients = new List<UdpClient>();
 
 	// Buffer used for receiving incoming data
@@ -43,7 +52,9 @@ public class UdpProtocol
 
 #if !UNITY_WEBPLAYER
 	// Cached broadcast end-point
-	IPEndPoint mBroadcastIP = new IPEndPoint(IPAddress.Broadcast, 0);
+	static IPAddress multicastIP = IPAddress.Parse("224.168.100.17");
+	IPEndPoint mMulticastEndPoint = new IPEndPoint(multicastIP, 0);
+	IPEndPoint mBroadcastEndPoint = new IPEndPoint(IPAddress.Broadcast, 0);
 #endif
 
 	// Incoming message queue
@@ -91,31 +102,32 @@ public class UdpProtocol
 #if !UNITY_WEBPLAYER
 		// Web player doesn't seem to support broadcasts
 		mSocket.MulticastLoopback = true;
-		mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		mMulticast = useMulticasting;
 
-		//IPAddress group = IPAddress.Parse("224.168.100.17");
-		//List<IPAddress> ips = Tools.localAddresses;
+		if (useMulticasting)
+		{
+			List<IPAddress> ips = Tools.localAddresses;
 
-		//foreach (IPAddress ip in ips)
-		//{
-		//    MulticastOption opt = new MulticastOption(group, ip);
-		//    mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
-		//}
+			foreach (IPAddress ip in ips)
+			{
+				MulticastOption opt = new MulticastOption(multicastIP, ip);
+				mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
+			}
+		}
+		else mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 #endif
 		// Port zero means we will be able to send, but not receive
 		if (mPort == 0) return true;
 
 		try
 		{
-			// Choose the default network interface if there is more than one, and no interface was explicitly chosen
-			if (defaultNetworkInterface == IPAddress.Any && Tools.localAddresses.size > 1)
-				defaultNetworkInterface = Tools.localAddress;
-
-			mEndPoint = new IPEndPoint(defaultNetworkInterface, 0);
-			mDefaultEndPoint = new IPEndPoint(defaultNetworkInterface, 0);
+			// Use the default network interface if one wasn't explicitly chosen
+			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.Any;
+			mEndPoint = new IPEndPoint(networkInterface, 0);
+			mDefaultEndPoint = new IPEndPoint(networkInterface, 0);
 
 			// Bind the socket to the specific network interface and start listening for incoming packets
-			mSocket.Bind(new IPEndPoint(defaultNetworkInterface, mPort));
+			mSocket.Bind(new IPEndPoint(networkInterface, mPort));
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 #if UNITY_EDITOR
@@ -246,11 +258,12 @@ public class UdpProtocol
 			UnityEngine.Debug.LogError("[TNet] Sending broadcasts doesn't work in the Unity Web Player or Flash");
 #endif
 #else
-			mBroadcastIP.Port = port;
+			IPEndPoint endPoint = mMulticast ? mMulticastEndPoint : mBroadcastEndPoint;
+			endPoint.Port = port;
 
 			try
 			{
-				mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, mBroadcastIP);
+				mSocket.SendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, endPoint);
 			}
 			catch (System.Exception ex)
 			{

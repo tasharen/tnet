@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.6
+                  Version 1.9.6b
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -72,6 +72,7 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
 1.9.6:
+- NEW: TNet will now use UDP multicasting instead of broadcasting by default.
 - NEW: Added convenience methods to retrieve player data in DataNode form.
 - NEW: Faster way of getting the external IP address.
 - NEW: Example menu now shows your internal and external IPs.

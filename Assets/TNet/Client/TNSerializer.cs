@@ -275,10 +275,9 @@ public static class Serialization
 		{
 			return Activator.CreateInstance(type, size);
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
-			Debug.LogError(ex.Message);
-			return null;
+			return type.Create();
 		}
 	}
 
