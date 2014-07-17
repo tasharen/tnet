@@ -649,15 +649,11 @@ public class DataNode
 				return true;
 			}
 
-			if (line == "true")
-			{
-				mValue = true;
-				return true;
-			}
+			bool b;
 
-			if (line == "false")
+			if (bool.TryParse(line, out b))
 			{
-				mValue = false;
+				mValue = b;
 				return true;
 			}
 		}
@@ -735,7 +731,8 @@ public class DataNode
 		}
 		else if (type == typeof(bool))
 		{
-			mValue = (text == "true" || text == "True");
+			bool b = false;
+			if (bool.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(byte))
 		{
