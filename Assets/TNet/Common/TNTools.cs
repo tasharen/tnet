@@ -524,8 +524,8 @@ static public class Tools
 			}
 			catch (System.Exception) { }
 		}
-		return false;
 #endif
+		return false;
 	}
 
 	/// <summary>
@@ -559,8 +559,8 @@ static public class Tools
 			return true;
 		}
 		catch (System.Exception) { }
-		return false;
 #endif
+		return false;
 	}
 }
 }

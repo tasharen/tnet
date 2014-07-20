@@ -244,7 +244,7 @@ public class ServerMain
 				lobbyServer = null;
 			}
 		}
-		Console.WriteLine("There server has shut down. Press ENTER to terminate the application.");
+		Console.WriteLine("The server has shut down. Press ENTER to terminate the application.");
 		Console.ReadLine();
 	}
 
