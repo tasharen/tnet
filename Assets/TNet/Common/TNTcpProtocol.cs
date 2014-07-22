@@ -283,7 +283,13 @@ public class TcpProtocol : Player
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public void Disconnect ()
+	public void Disconnect () { Disconnect(false); }
+
+	/// <summary>
+	/// Disconnect the player, freeing all resources.
+	/// </summary>
+
+	public void Disconnect (bool notify)
 	{
 		if (!isConnected) return;
 
@@ -298,7 +304,7 @@ public class TcpProtocol : Player
 					if (sock != null) sock.Close();
 				}
 			}
-			if (mSocket != null) Close(mSocket.Connected);
+			if (mSocket != null) Close(notify || mSocket.Connected);
 		}
 		catch (System.Exception)
 		{
@@ -505,7 +511,7 @@ public class TcpProtocol : Player
 			catch (System.Exception ex)
 			{
 				Error(ex.Message);
-				Disconnect();
+				Disconnect(true);
 			}
 		}
 	}
@@ -544,7 +550,7 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			Error(ex.Message);
-			Disconnect();
+			Disconnect(true);
 			return;
 		}
 		lastReceivedTime = DateTime.Now.Ticks / 10000;

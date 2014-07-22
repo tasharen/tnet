@@ -308,22 +308,26 @@ static public class Tools
 	{
 		if (string.IsNullOrEmpty(url)) return false;
 
-		WebClient web = new WebClient();
-		string text = web.DownloadString(url).Trim();
-		string[] split1 = text.Split(':');
-
-		if (split1.Length >= 2)
+		try
 		{
-			string[] split2 = split1[1].Trim().Split('<');
-			mExternalAddress = ResolveAddress(split2[0]);
-		}
-		else mExternalAddress = ResolveAddress(text);
+			WebClient web = new WebClient();
+			string text = web.DownloadString(url).Trim();
+			string[] split1 = text.Split(':');
 
-		if (mExternalAddress != null)
-		{
-			isExternalIPReliable = true;
-			return true;
+			if (split1.Length >= 2)
+			{
+				string[] split2 = split1[1].Trim().Split('<');
+				mExternalAddress = ResolveAddress(split2[0]);
+			}
+			else mExternalAddress = ResolveAddress(text);
+
+			if (mExternalAddress != null)
+			{
+				isExternalIPReliable = true;
+				return true;
+			}
 		}
+		catch (System.Exception) { }
 		return false;
 	}
 
