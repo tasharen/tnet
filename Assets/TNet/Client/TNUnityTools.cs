@@ -53,7 +53,7 @@ static public class UnityTools
 		}
 
 		string err = "Failed to call RFC ";
-		if (string.IsNullOrEmpty(funcName)) err += "#" + funcID + " on " + ent.obj.GetType();
+		if (string.IsNullOrEmpty(funcName)) err += "#" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
 		else err += ent.obj.GetType() + "." + funcName;
 
 		if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";

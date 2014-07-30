@@ -208,6 +208,22 @@ public class DataNode
 		return node.Get<T>();
 	}
 
+	/// <summary>
+	/// Remove the specified child from the list.
+	/// </summary>
+
+	public void RemoveChild (string name)
+	{
+		for (int i = 0; i < children.size; ++i)
+		{
+			if (children[i].name == name)
+			{
+				children.RemoveAt(i);
+				return;
+			}
+		}
+	}
+
 #region Serialization
 
 	/// <summary>

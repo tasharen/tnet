@@ -18,6 +18,8 @@ using UnityTools = TNet.UnityTools;
 [AddComponentMenu("TNet/Network Object")]
 public sealed class TNObject : MonoBehaviour
 {
+	static int mDummyID = 32767;
+
 	/// <summary>
 	/// Remote function calls that can't be executed immediately get stored,
 	/// and will be executed when an appropriate Object ID gets added.
@@ -120,6 +122,10 @@ public sealed class TNObject : MonoBehaviour
 
 	void Awake ()
 	{
+		// Used for offline mode
+		if (id == 0 && !TNManager.isConnected)
+			id = ++mDummyID;
+
 		mOwner = TNManager.objectOwnerID;
 		if (TNManager.GetPlayer(mOwner) == null)
 			mOwner = TNManager.hostID;

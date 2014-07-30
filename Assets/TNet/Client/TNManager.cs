@@ -471,6 +471,7 @@ public class TNManager : MonoBehaviour
 	static public void JoinChannel (int channelID, string levelName)
 	{
 		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+		else Application.LoadLevel(levelName);
 	}
 
 	/// <summary>
@@ -485,6 +486,7 @@ public class TNManager : MonoBehaviour
 	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
 		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+		else Application.LoadLevel(levelName);
 	}
 
 	/// <summary>
@@ -511,6 +513,7 @@ public class TNManager : MonoBehaviour
 	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
 		if (mInstance != null) mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+		else Application.LoadLevel(levelName);
 	}
 
 	/// <summary>
@@ -742,6 +745,12 @@ public class TNManager : MonoBehaviour
 	/// Add a new Remote Creation Call.
 	/// </summary>
 
+	static public void AddRCCs<T> () { AddRCCs(null, typeof(T)); }
+
+	/// <summary>
+	/// Add a new Remote Creation Call.
+	/// </summary>
+
 	static void AddRCCs (object obj, System.Type type)
 	{
 		MethodInfo[] methods = type.GetMethods(
@@ -754,16 +763,69 @@ public class TNManager : MonoBehaviour
 		{
 			if (methods[b].IsDefined(typeof(RCC), true))
 			{
+				RCC tnc = (RCC)methods[b].GetCustomAttributes(typeof(RCC), true)[0];
+
+				for (int i = 0; i < mRCCs.size; ++i)
+				{
+					CachedFunc f = mRCCs[i];
+
+					if (f.id == tnc.id)
+					{
+						f.obj = obj;
+						f.func = methods[b];
+						return;
+					}
+				}
+
 				CachedFunc ent = new CachedFunc();
 				ent.obj = obj;
 				ent.func = methods[b];
-
-				RCC tnc = (RCC)ent.func.GetCustomAttributes(typeof(RCC), true)[0];
 				ent.id = tnc.id;
 				mRCCs.Add(ent);
 			}
 		}
 	}
+
+	/// <summary>
+	/// Remove a previously registered Remote Creation Call.
+	/// </summary>
+
+	static void RemoveRCC (int rccID)
+	{
+		for (int i = 0; i < mRCCs.size; ++i)
+		{
+			CachedFunc f = mRCCs[i];
+
+			if (f.id == rccID)
+			{
+				mRCCs.RemoveAt(i);
+				return;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Remove previously registered Remote Creation Calls.
+	/// </summary>
+
+	static void RemoveRCCs<T> ()
+	{
+		MethodInfo[] methods = typeof(T).GetMethods(
+					BindingFlags.Public |
+					BindingFlags.NonPublic |
+					BindingFlags.Instance |
+					BindingFlags.Static);
+
+		for (int b = 0; b < methods.Length; ++b)
+		{
+			if (methods[b].IsDefined(typeof(RCC), true))
+			{
+				RCC tnc = (RCC)methods[b].GetCustomAttributes(typeof(RCC), true)[0];
+				RemoveRCC(tnc.id);
+			}
+		}
+	}
+
 
 	/// <summary>
 	/// Built-in Remote Creation Calls.
