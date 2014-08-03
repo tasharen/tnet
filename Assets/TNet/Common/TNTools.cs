@@ -507,6 +507,23 @@ static public class Tools
 	}*/
 
 	/// <summary>
+	/// Retrieve the list of filenames from the specified directory.
+	/// </summary>
+
+	static public string[] GetFiles (string directory)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		try
+		{
+			if (!Directory.Exists(directory)) return null;
+			return Directory.GetFiles(directory);
+		}
+		catch (System.Exception) { }
+#endif
+		return null;
+	}
+
+	/// <summary>
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 

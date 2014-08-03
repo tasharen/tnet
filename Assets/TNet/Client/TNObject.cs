@@ -68,6 +68,12 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Whether the TNObject has a parent.
+	/// </summary>
+
+	public bool hasParent { get { return mParent != null; } }
+
+	/// <summary>
 	/// When set to 'true', it will cause the list of remote function calls to be rebuilt next time they're needed.
 	/// </summary>
 
@@ -611,6 +617,11 @@ public sealed class TNObject : MonoBehaviour
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
 			TNManager.EndSend(reliable);
+		}
+		else if (target == TNManager.player)
+		{
+			if (rfcID != 0) Execute(rfcID, objs);
+			else Execute(rfcName, objs);
 		}
 	}
 

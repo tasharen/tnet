@@ -45,7 +45,7 @@ public class TNSyncRigidbody : TNBehaviour
 	void Awake ()
 	{
 		mTrans = transform;
-		mRb = rigidbody;
+		mRb = GetComponent<Rigidbody>();
 		mLastPos = mTrans.position;
 		mLastRot = mTrans.rotation.eulerAngles;
 		UpdateInterval();

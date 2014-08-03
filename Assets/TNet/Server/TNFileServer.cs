@@ -66,15 +66,7 @@ public class FileServer
 			fi.data = data;
 			mSavedFiles.Add(fi);
 		}
-
-		try
-		{
-			Tools.WriteFile(fileName, data);
-		}
-		catch (System.Exception ex)
-		{
-			Error(fileName + ": " + ex.Message);
-		}
+		Tools.WriteFile(fileName, data);
 	}
 
 	/// <summary>

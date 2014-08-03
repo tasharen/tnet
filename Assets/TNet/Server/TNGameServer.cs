@@ -986,30 +986,13 @@ public class GameServer : FileServer
 			{
 				string fileName = reader.ReadString();
 				byte[] data = reader.ReadBytes(reader.ReadInt32());
-
-				try
-				{
-					SaveFile(fileName, data);
-				}
-				catch (Exception ex)
-				{
-					player.Error(ex.Message);
-				}
+				SaveFile(fileName, data);
 				break;
 			}
 			case Packet.RequestLoadFile:
 			{
 				string fn = reader.ReadString();
-				byte[] data = null;
-
-				try
-				{
-					data = LoadFile(fn);
-				}
-				catch (Exception ex)
-				{
-					player.Error(ex.Message);
-				}
+				byte[] data = LoadFile(fn);
 
 				BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
 				writer.Write(fn);
@@ -1019,10 +1002,8 @@ public class GameServer : FileServer
 					writer.Write(data.Length);
 					writer.Write(data);
 				}
-				else
-				{
-					writer.Write(0);
-				}
+				else writer.Write(0);
+
 				EndSend(true, player);
 				break;
 			}

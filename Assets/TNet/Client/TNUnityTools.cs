@@ -90,23 +90,19 @@ static public class UnityTools
 
 				try
 				{
-					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
-					{
-						retVal = ent.func.Invoke(ent.obj, new object[] { parameters });
-						return true;
-					}
-					else
-					{
-						retVal = ent.func.Invoke(ent.obj, parameters);
-						return true;
-					}
+					retVal = (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[])) ?
+						ent.func.Invoke(ent.obj, new object[] { parameters }) :
+						ent.func.Invoke(ent.obj, parameters);
+					return (retVal != null);
 				}
 				catch (System.Exception ex)
 				{
 					PrintException(ex, ent, funcID, "", parameters);
+					return false;
 				}
 			}
 		}
+		Debug.LogError("[TNet] Unable to find an function with ID of " + funcID);
 		return false;
 	}
 
@@ -130,13 +126,9 @@ static public class UnityTools
 					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
-						return true;
 					}
-					else
-					{
-						ent.func.Invoke(ent.obj, parameters);
-						return true;
-					}
+					else ent.func.Invoke(ent.obj, parameters);
+					return true;
 				}
 				catch (System.Exception ex)
 				{
@@ -145,6 +137,7 @@ static public class UnityTools
 				}
 			}
 		}
+		Debug.LogError("[TNet] Unable to find an function with ID of " + funcID);
 		return false;
 	}
 
@@ -172,13 +165,9 @@ static public class UnityTools
 					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
-						return true;
 					}
-					else
-					{
-						ent.func.Invoke(ent.obj, parameters);
-						return true;
-					}
+					else ent.func.Invoke(ent.obj, parameters);
+					return true;
 				}
 				catch (System.Exception ex)
 				{
@@ -186,6 +175,7 @@ static public class UnityTools
 				}
 			}
 		}
+		Debug.LogError("[TNet] Unable to find a function called '" + funcName + "'");
 		return retVal;
 	}
 
@@ -281,7 +271,7 @@ static public class UnityTools
 		if (go != null)
 		{
 			go = GameObject.Instantiate(go, pos, rot) as GameObject;
-			Rigidbody rb = go.rigidbody;
+			Rigidbody rb = go.GetComponent<Rigidbody>();
 
 			if (rb != null)
 			{

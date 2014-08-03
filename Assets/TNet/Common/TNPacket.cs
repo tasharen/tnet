@@ -305,13 +305,13 @@ public enum Packet
 	/// List open channels on the server.
 	/// int32: number of channels to follow
 	/// For each channel:
-	/// int32: ID
-	/// ushort: Number of players
-	/// ushort: Player limit
-	/// bool: Has a password
-	/// bool: Is persistent
-	/// string: Level
-	/// string: Custom data
+	///   int32: ID
+	///   ushort: Number of players
+	///   ushort: Player limit
+	///   bool: Has a password
+	///   bool: Is persistent
+	///   string: Level
+	///   string: Custom data
 	/// </summary>
 
 	ResponseChannelList,

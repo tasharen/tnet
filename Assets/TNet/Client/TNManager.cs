@@ -657,16 +657,24 @@ public class TNManager : MonoBehaviour
 		{
 			int index = IndexOf(go);
 
-			if (index != -1 && isConnected)
+			if (isConnected)
 			{
-				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+				if (index != -1)
+				{
+					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 
-				writer.Write((ushort)index);
-				writer.Write(GetFlag(go, persistent));
-				writer.Write((byte)rccID);
-				writer.WriteArray(objs);
-				EndSend();
-				return;
+					writer.Write((ushort)index);
+					writer.Write(GetFlag(go, persistent));
+					writer.Write((byte)rccID);
+					writer.WriteArray(objs);
+					EndSend();
+					return;
+				}
+				else
+				{
+					Debug.LogError("\"" + go.name + "\" has not been added to TNManager's list of objects, so it cannot be instantiated.\n" +
+						"Consider placing it into the Resources folder and passing its name instead.", go);
+				}
 			}
 
 			objs = BinaryExtensions.CombineArrays(go, objs);
@@ -689,9 +697,9 @@ public class TNManager : MonoBehaviour
 			if (isConnected)
 			{
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-
+				byte flag = GetFlag(go, persistent);
 				writer.Write((ushort)65535);
-				writer.Write(GetFlag(go, persistent));
+				writer.Write(flag);
 				writer.Write(path);
 				writer.Write((byte)rccID);
 				writer.WriteArray(objs);
@@ -729,7 +737,7 @@ public class TNManager : MonoBehaviour
 			else
 			{
 				// Add the built-in remote creation calls
-				AddRCCs(null, typeof(TNManager));
+				AddRCCs<TNManager>();
 			}
 		}
 		return mRCCs;
@@ -825,7 +833,6 @@ public class TNManager : MonoBehaviour
 			}
 		}
 	}
-
 
 	/// <summary>
 	/// Built-in Remote Creation Calls.
@@ -965,7 +972,7 @@ public class TNManager : MonoBehaviour
 
 	static public int IndexOf (GameObject go)
 	{
-		if (go != null && mInstance != null)
+		if (go != null && mInstance != null && mInstance.objects != null)
 		{
 			for (int i = 0, imax = mInstance.objects.Length; i < imax; ++i)
 				if (mInstance.objects[i] == go) return i;
@@ -1070,8 +1077,14 @@ public class TNManager : MonoBehaviour
 				// Custom creation function
 				object[] objs = reader.ReadArray(prefab);
 				object retVal;
+
 				UnityTools.ExecuteFirst(GetRCCs(), (byte)type, out retVal, objs);
 				UnityTools.Clear(objs);
+
+				if (retVal == null)
+				{
+					Debug.LogError("Instantiating \"" + prefab.name + "\" returned null. Did you forget to return the game object from your RCC?");
+				}
 				return retVal as GameObject;
 			}
 		}
