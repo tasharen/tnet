@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.6b
+                  Version 1.9.7
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,16 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.7:
+- NEW: TNet is now fully Unity 5-compliant.
+- NEW: SendRFC sent to the player's self will now result in immediate execution (think Target.Host).
+- NEW: Added better/more informative error messages when RFCs or RCCs fail.
+- NEW: TNObject inspector will now show its player owner and whether the player owns this object (at run time).
+- FIX: TNManager.JoinChannel will now load the level even without TNManager.
+- FIX: TNObjects will now have valid IDs even without TNManager.
+- FIX: Added a null check in PrintException for when working with static RCC functions.
+- FIX: OnNetworkDisconnect will now be called when the connection is shut down in a non-graceful manner.
 
 1.9.6:
 - NEW: TNet will now use UDP multicasting instead of broadcasting by default.
