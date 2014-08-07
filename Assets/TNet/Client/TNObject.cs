@@ -18,7 +18,7 @@ using UnityTools = TNet.UnityTools;
 [AddComponentMenu("TNet/Network Object")]
 public sealed class TNObject : MonoBehaviour
 {
-	static int mDummyID = 32767;
+	static int mDummyID = Application.isPlaying ? 32767 : 0;
 
 	/// <summary>
 	/// Remote function calls that can't be executed immediately get stored,

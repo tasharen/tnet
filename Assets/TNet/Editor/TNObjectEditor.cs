@@ -16,9 +16,11 @@ public class TNObjectEditor : Editor
 
 		if (Application.isPlaying)
 		{
+			EditorGUI.BeginDisabledGroup(true);
 			EditorGUILayout.LabelField("ID", obj.uid.ToString());
 			EditorGUILayout.LabelField("Player Owner", obj.ownerID.ToString());
-			EditorGUILayout.LabelField("Is Mine?", obj.isMine.ToString());
+			EditorGUILayout.Toggle("Is Mine?", obj.isMine);
+			EditorGUI.EndDisabledGroup();
 		}
 		else
 		{
