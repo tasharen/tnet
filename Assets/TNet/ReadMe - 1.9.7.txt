@@ -80,6 +80,7 @@ http://www.tasharen.com/?page_id=4518
 - FIX: TNObjects will now have valid IDs even without TNManager.
 - FIX: Added a null check in PrintException for when working with static RCC functions.
 - FIX: OnNetworkDisconnect will now be called when the connection is shut down in a non-graceful manner.
+- FIX: DataNode should have been clearing the child list after resolving custom data types.
 
 1.9.6:
 - NEW: TNet will now use UDP multicasting instead of broadcasting by default.

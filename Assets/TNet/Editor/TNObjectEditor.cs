@@ -25,7 +25,9 @@ public class TNObjectEditor : Editor
 		else
 		{
 			serializedObject.Update();
-			NGUIEditorTools.DrawProperty("ID", serializedObject, "id");
+
+			SerializedProperty sp = serializedObject.FindProperty("id");
+			EditorGUILayout.PropertyField(sp, new GUIContent("ID"));
 			serializedObject.ApplyModifiedProperties();
 
 			if (obj.uid == 0)
