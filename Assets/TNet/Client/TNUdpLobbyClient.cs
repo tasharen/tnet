@@ -20,6 +20,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 	Buffer mRequest;
 	long mNextSend = 0;
 	IPEndPoint mRemoteAddress;
+	bool mReEnable = false;
 
 	void Awake ()
 	{
@@ -58,14 +59,36 @@ public class TNUdpLobbyClient : TNLobbyClient
 	protected override void OnDisable ()
 	{
 		isActive = false;
-		mUdp.Stop();
 		base.OnDisable();
-		if (onChange != null) onChange();
 
-		if (mRequest != null)
+		try
 		{
-			mRequest.Recycle();
-			mRequest = null;
+			mUdp.Stop();
+
+			if (mRequest != null)
+			{
+				mRequest.Recycle();
+				mRequest = null;
+			}
+			if (onChange != null) onChange();
+		}
+		catch (System.Exception) { }
+	}
+
+	void OnApplicationPause (bool paused)
+	{
+		if (paused)
+		{
+			if (isActive)
+			{
+				mReEnable = true;
+				OnDisable();
+			}
+		}
+		else if (mReEnable)
+		{
+			mReEnable = false;
+			OnEnable();
 		}
 	}
 

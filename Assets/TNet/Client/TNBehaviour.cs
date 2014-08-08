@@ -31,4 +31,10 @@ public abstract class TNBehaviour : MonoBehaviour
 			tno.rebuildMethodList = true;
 		}
 	}
+
+	/// <summary>
+	/// Destroy this game object.
+	/// </summary>
+
+	public void DestroySelf () { TNManager.Destroy(gameObject); }
 }

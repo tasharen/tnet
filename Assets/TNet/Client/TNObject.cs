@@ -18,7 +18,7 @@ using UnityTools = TNet.UnityTools;
 [AddComponentMenu("TNet/Network Object")]
 public sealed class TNObject : MonoBehaviour
 {
-	static int mDummyID = Application.isPlaying ? 32767 : 0;
+	static int mDummyID = 0;
 
 	/// <summary>
 	/// Remote function calls that can't be executed immediately get stored,
@@ -463,13 +463,21 @@ public sealed class TNObject : MonoBehaviour
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (byte rfcID, Player target, params object[] objs) { SendRFC(rfcID, null, target, true, objs); }
+	public void Send (byte rfcID, Player target, params object[] objs)
+	{
+		if (target != null) SendRFC(rfcID, null, target, true, objs);
+		else SendRFC(rfcID, null, Target.All, true, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call.
 	/// </summary>
 
-	public void Send (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target, true, objs); }
+	public void Send (string rfcName, Player target, params object[] objs)
+	{
+		if (target != null) SendRFC(0, rfcName, target, true, objs);
+		else SendRFC(0, rfcName, Target.All, true, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
@@ -487,7 +495,11 @@ public sealed class TNObject : MonoBehaviour
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (byte rfcID, Player target, params object[] objs) { SendRFC(rfcID, null, target, false, objs); }
+	public void SendQuickly (byte rfcID, Player target, params object[] objs)
+	{
+		if (target != null) SendRFC(rfcID, null, target, false, objs);
+		else SendRFC(rfcID, null, Target.All, false, objs);
+	}
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).

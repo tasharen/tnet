@@ -79,10 +79,19 @@ public class DataNode
 		}
 		get
 		{
-			if (!mResolved) ResolveValue(null);
+			// ResolveValue returns 'false' when children were used by the custom data type and should now be ignored.
+			if (!mResolved && !ResolveValue(null))
+				children.Clear();
 			return mValue;
 		}
 	}
+
+	/// <summary>
+	/// Whether this node is serializable or not.
+	/// A node must have a value or children for it to be serialized. Otherwise there isn't much point in doing so.
+	/// </summary>
+
+	public bool isSerializable { get { return value != null || children.size > 0; } }
 
 	/// <summary>
 	/// List of child nodes.
@@ -187,6 +196,20 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Retrieve a child by name, optionally creating a new one if the child doesn't already exist.
+	/// </summary>
+
+	public DataNode GetChild (string name, bool createIfMissing)
+	{
+		for (int i = 0; i < children.size; ++i)
+			if (children[i].name == name)
+				return children[i];
+
+		if (createIfMissing) return AddChild(name);
+		return null;
+	}
+
+	/// <summary>
 	/// Get the value of the existing child.
 	/// </summary>
 
@@ -222,6 +245,20 @@ public class DataNode
 				return;
 			}
 		}
+	}
+
+	/// <summary>
+	/// Clone the DataNode, creating a copy.
+	/// </summary>
+
+	public DataNode Clone ()
+	{
+		DataNode copy = new DataNode(name);
+		copy.mValue = mValue;
+		copy.mResolved = mResolved;
+		for (int i = 0; i < children.size; ++i)
+			copy.children.Add(children[i].Clone());
+		return copy;
 	}
 
 #region Serialization
@@ -332,6 +369,7 @@ public class DataNode
 
 	public override string ToString ()
 	{
+		if (!isSerializable) return "";
 		MemoryStream stream = new MemoryStream();
 		StreamWriter writer = new StreamWriter(stream);
 		Write(writer, 0);
@@ -352,7 +390,7 @@ public class DataNode
 	void Write (StreamWriter writer, int tab)
 	{
 		// Only proceed if this node has some data associated with it
-		if (value != null || children.size > 0)
+		if (isSerializable)
 		{
 			// Write down its own data
 			Write(writer, tab, name, value, true);
