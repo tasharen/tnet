@@ -36,5 +36,5 @@ public abstract class TNBehaviour : MonoBehaviour
 	/// Destroy this game object.
 	/// </summary>
 
-	public void DestroySelf () { TNManager.Destroy(gameObject); }
+	public virtual void DestroySelf () { TNManager.Destroy(gameObject); }
 }

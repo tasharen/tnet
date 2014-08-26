@@ -103,6 +103,12 @@ static public class BinaryExtensions
 public class TNManager : MonoBehaviour
 {
 	/// <summary>
+	/// Notification that will be called when SyncPlayerData() gets called, even in offline mode (for consistency).
+	/// </summary>
+
+	static public GameClient.OnPlayerSync onPlayerSync;
+
+	/// <summary>
 	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
 	/// </summary>
 
@@ -317,12 +323,6 @@ public class TNManager : MonoBehaviour
 			return node;
 		}
 	}
-
-	/// <summary>
-	/// Sync the player's data with the server.
-	/// </summary>
-
-	static public void SyncPlayerData () { if (isConnected) mInstance.mClient.SyncPlayerData(); }
 
 	/// <summary>
 	/// List of players in the same channel as the client.
@@ -602,6 +602,16 @@ public class TNManager : MonoBehaviour
 	static public void SetTimeout (int seconds)
 	{
 		if (mInstance != null) mInstance.mClient.SetTimeout(seconds);
+	}
+
+	/// <summary>
+	/// Sync the player's data with the server.
+	/// </summary>
+
+	static public void SyncPlayerData ()
+	{
+		if (isConnected) mInstance.mClient.SyncPlayerData();
+		if (onPlayerSync != null) onPlayerSync(player);
 	}
 
 	/// <summary>
@@ -928,6 +938,7 @@ public class TNManager : MonoBehaviour
 			mClient.onLoadLevel			+= OnLoadLevel;
 			mClient.onPlayerJoined		+= OnPlayerJoined;
 			mClient.onPlayerLeft		+= OnPlayerLeft;
+			mClient.onPlayerSync		+= OnPlayerSync;
 			mClient.onRenamePlayer		+= OnRenamePlayer;
 			mClient.onCreate			+= OnCreateObject;
 			mClient.onDestroy			+= OnDestroyObject;
@@ -988,6 +999,12 @@ public class TNManager : MonoBehaviour
 
 	static GameObject LoadGameObject (string path)
 	{
+		if (string.IsNullOrEmpty(path))
+		{
+			Debug.LogError("Null path passed to TNManager.LoadGameObject!");
+			return null;
+		}
+
 		GameObject go = Resources.Load(path, typeof(GameObject)) as GameObject;
 
 		if (go == null)
@@ -1182,6 +1199,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	void OnPlayerLeft (Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", p); }
+
+	/// <summary>
+	/// Notification of player's data changing.
+	/// </summary>
+
+	void OnPlayerSync (Player p) { if (onPlayerSync != null) onPlayerSync(p); }
 
 	/// <summary>
 	/// Notification of a player being renamed.

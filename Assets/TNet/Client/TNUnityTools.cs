@@ -203,7 +203,7 @@ static public class UnityTools
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogError(ex.Message + " (" + mb.GetType() + "." + methodName + ")", mb);
+					Debug.LogError(ex.InnerException.Message + " (" + mb.GetType() + "." + methodName + ")", mb);
 				}
 			}
 		}

@@ -25,7 +25,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// The actual number of updates sent may be higher (if new players connect) or lower (if the rigidbody is still).
 	/// </summary>
 
-	public int updatesPerSecond = 10;
+	public float updatesPerSecond = 10f;
 
 	/// <summary>
 	/// Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.
@@ -55,7 +55,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// Update the timer, offsetting the time by the update frequency.
 	/// </summary>
 
-	void UpdateInterval () { mNext = Time.time + (updatesPerSecond > 0 ? (1f / updatesPerSecond) : 0f); }
+	void UpdateInterval () { mNext = Time.time + (updatesPerSecond > 0f ? (1f / updatesPerSecond) : 0f); }
 
 	/// <summary>
 	/// Only the host should be sending out updates. Everyone else should be simply observing the changes.
@@ -63,7 +63,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	void FixedUpdate ()
 	{
-		if (updatesPerSecond > 0 && mNext < Time.time && tno.isMine && TNManager.isInChannel)
+		if (updatesPerSecond > 0f && mNext < Time.time && tno.isMine && TNManager.isInChannel)
 		{
 			bool isSleeping = mRb.IsSleeping();
 

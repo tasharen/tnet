@@ -408,9 +408,12 @@ public class DataNode
 
 	static void Write (StreamWriter writer, int tab, string name, object value, bool writeType)
 	{
-		if (!string.IsNullOrEmpty(name))
+		if (string.IsNullOrEmpty(name) && value == null) return;
+
+		WriteTabs(writer, tab);
+
+		if (name != null)
 		{
-			WriteTabs(writer, tab);
 			writer.Write(Escape(name));
 
 			if (value == null)
@@ -418,41 +421,104 @@ public class DataNode
 				writer.Write('\n');
 				return;
 			}
+		}
 
-			Type type = value.GetType();
+		Type type = value.GetType();
 
-			if (type == typeof(string))
+		if (type == typeof(string))
+		{
+			if (name != null) writer.Write(" = \"");
+			writer.Write((string)value);
+			if (name != null) writer.Write('"');
+			writer.Write('\n');
+		}
+		else if (type == typeof(bool))
+		{
+			if (name != null) writer.Write(" = ");
+			writer.Write((bool)value ? "true" : "false");
+			writer.Write('\n');
+		}
+		else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) ||
+			type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+		{
+			if (name != null) writer.Write(" = ");
+			writer.Write(value.ToString());
+			writer.Write('\n');
+		}
+		else if (type == typeof(Vector2))
+		{
+			Vector2 v = (Vector2)value;
+			writer.Write(name != null ? " = (" : "(");
+			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+		else if (type == typeof(Vector3))
+		{
+			Vector3 v = (Vector3)value;
+			writer.Write(name != null ? " = (" : "(");
+			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+		else if (type == typeof(Color))
+		{
+			Color c = (Color)value;
+			writer.Write(name != null ? " = (" : "(");
+			writer.Write(c.r.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(c.g.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(c.b.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(c.a.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+		else if (type == typeof(Color32))
+		{
+			Color32 c = (Color32)value;
+			writer.Write(name != null ? " = 0x" : "0x");
+
+			if (c.a == 255)
 			{
-				writer.Write(" = \"");
-				writer.Write((string)value);
-				writer.Write('"');
-				writer.Write('\n');
+				int i = (c.r << 16) | (c.g << 8) | c.b;
+				writer.Write(i.ToString("X6"));
 			}
-			else if (type == typeof(bool))
+			else
 			{
-				writer.Write(" = ");
-				writer.Write((bool)value ? "true" : "false");
-				writer.Write('\n');
+				int i = (c.r << 24) | (c.g << 16) | (c.b << 8) | c.a;
+				writer.Write(i.ToString("X8"));
 			}
-			else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+			writer.Write('\n');
+		}
+		else
+		{
+			if (type == typeof(Vector4))
 			{
-				writer.Write(" = ");
-				writer.Write(value.ToString());
-				writer.Write('\n');
-			}
-			else if (type == typeof(Vector2))
-			{
-				Vector2 v = (Vector2)value;
-				writer.Write(" = (");
+				Vector4 v = (Vector4)value;
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('(');
 				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
 				writer.Write(", ");
 				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+				writer.Write(", ");
+				writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
 				writer.Write(")\n");
 			}
-			else if (type == typeof(Vector3))
+			else if (type == typeof(Quaternion))
 			{
-				Vector3 v = (Vector3)value;
-				writer.Write(" = (");
+				Quaternion q = (Quaternion)value;
+				Vector3 v = q.eulerAngles;
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('(');
 				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
 				writer.Write(", ");
 				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
@@ -460,159 +526,97 @@ public class DataNode
 				writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
 				writer.Write(")\n");
 			}
-			else if (type == typeof(Color))
+			else if (type == typeof(Rect))
 			{
-				Color c = (Color)value;
-				writer.Write(" = (");
-				writer.Write(c.r.ToString(CultureInfo.InvariantCulture));
+				Rect r = (Rect)value;
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('(');
+				writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
 				writer.Write(", ");
-				writer.Write(c.g.ToString(CultureInfo.InvariantCulture));
+				writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
 				writer.Write(", ");
-				writer.Write(c.b.ToString(CultureInfo.InvariantCulture));
+				writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
 				writer.Write(", ");
-				writer.Write(c.a.ToString(CultureInfo.InvariantCulture));
+				writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
 				writer.Write(")\n");
 			}
-			else if (type == typeof(Color32))
+			else if (value is TList)
 			{
-				Color32 c = (Color32)value;
-				writer.Write(" = 0x");
+				TList list = value as TList;
 
-				if (c.a == 255)
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('\n');
+
+				if (list.Count > 0)
 				{
-					int i = (c.r << 16) | (c.g << 8) | c.b;
-					writer.Write(i.ToString("X6"));
+					for (int i = 0, imax = list.Count; i < imax; ++i)
+						Write(writer, tab + 1, null, list.Get(i), false);
 				}
-				else
+			}
+			else if (value is System.Collections.IList)
+			{
+				System.Collections.IList list = value as System.Collections.IList;
+
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('\n');
+
+				if (list.Count > 0)
 				{
-					int i = (c.r << 24) | (c.g << 16) | (c.b << 8) | c.a;
-					writer.Write(i.ToString("X8"));
+					for (int i = 0, imax = list.Count; i < imax; ++i)
+						Write(writer, tab + 1, null, list[i], false);
 				}
+			}
+			else if (value is IDataNodeSerializable)
+			{
+				IDataNodeSerializable ser = value as IDataNodeSerializable;
+				DataNode node = new DataNode();
+				ser.Serialize(node);
+
+				if (name != null) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+				writer.Write('\n');
+
+				for (int i = 0; i < node.children.size; ++i)
+				{
+					DataNode child = node.children[i];
+					child.Write(writer, tab + 1);
+				}
+			}
+			else if (value is GameObject)
+			{
+				Debug.LogError("It's not possible to save game objects.");
+				writer.Write('\n');
+			}
+			else if ((value as Component) != null)
+			{
+				Debug.LogError("It's not possible to save components.");
 				writer.Write('\n');
 			}
 			else
 			{
-				if (type == typeof(Vector4))
+				if (writeType)
 				{
-					Vector4 v = (Vector4)value;
-					writer.Write(" = ");
+					if (name != null) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
-					writer.Write('(');
-					writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
-					writer.Write(")\n");
 				}
-				else if (type == typeof(Quaternion))
-				{
-					Quaternion q = (Quaternion)value;
-					Vector3 v = q.eulerAngles;
-					writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-					writer.Write('(');
-					writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
-					writer.Write(")\n");
-				}
-				else if (type == typeof(Rect))
-				{
-					Rect r = (Rect)value;
-					writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-					writer.Write('(');
-					writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
-					writer.Write(", ");
-					writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
-					writer.Write(")\n");
-				}
-				else if (value is TList)
-				{
-					TList list = value as TList;
-
-					writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-					writer.Write('\n');
-
-					if (list.Count > 0)
-					{
-						for (int i = 0, imax = list.Count; i < imax; ++i)
-							Write(writer, tab + 1, "Add", list.Get(i), false);
-					}
-				}
-				else if (value is System.Collections.IList)
-				{
-					System.Collections.IList list = value as System.Collections.IList;
-
-					writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-					writer.Write('\n');
-
-					if (list.Count > 0)
-					{
-						for (int i = 0, imax = list.Count; i < imax; ++i)
-							Write(writer, tab + 1, "Add", list[i], false);
-					}
-				}
-				else if (value is IDataNodeSerializable)
-				{
-					IDataNodeSerializable ser = value as IDataNodeSerializable;
-					DataNode node = new DataNode();
-					ser.Serialize(node);
-
-					writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-					writer.Write('\n');
-
-					for (int i = 0; i < node.children.size; ++i)
-					{
-						DataNode child = node.children[i];
-						child.Write(writer, tab + 1);
-					}
-				}
-				else if (value is GameObject)
-				{
-					Debug.LogError("It's not possible to save game objects.");
-					writer.Write('\n');
-				}
-				else if ((value as Component) != null)
-				{
-					Debug.LogError("It's not possible to save components.");
-					writer.Write('\n');
-				}
-				else
-				{
-					if (writeType)
-					{
-						writer.Write(" = ");
-						writer.Write(Serialization.TypeToName(type));
-					}
-					writer.Write('\n');
+				writer.Write('\n');
 
 #if REFLECTION_SUPPORT
-					List<FieldInfo> fields = type.GetSerializableFields();
+				List<FieldInfo> fields = type.GetSerializableFields();
 
-					if (fields.size > 0)
+				if (fields.size > 0)
+				{
+					for (int i = 0; i < fields.size; ++i)
 					{
-						for (int i = 0; i < fields.size; ++i)
-						{
-							FieldInfo field = fields[i];
-							object val = field.GetValue(value);
-							if (val != null) Write(writer, tab + 1, field.Name, val, true);
-						}
+						FieldInfo field = fields[i];
+						object val = field.GetValue(value);
+						if (val != null) Write(writer, tab + 1, field.Name, val, true);
 					}
-#endif
 				}
+#endif
 			}
 		}
 	}
@@ -928,7 +932,7 @@ public class DataNode
 			if (mValue == null)
 			{
 				Debug.LogError("Unable to create a " + type);
-				return false;
+				return true;
 			}
 
 			if (isTList)
@@ -938,18 +942,25 @@ public class DataNode
 
 				if (elemType != null)
 				{
-					for (int i = 0; i < children.size; )
+					for (int i = 0; i < children.size; ++i)
 					{
 						DataNode child = children[i];
 
-						if (child.name == "Add")
+						if (child.value == null)
+						{
+							child.mValue = child.name;
+							child.mResolved = false;
+							child.ResolveValue(elemType);
+							list.Add(child.mValue);
+						}
+						else if (child.name == "Add")
 						{
 							child.ResolveValue(elemType);
 							list.Add(child.mValue);
-							children.RemoveAt(i);
 						}
-						else ++i;
+						else Debug.LogWarning("Unexpected node in an array: " + child.name);
 					}
+					return false;
 				}
 				else Debug.LogError("Unable to determine the element type of " + type);
 			}
@@ -963,35 +974,38 @@ public class DataNode
 
 				if (elemType != null)
 				{
-					for (int i = 0, index = 0; i < children.size; ++index)
+					for (int i = 0; i < children.size; ++i)
 					{
 						DataNode child = children[i];
 
-						if (child.name == "Add")
+						if (child.value == null)
+						{
+							child.mValue = child.name;
+							child.mResolved = false;
+							child.ResolveValue(elemType);
+							if (fixedSize) list[i] = child.mValue;
+							else list.Add(child.mValue);
+						}
+						else if (child.name == "Add")
 						{
 							child.ResolveValue(elemType);
-							if (fixedSize) list[index] = child.mValue;
+							if (fixedSize) list[i] = child.mValue;
 							else list.Add(child.mValue);
-							children.RemoveAt(i);
 						}
-						else ++i;
+						else Debug.LogWarning("Unexpected node in an array: " + child.name);
 					}
+					return false;
 				}
 				else Debug.LogError("Unable to determine the element type of " + type);
 			}
 			else if (type.IsClass)
 			{
-				for (int i = 0; i < children.size; )
+				for (int i = 0; i < children.size; ++i)
 				{
 					DataNode child = children[i];
-
-					if (mValue.SetSerializableField(child.name, child.value))
-					{
-						child.mValue = null;
-						children.RemoveAt(i);
-					}
-					else ++i;
+					mValue.SetSerializableField(child.name, child.value);
 				}
+				return false;
 			}
 			else Debug.LogError("Unhandled type: " + type);
 		}

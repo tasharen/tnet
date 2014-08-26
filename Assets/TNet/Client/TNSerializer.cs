@@ -78,6 +78,7 @@ public static class Serialization
 			else if (name == "Rect") type = typeof(Rect);
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
+			else if (name == "string[]") type = typeof(string[]);
 			else if (name.StartsWith("IList"))
 			{
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
@@ -124,6 +125,7 @@ public static class Serialization
 			else if (type == typeof(Rect)) name = "Rect";
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
+			else if (type == typeof(string[])) name = "string[]";
 			else
 			{
 				if (type.Implements(typeof(IList)))
@@ -162,6 +164,7 @@ public static class Serialization
 			if (desiredType == typeof(byte)) return (byte)(int)value;
 			if (desiredType == typeof(short)) return (short)(int)value;
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
+			if (desiredType == typeof(float)) return (float)(int)value;
 		}
 		else if (valueType == typeof(float))
 		{
@@ -222,15 +225,21 @@ public static class Serialization
 
 				if (!string.IsNullOrEmpty(strVal))
 				{
-					string[] enumNames = Enum.GetNames(desiredType);
-					for (int i = 0; i < enumNames.Length; ++i)
-						if (enumNames[i] == strVal)
-							return Enum.GetValues(desiredType).GetValue(i);
+					try
+					{
+						return System.Enum.Parse(desiredType, strVal);
+					}
+					catch (Exception) { }
+
+					//string[] enumNames = Enum.GetNames(desiredType);
+					//for (int i = 0; i < enumNames.Length; ++i)
+					//    if (enumNames[i] == strVal)
+					//        return Enum.GetValues(desiredType).GetValue(i);
 				}
 			}
 		}
 #endif
-		Debug.LogError("Unable to convert " + value.GetType() + " to " + desiredType);
+		Debug.LogError("Unable to convert " + valueType + " to " + desiredType);
 		return null;
 	}
 
@@ -397,7 +406,7 @@ public static class Serialization
 		return false;
 	}
 #endif
-	#region Write
+#region Write
 	/// <summary>
 	/// Write an integer value using the smallest number of bytes possible.
 	/// </summary>
@@ -749,7 +758,7 @@ public static class Serialization
 						}
 
 						if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
-						bw.Write(type);
+						bw.Write(elemType);
 						bw.Write((byte)(sameType ? 1 : 0));
 						bw.WriteInt(list.Count);
 
