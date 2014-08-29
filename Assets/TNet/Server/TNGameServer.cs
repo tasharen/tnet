@@ -3,6 +3,8 @@
 // Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
+#define MULTI_THREADED
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -20,6 +22,12 @@ namespace TNet
 
 public class GameServer : FileServer
 {
+#if MULTI_THREADED
+	public const bool isMultiThreaded = true;
+#else
+	public const bool isMultiThreaded = false;
+#endif
+
 	/// <summary>
 	/// You will want to make this a unique value.
 	/// </summary>
@@ -104,6 +112,7 @@ public class GameServer : FileServer
 	long mTime = 0;
 	UdpProtocol mUdp = new UdpProtocol();
 	bool mAllowUdp = false;
+	object mLock = 0;
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -180,10 +189,18 @@ public class GameServer : FileServer
 			lobbyLink.SendUpdate(this);
 		}
 
+#if MULTI_THREADED
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
+#endif
 		return true;
 	}
+
+	/// <summary>
+	/// Call this function when you've disabled multi-threading.
+	/// </summary>
+
+	public void Update () { if (mThread == null && mListener != null) ThreadFunction(); }
 
 	/// <summary>
 	/// Accept socket callback.
@@ -233,113 +250,121 @@ public class GameServer : FileServer
 
 	void ThreadFunction ()
 	{
+#if MULTI_THREADED
 		for (; ; )
+#endif
 		{
-			Buffer buffer;
 			bool received = false;
-			mTime = DateTime.Now.Ticks / 10000;
-			IPEndPoint ip;
 
-			// Stop the listener if the port is 0 (MakePrivate() was called)
-			if (mListenerPort == 0)
+			lock (mLock)
 			{
-				if (mListener != null)
+				Buffer buffer;
+				mTime = DateTime.Now.Ticks / 10000;
+				IPEndPoint ip;
+
+				// Stop the listener if the port is 0 (MakePrivate() was called)
+				if (mListenerPort == 0)
 				{
-					mListener.Stop();
-					mListener = null;
-					if (lobbyLink != null) lobbyLink.Stop();
-					if (onShutdown != null) onShutdown();
+					if (mListener != null)
+					{
+						mListener.Stop();
+						mListener = null;
+						if (lobbyLink != null) lobbyLink.Stop();
+						if (onShutdown != null) onShutdown();
+					}
 				}
-			}
-			else
-			{
-				// Add all pending connections
-				while (mListener != null && mListener.Pending())
+				else
 				{
+					// Add all pending connections
+					while (mListener != null && mListener.Pending())
+					{
 #if STANDALONE
 					TcpPlayer p = AddPlayer(mListener.AcceptSocket());
 					Console.WriteLine(p.address + " has connected");
 #else
-					AddPlayer(mListener.AcceptSocket());
+						AddPlayer(mListener.AcceptSocket());
 #endif
-				}
-			}
-
-			// Process datagrams first
-			while (mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
-			{
-				if (buffer.size > 0)
-				{
-					TcpPlayer player = GetPlayer(ip);
-
-					if (player != null)
-					{
-						if (!player.udpIsUsable) player.udpIsUsable = true;
-
-						try
-						{
-							if (ProcessPlayerPacket(buffer, player, false))
-								received = true;
-						}
-						catch (System.Exception ex)
-						{
-							Error(ex.Message);
-							RemovePlayer(player);
-						}
-					}
-					else if (buffer.size > 4)
-					{
-						try
-						{
-							BinaryReader reader = buffer.BeginReading();
-							Packet request = (Packet)reader.ReadByte();
-
-							if (request == Packet.RequestActivateUDP)
-							{
-								int pid = reader.ReadInt32();
-								player = GetPlayer(pid);
-
-								// This message must arrive after RequestSetUDP which sets the UDP end point.
-								// We do an additional step here because in some cases UDP port can be changed
-								// by the router so that it appears that packets come from a different place.
-								if (player != null && player.udpEndPoint != null && player.udpEndPoint.Address == ip.Address)
-								{
-									player.udpEndPoint = ip;
-									player.udpIsUsable = true;
-									mUdp.SendEmptyPacket(player.udpEndPoint);
-								}
-							}
-							else if (request == Packet.RequestPing)
-							{
-								BeginSend(Packet.ResponsePing);
-								EndSend(ip);
-							}
-						}
-						catch (System.Exception ex)
-						{
-							Error(ex.Message);
-							RemovePlayer(player);
-						}
 					}
 				}
-				buffer.Recycle();
-			}
 
-			// Process player connections next
-			for (int i = 0; i < mPlayers.size; )
-			{
-				TcpPlayer player = mPlayers[i];
-
-				// Process up to 100 packets at a time
-				for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
+				// Process datagrams first
+				while (mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
 				{
 					if (buffer.size > 0)
 					{
-						try
+						TcpPlayer player = GetPlayer(ip);
+
+						if (player != null)
 						{
-							if (ProcessPlayerPacket(buffer, player, true))
-								received = true;
+							if (!player.udpIsUsable) player.udpIsUsable = true;
+
+							try
+							{
+								if (ProcessPlayerPacket(buffer, player, false))
+									received = true;
+							}
+							catch (System.Exception ex)
+							{
+								Error("(ThreadFunction Process) " + ex.Message + "\n" + ex.StackTrace);
+								RemovePlayer(player);
+							}
 						}
+						else if (buffer.size > 4)
+						{
+							Packet request = Packet.Empty;
+
+							try
+							{
+								BinaryReader reader = buffer.BeginReading();
+								request = (Packet)reader.ReadByte();
+
+								if (request == Packet.RequestActivateUDP)
+								{
+									int pid = reader.ReadInt32();
+									player = GetPlayer(pid);
+
+									// This message must arrive after RequestSetUDP which sets the UDP end point.
+									// We do an additional step here because in some cases UDP port can be changed
+									// by the router so that it appears that packets come from a different place.
+									if (player != null && player.udpEndPoint != null && player.udpEndPoint.Address == ip.Address)
+									{
+										player.udpEndPoint = ip;
+										player.udpIsUsable = true;
+										mUdp.SendEmptyPacket(player.udpEndPoint);
+									}
+								}
+								else if (request == Packet.RequestPing)
+								{
+									BeginSend(Packet.ResponsePing);
+									EndSend(ip);
+								}
+							}
+							catch (System.Exception ex)
+							{
+								Error("(ThreadFunction Read " + request + ") " + ex.Message);
+								RemovePlayer(player);
+							}
+						}
+					}
+					buffer.Recycle();
+				}
+
+				// Process player connections next
+				for (int i = 0; i < mPlayers.size; )
+				{
+					TcpPlayer player = mPlayers[i];
+
+					// Process up to 100 packets at a time
+					for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
+					{
+						if (buffer.size > 0)
+						{
+#if MULTI_THREADED
+							try
+							{
+								if (ProcessPlayerPacket(buffer, player, true))
+									received = true;
+							}
 #if STANDALONE
 						catch (System.Exception ex)
 						{
@@ -347,44 +372,51 @@ public class GameServer : FileServer
 							RemovePlayer(player);
 						}
 #else
-						catch (System.Exception ex)
-						{
-							Error(ex.Message);
-							RemovePlayer(player);
-						}
+							catch (System.Exception ex)
+							{
+								Error("(ThreadFunction Process) " + ex.Message);
+								RemovePlayer(player);
+							}
 #endif
+#else
+						if (ProcessPlayerPacket(buffer, player, true))
+							received = true;
+#endif
+						}
+						buffer.Recycle();
 					}
-					buffer.Recycle();
-				}
 
-				// Time out -- disconnect this player
-				if (player.stage == TcpProtocol.Stage.Connected)
-				{
-					// If the player doesn't send any packets in a while, disconnect him
-					if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
+					// Time out -- disconnect this player
+					if (player.stage == TcpProtocol.Stage.Connected)
 					{
+						// If the player doesn't send any packets in a while, disconnect him
+						if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
+						{
 #if STANDALONE
 						Console.WriteLine(player.address + " has timed out");
+#elif UNITY_EDITOR
+							UnityEngine.Debug.LogWarning(player.address + " has timed out");
+#endif
+							RemovePlayer(player);
+							continue;
+						}
+					}
+					else if (player.lastReceivedTime + 2000 < mTime)
+					{
+#if STANDALONE
+					Console.WriteLine(player.address + " has timed out");
 #elif UNITY_EDITOR
 						UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
 						RemovePlayer(player);
 						continue;
 					}
+					++i;
 				}
-				else if (player.lastReceivedTime + 2000 < mTime)
-				{
-#if STANDALONE
-					Console.WriteLine(player.address + " has timed out");
-#elif UNITY_EDITOR
-					UnityEngine.Debug.LogWarning(player.address + " has timed out");
-#endif
-					RemovePlayer(player);
-					continue;
-				}
-				++i;
 			}
+#if MULTI_THREADED
 			if (!received) Thread.Sleep(1);
+#endif
 		}
 	}
 
@@ -1329,25 +1361,29 @@ public class GameServer : FileServer
 
 		MemoryStream stream = new MemoryStream();
 		BinaryWriter writer = new BinaryWriter(stream);
-		writer.Write(0);
-		int count = 0;
 
-		for (int i = 0; i < mChannels.size; ++i)
+		lock (mLock)
 		{
-			Channel ch = mChannels[i];
+			writer.Write(0);
+			int count = 0;
 
-			if (!ch.closed && ch.persistent && ch.hasData)
+			for (int i = 0; i < mChannels.size; ++i)
 			{
-				writer.Write(ch.id);
-				ch.SaveTo(writer);
-				++count;
-			}
-		}
+				Channel ch = mChannels[i];
 
-		if (count > 0)
-		{
-			stream.Seek(0, SeekOrigin.Begin);
-			writer.Write(count);
+				if (!ch.closed && ch.persistent && ch.hasData)
+				{
+					writer.Write(ch.id);
+					ch.SaveTo(writer);
+					++count;
+				}
+			}
+
+			if (count > 0)
+			{
+				stream.Seek(0, SeekOrigin.Begin);
+				writer.Write(count);
+			}
 		}
 
 		Tools.WriteFile(fileName, stream.ToArray());
@@ -1370,24 +1406,27 @@ public class GameServer : FileServer
 
 		MemoryStream stream = new MemoryStream(bytes);
 
-		try
+		lock (mLock)
 		{
-			BinaryReader reader = new BinaryReader(stream);
-
-			int channels = reader.ReadInt32();
-
-			for (int i = 0; i < channels; ++i)
+			try
 			{
-				int chID = reader.ReadInt32();
-				bool isNew;
-				Channel ch = CreateChannel(chID, out isNew);
-				if (isNew) ch.LoadFrom(reader);
+				BinaryReader reader = new BinaryReader(stream);
+
+				int channels = reader.ReadInt32();
+
+				for (int i = 0; i < channels; ++i)
+				{
+					int chID = reader.ReadInt32();
+					bool isNew;
+					Channel ch = CreateChannel(chID, out isNew);
+					if (isNew) ch.LoadFrom(reader);
+				}
 			}
-		}
-		catch (System.Exception ex)
-		{
-			Error("Loading from " + fileName + ": " + ex.Message);
-			return false;
+			catch (System.Exception ex)
+			{
+				Error("Loading from " + fileName + ": " + ex.Message);
+				return false;
+			}
 		}
 		return true;
 #endif

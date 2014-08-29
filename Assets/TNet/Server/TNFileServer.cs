@@ -33,7 +33,7 @@ public class FileServer
 	protected void Error (string error)
 	{
 #if UNITY_EDITOR
-		UnityEngine.Debug.LogError("[TNet] " + error);
+		UnityEngine.Debug.LogError("[TNet] Error: " + error);
 #elif STANDALONE
 		Console.WriteLine("ERROR: " + error);
 #endif

@@ -197,14 +197,19 @@ static public class UnityTools
 
 			if (method != null)
 			{
+#if UNITY_EDITOR
+				method.Invoke(mb, parameters);
+#else
 				try
 				{
 					method.Invoke(mb, parameters);
 				}
 				catch (System.Exception ex)
 				{
-					Debug.LogError(ex.InnerException.Message + " (" + mb.GetType() + "." + methodName + ")", mb);
+					Debug.LogError(ex.InnerException.Message + " (" + mb.GetType() + "." + methodName + ")\n" +
+						ex.InnerException.StackTrace + "\n", mb);
 				}
+#endif
 			}
 		}
 	}

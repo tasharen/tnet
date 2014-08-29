@@ -3,6 +3,8 @@
 // Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
+#define MULTI_THREADED
+
 using UnityEngine;
 using TNet;
 using System.IO;
@@ -257,7 +259,6 @@ public class TNServerInstance : MonoBehaviour
 		{
 			if (!string.IsNullOrEmpty(fileName))
 				mInstance.mGame.SaveTo(fileName);
-
 			Stop();
 		}
 	}
@@ -306,4 +307,8 @@ public class TNServerInstance : MonoBehaviour
 		Disconnect();
 		mUp.WaitForThreads();
 	}
+
+#if !MULTI_THREADED
+	void Update () { if (mGame != null && mGame.isListening) mGame.Update(); }
+#endif
 }

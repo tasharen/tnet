@@ -135,6 +135,7 @@ public class TNManager : MonoBehaviour
 
 	// Network client
 	GameClient mClient = new GameClient();
+	bool mJoiningChannel = false;
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -147,6 +148,13 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public bool isConnected { get { return mInstance != null && mInstance.mClient.isConnected; } }
+
+	/// <summary>
+	/// Whether TNet is currently joining a channel. This gets set to 'true' in JoinChannel,
+	/// then 'false' just before OnNetworkJoinChannel was gets out.
+	/// </summary>
+
+	static public bool isJoiningChannel { get { return mInstance != null && mInstance.mJoiningChannel; } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -470,7 +478,11 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+		if (mInstance != null)
+		{
+			mInstance.mJoiningChannel = true;
+			mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+		}
 		else Application.LoadLevel(levelName);
 	}
 
@@ -485,7 +497,11 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+		if (mInstance != null)
+		{
+			mInstance.mJoiningChannel = true;
+			mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+		}
 		else Application.LoadLevel(levelName);
 	}
 
@@ -499,7 +515,11 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+		if (mInstance != null)
+		{
+			mInstance.mJoiningChannel = true;
+			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+		}
 	}
 
 	/// <summary>
@@ -512,7 +532,11 @@ public class TNManager : MonoBehaviour
 
 	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null) mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+		if (mInstance != null)
+		{
+			mInstance.mJoiningChannel = true;
+			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+		}
 		else Application.LoadLevel(levelName);
 	}
 
@@ -1163,30 +1187,38 @@ public class TNManager : MonoBehaviour
 	/// Notification that happens when the client gets disconnected from the server.
 	/// </summary>
 
-	void OnDisconnect () { UnityTools.Broadcast("OnNetworkDisconnect"); }
+	void OnDisconnect ()
+	{
+		mJoiningChannel = false;
+		UnityTools.Broadcast("OnNetworkDisconnect");
+	}
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message) { UnityTools.Broadcast("OnNetworkJoinChannel", success, message); }
+	void OnJoinChannel (bool success, string message)
+	{
+		mJoiningChannel = false;
+		UnityTools.Broadcast("OnNetworkJoinChannel", success, message);
+	}
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel () { UnityTools.Broadcast("OnNetworkLeaveChannel"); }
+	void OnLeftChannel ()
+	{
+		mJoiningChannel = false;
+		UnityTools.Broadcast("OnNetworkLeaveChannel");
+	}
 
 	/// <summary>
 	/// Notification sent when a level is changing.
 	/// </summary>
 
-	void OnLoadLevel (string levelName)
-	{
-		if (!string.IsNullOrEmpty(levelName))
-			Application.LoadLevel(levelName);
-	}
+	void OnLoadLevel (string levelName) { if (!string.IsNullOrEmpty(levelName)) Application.LoadLevel(levelName); }
 
 	/// <summary>
 	/// Notification of a new player joining the channel.

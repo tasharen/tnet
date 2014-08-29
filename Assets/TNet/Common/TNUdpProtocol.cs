@@ -333,7 +333,7 @@ public class UdpProtocol
 #if STANDALONE
 			Console.WriteLine(ex.Message);
 #else
-			UnityEngine.Debug.Log("[TNet] " + ex.Message);
+			UnityEngine.Debug.Log("[TNet] OnSend: " + ex.Message);
 #endif
 		}
 

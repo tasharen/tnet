@@ -758,7 +758,7 @@ public static class Serialization
 						}
 
 						if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
-						bw.Write(elemType);
+						bw.Write(type);
 						bw.Write((byte)(sameType ? 1 : 0));
 						bw.WriteInt(list.Count);
 
@@ -1180,6 +1180,7 @@ public static class Serialization
 				type = reader.ReadType(out prefix);
 				bool sameType = (reader.ReadByte() == 1);
 				int elements = reader.ReadInt();
+
 				IList arr = (IList)type.Create(elements);
 
 				if (arr != null)
