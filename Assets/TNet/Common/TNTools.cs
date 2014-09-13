@@ -108,13 +108,14 @@ static public class Tools
 				{
 					List<NetworkInterface> list = networkInterfaces;
 
-					for (int i = 0; i < list.size; ++i)
+					for (int i = list.size; i > 0; )
 					{
-						NetworkInterface ni = list[i];
+						NetworkInterface ni = list[--i];
 						if (ni == null) continue;
 
 						IPInterfaceProperties props = ni.GetIPProperties();
 						if (props == null) continue;
+						//if (ni.NetworkInterfaceType == NetworkInterfaceType.Unknown) continue;
 
 						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
 
@@ -136,7 +137,7 @@ static public class Tools
 				}
 				catch (System.Exception) {}
 #endif
-#if !UNITY_IPHONE
+#if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
 				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
 				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());

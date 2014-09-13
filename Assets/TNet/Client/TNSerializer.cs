@@ -243,10 +243,6 @@ public static class Serialization
 		return null;
 	}
 
-#if REFLECTION_SUPPORT
-	// Cached for speed
-	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
-
 	/// <summary>
 	/// Retrieve the generic element type from the templated type.
 	/// </summary>
@@ -289,6 +285,10 @@ public static class Serialization
 			return type.Create();
 		}
 	}
+
+#if REFLECTION_SUPPORT
+	// Cached for speed
+	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
 
 	/// <summary>
 	/// Collect all serializable fields on the class of specified type.
@@ -530,6 +530,7 @@ public static class Serialization
 		if (type == typeof(DataNode)) return 14;
 		if (type == typeof(double)) return 15;
 		if (type == typeof(short)) return 16;
+		if (type == typeof(TNObject)) return 17;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -546,6 +547,7 @@ public static class Serialization
 		if (type == typeof(Color[])) return 113;
 		if (type == typeof(double[])) return 115;
 		if (type == typeof(short[])) return 116;
+		if (type == typeof(TNObject[])) return 117;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -578,6 +580,7 @@ public static class Serialization
 			case 14: return typeof(DataNode);
 			case 15: return typeof(double);
 			case 16: return typeof(short);
+			case 17: return typeof(TNObject);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -594,6 +597,7 @@ public static class Serialization
 			case 113: return typeof(Color[]);
 			case 115: return typeof(double[]);
 			case 116: return typeof(short[]);
+			case 117: return typeof(TNObject[]);
 		}
 		return null;
 	}
@@ -662,7 +666,7 @@ public static class Serialization
 
 		// If this is a custom type, there is more work to be done
 		if (prefix > 250)
-		{
+ 		{
 #if UNITY_EDITOR
 			if (obj is GameObject)
 			{
@@ -794,6 +798,7 @@ public static class Serialization
 			case 14: bw.Write((DataNode)obj); break;
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
+			case 17: bw.Write((uint)(obj as TNObject).uid); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -897,6 +902,14 @@ public static class Serialization
 				short[] arr = (short[])obj;
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 117:
+			{
+				TNObject[] arr = (TNObject[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i)
+					bw.Write((uint)arr[i].uid);
 				break;
 			}
 #if REFLECTION_SUPPORT
@@ -1118,6 +1131,7 @@ public static class Serialization
 			case 14: return reader.ReadDataNode();
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
+			case 17: return TNObject.Find(reader.ReadUInt32());
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -1297,7 +1311,15 @@ public static class Serialization
 			{
 				int elements = reader.ReadInt();
 				short[] arr = new short[elements];
-				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt16();
+				for (int b = 0; b < elements; ++b)
+					arr[b] = reader.ReadInt16();
+				return arr;
+			}
+			case 117:
+			{
+				int elements = reader.ReadInt();
+				TNObject[] arr = new TNObject[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = TNObject.Find(reader.ReadUInt32());
 				return arr;
 			}
 			case 253:
