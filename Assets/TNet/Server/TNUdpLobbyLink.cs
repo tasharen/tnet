@@ -91,7 +91,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 		for (; ; )
 		{
-			long time = DateTime.Now.Ticks / 10000;
+			long time = DateTime.UtcNow.Ticks / 10000;
 
 			if (mShutdown)
 			{

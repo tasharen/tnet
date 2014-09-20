@@ -259,7 +259,7 @@ public class GameServer : FileServer
 			lock (mLock)
 			{
 				Buffer buffer;
-				mTime = DateTime.Now.Ticks / 10000;
+				mTime = DateTime.UtcNow.Ticks / 10000;
 				IPEndPoint ip;
 
 				// Stop the listener if the port is 0 (MakePrivate() was called)

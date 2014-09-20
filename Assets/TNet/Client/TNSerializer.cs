@@ -387,16 +387,6 @@ public static class Serialization
 	}
 #else
 	/// <summary>
-	/// Create a new instance of the specified object.
-	/// </summary>
-
-	static public object Create (this Type type)
-	{
-		Debug.LogError("Can't create a " + type + " (reflection is not supported on this platform)");
-		return null;
-	}
-
-	/// <summary>
 	/// Set the specified field's value using reflection.
 	/// </summary>
 
@@ -531,6 +521,8 @@ public static class Serialization
 		if (type == typeof(double)) return 15;
 		if (type == typeof(short)) return 16;
 		if (type == typeof(TNObject)) return 17;
+		if (type == typeof(long)) return 18;
+		if (type == typeof(ulong)) return 19;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -548,6 +540,8 @@ public static class Serialization
 		if (type == typeof(double[])) return 115;
 		if (type == typeof(short[])) return 116;
 		if (type == typeof(TNObject[])) return 117;
+		if (type == typeof(long[])) return 118;
+		if (type == typeof(ulong[])) return 119;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -581,6 +575,8 @@ public static class Serialization
 			case 15: return typeof(double);
 			case 16: return typeof(short);
 			case 17: return typeof(TNObject);
+			case 18: return typeof(long);
+			case 19: return typeof(ulong);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -598,6 +594,8 @@ public static class Serialization
 			case 115: return typeof(double[]);
 			case 116: return typeof(short[]);
 			case 117: return typeof(TNObject[]);
+			case 118: return typeof(long[]);
+			case 119: return typeof(ulong[]);
 		}
 		return null;
 	}
@@ -799,6 +797,7 @@ public static class Serialization
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
 			case 17: bw.Write((uint)(obj as TNObject).uid); break;
+			case 18: bw.Write((long)obj); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -910,6 +909,13 @@ public static class Serialization
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i)
 					bw.Write((uint)arr[i].uid);
+				break;
+			}
+			case 118:
+			{
+				long[] arr = (long[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
 #if REFLECTION_SUPPORT
@@ -1132,6 +1138,8 @@ public static class Serialization
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
 			case 17: return TNObject.Find(reader.ReadUInt32());
+			case 18: return reader.ReadInt64();
+			case 19: return reader.ReadUInt64();
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -1320,6 +1328,20 @@ public static class Serialization
 				int elements = reader.ReadInt();
 				TNObject[] arr = new TNObject[elements];
 				for (int b = 0; b < elements; ++b) arr[b] = TNObject.Find(reader.ReadUInt32());
+				return arr;
+			}
+			case 118:
+			{
+				int elements = reader.ReadInt();
+				long[] arr = new long[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt64();
+				return arr;
+			}
+			case 119:
+			{
+				int elements = reader.ReadInt();
+				ulong[] arr = new ulong[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt64();
 				return arr;
 			}
 			case 253:

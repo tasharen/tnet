@@ -90,6 +90,10 @@ public class TcpPlayer : TcpProtocol
 		for (int i = 0; i < channel.created.size; ++i)
 		{
 			Channel.CreatedObject obj = channel.created.buffer[i];
+
+			// First player always assumes ownership of all objects
+			if (channel.players.size == 0) obj.playerID = id;
+
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);

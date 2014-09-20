@@ -21,6 +21,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 	IPEndPoint mRemoteAddress;
 	long mNextConnect = 0;
 	bool mWasConnected = false;
+	long mTimeDifference = 0;
 
 	/// <summary>
 	/// Create a new link to a remote lobby server.
@@ -33,6 +34,12 @@ public class TcpLobbyServerLink : LobbyServerLink
 	/// </summary>
 
 	public override bool isActive { get { return mTcp.isConnected; } }
+
+	/// <summary>
+	/// Current time on the server.
+	/// </summary>
+
+	public long serverTime { get { return mTimeDifference + (System.DateTime.UtcNow.Ticks / 10000); } }
 
 	/// <summary>
 	/// Start the lobby server link.
@@ -79,7 +86,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 
 		for (; ; )
 		{
-			long time = DateTime.Now.Ticks / 10000;
+			long time = DateTime.UtcNow.Ticks / 10000;
 
 			if (mShutdown)
 			{
@@ -106,6 +113,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 				{
 					if (mTcp.VerifyResponseID(response, reader))
 					{
+						mTimeDifference = reader.ReadInt64() - (System.DateTime.UtcNow.Ticks / 10000);
 						mWasConnected = true;
 					}
 					else

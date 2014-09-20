@@ -101,26 +101,27 @@ public sealed class TNObject : MonoBehaviour
 	/// ID of the player that owns this object.
 	/// </summary>
 
-	public int ownerID
+	public int ownerID { get { return (mParent != null) ? mParent.ownerID : mOwner; } }
+
+	/// <summary>
+	/// Destroy this game object on all connected clients and remove it from the server.
+	/// </summary>
+
+	public void DestroySelf ()
 	{
-		get
-		{
-			return (mParent != null) ? mParent.ownerID : mOwner;
-		}
-		set
-		{
-			if (mParent != null)
-			{
-				mParent.ownerID = value;
-			}
-			else if (mOwner != value)
-			{
-				Send("SetOwner", Target.All, value);
-			}
-		}
+		StartCoroutine(EnsureDestroy());
+		TNManager.Destroy(gameObject);
 	}
 
-	[RFC] void SetOwner (int val) { mOwner = val; }
+	/// <summary>
+	/// If this function is still here in 5 seconds then something went wrong, so force-destroy the object.
+	/// </summary>
+
+	System.Collections.IEnumerator EnsureDestroy ()
+	{
+		yield return new WaitForSeconds(5f);
+		Destroy(gameObject);
+	}
 
 	/// <summary>
 	/// Remember the object's ownership, for convenience.
@@ -133,12 +134,23 @@ public sealed class TNObject : MonoBehaviour
 			id = ++mDummyID;
 
 		mOwner = TNManager.objectOwnerID;
-		if (TNManager.GetPlayer(mOwner) == null)
+
+		if (TNManager.players.size == 0)
+		{
+			mOwner = TNManager.playerID;
+		}
+		else if (TNManager.GetPlayer(mOwner) == null)
+		{
+#if UNITY_EDITOR
+			// This shouldn't happen anymore with the latest server/client version
+			Debug.LogWarning("Object is missing its owner, " + mOwner, this);
+#endif
 			mOwner = TNManager.hostID;
+		}
 	}
 
 	/// <summary>
-	/// Automatically transfer the ownership.
+	/// Automatically transfer the ownership. The same action happens on the server.
 	/// </summary>
 
 	void OnNetworkPlayerLeave (Player p) { if (p != null && mOwner == p.id) mOwner = TNManager.hostID; }

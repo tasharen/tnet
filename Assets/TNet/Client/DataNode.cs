@@ -137,6 +137,17 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Retrieve the value cast into the appropriate type.
+	/// </summary>
+
+	public T Get<T> (T defaultVal)
+	{
+		if (value is T) return (T)mValue;
+		object retVal = Get(typeof(T));
+		return (mValue != null) ? (T)retVal : defaultVal;
+	}
+
+	/// <summary>
 	/// Convenience function to add a new child node.
 	/// </summary>
 

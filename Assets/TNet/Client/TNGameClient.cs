@@ -152,12 +152,6 @@ public class GameClient
 
 	public bool isActive = true;
 
-	/// <summary>
-	/// ID of the channel we're in.
-	/// </summary>
-
-	public int channelID { get { return mChannelID; } }
-
 	// Same list of players, but in a dictionary format for quick lookup
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
 
@@ -177,7 +171,8 @@ public class GameClient
 	int mChannelID = 0;
 
 	// Current time, time when the last ping was sent out, and time when connection was started
-	long mTime = 0;
+	long mTimeDifference = 0;
+	long mMyTime = 0;
 	long mPingTime = 0;
 
 	// Last ping, and whether we can ping again
@@ -197,6 +192,18 @@ public class GameClient
 
 	// Temporary, not important
 	static Buffer mBuffer;
+
+	/// <summary>
+	/// ID of the channel we're in.
+	/// </summary>
+
+	public int channelID { get { return mChannelID; } }
+
+	/// <summary>
+	/// Current time on the server.
+	/// </summary>
+
+	public long serverTime { get { return mTimeDifference + (System.DateTime.UtcNow.Ticks / 10000); } }
 
 	/// <summary>
 	/// ID of the host.
@@ -655,7 +662,7 @@ public class GameClient
 	public void Ping (IPEndPoint udpEndPoint, OnPing callback)
 	{
 		onPing = callback;
-		mPingTime = DateTime.Now.Ticks / 10000;
+		mPingTime = DateTime.UtcNow.Ticks / 10000;
 		BeginSend(Packet.RequestPing);
 		EndSend(udpEndPoint);
 	}
@@ -691,13 +698,13 @@ public class GameClient
 
 	public void ProcessPackets ()
 	{
-		mTime = DateTime.Now.Ticks / 10000;
+		mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mTime)
+		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
 		{
 			mCanPing = false;
-			mPingTime = mTime;
+			mPingTime = mMyTime;
 			BeginSend(Packet.RequestPing);
 			EndSend();
 		}
@@ -740,6 +747,8 @@ public class GameClient
 		{
 			if (mTcp.VerifyResponseID(response, reader))
 			{
+				mTimeDifference = reader.ReadInt64() - (System.DateTime.UtcNow.Ticks / 10000);
+
 #if !UNITY_WEBPLAYER
 				if (mUdp.isActive)
 				{
@@ -801,7 +810,7 @@ public class GameClient
 			}
 			case Packet.ResponsePing:
 			{
-				int ping = (int)(mTime - mPingTime);
+				int ping = (int)(mMyTime - mPingTime);
 
 				if (ip != null)
 				{

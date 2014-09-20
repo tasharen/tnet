@@ -84,21 +84,30 @@ public class Channel
 	{
 		destroyedObjects.Clear();
 
-		if (p == host) host = null;
-
 		if (players.Remove(p))
 		{
+			// When the host leaves, the first player becomes the host
+			if (p == host) host = (players.size != 0) ? players[0] : null;
+
 			// Remove all of the non-persistent objects that were created by this player
 			for (int i = created.size; i > 0; )
 			{
 				Channel.CreatedObject obj = created[--i];
 
-				if (obj.type == 2 && obj.playerID == p.id)
+				if (obj.playerID == p.id)
 				{
-					if (obj.buffer != null) obj.buffer.Recycle();
-					created.RemoveAt(i);
-					destroyedObjects.Add(obj.uniqueID);
-					DestroyObjectRFCs(obj.uniqueID);
+					if (obj.type == 2)
+					{
+						if (obj.buffer != null) obj.buffer.Recycle();
+						created.RemoveAt(i);
+						destroyedObjects.Add(obj.uniqueID);
+						DestroyObjectRFCs(obj.uniqueID);
+					}
+					else if (players.size != 0)
+					{
+						// The same operation happens on the client as well
+						obj.playerID = players[0].id;
+					}
 				}
 			}
 

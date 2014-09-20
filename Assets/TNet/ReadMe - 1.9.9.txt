@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.8
+                  Version 1.9.9
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,13 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+1.9.9
+- NEW: TNManager.serverTime (in milliseconds)
+- NEW: Added automatic serialization support for long, ulong, long[] and ulong[] types.
+- NEW: TNObjects now have a DestroySelf function which TNBehaviours call that ensures the object's destruction.
+- FIX: tno.isMine was not set properly for new players after the original owner left.
+- DEL: Removed the setter from TNObject.ownerID, as it's handled properly on the server now.
 
 1.9.8
 - NEW: TNBehaviour's DestroySelf() function is now virtual.

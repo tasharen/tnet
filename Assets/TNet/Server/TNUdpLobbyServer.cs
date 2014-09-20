@@ -84,7 +84,7 @@ public class UdpLobbyServer : LobbyServer
 	{
 		for (; ; )
 		{
-			mTime = DateTime.Now.Ticks / 10000;
+			mTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Cleanup a list of servers by removing expired entries
 			mList.Cleanup(mTime);

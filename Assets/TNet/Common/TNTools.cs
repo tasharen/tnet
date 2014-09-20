@@ -59,7 +59,7 @@ static public class Tools
 	/// Generate a random port from 10,000 to 60,000.
 	/// </summary>
 
-	static public int randomPort { get { return 10000 + (int)(System.DateTime.Now.Ticks % 50000); } }
+	static public int randomPort { get { return 10000 + (int)(System.DateTime.UtcNow.Ticks % 50000); } }
 
 #if !UNITY_WEBPLAYER
 	static List<NetworkInterface> mInterfaces = null;
@@ -352,6 +352,7 @@ static public class Tools
 
 	static public IPAddress ResolveAddress (string address)
 	{
+		address = address.Trim();
 		if (string.IsNullOrEmpty(address))
 			return null;
 

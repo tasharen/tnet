@@ -72,7 +72,7 @@ public class LobbyServerLink
 
 			if (mExternal != null)
 			{
-				long time = DateTime.Now.Ticks / 10000;
+				long time = DateTime.UtcNow.Ticks / 10000;
 				mNextSend = time + 3000;
 				mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
 			}
@@ -98,7 +98,7 @@ public class LobbyServerLink
 		{
 			while (!mShutdown)
 			{
-				long time = DateTime.Now.Ticks / 10000;
+				long time = DateTime.UtcNow.Ticks / 10000;
 
 				if (mNextSend < time && mGameServer != null)
 				{

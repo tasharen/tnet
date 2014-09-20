@@ -101,7 +101,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 		Buffer buffer;
 		IPEndPoint ip;
 		bool changed = false;
-		long time = System.DateTime.Now.Ticks / 10000;
+		long time = System.DateTime.UtcNow.Ticks / 10000;
 
 		// Receive and process UDP packets one at a time
 		while (mUdp != null && mUdp.ReceivePacket(out buffer, out ip))

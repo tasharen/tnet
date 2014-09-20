@@ -498,7 +498,7 @@ public class TcpProtocol : Player
 			stage = Stage.Verifying;
 
 			// Save the timestamp
-			lastReceivedTime = DateTime.Now.Ticks / 10000;
+			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Save the address
 			tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
@@ -553,7 +553,7 @@ public class TcpProtocol : Player
 			Disconnect(true);
 			return;
 		}
-		lastReceivedTime = DateTime.Now.Ticks / 10000;
+		lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
 		if (bytes == 0)
 		{
@@ -697,6 +697,7 @@ public class TcpProtocol : Player
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);
 				writer.Write(id);
+				writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
 				EndSend();
 				return true;
 			}
@@ -704,7 +705,6 @@ public class TcpProtocol : Player
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);
-				writer.Write(0);
 				EndSend();
 				Close(false);
 			}

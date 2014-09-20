@@ -49,7 +49,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 	{
 		Buffer buffer;
 		bool changed = false;
-		long time = System.DateTime.Now.Ticks / 10000;
+		long time = System.DateTime.UtcNow.Ticks / 10000;
 
 		// Automatically try to connect and reconnect if not connected
 		if (mRemoteAddress != null && mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)

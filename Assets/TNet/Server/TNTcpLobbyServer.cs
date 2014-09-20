@@ -129,7 +129,7 @@ public class TcpLobbyServer : LobbyServer
 	{
 		for (; ; )
 		{
-			mTime = DateTime.Now.Ticks / 10000;
+			mTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Accept incoming connections
 			while (mListener != null && mListener.Pending())

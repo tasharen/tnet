@@ -157,7 +157,7 @@ public class UPnP
 						"MX:3\r\n\r\n";
 
 		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
-		int port = 10000 + (int)(DateTime.Now.Ticks % 45000);
+		int port = 10000 + (int)(DateTime.UtcNow.Ticks % 45000);
 		List<IPAddress> ips = Tools.localAddresses;
 
 		// UPnP discovery should happen on all network interfaces

@@ -180,7 +180,8 @@ public enum Packet
 	/// Always the first packet to arrive from the server.
 	/// If the protocol version didn't match the client, a disconnect may follow.
 	/// int32: Protocol ID.
-	/// int32: Player ID.
+	/// int32: Player ID (only if the protocol ID matched).
+	/// int64: Server time in milliseconds (only if the protocol ID matched).
 	/// </summary>
 
 	ResponseID,
