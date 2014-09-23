@@ -403,7 +403,7 @@ public static class Serialization
 
 	static public void WriteInt (this BinaryWriter bw, int val)
 	{
-		if (val < 255)
+		if (val < 255 && val > -1)
 		{
 			bw.Write((byte)val);
 		}
@@ -489,12 +489,19 @@ public static class Serialization
 
 	static public void Write (this BinaryWriter writer, DataNode node)
 	{
-		writer.Write(node.name);
-		writer.WriteObject(node.value);
-		writer.WriteInt(node.children.size);
+		if (node == null || string.IsNullOrEmpty(node.name))
+		{
+			writer.Write("");
+		}
+		else
+		{
+			writer.Write(node.name);
+			writer.WriteObject(node.value);
+			writer.WriteInt(node.children.size);
 
-		for (int i = 0, imax = node.children.size; i < imax; ++i)
-			writer.Write(node.children[i]);
+			for (int i = 0, imax = node.children.size; i < imax; ++i)
+				writer.Write(node.children[i]);
+		}
 	}
 
 	/// <summary>
@@ -1057,8 +1064,11 @@ public static class Serialization
 
 	static public DataNode ReadDataNode (this BinaryReader reader)
 	{
+		string str = reader.ReadString();
+		if (string.IsNullOrEmpty(str)) return null;
+
 		DataNode node = new DataNode();
-		node.name = reader.ReadString();
+		node.name = str;
 		node.value = reader.ReadObject();
 		int count = reader.ReadInt();
 		for (int i = 0; i < count; ++i)

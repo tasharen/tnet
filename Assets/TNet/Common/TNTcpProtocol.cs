@@ -48,8 +48,11 @@ public class TcpProtocol : Player
 	/// How long to allow this player to go without packets before disconnecting them.
 	/// This value is in milliseconds, so 1000 means 1 second.
 	/// </summary>
-
+#if UNITY_EDITOR
+	public long timeoutTime = 30000;
+#else
 	public long timeoutTime = 10000;
+#endif
 
 	// Incoming and outgoing queues
 	Queue<Buffer> mIn = new Queue<Buffer>();

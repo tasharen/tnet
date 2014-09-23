@@ -20,6 +20,7 @@ public class TNObjectEditor : Editor
 			EditorGUILayout.LabelField("ID", obj.uid.ToString());
 			EditorGUILayout.LabelField("Player Owner", obj.ownerID.ToString());
 			EditorGUILayout.Toggle("Is Mine?", obj.isMine);
+			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
 			EditorGUI.EndDisabledGroup();
 		}
 		else
@@ -40,8 +41,7 @@ public class TNObjectEditor : Editor
 
 				foreach (TNObject o in tnos)
 				{
-					if (o == obj) continue;
-					if (o.hasParent) continue;
+					if (o == obj || o.parent != null) continue;
 
 					if (o.uid == obj.uid)
 					{

@@ -797,6 +797,13 @@ public class GameClient
 				if (onForwardedPacket != null) onForwardedPacket(reader);
 				break;
 			}
+			case Packet.ForwardByName:
+			{
+				// Skip the player name
+				reader.ReadString();
+				if (onForwardedPacket != null) onForwardedPacket(reader);
+				break;
+			}
 			case Packet.SyncPlayerData:
 			{
 				Player target = GetPlayer(reader.ReadInt32());

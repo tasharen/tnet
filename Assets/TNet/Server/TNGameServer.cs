@@ -372,11 +372,11 @@ public class GameServer : FileServer
 							RemovePlayer(player);
 						}
 #else
-						catch (System.Exception ex)
-						{
-							Error("(ThreadFunction Process) " + ex.Message);
-							RemovePlayer(player);
-						}
+							catch (System.Exception ex)
+							{
+								Error("(ThreadFunction Process) " + ex.Message);
+								RemovePlayer(player);
+							}
 #endif
 #else
 						if (ProcessPlayerPacket(buffer, player, true))
@@ -393,7 +393,7 @@ public class GameServer : FileServer
 						if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
 						{
 #if STANDALONE
-						Console.WriteLine(player.address + " has timed out");
+							Console.WriteLine(player.address + " has timed out");
 #elif UNITY_EDITOR
 							UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
@@ -404,7 +404,7 @@ public class GameServer : FileServer
 					else if (player.lastReceivedTime + 2000 < mTime)
 					{
 #if STANDALONE
-					Console.WriteLine(player.address + " has timed out");
+						Console.WriteLine(player.address + " has timed out");
 #elif UNITY_EDITOR
 						UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
@@ -490,6 +490,20 @@ public class GameServer : FileServer
 		TcpPlayer p = null;
 		mDictionaryID.TryGetValue(id, out p);
 		return p;
+	}
+
+	/// <summary>
+	/// Retrieve a player by their name.
+	/// </summary>
+
+	TcpPlayer GetPlayer (string name)
+	{
+		for (int i = 0; i < mPlayers.size; ++i)
+		{
+			if (mPlayers[i].name == name)
+				return mPlayers[i];
+		}
+		return null;
 	}
 
 	/// <summary>
@@ -1093,6 +1107,24 @@ public class GameServer : FileServer
 					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for player)
 					buffer.position = buffer.position - 9;
 					target.SendTcpPacket(buffer);
+				}
+				break;
+			}
+			case Packet.ForwardByName:
+			{
+				int start = buffer.position - 5;
+				string name = reader.ReadString();
+				TcpPlayer target = GetPlayer(name);
+
+				if (target != null && target.isConnected)
+				{
+					buffer.position = start;
+					target.SendTcpPacket(buffer);
+				}
+				else if (reliable)
+				{
+					BeginSend(Packet.ForwardTargetNotFound).Write(name);
+					EndSend(true, player);
 				}
 				break;
 			}

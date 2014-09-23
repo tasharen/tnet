@@ -858,7 +858,7 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
 
-	#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
+#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
 	/// <summary>
 	/// Ensure that there is only one instance of this class present.
@@ -904,7 +904,7 @@ public class TNManager : MonoBehaviour
 				}
 				Debug.Log(text);
 			}
-			else Debug.LogError("IP address cannot be determined!", this);
+			else Debug.LogError("[TNet] IP address cannot be determined!", this);
 #endif
 		}
 	}
@@ -934,7 +934,7 @@ public class TNManager : MonoBehaviour
 			for (int i = 0, imax = mInstance.objects.Length; i < imax; ++i)
 				if (mInstance.objects[i] == go) return i;
 
-			Debug.LogError("The game object was not found in the TNManager's list of objects. Did you forget to add it?", go);
+			Debug.LogError("[TNet] The game object was not found in the TNManager's list of objects. Did you forget to add it?", go);
 		}
 		return -1;
 	}
@@ -947,7 +947,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (string.IsNullOrEmpty(path))
 		{
-			Debug.LogError("Null path passed to TNManager.LoadGameObject!");
+			Debug.LogError("[TNet] Null path passed to TNManager.LoadGameObject!");
 			return null;
 		}
 
@@ -955,7 +955,7 @@ public class TNManager : MonoBehaviour
 
 		if (go == null)
 		{
-			Debug.LogError("Attempting to create a game object that can't be found in the Resources folder: " + path);
+			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: " + path);
 		}
 		return go;
 	}
@@ -1014,7 +1014,7 @@ public class TNManager : MonoBehaviour
 			}
 			else
 			{
-				Debug.LogWarning("The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
+				Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
 			}
 		}
 	}
@@ -1041,12 +1041,18 @@ public class TNManager : MonoBehaviour
 				object[] objs = reader.ReadArray(prefab);
 				object retVal;
 
-				UnityTools.ExecuteFirst(GetRCCs(), (byte)type, out retVal, objs);
+				if (!UnityTools.ExecuteFirst(GetRCCs(), type, out retVal, objs))
+				{
+					Debug.LogError("[TNet] Failed to call RCC #" + type + ".\nDid you forget to register it in Awake() via TNManager.AddRCCs?");
+					UnityTools.Clear(objs);
+					return null;
+				}
+
 				UnityTools.Clear(objs);
 
 				if (retVal == null)
 				{
-					Debug.LogError("Instantiating \"" + prefab.name + "\" returned null. Did you forget to return the game object from your RCC?");
+					Debug.LogError("[TNet] Instantiating \"" + prefab.name + "\" via RCC #" + type + " returned null.\nDid you forget to return the game object from your RCC?");
 				}
 				return retVal as GameObject;
 			}
@@ -1089,9 +1095,9 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	void Update () { mClient.ProcessPackets(); }
-	#endregion
 
-	#region Callbacks -- Modify these if you don't like the broadcast approach
+#endregion
+#region Callbacks -- Modify these if you don't like the broadcast approach
 
 	/// <summary>
 	/// Error notification.
@@ -1169,5 +1175,5 @@ public class TNManager : MonoBehaviour
 		mPlayer.name = p.name;
 		UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous);
 	}
-	#endregion
+#endregion
 }

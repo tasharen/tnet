@@ -52,7 +52,7 @@ static public class UnityTools
 			}
 		}
 
-		string err = "Failed to call RFC ";
+		string err = "[TNet] Failed to call RFC ";
 		if (string.IsNullOrEmpty(funcName)) err += "#" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
 		else err += ent.obj.GetType() + "." + funcName;
 
@@ -102,7 +102,6 @@ static public class UnityTools
 				}
 			}
 		}
-		Debug.LogError("[TNet] Unable to find an function with ID of " + funcID);
 		return false;
 	}
 
@@ -137,7 +136,6 @@ static public class UnityTools
 				}
 			}
 		}
-		Debug.LogError("[TNet] Unable to find an function with ID of " + funcID);
 		return false;
 	}
 
@@ -175,7 +173,6 @@ static public class UnityTools
 				}
 			}
 		}
-		Debug.LogError("[TNet] Unable to find a function called '" + funcName + "'");
 		return retVal;
 	}
 

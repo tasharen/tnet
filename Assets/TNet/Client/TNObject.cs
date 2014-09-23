@@ -68,10 +68,10 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Whether the TNObject has a parent.
+	/// TNObject's parent, if it has any.
 	/// </summary>
 
-	public bool hasParent { get { return mParent != null; } }
+	public TNObject parent { get { return mParent; } }
 
 	/// <summary>
 	/// When set to 'true', it will cause the list of remote function calls to be rebuilt next time they're needed.
@@ -372,7 +372,7 @@ public sealed class TNObject : MonoBehaviour
 			if (!obj.Execute(funcID, parameters))
 			{
 #if UNITY_EDITOR
-				Debug.LogError("Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
+				Debug.LogError("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
 					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
@@ -386,7 +386,7 @@ public sealed class TNObject : MonoBehaviour
 			mDelayed.Add(dc);
 		}
 #if UNITY_EDITOR
-		else Debug.LogError("Trying to execute a function " + funcID + " on TNObject #" + objID +
+		else Debug.LogError("[TNet] Trying to execute a function " + funcID + " on TNObject #" + objID +
 			" before it has been created.");
 #endif
 	}
@@ -404,7 +404,7 @@ public sealed class TNObject : MonoBehaviour
 			if (!obj.Execute(funcName, parameters))
 			{
 #if UNITY_EDITOR
-				Debug.LogError("Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
+				Debug.LogError("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
 					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
@@ -418,7 +418,7 @@ public sealed class TNObject : MonoBehaviour
 			mDelayed.Add(dc);
 		}
 #if UNITY_EDITOR
-		else Debug.LogError("Trying to execute a function '" + funcName + "' on TNObject #" + objID +
+		else Debug.LogError("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
 			" before it has been created.");
 #endif
 	}
@@ -467,9 +467,25 @@ public sealed class TNObject : MonoBehaviour
 
 	/// <summary>
 	/// Send a remote function call.
+	/// Note that you should not use this version of the function if you care about performance (as it's much slower than others),
+	/// or if players can have duplicate names, as only one of them will actually receive this message.
+	/// </summary>
+
+	public void Send (byte rfcID, string targetName, params object[] objs) { SendRFC(rfcID, null, targetName, true, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
 	/// </summary>
 
 	public void Send (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, true, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
+	/// Note that you should not use this version of the function if you care about performance (as it's much slower than others),
+	/// or if players can have duplicate names, as only one of them will actually receive this message.
+	/// </summary>
+
+	public void Send (string rfcName, string targetName, params object[] objs) { SendRFC(0, rfcName, targetName, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call.
@@ -624,6 +640,33 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (rfcID != 0) Execute(rfcID, objs);
 			else Execute(rfcName, objs);
+		}
+	}
+
+	/// <summary>
+	/// Send a new RFC call to the specified target.
+	/// </summary>
+
+	void SendRFC (byte rfcID, string rfcName, string targetName, bool reliable, params object[] objs)
+	{
+#if UNITY_EDITOR
+		if (!Application.isPlaying) return;
+#endif
+		if (string.IsNullOrEmpty(targetName)) return;
+
+		if (targetName == TNManager.playerName)
+		{
+			if (rfcID != 0) Execute(rfcID, objs);
+			else Execute(rfcName, objs);
+		}
+		else
+		{
+			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardByName);
+			writer.Write(targetName);
+			writer.Write(GetUID(uid, rfcID));
+			if (rfcID == 0) writer.Write(rfcName);
+			writer.WriteArray(objs);
+			TNManager.EndSend(reliable);
 		}
 	}
 

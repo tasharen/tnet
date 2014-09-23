@@ -451,5 +451,21 @@ public enum Packet
 	/// </summary>
 
 	SyncPlayerData,
+
+	/// <summary>
+	/// Echo the packet to the specified player.
+	/// string: Player name.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardByName,
+
+	/// <summary>
+	/// Server notification sent when the target requested by ForwardByName was not found.
+	/// string: Player name.
+	/// </summary>
+
+	ForwardTargetNotFound,
 }
 }
