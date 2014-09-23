@@ -91,8 +91,19 @@ public class TcpPlayer : TcpProtocol
 		{
 			Channel.CreatedObject obj = channel.created.buffer[i];
 
-			// First player always assumes ownership of all objects
-			if (channel.players.size == 0) obj.playerID = id;
+			bool isPresent = false;
+
+			for (int b = 0; b < channel.players.size; ++b)
+			{
+				if (channel.players[b].id == obj.playerID)
+				{
+					isPresent = true;
+					break;
+				}
+			}
+
+			// If the previous owner is not present, transfer ownership to the host
+			if (!isPresent) obj.playerID = channel.host.id;
 
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);

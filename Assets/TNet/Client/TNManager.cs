@@ -40,7 +40,7 @@ public class TNManager : MonoBehaviour
 
 	// Instance pointer
 	static TNManager mInstance;
-	static int mObjectOwner = 1;
+	static int mObjectOwner = -1;
 
 	/// <summary>
 	/// List of objects that can be instantiated by the network.
@@ -136,7 +136,7 @@ public class TNManager : MonoBehaviour
 	/// Check this in a script's Awake() attached to an network-instantiated object.
 	/// </summary>
 
-	static public int objectOwnerID { get { return mObjectOwner; } }
+	static public int objectOwnerID { get { return mObjectOwner == -1 ? hostID : mObjectOwner; } }
 
 	/// <summary>
 	/// Call this function in the script's Awake() to determine if this object
@@ -144,7 +144,7 @@ public class TNManager : MonoBehaviour
 	/// In most cases you should check tno.isMine instead.
 	/// </summary>
 
-	static public bool isThisMyObject { get { return mObjectOwner == playerID; } }
+	static public bool isThisMyObject { get { return objectOwnerID == playerID; } }
 
 	/// <summary>
 	/// Current time on the server.
@@ -1016,6 +1016,7 @@ public class TNManager : MonoBehaviour
 				Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
 			}
 		}
+		mObjectOwner = -1;
 	}
 
 	/// <summary>
