@@ -340,6 +340,7 @@ public class Channel
 			co.type = 1;
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
+			b.BeginReading();
 			co.buffer = b;
 			created.Add(co);
 		}

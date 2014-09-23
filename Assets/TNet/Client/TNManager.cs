@@ -618,7 +618,6 @@ public class TNManager : MonoBehaviour
 				if (index != -1)
 				{
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
-
 					writer.Write((ushort)index);
 					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)rccID);

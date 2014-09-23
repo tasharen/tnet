@@ -98,9 +98,7 @@ public class TcpPlayer : TcpProtocol
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
-
-			obj.buffer.BeginReading();
-			writer.Write(obj.buffer.buffer, 0, obj.buffer.size);
+			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
