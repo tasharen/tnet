@@ -98,7 +98,9 @@ public class TcpPlayer : TcpProtocol
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectID);
 			writer.Write(obj.uniqueID);
-			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
+
+			obj.buffer.BeginReading();
+			writer.Write(obj.buffer.buffer, 0, obj.buffer.size);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
@@ -118,7 +120,7 @@ public class TcpPlayer : TcpProtocol
 			Buffer rfcBuff = channel.rfcs[i].buffer;
 			rfcBuff.BeginReading();
 			buffer.BeginWriting(offset);
-			writer.Write(rfcBuff.buffer, rfcBuff.position, rfcBuff.size);
+			writer.Write(rfcBuff.buffer, 0, rfcBuff.size);
 			offset = buffer.EndWriting();
 		}
 

@@ -372,11 +372,11 @@ public class GameServer : FileServer
 							RemovePlayer(player);
 						}
 #else
-							catch (System.Exception ex)
-							{
-								Error("(ThreadFunction Process) " + ex.Message);
-								RemovePlayer(player);
-							}
+						catch (System.Exception ex)
+						{
+							Error("(ThreadFunction Process) " + ex.Message);
+							RemovePlayer(player);
+						}
 #endif
 #else
 						if (ProcessPlayerPacket(buffer, player, true))
