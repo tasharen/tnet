@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Collections.Generic;
 
 namespace TNet
 {
@@ -18,13 +19,7 @@ public class FileServer
 	/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
 	/// </summary>
 
-	struct FileEntry
-	{
-		public string fileName;
-		public byte[] data;
-	}
-
-	List<FileEntry> mSavedFiles = new List<FileEntry>();
+	Dictionary<string, byte[]> mSavedFiles = new Dictionary<string, byte[]>();
 
 	/// <summary>
 	/// Log an error message.
@@ -45,27 +40,7 @@ public class FileServer
 
 	public void SaveFile (string fileName, byte[] data)
 	{
-		bool exists = false;
-
-		for (int i = 0; i < mSavedFiles.size; ++i)
-		{
-			FileEntry fi = mSavedFiles[i];
-
-			if (fi.fileName == fileName)
-			{
-				fi.data = data;
-				exists = true;
-				break;
-			}
-		}
-
-		if (!exists)
-		{
-			FileEntry fi = new FileEntry();
-			fi.fileName = fileName;
-			fi.data = data;
-			mSavedFiles.Add(fi);
-		}
+		mSavedFiles[fileName] = data;
 		Tools.WriteFile(fileName, data);
 	}
 
@@ -75,12 +50,14 @@ public class FileServer
 
 	public byte[] LoadFile (string fileName)
 	{
-		for (int i = 0; i < mSavedFiles.size; ++i)
+		byte[] data;
+
+		if (!mSavedFiles.TryGetValue(fileName, out data))
 		{
-			FileEntry fi = mSavedFiles[i];
-			if (fi.fileName == fileName) return fi.data;
+			data = Tools.ReadFile(fileName);
+			mSavedFiles[fileName] = data;
 		}
-		return Tools.ReadFile(fileName);
+		return data;
 	}
 
 	/// <summary>
@@ -89,17 +66,8 @@ public class FileServer
 
 	public void DeleteFile (string fileName)
 	{
-		for (int i = 0; i < mSavedFiles.size; ++i)
-		{
-			FileEntry fi = mSavedFiles[i];
-
-			if (fi.fileName == fileName)
-			{
-				mSavedFiles.RemoveAt(i);
-				Tools.DeleteFile(fileName);
-				break;
-			}
-		}
+		mSavedFiles.Remove(fileName);
+		Tools.DeleteFile(fileName);
 	}
 }
 }
