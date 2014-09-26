@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 1.9.9
+                  Version 2.0.0
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,13 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.0
+- NEW: Added the ability to send messages players by name rather than ID (think private chat messages).
+- NEW: Saved/loaded files should now be kept in a dictionary for faster lookup.
+- FIX: TNSerializer's WriteInt didn't work for negative values.
+- FIX: Custom RCCs didn't seem to work quite right on the stand-alone server.
+- FIX: More tweaks regarding object ownership transfer.
 
 1.9.9
 - NEW: TNManager.serverTime (in milliseconds)
