@@ -875,19 +875,19 @@ public class TNManager : MonoBehaviour
 			rebuildMethodList = true;
 			DontDestroyOnLoad(gameObject);
 
-			mClient.onError				+= OnError;
-			mClient.onConnect			+= OnConnect;
-			mClient.onDisconnect		+= OnDisconnect;
-			mClient.onJoinChannel		+= OnJoinChannel;
-			mClient.onLeftChannel		+= OnLeftChannel;
-			mClient.onLoadLevel			+= OnLoadLevel;
-			mClient.onPlayerJoined		+= OnPlayerJoined;
-			mClient.onPlayerLeft		+= OnPlayerLeft;
-			mClient.onPlayerSync		+= OnPlayerSync;
-			mClient.onRenamePlayer		+= OnRenamePlayer;
-			mClient.onCreate			+= OnCreateObject;
-			mClient.onDestroy			+= OnDestroyObject;
-			mClient.onForwardedPacket	+= OnForwardedPacket;
+			mClient.onError				= OnError;
+			mClient.onConnect			= OnConnect;
+			mClient.onDisconnect		= OnDisconnect;
+			mClient.onJoinChannel		= OnJoinChannel;
+			mClient.onLeftChannel		= OnLeftChannel;
+			mClient.onLoadLevel			= OnLoadLevel;
+			mClient.onPlayerJoined		= OnPlayerJoined;
+			mClient.onPlayerLeft		= OnPlayerLeft;
+			mClient.onPlayerSync		= OnPlayerSync;
+			mClient.onRenamePlayer		= OnRenamePlayer;
+			mClient.onCreate			= OnCreateObject;
+			mClient.onDestroy			= OnDestroyObject;
+			mClient.onForwardedPacket	= OnForwardedPacket;
 
 #if UNITY_EDITOR
 			List<IPAddress> ips = TNet.Tools.localAddresses;

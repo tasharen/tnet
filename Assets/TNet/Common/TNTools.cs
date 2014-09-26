@@ -118,6 +118,7 @@ static public class Tools
 						//if (ni.NetworkInterfaceType == NetworkInterfaceType.Unknown) continue;
 
 						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+						if (uniAddresses == null) continue;
 
 						foreach (UnicastIPAddressInformation uni in uniAddresses)
 						{
@@ -140,12 +141,20 @@ static public class Tools
 #if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
 				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
-				IPAddress[] ips = Dns.GetHostAddresses(Dns.GetHostName());
+				string hn = Dns.GetHostName();
 
-				foreach (IPAddress ad in ips)
+				if (!string.IsNullOrEmpty(hn))
 				{
-					if (IsValidAddress(ad) && !mAddresses.Contains(ad))
-						mAddresses.Add(ad);
+					IPAddress[] ips = Dns.GetHostAddresses(hn);
+
+					if (ips != null)
+					{
+						foreach (IPAddress ad in ips)
+						{
+							if (IsValidAddress(ad) && !mAddresses.Contains(ad))
+								mAddresses.Add(ad);
+						}
+					}
 				}
 #endif
 				// If everything else fails, simply use the loopback address
@@ -165,7 +174,7 @@ static public class Tools
 		{
 			if (mLocalAddress == null)
 			{
-				mLocalAddress = IPAddress.None;
+				mLocalAddress = IPAddress.Loopback;
 				List<IPAddress> list = localAddresses;
 
 				if (list.size > 0)
