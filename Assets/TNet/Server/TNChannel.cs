@@ -86,8 +86,8 @@ public class Channel
 
 		if (players.Remove(p))
 		{
-			// When the host leaves, the first player becomes the host
-			if (p == host) host = (players.size != 0) ? players[0] : null;
+			// When the host leaves, clear the host (it gets changed in SendLeaveChannel)
+			if (p == host) host = null;
 
 			// Remove all of the non-persistent objects that were created by this player
 			for (int i = created.size; i > 0; )

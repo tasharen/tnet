@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 2.0.0
+                  Version 2.0.0b
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
