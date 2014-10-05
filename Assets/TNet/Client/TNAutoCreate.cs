@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using TNet;
+using System.Collections;
 
 /// <summary>
 /// Instantiate the specified prefab at the game object's position.
@@ -25,8 +26,9 @@ public class TNAutoCreate : MonoBehaviour
 
 	public bool persistent = false;
 
-	void Start ()
+	IEnumerator Start ()
 	{
+		while (TNManager.isJoiningChannel) yield return null;
 		TNManager.Create(prefab, transform.position, transform.rotation, persistent);
 		Destroy(gameObject);
 	}

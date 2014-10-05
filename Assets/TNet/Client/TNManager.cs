@@ -50,7 +50,6 @@ public class TNManager : MonoBehaviour
 
 	// Network client
 	GameClient mClient = new GameClient();
-	bool mJoiningChannel = false;
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -69,7 +68,7 @@ public class TNManager : MonoBehaviour
 	/// then 'false' just before OnNetworkJoinChannel was gets out.
 	/// </summary>
 
-	static public bool isJoiningChannel { get { return mInstance != null && mInstance.mJoiningChannel; } }
+	static public bool isJoiningChannel { get { return mInstance != null && mInstance.mClient.isSwitchingScenes; } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -147,7 +146,7 @@ public class TNManager : MonoBehaviour
 	static public bool isThisMyObject { get { return objectOwnerID == playerID; } }
 
 	/// <summary>
-	/// Current time on the server.
+	/// Current time on the server in milliseconds.
 	/// </summary>
 
 	static public long serverTime { get { return (mInstance != null) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
@@ -402,7 +401,6 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			mInstance.mJoiningChannel = true;
 			mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 		}
 		else Application.LoadLevel(levelName);
@@ -419,9 +417,8 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null)
+		if (mInstance != null && TNManager.isConnected)
 		{
-			mInstance.mJoiningChannel = true;
 			mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
@@ -439,7 +436,6 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			mInstance.mJoiningChannel = true;
 			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
 		}
 	}
@@ -456,7 +452,6 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			mInstance.mJoiningChannel = true;
 			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
@@ -651,6 +646,9 @@ public class TNManager : MonoBehaviour
 		{
 			if (isConnected)
 			{
+				if (mInstance != null && mInstance.mClient.isSwitchingScenes)
+					Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 				byte flag = GetFlag(go, persistent);
 				writer.Write((ushort)65535);
@@ -1115,32 +1113,20 @@ public class TNManager : MonoBehaviour
 	/// Notification that happens when the client gets disconnected from the server.
 	/// </summary>
 
-	void OnDisconnect ()
-	{
-		mJoiningChannel = false;
-		UnityTools.Broadcast("OnNetworkDisconnect");
-	}
+	void OnDisconnect () { UnityTools.Broadcast("OnNetworkDisconnect"); }
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message)
-	{
-		mJoiningChannel = false;
-		UnityTools.Broadcast("OnNetworkJoinChannel", success, message);
-	}
+	void OnJoinChannel (bool success, string message) { UnityTools.Broadcast("OnNetworkJoinChannel", success, message); }
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel ()
-	{
-		mJoiningChannel = false;
-		UnityTools.Broadcast("OnNetworkLeaveChannel");
-	}
+	void OnLeftChannel () { UnityTools.Broadcast("OnNetworkLeaveChannel"); }
 
 	/// <summary>
 	/// Notification sent when a level is changing.

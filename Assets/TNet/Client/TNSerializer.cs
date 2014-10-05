@@ -767,7 +767,7 @@ public static class Serialization
 						}
 
 						if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
-						bw.Write(type);
+						bw.Write(fixedSize ? type : elemType);
 						bw.Write((byte)(sameType ? 1 : 0));
 						bw.WriteInt(list.Count);
 
@@ -1213,7 +1213,19 @@ public static class Serialization
 				bool sameType = (reader.ReadByte() == 1);
 				int elements = reader.ReadInt();
 
-				IList arr = (IList)type.Create(elements);
+				IList arr = null;
+				object created = null;
+
+				try
+				{
+					created = type.Create(elements);
+					arr = (IList)created;
+				}
+				catch (Exception ex)
+				{
+					Debug.LogError(ex.Message + "\n" + "Expected: " + type + "[" + elements + "]\n" +
+						"Created: " + (created != null ? created.GetType().ToString() : "<null>"));
+				}
 
 				if (arr != null)
 				{

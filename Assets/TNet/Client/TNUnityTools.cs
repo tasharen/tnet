@@ -52,9 +52,19 @@ static public class UnityTools
 			}
 		}
 
-		string err = "[TNet] Failed to call RFC ";
-		if (string.IsNullOrEmpty(funcName)) err += "#" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
-		else err += ent.obj.GetType() + "." + funcName;
+		string err = "[TNet] Failed to call ";
+		
+		if (ent.obj != null && ent.obj is TNBehaviour)
+		{
+			TNBehaviour tb = ent.obj as TNBehaviour;
+			err += "TNO #" + tb.tno.uid + " ";
+		}
+
+		if (string.IsNullOrEmpty(funcName))
+		{
+			err += "RFC #" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
+		}
+		else err += "RFC " + ent.obj.GetType() + "." + funcName;
 
 		if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";
 		else err += ": " + ex.Message + "\n";
@@ -68,7 +78,7 @@ static public class UnityTools
 		if (ex.InnerException != null) err += ex.InnerException.StackTrace + "\n";
 		else err += ex.StackTrace + "\n";
 
-		Debug.LogError(err);
+		Debug.LogError(err, ent.obj as Object);
 	}
 
 	/// <summary>

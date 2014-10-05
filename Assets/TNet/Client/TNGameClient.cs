@@ -193,6 +193,9 @@ public class GameClient
 	// Temporary, not important
 	static Buffer mBuffer;
 
+	// Packets should not be sent in between of level-switching operations.
+	bool mCanSend = true;
+
 	/// <summary>
 	/// ID of the channel we're in.
 	/// </summary>
@@ -222,6 +225,12 @@ public class GameClient
 	/// </summary>
 
 	public bool isTryingToConnect { get { return mTcp.isTryingToConnect; } }
+
+	/// <summary>
+	/// Whether we are currently in the process of switching scenes.
+	/// </summary>
+
+	public bool isSwitchingScenes { get { return !mCanSend; } }
 
 	/// <summary>
 	/// Whether this player is hosting the game.
@@ -440,7 +449,7 @@ public class GameClient
 		if (mBuffer != null)
 		{
 			mBuffer.EndPacket();
-			mTcp.SendTcpPacket(mBuffer);
+			if (mCanSend) mTcp.SendTcpPacket(mBuffer);
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -453,15 +462,19 @@ public class GameClient
 	public void EndSend (bool reliable)
 	{
 		mBuffer.EndPacket();
-#if UNITY_WEBPLAYER
-		mTcp.SendTcpPacket(mBuffer);
-#else
-		if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
+
+		if (mCanSend)
 		{
+#if UNITY_WEBPLAYER
 			mTcp.SendTcpPacket(mBuffer);
-		}
-		else mUdp.Send(mBuffer, mServerUdpEndPoint);
+#else
+			if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
+			{
+				mTcp.SendTcpPacket(mBuffer);
+			}
+			else mUdp.Send(mBuffer, mServerUdpEndPoint);
 #endif
+		}
 		mBuffer.Recycle();
 		mBuffer = null;
 	}
@@ -474,7 +487,7 @@ public class GameClient
 	{
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
-		mUdp.Broadcast(mBuffer, port);
+		if (mCanSend) mUdp.Broadcast(mBuffer, port);
 #endif
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -488,7 +501,7 @@ public class GameClient
 	{
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
-		mUdp.Send(mBuffer, target);
+		if (mCanSend) mUdp.Send(mBuffer, target);
 #endif
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -570,6 +583,12 @@ public class GameClient
 			writer.Write(persistent);
 			writer.Write((ushort)playerLimit);
 			EndSend();
+
+			// Prevent all further packets from going out until the join channel response arrives.
+			// This prevents the situation where packets are sent out between LoadLevel / JoinChannel
+			// requests and the arrival of the OnJoinChannel/OnLoadLevel responses, which cause RFCs
+			// from the previous scene to be executed in the new one.
+			mCanSend = false;
 		}
 	}
 
@@ -623,6 +642,7 @@ public class GameClient
 		{
 			BeginSend(Packet.RequestLoadLevel).Write(levelName);
 			EndSend();
+			mCanSend = false;
 		}
 	}
 
@@ -701,7 +721,7 @@ public class GameClient
 		mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
+		if (mTcp.isConnected && mCanPing && mCanSend && mPingTime + 4000 < mMyTime)
 		{
 			mCanPing = false;
 			mPingTime = mMyTime;
@@ -858,7 +878,10 @@ public class GameClient
 			}
 			case Packet.ResponseJoiningChannel:
 			{
-				mIsInChannel = true;
+				mIsInChannel = false;
+#if UNITY_EDITOR
+				if (mCanSend) UnityEngine.Debug.LogError("'mCanSend' flag is in the wrong state");
+#endif
 				mDictionary.Clear();
 				players.Clear();
 
@@ -880,6 +903,7 @@ public class GameClient
 			{
 				// Purposely return after loading a level, ensuring that all future callbacks happen after loading
 				if (onLoadLevel != null) onLoadLevel(reader.ReadString());
+				mCanSend = mIsInChannel;
 				return false;
 			}
 			case Packet.ResponsePlayerLeft:
@@ -915,6 +939,7 @@ public class GameClient
 			}
 			case Packet.ResponseJoinChannel:
 			{
+				mCanSend = true;
 				mIsInChannel = reader.ReadBoolean();
 				if (onJoinChannel != null) onJoinChannel(mIsInChannel, mIsInChannel ? null : reader.ReadString());
 				break;
@@ -924,10 +949,13 @@ public class GameClient
 				mData = "";
 				mChannelID = 0;
 				mIsInChannel = false;
+				UnityEngine.Debug.Log(mIsInChannel);
 				mDictionary.Clear();
 				players.Clear();
 				if (onLeftChannel != null) onLeftChannel();
-				break;
+
+				// Purposely exit after receiving a "left channel" notification so that other packets get handled in the next frame.
+				return false;
 			}
 			case Packet.ResponseRenamePlayer:
 			{
