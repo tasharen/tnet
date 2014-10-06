@@ -20,28 +20,12 @@ public sealed class TNObject : MonoBehaviour
 {
 	static int mDummyID = 0;
 
-	/// <summary>
-	/// Remote function calls that can't be executed immediately get stored,
-	/// and will be executed when an appropriate Object ID gets added.
-	/// </summary>
-
-	class DelayedCall
-	{
-		public uint objID;
-		public byte funcID;
-		public string funcName;
-		public object[] parameters;
-	}
-
 	// List of network objs to iterate through
 	static List<TNObject> mList = new List<TNObject>();
 
 	// List of network objs to quickly look up
 	static System.Collections.Generic.Dictionary<uint, TNObject> mDictionary =
 		new System.Collections.Generic.Dictionary<uint, TNObject>();
-
-	// List of delayed calls -- calls that could not execute at the time of the call
-	static List<DelayedCall> mDelayed = new List<DelayedCall>();
 
 	/// <summary>
 	/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
@@ -92,6 +76,13 @@ public sealed class TNObject : MonoBehaviour
 	[System.NonSerialized] TNObject mParent = null;
 
 	/// <summary>
+	/// When objects get destroyed, they immediately get marked as such so that no RFCs go out between the destroy call
+	/// and the response coming back from the server.
+	/// </summary>
+	
+	[System.NonSerialized] public bool hasBeenDestroyed = false;
+
+	/// <summary>
 	/// Whether this object belongs to the player.
 	/// </summary>
 
@@ -109,8 +100,18 @@ public sealed class TNObject : MonoBehaviour
 
 	public void DestroySelf ()
 	{
-		StartCoroutine(EnsureDestroy());
-		TNManager.Destroy(gameObject);
+		if (!hasBeenDestroyed)
+		{
+			hasBeenDestroyed = true;
+
+			if (TNManager.isConnected)
+			{
+				StartCoroutine(EnsureDestroy());
+				TNManager.BeginSend(Packet.RequestDestroy).Write(uid);
+				TNManager.EndSend();
+			}
+			else GameObject.Destroy(gameObject);
+		}
 	}
 
 	/// <summary>
@@ -279,25 +280,7 @@ public sealed class TNObject : MonoBehaviour
 				return;
 			}
 		}
-		else
-		{
-			Register();
-
-			// Have there been any delayed function calls for this object? If so, execute them now.
-			for (int i = 0; i < mDelayed.size; )
-			{
-				DelayedCall dc = mDelayed[i];
-
-				if (dc.objID == uid)
-				{
-					if (!string.IsNullOrEmpty(dc.funcName)) Execute(dc.funcName, dc.parameters);
-					else Execute(dc.funcID, dc.parameters);
-					mDelayed.RemoveAt(i);
-					continue;
-				}
-				++i;
-			}
-		}
+		else Register();
 	}
 
 	/// <summary>
@@ -377,16 +360,13 @@ public sealed class TNObject : MonoBehaviour
 #endif
 			}
 		}
-		else if (TNManager.isInChannel)
-		{
-			DelayedCall dc = new DelayedCall();
-			dc.objID = objID;
-			dc.funcID = funcID;
-			dc.parameters = parameters;
-			mDelayed.Add(dc);
-		}
 #if UNITY_EDITOR
-		else Debug.LogError("[TNet] Trying to execute a function " + funcID + " on TNObject #" + objID +
+		else if (TNManager.isJoiningChannel)
+		{
+			Debug.Log("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID +
+				" before it has been created.");
+		}
+		else Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID +
 			" before it has been created.");
 #endif
 	}
@@ -409,16 +389,13 @@ public sealed class TNObject : MonoBehaviour
 #endif
 			}
 		}
-		else if (TNManager.isInChannel)
-		{
-			DelayedCall dc = new DelayedCall();
-			dc.objID = objID;
-			dc.funcName = funcName;
-			dc.parameters = parameters;
-			mDelayed.Add(dc);
-		}
 #if UNITY_EDITOR
-		else Debug.LogError("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
+		else if (TNManager.isJoiningChannel)
+		{
+			Debug.Log("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
+				" before it has been created.");
+		}
+		else Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
 			" before it has been created.");
 #endif
 	}
@@ -587,6 +564,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
+		if (hasBeenDestroyed) return;
 		bool executeLocally = false;
 
 		if (target == Target.Broadcast)
@@ -652,7 +630,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (string.IsNullOrEmpty(targetName)) return;
+		if (hasBeenDestroyed || string.IsNullOrEmpty(targetName)) return;
 
 		if (targetName == TNManager.playerName)
 		{
@@ -676,6 +654,8 @@ public sealed class TNObject : MonoBehaviour
 
 	void SendRFC (byte rfcID, string rfcName, Player target, bool reliable, params object[] objs)
 	{
+		if (hasBeenDestroyed) return;
+
 		if (TNManager.isConnected)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
@@ -698,6 +678,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void BroadcastToLAN (int port, byte rfcID, string rfcName, params object[] objs)
 	{
+		if (hasBeenDestroyed) return;
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write(GetUID(uid, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);

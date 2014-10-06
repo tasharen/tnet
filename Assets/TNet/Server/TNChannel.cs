@@ -29,8 +29,8 @@ public class Channel
 	public class CreatedObject
 	{
 		public int playerID;
-		public ushort objectID;
-		public uint uniqueID;
+		public ushort objectIndex;
+		public uint objectID;
 		public byte type;
 		public Buffer buffer;
 	}
@@ -100,8 +100,8 @@ public class Channel
 					{
 						if (obj.buffer != null) obj.buffer.Recycle();
 						created.RemoveAt(i);
-						destroyedObjects.Add(obj.uniqueID);
-						DestroyObjectRFCs(obj.uniqueID);
+						destroyedObjects.Add(obj.objectID);
+						DestroyObjectRFCs(obj.objectID);
 					}
 					else if (players.size != 0)
 					{
@@ -130,24 +130,24 @@ public class Channel
 	/// Remove an object with the specified unique identifier.
 	/// </summary>
 
-	public bool DestroyObject (uint uniqueID)
+	public bool DestroyObject (uint objectID)
 	{
-		if (!destroyed.Contains(uniqueID))
+		if (!destroyed.Contains(objectID))
 		{
 			for (int i = 0; i < created.size; ++i)
 			{
 				Channel.CreatedObject obj = created[i];
 
-				if (obj.uniqueID == uniqueID)
+				if (obj.objectID == objectID)
 				{
 					if (obj.buffer != null) obj.buffer.Recycle();
 					created.RemoveAt(i);
-					DestroyObjectRFCs(uniqueID);
+					DestroyObjectRFCs(objectID);
 					return true;
 				}
 			}
-			destroyed.Add(uniqueID);
-			DestroyObjectRFCs(uniqueID);
+			destroyed.Add(objectID);
+			DestroyObjectRFCs(objectID);
 			return true;
 		}
 		return false;
@@ -233,31 +233,36 @@ public class Channel
 		writer.Write(persistent);
 		writer.Write(playerLimit);
 
-		List<uint> tempObjs = new List<uint>();
-		List<CreatedObject> cleanedObjs = new List<CreatedObject>();
-		List<RFC> cleanedRFCs = new List<RFC>();
+		List<uint> cleanedObjs = new List<uint>();
+		List<CreatedObject> createdObjects = new List<CreatedObject>();
+		List<RFC> createdRFCs = new List<RFC>();
 
 		// Record which objects are temporary and which ones are not
 		for (int i = 0; i < created.size; ++i)
 		{
 			CreatedObject co = created[i];
-			if (co.type == 1) cleanedObjs.Add(co);
-			else tempObjs.Add(co.uniqueID);
+
+			if (co.type == 1)
+			{
+				createdObjects.Add(co);
+				cleanedObjs.Add(co.objectID);
+			}
 		}
 
 		// Record all RFCs that don't belong to temporary objects
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC rfc = rfcs[i];
-			if (!tempObjs.Contains(rfc.objectID))
-				cleanedRFCs.Add(rfc);
+			uint objID = rfc.objectID;
+			if (objID < 32768 || cleanedObjs.Contains(objID))
+				createdRFCs.Add(rfc);
 		}
 
-		writer.Write(cleanedRFCs.size);
+		writer.Write(createdRFCs.size);
 
-		for (int i = 0; i < cleanedRFCs.size; ++i)
+		for (int i = 0; i < createdRFCs.size; ++i)
 		{
-			RFC rfc = cleanedRFCs[i];
+			RFC rfc = createdRFCs[i];
 			writer.Write(rfc.uid);
 			if (rfc.functionID == 0) writer.Write(rfc.functionName);
 			writer.Write(rfc.buffer.size);
@@ -269,14 +274,14 @@ public class Channel
 			}
 		}
 
-		writer.Write(cleanedObjs.size);
+		writer.Write(createdObjects.size);
 
-		for (int i = 0; i < cleanedObjs.size; ++i)
+		for (int i = 0; i < createdObjects.size; ++i)
 		{
-			CreatedObject co = cleanedObjs[i];
+			CreatedObject co = createdObjects[i];
 			writer.Write(co.playerID);
-			writer.Write(co.uniqueID);
 			writer.Write(co.objectID);
+			writer.Write(co.objectIndex);
 			writer.Write(co.buffer.size);
 
 			if (co.buffer.size > 0)
@@ -335,8 +340,8 @@ public class Channel
 		{
 			CreatedObject co = new CreatedObject();
 			co.playerID = reader.ReadInt32();
-			co.uniqueID = reader.ReadUInt32();
-			co.objectID = reader.ReadUInt16();
+			co.objectID = reader.ReadUInt32();
+			co.objectIndex = reader.ReadUInt16();
 			co.type = 1;
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));

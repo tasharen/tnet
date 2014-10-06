@@ -107,8 +107,8 @@ public class TcpPlayer : TcpProtocol
 
 			buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);
+			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
-			writer.Write(obj.uniqueID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
@@ -126,10 +126,10 @@ public class TcpPlayer : TcpProtocol
 		// Step 8: Send all buffered RFCs to the new player
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
-			Buffer rfcBuff = channel.rfcs[i].buffer;
-			rfcBuff.BeginReading();
+			Channel.RFC rfc = channel.rfcs[i];
+			rfc.buffer.BeginReading();
 			buffer.BeginWriting(offset);
-			writer.Write(rfcBuff.buffer, 0, rfcBuff.size);
+			writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
 			offset = buffer.EndWriting();
 		}
 

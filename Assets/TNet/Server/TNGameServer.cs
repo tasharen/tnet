@@ -1287,8 +1287,8 @@ public class GameServer : FileServer
 
 					Channel.CreatedObject obj = new Channel.CreatedObject();
 					obj.playerID = player.id;
-					obj.objectID = objectIndex;
-					obj.uniqueID = uniqueID;
+					obj.objectIndex = objectIndex;
+					obj.objectID = uniqueID;
 					obj.type = type;
 
 					if (buffer.size > 0)

@@ -482,7 +482,10 @@ public class TNManager : MonoBehaviour
 
 	static public void LoadLevel (string levelName)
 	{
-		if (isConnected) mInstance.mClient.LoadLevel(levelName);
+		if (isConnected)
+		{
+			mInstance.mClient.LoadLevel(levelName);
+		}
 		else Application.LoadLevel(levelName);
 	}
 
@@ -810,9 +813,7 @@ public class TNManager : MonoBehaviour
 
 			if (obj != null)
 			{
-				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestDestroy);
-				writer.Write(obj.uid);
-				mInstance.mClient.EndSend();
+				obj.DestroySelf();
 				return;
 			}
 		}
@@ -1132,7 +1133,11 @@ public class TNManager : MonoBehaviour
 	/// Notification sent when a level is changing.
 	/// </summary>
 
-	void OnLoadLevel (string levelName) { if (!string.IsNullOrEmpty(levelName)) Application.LoadLevel(levelName); }
+	void OnLoadLevel (string levelName)
+	{
+		if (!string.IsNullOrEmpty(levelName))
+			Application.LoadLevel(levelName);
+	}
 
 	/// <summary>
 	/// Notification of a new player joining the channel.
