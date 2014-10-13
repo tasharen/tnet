@@ -521,11 +521,17 @@ static public class Tools
 	/// Retrieve the list of filenames from the specified directory.
 	/// </summary>
 
-	static public string[] GetFiles (string directory)
+	static public string[] GetFiles (string directory, bool inMyDocuments = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		try
 		{
+			if (inMyDocuments)
+			{
+				string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+				directory = Path.Combine(docs, directory);
+			}
+
 			if (!Directory.Exists(directory)) return null;
 			return Directory.GetFiles(directory);
 		}
@@ -538,20 +544,26 @@ static public class Tools
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 
-	static public bool WriteFile (string fileName, byte[] data)
+	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		if (data == null || data.Length == 0)
 		{
-			return DeleteFile(fileName);
+			return DeleteFile(path);
 		}
 		else
 		{
 			try
 			{
-				string dir = Path.GetDirectoryName(fileName);
+				if (inMyDocuments)
+				{
+					string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+					path = Path.Combine(docs, path);
+				}
+
+				string dir = Path.GetDirectoryName(path);
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-				File.WriteAllBytes(fileName, data);
+				File.WriteAllBytes(path, data);
 				return true;
 			}
 			catch (System.Exception) { }
@@ -564,13 +576,14 @@ static public class Tools
 	/// Read the specified file, returning all bytes read.
 	/// </summary>
 
-	static public byte[] ReadFile (string fileName)
+	static public byte[] ReadFile (string path)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		try
 		{
-			if (File.Exists(fileName))
-				return File.ReadAllBytes(fileName);
+			path = FindFile(path);
+			if (!string.IsNullOrEmpty(path) && File.Exists(path))
+				return File.ReadAllBytes(path);
 		}
 		catch (System.Exception) { }
 #endif
@@ -581,18 +594,55 @@ static public class Tools
 	/// Delete the specified file, if it exists.
 	/// </summary>
 
-	static public bool DeleteFile (string fileName)
+	static public bool DeleteFile (string path)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		try
 		{
-			if (File.Exists(fileName))
-				File.Delete(fileName);
+			path = FindFile(path);
+			if (!string.IsNullOrEmpty(path) && File.Exists(path))
+				File.Delete(path);
 			return true;
 		}
 		catch (System.Exception) { }
 #endif
 		return false;
+	}
+
+	/// <summary>
+	/// Gets the path to a file in My Documents or OSX equivalent.
+	/// </summary>
+
+	static public string GetDocumentsPath (string path = null)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+#else
+		return path;
+#endif
+	}
+
+	/// <summary>
+	/// Tries to find the specified file, checking the raw path, My Documents folder, and the application folder.
+	/// Returns the path if found, null if not found.
+	/// </summary>
+
+	static public string FindFile (string path)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+		try
+		{
+			if (string.IsNullOrEmpty(path)) return null;
+			if (File.Exists(path)) return path;
+ 
+			string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+			string full = Path.Combine(docs, path);
+			if (File.Exists(full)) return full;
+		}
+		catch (System.Exception) { }
+#endif
+		return null;
 	}
 }
 }

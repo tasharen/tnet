@@ -356,6 +356,12 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Just here for consistency.
+	/// </summary>
+
+	public void Write (BinaryWriter writer) { writer.WriteObject(this); }
+
+	/// <summary>
 	/// Write the node hierarchy to the stream reader, saving it in text format.
 	/// </summary>
 

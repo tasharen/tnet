@@ -122,7 +122,7 @@ public class UdpProtocol
 		try
 		{
 			// Use the default network interface if one wasn't explicitly chosen
-			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.Any;
+			IPAddress networkInterface = mMulticast ? multicastIP : (defaultNetworkInterface ?? IPAddress.Any);
 			mEndPoint = new IPEndPoint(networkInterface, 0);
 			mDefaultEndPoint = new IPEndPoint(networkInterface, 0);
 
