@@ -20,14 +20,14 @@ public class Buffer
 {
 	static List<Buffer> mPool = new List<Buffer>();
 
-	MemoryStream mStream;
-	BinaryWriter mWriter;
-	BinaryReader mReader;
+	volatile MemoryStream mStream;
+	volatile BinaryWriter mWriter;
+	volatile BinaryReader mReader;
 
-	int mCounter = 0;
-	int mSize = 0;
-	bool mWriting = false;
-	bool mInPool = false;
+	volatile int mCounter = 0;
+	volatile int mSize = 0;
+	volatile bool mWriting = false;
+	volatile bool mInPool = false;
 
 	Buffer ()
 	{
@@ -116,17 +116,22 @@ public class Buffer
 	/// Release the buffer into the reusable pool.
 	/// </summary>
 
-	public bool Recycle () { return Recycle(true); }
-
-	/// <summary>
-	/// Release the buffer into the reusable pool.
-	/// </summary>
-
-	public bool Recycle (bool checkUsedFlag)
+	public bool Recycle ()
 	{
-		if (!mInPool && (!checkUsedFlag || MarkAsUnused()))
+		lock (this)
 		{
+			if (mInPool)
+			{
+				// I really want to know if this ever happens
+				throw new Exception("Releasing a buffer that's already in the pool");
+				//return false;
+			}
+			if (--mCounter > 0) return false;
+
 			mInPool = true;
+			mSize = 0;
+			mStream.Seek(0, SeekOrigin.Begin);
+			mWriting = true;
 
 			lock (mPool)
 			{
@@ -135,7 +140,6 @@ public class Buffer
 			}
 			return true;
 		}
-		return false;
 	}
 
 	/// <summary>
@@ -212,20 +216,7 @@ public class Buffer
 	/// Mark the buffer as being in use.
 	/// </summary>
 
-	public void MarkAsUsed () { Interlocked.Increment(ref mCounter); }
-
-	/// <summary>
-	/// Mark the buffer as no longer being in use. Return 'true' if no one is using the buffer.
-	/// </summary>
-
-	public bool MarkAsUnused ()
-	{
-		if (Interlocked.Decrement(ref mCounter) > 0) return false;
-		mSize = 0;
-		mStream.Seek(0, SeekOrigin.Begin);
-		mWriting = true;
-		return true;
-	}
+	public void MarkAsUsed () { lock (this) ++mCounter; }
 
 	/// <summary>
 	/// Clear the buffer.

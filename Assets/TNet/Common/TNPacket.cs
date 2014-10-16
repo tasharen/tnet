@@ -325,7 +325,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToAll,
+	ForwardToAll, // 38, 0x26
 
 	/// <summary>
 	/// Echo the packet to everyone in the room and everyone who joins later.
@@ -333,7 +333,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToAllSaved,
+	ForwardToAllSaved, // 39, 0x27
 
 	/// <summary>
 	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
@@ -341,7 +341,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToOthers,
+	ForwardToOthers, // 40, 0x28
 
 	/// <summary>
 	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
@@ -349,7 +349,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToOthersSaved,
+	ForwardToOthersSaved, // 41, 0x29
 
 	/// <summary>
 	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
@@ -357,7 +357,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToHost,
+	ForwardToHost, // 42, 0x2A
 
 	/// <summary>
 	/// Echo the packet to the specified player.
@@ -366,7 +366,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToPlayer,
+	ForwardToPlayer, // 43, 0x2B
 
 	/// <summary>
 	/// Echo the packet to the specified player and everyone who joins later.
@@ -375,7 +375,7 @@ public enum Packet
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ForwardToPlayerBuffered,
+	ForwardToPlayerSaved, // 44, 0x2C
 
 	//===================================================================================
 

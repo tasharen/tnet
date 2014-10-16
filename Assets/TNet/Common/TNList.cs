@@ -31,13 +31,13 @@ public class List<T> : TList
 	/// Direct access to the buffer. Note that you should not use its 'Length' parameter, but instead use List.size.
 	/// </summary>
 
-	public T[] buffer;
+	public volatile T[] buffer;
 
 	/// <summary>
 	/// Direct access to the buffer's size. Note that it's only public for speed and efficiency. You shouldn't modify it.
 	/// </summary>
 
-	public int size = 0;
+	public volatile int size = 0;
 
 	/// <summary>
 	/// For 'foreach' functionality.

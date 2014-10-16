@@ -12,6 +12,7 @@ namespace TNet
 public class Player
 {
 	static protected int mPlayerCounter = 0;
+	static protected object mLock = new int();
 
 	/// <summary>
 	/// Protocol version.

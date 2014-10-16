@@ -1148,7 +1148,7 @@ public class GameServer : FileServer
 			}
 			default:
 			{
-				if (player.channel != null && (int)request <= (int)Packet.ForwardToPlayerBuffered)
+				if (player.channel != null && (int)request <= (int)Packet.ForwardToPlayerSaved)
 				{
 					// Other packets can only be processed while in a channel
 					if ((int)request >= (int)Packet.ForwardToAll)
@@ -1194,7 +1194,7 @@ public class GameServer : FileServer
 				else mUdp.Send(buffer, player.channel.host.udpEndPoint);
 				break;
 			}
-			case Packet.ForwardToPlayerBuffered:
+			case Packet.ForwardToPlayerSaved:
 			{
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;

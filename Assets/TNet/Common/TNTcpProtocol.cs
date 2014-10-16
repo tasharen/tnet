@@ -49,9 +49,9 @@ public class TcpProtocol : Player
 	/// This value is in milliseconds, so 1000 means 1 second.
 	/// </summary>
 #if UNITY_EDITOR
-	public long timeoutTime = 30000;
+	public long timeoutTime = 60000;
 #else
-	public long timeoutTime = 10000;
+	public long timeoutTime = 20000;
 #endif
 
 	// Incoming and outgoing queues
@@ -307,7 +307,10 @@ public class TcpProtocol : Player
 					if (sock != null) sock.Close();
 				}
 			}
-			if (mSocket != null) Close(notify || mSocket.Connected);
+			if (mSocket != null)
+			{
+				Close(notify || mSocket.Connected);
+			}
 		}
 		catch (System.Exception)
 		{
@@ -580,6 +583,8 @@ public class TcpProtocol : Player
 		else Close(true);
 	}
 
+	//static int mCounter = 0;
+
 	/// <summary>
 	/// See if the received packet can be processed and split it up into different ones.
 	/// </summary>
@@ -607,10 +612,36 @@ public class TcpProtocol : Player
 
 				if (mExpected < 0 || mExpected > 16777216)
 				{
+					//MemoryStream mss = new MemoryStream();
+					//BinaryWriter writers = new BinaryWriter(mss);
+
+					//for (int i = mOffset - 16; i < mReceiveBuffer.position; ++i)
+					//{
+					//    byte bt = (byte)mReceiveBuffer.PeekByte(i);
+					//    writers.Write(bt);
+					//}
+
+					//Tools.WriteFile("Dump/dump" + mCounter + " - Error.dat", mss.ToArray());
+					//writers.Close();
+					//++mCounter;
+
 					Close(true);
 					return false;
 				}
 			}
+
+			//MemoryStream ms = new MemoryStream();
+			//BinaryWriter writer = new BinaryWriter(ms);
+
+			//for (int i = 0; i < mExpected + 4; ++i)
+			//{
+			//    byte bt = (byte)mReceiveBuffer.PeekByte(mOffset + i);
+			//    writer.Write(bt);
+			//}
+
+			//Tools.WriteFile("Dump/dump" + mCounter + ".dat", ms.ToArray());
+			//writer.Close();
+			//++mCounter;
 
 			// The first 4 bytes of any packet always contain the number of bytes in that packet
 			available -= 4;
@@ -682,7 +713,10 @@ public class TcpProtocol : Player
 		{
 			if (reader.ReadInt32() == version)
 			{
-				id = uniqueID ? Interlocked.Increment(ref mPlayerCounter) : 0;
+				lock (mLock)
+				{
+					id = uniqueID ? ++mPlayerCounter : 0;
+				}
 				name = reader.ReadString();
 
 				if (buffer.size > 1)

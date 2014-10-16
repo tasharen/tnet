@@ -604,12 +604,12 @@ public class DataNode
 			}
 			else if (value is GameObject)
 			{
-				Debug.LogError("It's not possible to save game objects.");
+				Debug.LogError("It's not possible to serialize game objects.");
 				writer.Write('\n');
 			}
 			else if ((value as Component) != null)
 			{
-				Debug.LogError("It's not possible to save components.");
+				Debug.LogError("It's not possible to serialize components (" + value.GetType() + ")", value as Component);
 				writer.Write('\n');
 			}
 			else

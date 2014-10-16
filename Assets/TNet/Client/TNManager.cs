@@ -1081,11 +1081,28 @@ public class TNManager : MonoBehaviour
 
 		if (funcID == 0)
 		{
-			TNObject.FindAndExecute(objID, reader.ReadString(), reader.ReadArray());
+			string funcName = "";
+
+			try
+			{
+				funcName = reader.ReadString();
+				TNObject.FindAndExecute(objID, funcName, reader.ReadArray());
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
+			}
 		}
 		else
 		{
-			TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
+			try
+			{
+				TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogError(objID + " " + funcID + "\n" + ex.Message + "\n" + ex.StackTrace);
+			}
 		}
 	}
 
