@@ -583,7 +583,7 @@ public class TcpProtocol : Player
 		else Close(true);
 	}
 
-	//static int mCounter = 0;
+	static int mCounter = 0;
 
 	/// <summary>
 	/// See if the received packet can be processed and split it up into different ones.
@@ -612,18 +612,18 @@ public class TcpProtocol : Player
 
 				if (mExpected < 0 || mExpected > 16777216)
 				{
-					//MemoryStream mss = new MemoryStream();
-					//BinaryWriter writers = new BinaryWriter(mss);
+					MemoryStream mss = new MemoryStream();
+					BinaryWriter writers = new BinaryWriter(mss);
 
-					//for (int i = mOffset - 16; i < mReceiveBuffer.position; ++i)
-					//{
-					//    byte bt = (byte)mReceiveBuffer.PeekByte(i);
-					//    writers.Write(bt);
-					//}
+					for (int i = mOffset - 16; i < mReceiveBuffer.position; ++i)
+					{
+						byte bt = (byte)mReceiveBuffer.PeekByte(i);
+						writers.Write(bt);
+					}
 
-					//Tools.WriteFile("Dump/dump" + mCounter + " - Error.dat", mss.ToArray());
-					//writers.Close();
-					//++mCounter;
+					Tools.WriteFile("Windward/Debug/dump" + mCounter + " - Error.dat", mss.ToArray(), true);
+					writers.Close();
+					++mCounter;
 
 					Close(true);
 					return false;
