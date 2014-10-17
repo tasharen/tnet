@@ -349,6 +349,20 @@ public class Buffer
 	}
 
 	/// <summary>
+	/// Peek-read the specified number of bytes.
+	/// </summary>
+
+	public byte[] PeekBytes (int offset, int length)
+	{
+		long pos = mStream.Position;
+		if (offset + length > pos) return null;
+		mStream.Seek(offset, SeekOrigin.Begin);
+		byte[] bytes = mReader.ReadBytes(length);
+		mStream.Seek(pos, SeekOrigin.Begin);
+		return bytes;
+	}
+
+	/// <summary>
 	/// Begin writing a packet: the first 4 bytes indicate the size of the data that will follow.
 	/// </summary>
 

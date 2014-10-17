@@ -667,7 +667,8 @@ public class TcpProtocol : Player
 				Buffer temp = Buffer.Create();
 
 				// Extract the packet and move past its size component
-				temp.BeginWriting(false).Write(mReceiveBuffer.buffer, mOffset, realSize);
+				BinaryWriter br = temp.BeginWriting(false);
+				br.Write(mReceiveBuffer.PeekBytes(mOffset, realSize));
 				temp.BeginReading(4);
 
 				// This packet is now ready to be processed

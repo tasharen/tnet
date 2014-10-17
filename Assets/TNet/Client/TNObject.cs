@@ -98,6 +98,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>
 
+	[ContextMenu("Destroy")]
 	public void DestroySelf ()
 	{
 		if (!hasBeenDestroyed)
