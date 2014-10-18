@@ -24,6 +24,7 @@ public class TNAutoJoin : MonoBehaviour
 	
 	public string firstLevel = "Example 1";
 	public int channelID = 1;
+	public bool persistent = false;
 	public string disconnectLevel;
 
 	public bool allowUDP = true;
@@ -66,7 +67,7 @@ public class TNAutoJoin : MonoBehaviour
 		{
 			// Make it possible to use UDP using a random port
 			if (allowUDP) TNManager.StartUDP(Random.Range(10000, 50000));
-			TNManager.JoinChannel(channelID, firstLevel);
+			TNManager.JoinChannel(channelID, firstLevel, persistent, 10000, null);
 		}
 		else if (!string.IsNullOrEmpty(failureFunctionName))
 		{

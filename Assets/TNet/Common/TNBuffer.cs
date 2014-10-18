@@ -128,13 +128,9 @@ public class Buffer
 			}
 			if (--mCounter > 0) return false;
 
-			mInPool = true;
-			mSize = 0;
-			mStream.Seek(0, SeekOrigin.Begin);
-			mWriting = true;
-
 			lock (mPool)
 			{
+				mInPool = true;
 				Clear();
 				mPool.Add(this);
 			}
@@ -327,7 +323,7 @@ public class Buffer
 	public int PeekByte (int offset)
 	{
 		long pos = mStream.Position;
-		if (offset + 1 > pos) return -1;
+		if (offset < 0 || offset + 1 > pos) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		int val = mReader.ReadByte();
 		mStream.Seek(pos, SeekOrigin.Begin);
@@ -341,7 +337,7 @@ public class Buffer
 	public int PeekInt (int offset)
 	{
 		long pos = mStream.Position;
-		if (offset + 4 > pos) return -1;
+		if (offset < 0 || offset + 4 > pos) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		int val = mReader.ReadInt32();
 		mStream.Seek(pos, SeekOrigin.Begin);
@@ -355,7 +351,7 @@ public class Buffer
 	public byte[] PeekBytes (int offset, int length)
 	{
 		long pos = mStream.Position;
-		if (offset + length > pos) return null;
+		if (offset < 0 || offset + length > pos) return null;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		byte[] bytes = mReader.ReadBytes(length);
 		mStream.Seek(pos, SeekOrigin.Begin);

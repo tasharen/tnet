@@ -127,8 +127,23 @@ public class TcpPlayer : TcpProtocol
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
 			Channel.RFC rfc = channel.rfcs[i];
-			rfc.buffer.BeginReading();
 			buffer.BeginWriting(offset);
+//#if DEBUG
+//            byte[] bytes = rfc.buffer.buffer;
+//            MemoryStream ms = new MemoryStream(bytes);
+//            BinaryReader br = new BinaryReader(ms);
+//            int packetSize = br.ReadInt32();
+
+//            if (packetSize + 4 != rfc.buffer.size)
+//            {
+// #if STANDALONE
+//                Console.WriteLine("ERROR Sending RFC " + rfc.objectID + " " + rfc.functionID + " " + rfc.functionName + ", " + packetSize + " " + rfc.buffer.size);
+// #else
+//                UnityEngine.Debug.LogError("Sending RFC " + rfc.objectID + " " + rfc.functionID + " " + rfc.functionName + ", " + packetSize + " " + rfc.buffer.size);
+// #endif
+//                Tools.WriteFile("RFC" + rfc.functionID + ".dat", bytes);
+//            }
+//#endif
 			writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
 			offset = buffer.EndWriting();
 		}

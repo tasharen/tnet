@@ -39,11 +39,13 @@ public class ServerMain
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
-			
-			args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
+
+			//args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
+			args = new string[] { "TNet Server", "-tcp", "5127" };
 		}
 
-		string name = "TNet Server";
+		//string name = "TNet Server";
+		string name = "Windward Server";
 		int tcpPort = 0;
 		int udpPort = 0;
 		string lobbyAddress = null;
@@ -188,7 +190,8 @@ public class ServerMain
 
 				// Start the actual game server and load the save file
 				gameServer.Start(tcpPort, udpPort);
-				gameServer.LoadFrom("server.dat");
+				//gameServer.LoadFrom("server.dat");
+				gameServer.LoadFrom("World.dat");
 			}
 			else if (lobbyPort > 0)
 			{
@@ -232,7 +235,8 @@ public class ServerMain
 			// Stop the game server
 			if (gameServer != null)
 			{
-				gameServer.SaveTo("server.dat");
+				//gameServer.SaveTo("server.dat");
+				gameServer.SaveTo("World.dat");
 				gameServer.Stop();
 				gameServer = null;
 			}

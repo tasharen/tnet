@@ -583,8 +583,6 @@ public class TcpProtocol : Player
 		else Close(true);
 	}
 
-	static int mCounter = 0;
-
 	/// <summary>
 	/// See if the received packet can be processed and split it up into different ones.
 	/// </summary>
@@ -612,36 +610,11 @@ public class TcpProtocol : Player
 
 				if (mExpected < 0 || mExpected > 16777216)
 				{
-					MemoryStream mss = new MemoryStream();
-					BinaryWriter writers = new BinaryWriter(mss);
-
-					for (int i = mOffset - 16; i < mReceiveBuffer.position; ++i)
-					{
-						byte bt = (byte)mReceiveBuffer.PeekByte(i);
-						writers.Write(bt);
-					}
-
-					Tools.WriteFile("Windward/Debug/dump" + mCounter + " - Error.dat", mss.ToArray(), true);
-					writers.Close();
-					++mCounter;
-
+					// HTTP Get: 542393671
 					Close(true);
 					return false;
 				}
 			}
-
-			//MemoryStream ms = new MemoryStream();
-			//BinaryWriter writer = new BinaryWriter(ms);
-
-			//for (int i = 0; i < mExpected + 4; ++i)
-			//{
-			//    byte bt = (byte)mReceiveBuffer.PeekByte(mOffset + i);
-			//    writer.Write(bt);
-			//}
-
-			//Tools.WriteFile("Dump/dump" + mCounter + ".dat", ms.ToArray());
-			//writer.Close();
-			//++mCounter;
 
 			// The first 4 bytes of any packet always contain the number of bytes in that packet
 			available -= 4;
@@ -667,8 +640,8 @@ public class TcpProtocol : Player
 				Buffer temp = Buffer.Create();
 
 				// Extract the packet and move past its size component
-				BinaryWriter br = temp.BeginWriting(false);
-				br.Write(mReceiveBuffer.PeekBytes(mOffset, realSize));
+				BinaryWriter bw = temp.BeginWriting(false);
+				bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
 				temp.BeginReading(4);
 
 				// This packet is now ready to be processed

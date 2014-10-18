@@ -180,7 +180,10 @@ public class Channel
 	public void CreateRFC (uint inID, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
-		buffer.MarkAsUsed();
+
+		Buffer b = Buffer.Create();
+		b.BeginWriting(false).Write(buffer.buffer, buffer.position, buffer.size);
+		b.BeginReading();
 
 		for (int i = 0; i < rfcs.size; ++i)
 		{
@@ -189,14 +192,14 @@ public class Channel
 			if (r.uid == inID && r.functionName == funcName)
 			{
 				if (r.buffer != null) r.buffer.Recycle();
-				r.buffer = buffer;
+				r.buffer = b;
 				return;
 			}
 		}
 
 		RFC rfc = new RFC();
 		rfc.uid = inID;
-		rfc.buffer = buffer;
+		rfc.buffer = b;
 		rfc.functionName = funcName;
 		rfcs.Add(rfc);
 	}
