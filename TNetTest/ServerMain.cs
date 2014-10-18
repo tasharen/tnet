@@ -188,8 +188,7 @@ public class ServerMain
 
 				// Start the actual game server and load the save file
 				gameServer.Start(tcpPort, udpPort);
-				//gameServer.LoadFrom("server.dat");
-				gameServer.LoadFrom("World.dat");
+				gameServer.LoadFrom("server.dat");
 			}
 			else if (lobbyPort > 0)
 			{
@@ -233,8 +232,7 @@ public class ServerMain
 			// Stop the game server
 			if (gameServer != null)
 			{
-				//gameServer.SaveTo("server.dat");
-				gameServer.SaveTo("World.dat");
+				gameServer.SaveTo("server.dat");
 				gameServer.Stop();
 				gameServer = null;
 			}

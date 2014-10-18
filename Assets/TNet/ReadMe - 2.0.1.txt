@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 2.0.0b
+                  Version 2.0.1
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,13 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.1
+- NEW: TNet can save files in the user's My Documents folder if you like.
+- FIX: Fixed an issue with RFCs not being stored correctly in some cases.
+- FIX: TNManager.Destroy will now also mark objects as destroyed, so RFCs sent between the destroy request and the response will be ignored.
+- FIX: TNet will now automatically block outgoing messages between JoinChannel/LoadLevel and level loaded/channel joined notifications.
+- FIX: Fixed System.Collections.Generic.List<> serialization.
 
 2.0.0
 - NEW: Added the ability to send messages players by name rather than ID (think private chat messages).
