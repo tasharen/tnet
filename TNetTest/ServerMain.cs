@@ -40,12 +40,10 @@ public class ServerMain
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 
-			//args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
-			args = new string[] { "TNet Server", "-tcp", "5127" };
+			args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
 		}
 
-		//string name = "TNet Server";
-		string name = "Windward Server";
+		string name = "TNet Server";
 		int tcpPort = 0;
 		int udpPort = 0;
 		string lobbyAddress = null;
