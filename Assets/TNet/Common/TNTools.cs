@@ -526,12 +526,7 @@ static public class Tools
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		try
 		{
-			if (inMyDocuments)
-			{
-				string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-				directory = Path.Combine(docs, directory);
-			}
-
+			if (inMyDocuments) directory = GetDocumentsPath(directory);
 			if (!Directory.Exists(directory)) return null;
 			return Directory.GetFiles(directory);
 		}
@@ -539,6 +534,12 @@ static public class Tools
 #endif
 		return null;
 	}
+
+	/// <summary>
+	/// Application directory to use in My Documents. Generally should be the name of your game.
+	/// </summary>
+
+	static public string applicationDirectory = null;
 
 	/// <summary>
 	/// Write the specified file, creating all the subdirectories in the process.
@@ -555,12 +556,7 @@ static public class Tools
 		{
 			try
 			{
-				if (inMyDocuments)
-				{
-					string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-					path = Path.Combine(docs, path);
-				}
-
+				if (inMyDocuments) path = GetDocumentsPath(path);
 				string dir = Path.GetDirectoryName(path);
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 				File.WriteAllBytes(path, data);
@@ -617,6 +613,7 @@ static public class Tools
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
 		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
 		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
 #else
 		return path;
@@ -635,10 +632,8 @@ static public class Tools
 		{
 			if (string.IsNullOrEmpty(path)) return null;
 			if (File.Exists(path)) return path;
- 
-			string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-			string full = Path.Combine(docs, path);
-			if (File.Exists(full)) return full;
+			path = GetDocumentsPath(path);
+			if (File.Exists(path)) return path;
 		}
 		catch (System.Exception) { }
 #endif
