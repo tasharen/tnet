@@ -471,7 +471,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public void Send (byte rfcID, Player target, params object[] objs)
 	{
-		if (target != null) SendRFC(rfcID, null, target, true, objs);
+		if (target != null) SendRFC(rfcID, null, target.id, true, objs);
 		else SendRFC(rfcID, null, Target.All, true, objs);
 	}
 
@@ -481,9 +481,21 @@ public sealed class TNObject : MonoBehaviour
 
 	public void Send (string rfcName, Player target, params object[] objs)
 	{
-		if (target != null) SendRFC(0, rfcName, target, true, objs);
+		if (target != null) SendRFC(0, rfcName, target.id, true, objs);
 		else SendRFC(0, rfcName, Target.All, true, objs);
 	}
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void Send (byte rfcID, int playerID, params object[] objs) { SendRFC(rfcID, null, playerID, true, objs); }
+
+	/// <summary>
+	/// Send a remote function call.
+	/// </summary>
+
+	public void Send (string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, true, objs); }
 
 	/// <summary>
 	/// Send a remote function call via UDP (if possible).
@@ -503,7 +515,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public void SendQuickly (byte rfcID, Player target, params object[] objs)
 	{
-		if (target != null) SendRFC(rfcID, null, target, false, objs);
+		if (target != null) SendRFC(rfcID, null, target.id, false, objs);
 		else SendRFC(rfcID, null, Target.All, false, objs);
 	}
 
@@ -511,7 +523,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Send a remote function call via UDP (if possible).
 	/// </summary>
 
-	public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
+	public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
 
 	/// <summary>
 	/// Send a broadcast to the entire LAN. Does not require an active connection.
@@ -653,20 +665,20 @@ public sealed class TNObject : MonoBehaviour
 	/// Send a new remote function call to the specified player.
 	/// </summary>
 
-	void SendRFC (byte rfcID, string rfcName, Player target, bool reliable, params object[] objs)
+	void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)
 	{
 		if (hasBeenDestroyed) return;
 
 		if (TNManager.isConnected)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
-			writer.Write(target.id);
+			writer.Write(target);
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
 			TNManager.EndSend(reliable);
 		}
-		else if (target == TNManager.player)
+		else if (target == TNManager.playerID)
 		{
 			if (rfcID != 0) Execute(rfcID, objs);
 			else Execute(rfcName, objs);

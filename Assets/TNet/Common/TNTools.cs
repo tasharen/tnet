@@ -560,7 +560,7 @@ static public class Tools
 				string dir = Path.GetDirectoryName(path);
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 				File.WriteAllBytes(path, data);
-				return true;
+				return File.Exists(path);
 			}
 			catch (System.Exception) { }
 		}

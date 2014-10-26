@@ -52,11 +52,12 @@ public interface IBinarySerializable
 
 public static class Serialization
 {
+#if REFLECTION_SUPPORT
 	/// <summary>
 	/// Binary formatter, cached for convenience and performance (so it can be reused).
 	/// </summary>
-
 	static public BinaryFormatter formatter = new BinaryFormatter();
+#endif
 
 	static Dictionary<string, Type> mNameToType = new Dictionary<string, Type>();
 	static Dictionary<Type, string> mTypeToName = new Dictionary<Type, string>();
@@ -165,6 +166,7 @@ public static class Serialization
 			if (desiredType == typeof(short)) return (short)(int)value;
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
 			if (desiredType == typeof(float)) return (float)(int)value;
+			if (desiredType == typeof(long)) return (long)(int)value;
 		}
 		else if (valueType == typeof(float))
 		{
@@ -173,6 +175,10 @@ public static class Serialization
 			if (desiredType == typeof(short)) return (short)Mathf.RoundToInt((float)value);
 			if (desiredType == typeof(ushort)) return (ushort)Mathf.RoundToInt((float)value);
 			if (desiredType == typeof(int)) return Mathf.RoundToInt((float)value);
+		}
+		else if (valueType == typeof(long))
+		{
+			if (desiredType == typeof(int)) return (int)(long)value;
 		}
 		else if (valueType == typeof(Color32))
 		{
@@ -727,9 +733,9 @@ public static class Serialization
 						return;
 					}
 				}
-#endif
 				if (!typeIsKnown) bw.Write((byte)255);
 				formatter.Serialize(bw.BaseStream, obj);
+#endif
 				return;
 			}
 
@@ -775,9 +781,9 @@ public static class Serialization
 						return;
 					}
 				}
-#endif
 				if (!typeIsKnown) bw.Write((byte)255);
 				formatter.Serialize(bw.BaseStream, obj);
+#endif
 				return;
 			}
 		}
@@ -925,9 +931,9 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
-#if REFLECTION_SUPPORT
 			case 254: // Serialization using Reflection
 			{
+#if REFLECTION_SUPPORT
 				FilterFields(obj);
 				bw.WriteInt(mFieldNames.size);
 
@@ -936,12 +942,18 @@ public static class Serialization
 					bw.Write(mFieldNames[i]);
 					bw.WriteObject(mFieldValues[i]);
 				}
+#else
+				Debug.LogError("Reflection-based serialization is not supported on this platform.");
+#endif
 				break;
 			}
-#endif
 			case 255: // Serialization using a Binary Formatter
 			{
+#if REFLECTION_SUPPORT
 				formatter.Serialize(bw.BaseStream, obj);
+#else
+				Debug.LogError("Reflection-based serialization is not supported on this platform.");
+#endif
 				break;
 			}
 			default:
@@ -952,6 +964,7 @@ public static class Serialization
 		}
 	}
 
+#if REFLECTION_SUPPORT
 	static List<string> mFieldNames = new List<string>();
 	static List<object> mFieldValues = new List<object>();
 
@@ -979,6 +992,7 @@ public static class Serialization
 			}
 		}
 	}
+#endif
 
 	/// <summary>
 	/// Helper extension that returns 'true' if the type implements the specified interface.
@@ -1167,7 +1181,7 @@ public static class Serialization
 					Type arrType = typeof(TNet.List<>).MakeGenericType(type);
 					arr = (TList)Activator.CreateInstance(arrType);
 #else
-					Debug.LogError("Reflection is not supported on this platform");
+					Debug.LogError("Reflection-based serialization is not supported on this platform");
 #endif
 				}
 				
@@ -1195,7 +1209,7 @@ public static class Serialization
 					Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(type);
 					arr = (IList)Activator.CreateInstance(arrType);
 #else
-					Debug.LogError("Reflection is not supported on this platform");
+					Debug.LogError("Reflection-based serialization is not supported on this platform");
 #endif
 				}
 
@@ -1374,15 +1388,12 @@ public static class Serialization
 			}
 			case 254: // Serialization using Reflection
 			{
+#if REFLECTION_SUPPORT
 				// Create the object
 				if (obj == null)
 				{
-#if REFLECTION_SUPPORT
 					obj = type.Create();
 					if (obj == null) Debug.LogError("Unable to create an instance of " + type);
-#else
-					Debug.LogError("Reflection is not supported on this platform");
-#endif
 				}
 
 				if (obj != null)
@@ -1412,11 +1423,18 @@ public static class Serialization
 						else Debug.LogError("Unable to set field " + type + "." + fieldName);
 					}
 				}
+#else
+				Debug.LogError("Reflection-based serialization is not supported on this platform");
+#endif
 				return obj;
 			}
 			case 255: // Serialization using a Binary Formatter
 			{
+#if REFLECTION_SUPPORT
 				return formatter.Deserialize(reader.BaseStream);
+#else
+				Debug.LogError("Reflection-based serialization is not supported on this platform.");
+#endif
 			}
 			default:
 			{

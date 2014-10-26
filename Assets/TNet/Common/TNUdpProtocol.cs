@@ -122,7 +122,7 @@ public class UdpProtocol
 		try
 		{
 			// Use the default network interface if one wasn't explicitly chosen
- #if (UNITY_IPHONE && !UNITY_EDITOR) || UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+ #if (UNITY_IPHONE && !UNITY_EDITOR) //|| UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
 			IPAddress networkInterface = useMulticasting ? multicastIP : (defaultNetworkInterface ?? IPAddress.Any);
  #else
 			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.Any;

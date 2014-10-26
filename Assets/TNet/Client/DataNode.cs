@@ -462,6 +462,18 @@ public class DataNode
 			writer.Write(value.ToString());
 			writer.Write('\n');
 		}
+		else if (type == typeof(char))
+		{
+			if (name != null) writer.Write(" = ");
+			writer.Write(((int)value).ToString());
+			writer.Write('\n');
+		}
+		else if (type == typeof(long))
+		{
+			if (name != null) writer.Write(" = ");
+			writer.Write(value.ToString());
+			writer.Write("L\n");
+		}
 		else if (type == typeof(Vector2))
 		{
 			Vector2 v = (Vector2)value;
@@ -695,7 +707,17 @@ public class DataNode
 		if (string.IsNullOrEmpty(line))
 			return SetValue(line, type, null);
 
-		if (line.Length > 2)
+		if (line.Length > 1 && line[line.Length - 1] == 'L')
+		{
+			long lv;
+
+			if (long.TryParse(line.Substring(0, line.Length - 1), out lv))
+			{
+				mValue = lv;
+				return true;
+			}
+		}
+		else if (line.Length > 2)
 		{
 			// If the line starts with a quote, it must also end with a quote
 			if (line[0] == '"' && line[line.Length - 1] == '"')

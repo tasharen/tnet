@@ -32,6 +32,12 @@ public class TNSyncRigidbody : TNBehaviour
 
 	public bool isImportant = false;
 
+	/// <summary>
+	/// Set this to 'false' to stop sending updates.
+	/// </summary>
+
+	[System.NonSerialized] public bool isActive = true;
+
 	Transform mTrans;
 	Rigidbody mRb;
 	float mNext = 0f;
@@ -63,7 +69,7 @@ public class TNSyncRigidbody : TNBehaviour
 	{
 		if (updatesPerSecond < 0.001f) return;
 
-		if (tno.isMine && TNManager.isInChannel)
+		if (isActive && tno.isMine && TNManager.isInChannel)
 		{
 			bool isSleeping = mRb.IsSleeping();
 			if (isSleeping && mWasSleeping) return;
@@ -115,7 +121,7 @@ public class TNSyncRigidbody : TNBehaviour
 	/// It's a good idea to send an update when a collision occurs.
 	/// </summary>
 
-	void OnCollisionEnter () { if (TNManager.isHosting) Sync(); }
+	void OnCollisionEnter () { if (tno.isMine) Sync(); }
 
 	/// <summary>
 	/// Send out an update to everyone on the network.
@@ -123,7 +129,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	public void Sync ()
 	{
-		if (TNManager.isInChannel)
+		if (isActive && TNManager.isInChannel)
 		{
 			UpdateInterval();
 			mWasSleeping = false;

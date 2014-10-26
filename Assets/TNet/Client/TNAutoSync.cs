@@ -36,7 +36,7 @@ public class TNAutoSync : TNBehaviour
 	/// If to set it to zero, the value will only be synchronized when new players join.
 	/// </summary>
 
-	public int updatesPerSecond = 10;
+	public float updatesPerSecond = 10f;
 
 	/// <summary>
 	/// Whether the result will be saved on the server or not. In most cases it should remain as 'true'.
@@ -124,9 +124,9 @@ public class TNAutoSync : TNBehaviour
 				}
 			}
 
-			if (mList.size > 0)
+			if (mList.size > 0f)
 			{
-				if (updatesPerSecond > 0)
+				if (updatesPerSecond > 0f)
 					StartCoroutine(PeriodicSync());
 			}
 			else
@@ -145,7 +145,7 @@ public class TNAutoSync : TNBehaviour
 	{
 		for (; ; )
 		{
-			if (TNManager.isInChannel && updatesPerSecond > 0)
+			if (TNManager.isInChannel && updatesPerSecond > 0f)
 			{
 				if (mList.size != 0 && (!onlyOwnerCanSync || tno.isMine) && Cache()) Sync();
 				yield return new WaitForSeconds(1f / updatesPerSecond);
