@@ -58,5 +58,11 @@ public class Player
 
 	public Player () { }
 	public Player (string playerName) { name = playerName; }
+
+	/// <summary>
+	/// Call after shutting down the server.
+	/// </summary>
+
+	static public void ResetPlayerCounter () { mPlayerCounter = 0; }
 }
 }

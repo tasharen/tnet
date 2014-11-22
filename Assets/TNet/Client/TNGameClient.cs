@@ -521,7 +521,7 @@ public class GameClient
 	/// Disconnect from the server.
 	/// </summary>
 
-	public void Disconnect () { mTcp.Disconnect(); }
+	public void Disconnect () { mTcp.Disconnect(); mCanSend = true; }
 
 	/// <summary>
 	/// Start listening to incoming UDP packets on the specified port.

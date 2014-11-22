@@ -127,6 +127,9 @@ public class TcpProtocol : Player
 	{
 		Disconnect();
 
+		Buffer.Recycle(mIn);
+		Buffer.Recycle(mOut);
+
 		// Some routers, like Asus RT-N66U don't support NAT Loopback, and connecting to an external IP
 		// will connect to the router instead. So if it's a local IP, connect to it first.
 		if (internalIP != null && Tools.GetSubnet(Tools.localAddress) == Tools.GetSubnet(internalIP.Address))
@@ -512,7 +515,7 @@ public class TcpProtocol : Player
 			// Queue up the read operation
 			try
 			{
-				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
 			}
 			catch (System.Exception ex)
 			{
@@ -548,13 +551,16 @@ public class TcpProtocol : Player
 	{
 		if (stage == Stage.NotConnected) return;
 		int bytes = 0;
+		Socket socket = (Socket)result.AsyncState;
 
 		try
 		{
-			bytes = mSocket.EndReceive(result);
+			bytes = socket.EndReceive(result);
+			if (socket != mSocket) return;
 		}
 		catch (System.Exception ex)
 		{
+			if (socket != mSocket) return;
 			Error(ex.Message);
 			Disconnect(true);
 			return;
@@ -572,7 +578,7 @@ public class TcpProtocol : Player
 			try
 			{
 				// Queue up the next read operation
-				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, null);
+				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
 			}
 			catch (System.Exception ex)
 			{
@@ -594,6 +600,8 @@ public class TcpProtocol : Player
 			// Create a new packet buffer
 			mReceiveBuffer = Buffer.Create();
 			mReceiveBuffer.BeginWriting(false).Write(mTemp, 0, bytes);
+			mExpected = 0;
+			mOffset = 0;
 		}
 		else
 		{

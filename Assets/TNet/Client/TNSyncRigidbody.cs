@@ -112,8 +112,14 @@ public class TNSyncRigidbody : TNBehaviour
 	{
 		mTrans.position = pos;
 		mTrans.rotation = Quaternion.Euler(rot);
-		mRb.velocity = vel;
-		mRb.angularVelocity = ang;
+		//mRb.MovePosition(pos);
+		//mRb.MoveRotation(Quaternion.Euler(rot));
+
+		if (!mRb.isKinematic)
+		{
+			mRb.velocity = vel;
+			mRb.angularVelocity = ang;
+		}
 		UpdateInterval();
 	}
 

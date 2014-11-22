@@ -236,6 +236,9 @@ public class GameServer : FileServer
 		// Remove all connected players and clear the list of channels
 		for (int i = mPlayers.size; i > 0; ) RemovePlayer(mPlayers[--i]);
 		mChannels.Clear();
+
+		// Player counter should be reset
+		Player.ResetPlayerCounter();
 	}
 
 	/// <summary>
@@ -374,7 +377,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Process) " + ex.Message);
+								Error("(ThreadFunction Process) " + ex.Message + "\n" + ex.StackTrace);
 								RemovePlayer(player);
 							}
 #endif

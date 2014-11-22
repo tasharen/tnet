@@ -7,6 +7,8 @@
 #define REFLECTION_SUPPORT
 #endif
 
+//#define IGNORE_ERRORS
+
 using UnityEngine;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Collections.Generic;
@@ -687,7 +689,7 @@ public static class Serialization
 				return;
 			}
 
-			if ((obj as Component) != null)
+			if (obj is Component)
 			{
 				Debug.LogError("It's not possible to send components as parameters because Unity has no consistent way to identify them.");
 				bw.Write((byte)0);
@@ -1083,10 +1085,23 @@ public static class Serialization
 
 		DataNode node = new DataNode();
 		node.name = str;
+
+#if IGNORE_ERRORS
+		try
+		{
+#endif
 		node.value = reader.ReadObject();
 		int count = reader.ReadInt();
+
 		for (int i = 0; i < count; ++i)
-			node.children.Add(reader.ReadDataNode());
+		{
+			DataNode dn = reader.ReadDataNode();
+			if (dn != null) node.children.Add(dn);
+		}
+#if IGNORE_ERRORS
+		}
+		catch (Exception) {}
+#endif
 		return node;
 	}
 
@@ -1142,6 +1157,10 @@ public static class Serialization
 		if (!typeIsKnown) type = reader.ReadType(out prefix);
 		if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
 
+#if IGNORE_ERRORS
+		try
+		{
+#endif
 		switch (prefix)
 		{
 			case 0: return null;
@@ -1184,7 +1203,7 @@ public static class Serialization
 					Debug.LogError("Reflection-based serialization is not supported on this platform");
 #endif
 				}
-				
+
 				for (int i = 0; i < elements; ++i)
 				{
 					object val = reader.ReadObject(null, prefix, type, sameType);
@@ -1423,10 +1442,11 @@ public static class Serialization
 						else Debug.LogError("Unable to set field " + type + "." + fieldName);
 					}
 				}
+				return obj;
 #else
 				Debug.LogError("Reflection-based serialization is not supported on this platform");
+				return null;
 #endif
-				return obj;
 			}
 			case 255: // Serialization using a Binary Formatter
 			{
@@ -1434,15 +1454,23 @@ public static class Serialization
 				return formatter.Deserialize(reader.BaseStream);
 #else
 				Debug.LogError("Reflection-based serialization is not supported on this platform.");
+				return null;
 #endif
 			}
 			default:
 			{
-				Debug.LogError("Unknown prefix: " + prefix);
-				break;
+				Debug.LogError("Unknown prefix: " + prefix + " at position " + reader.BaseStream.Position);
+				return null;
 			}
 		}
+#if IGNORE_ERRORS
+		}
+		catch (Exception ex)
+		{
+			Debug.LogError(ex.Message + " at position " + reader.BaseStream.Position);
+		}
 		return null;
+#endif
 	}
 
 #endregion

@@ -123,8 +123,8 @@ public class Buffer
 			if (mInPool)
 			{
 				// I really want to know if this ever happens
-				throw new Exception("Releasing a buffer that's already in the pool");
-				//return false;
+				//throw new Exception("Releasing a buffer that's already in the pool");
+				return false;
 			}
 			if (--mCounter > 0) return false;
 

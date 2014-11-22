@@ -558,11 +558,32 @@ static public class Tools
 			{
 				if (inMyDocuments) path = GetDocumentsPath(path);
 				string dir = Path.GetDirectoryName(path);
-				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+					Directory.CreateDirectory(dir);
+
+				if (File.Exists(path))
+				{
+					FileAttributes att = File.GetAttributes(path);
+
+					if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+					{
+						att = (att & ~FileAttributes.ReadOnly);
+						File.SetAttributes(path, att);
+					}
+				}
+
 				File.WriteAllBytes(path, data);
-				return File.Exists(path);
+				if (File.Exists(path)) return true;
+ #if !STANDALONE
+				UnityEngine.Debug.LogWarning("Unable to write " + path);
+ #endif
 			}
+ #if STANDALONE
 			catch (System.Exception) { }
+ #else
+			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+ #endif
 		}
 #endif
 		return false;
@@ -578,10 +599,14 @@ static public class Tools
 		try
 		{
 			path = FindFile(path);
-			if (!string.IsNullOrEmpty(path) && File.Exists(path))
+			if (!string.IsNullOrEmpty(path))
 				return File.ReadAllBytes(path);
 		}
+ #if STANDALONE
 		catch (System.Exception) { }
+ #else
+		catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+ #endif
 #endif
 		return null;
 	}
