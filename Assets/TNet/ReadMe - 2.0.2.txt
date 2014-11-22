@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2014 Tasharen Entertainment
-                  Version 2.0.1
+                  Version 2.0.2
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,17 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.2
+- NEW: Added tno.Send via player ID. No need to FindPlayer anymore.
+- NEW: Added a #define to TNSerializer you can use to ignore errors.
+- NEW: TNet will now automatically remove the read-only flag when using Tools.WriteFile.
+- FIX: TNSyncRigidbody will no longer try to set velocity if the rigidbody is kinematic.
+- FIX: Added some extra code to ensure that sockets get cleaned up properly.
+- FIX: Got rid of the != Component comparison, fixing the CompareBaseObjectsInternal error.
+- FIX: Added 'long' type serialization for DataNode.
+- FIX: TNAutoSync's updates per second value is now a float, matching TNSyncRigidbody.
+- FIX: WP8 compile fixes.
 
 2.0.1
 - NEW: TNet can save files in the user's My Documents folder if you like.
