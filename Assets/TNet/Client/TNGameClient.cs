@@ -949,7 +949,6 @@ public class GameClient
 				mData = "";
 				mChannelID = 0;
 				mIsInChannel = false;
-				UnityEngine.Debug.Log(mIsInChannel);
 				mDictionary.Clear();
 				players.Clear();
 				if (onLeftChannel != null) onLeftChannel();
