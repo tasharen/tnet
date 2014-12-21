@@ -3,7 +3,7 @@
 // Copyright © 2011-2014 Tasharen Entertainment
 //----------------------------------------------
 
-#if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8)
+#if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
 #endif
 
@@ -292,17 +292,20 @@ public class DataNode
 
 	public void Write (string path, bool binary)
 	{
+		MemoryStream stream = new MemoryStream();
+
 		if (binary)
 		{
-			FileStream stream = File.Create(path);
 			BinaryWriter writer = new BinaryWriter(stream);
 			writer.WriteObject(this);
+			Tools.WriteFile(path, stream.ToArray(), false);
 			writer.Close();
 		}
 		else
 		{
-			StreamWriter writer = new StreamWriter(path, false);
+			StreamWriter writer = new StreamWriter(stream);
 			Write(writer, 0);
+			Tools.WriteFile(path, stream.ToArray(), false);
 			writer.Close();
 		}
 	}
@@ -381,6 +384,24 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Merge the current data with the specified.
+	/// </summary>
+
+	public void Merge (DataNode other)
+	{
+		if (other != null)
+		{
+			value = other.value;
+
+			for (int i = 0; i < other.children.size; ++i)
+			{
+				DataNode child = other.children[i];
+				GetChild(child.name, true).Merge(child);
+			}
+		}
+	}
+
+	/// <summary>
 	/// Convenience function for easy debugging -- convert the entire data into the string representation form.
 	/// </summary>
 
@@ -445,7 +466,7 @@ public class DataNode
 		if (type == typeof(string))
 		{
 			if (name != null) writer.Write(" = \"");
-			writer.Write((string)value);
+			writer.Write(Escape((string)value));
 			if (name != null) writer.Write('"');
 			writer.Write('\n');
 		}
@@ -824,7 +845,7 @@ public class DataNode
 		}
 		else if (type == typeof(string))
 		{
-			mValue = text;
+			mValue = Unescape(text);
 		}
 		else if (type == typeof(bool))
 		{

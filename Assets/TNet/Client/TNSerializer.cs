@@ -3,7 +3,7 @@
 // Copyright © 2012-2014 Tasharen Entertainment
 //---------------------------------------------
 
-#if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8)
+#if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
 #endif
 
@@ -82,6 +82,8 @@ public static class Serialization
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
 			else if (name == "string[]") type = typeof(string[]);
+			else if (name == "int[]") type = typeof(int[]);
+			else if (name == "float[]") type = typeof(float[]);
 			else if (name.StartsWith("IList"))
 			{
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
@@ -129,6 +131,8 @@ public static class Serialization
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
 			else if (type == typeof(string[])) name = "string[]";
+			else if (type == typeof(int[])) name = "int[]";
+			else if (type == typeof(float[])) name = "float[]";
 			else
 			{
 				if (type.Implements(typeof(IList)))

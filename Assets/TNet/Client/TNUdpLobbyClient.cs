@@ -32,7 +32,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 #endif
 	}
 
-	void OnEnable()
+	void Start()
 	{
 		if (mRequest == null)
 		{
@@ -88,7 +88,7 @@ public class TNUdpLobbyClient : TNLobbyClient
 		else if (mReEnable)
 		{
 			mReEnable = false;
-			OnEnable();
+			Start();
 		}
 	}
 

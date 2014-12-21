@@ -529,6 +529,29 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Delete the specified file on the server.
+	/// </summary>
+
+	static public void DeleteFile (string filename)
+	{
+		if (isConnected)
+		{
+			mInstance.mClient.DeleteFile(filename);
+		}
+		else
+		{
+			try
+			{
+				Tools.DeleteFile(filename);
+			}
+			catch (System.Exception ex)
+			{
+				Debug.LogError(ex.Message + " (" + filename + ")");
+			}
+		}
+	}
+
+	/// <summary>
 	/// Change the hosting player.
 	/// </summary>
 

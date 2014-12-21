@@ -1,7 +1,7 @@
-//------------------------------------------
+//----------------------------------------------
 //            Tasharen Network
-// Copyright © 2012 Tasharen Entertainment
-//------------------------------------------
+// Copyright © 2012-2014 Tasharen Entertainment
+//----------------------------------------------
 
 // Note on the UDP lobby: Although it's a better choice than TCP (and plus it allows LAN broadcasts),
 // it doesn't seem to work with the Amazon EC2 cloud-hosted servers. They don't seem to accept inbound UDP traffic
@@ -19,8 +19,229 @@ using System.Net;
 /// Running it as-is will start a Game Server on ports 5127 (TCP) and 5128 (UDP), as well as a Lobby Server on port 5129.
 /// </summary>
 
-public class ServerMain
+public class Application : IDisposable
 {
+	string mFilename;
+	UPnP mUPnP = null;
+	GameServer mGameServer = null;
+	LobbyServer mLobbyServer = null;
+	Thread mSaveThread = null;
+
+	public delegate bool HandlerRoutine (int type);
+	[System.Runtime.InteropServices.DllImport("Kernel32")]
+	static extern bool SetConsoleCtrlHandler (HandlerRoutine Handler, bool Add);
+
+	/// <summary>
+	/// Function executed by kernel32 when the application exits. This is the only way to reliably detect a closed app in Windows.
+	/// </summary>
+
+	bool OnExit (int type)
+	{
+		Dispose();
+		GC.SuppressFinalize(this);
+		return true;
+	}
+
+	/// <summary>
+	/// Start the server.
+	/// </summary>
+
+	public void Start (string serverName, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp, bool console, string fn = "server.dat")
+	{
+		mFilename = fn;
+		List<IPAddress> ips = Tools.localAddresses;
+		string text = "\nLocal IPs: " + ips.size;
+
+		for (int i = 0; i < ips.size; ++i)
+		{
+			text += "\n  " + (i + 1) + ": " + ips[i];
+			if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+		}
+
+		Console.WriteLine(text + "\n");
+		{
+			// Universal Plug & Play is used to determine the external IP address,
+			// and to automatically open up ports on the router / gateway.
+			mUPnP = new UPnP();
+			mUPnP.WaitForThreads();
+
+			if (mUPnP.status == UPnP.Status.Success)
+			{
+				Console.WriteLine("Gateway IP:  " + mUPnP.gatewayAddress);
+			}
+			else
+			{
+				Console.WriteLine("Gateway IP:  None found");
+				mUPnP = null;
+			}
+
+			Console.WriteLine("External IP: " + Tools.externalAddress);
+			Console.WriteLine("");
+
+			if (tcpPort > 0)
+			{
+				mGameServer = new GameServer();
+				mGameServer.name = serverName;
+
+				if (!string.IsNullOrEmpty(lobbyAddress))
+				{
+					// Remote lobby address specified, so the lobby link should point to a remote location
+					IPEndPoint ip = Tools.ResolveEndPoint(lobbyAddress, lobbyPort);
+					if (useTcp) mGameServer.lobbyLink = new TcpLobbyServerLink(ip);
+					else mGameServer.lobbyLink = new UdpLobbyServerLink(ip);
+
+				}
+				else if (lobbyPort > 0)
+				{
+					// Server lobby port should match the lobby port on the client
+					if (useTcp)
+					{
+						mLobbyServer = new TcpLobbyServer();
+						mLobbyServer.Start(lobbyPort);
+						if (mUPnP != null) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
+					}
+					else
+					{
+						mLobbyServer = new UdpLobbyServer();
+						mLobbyServer.Start(lobbyPort);
+						if (mUPnP != null) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
+					}
+
+					// Local lobby server
+					mGameServer.lobbyLink = new LobbyServerLink(mLobbyServer);
+				}
+
+				// Start the actual game server and load the save file
+				mGameServer.Start(tcpPort, udpPort);
+				mGameServer.LoadFrom(mFilename);
+				Console.WriteLine("Loaded " + mFilename);
+			}
+			else if (lobbyPort > 0)
+			{
+				if (useTcp)
+				{
+					if (mUPnP != null) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
+					mLobbyServer = new TcpLobbyServer();
+					mLobbyServer.Start(lobbyPort);
+				}
+				else
+				{
+					if (mUPnP != null) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
+					mLobbyServer = new UdpLobbyServer();
+					mLobbyServer.Start(lobbyPort);
+				}
+			}
+
+			// Open up ports on the router / gateway
+			if (mUPnP != null)
+			{
+				if (tcpPort > 0) mUPnP.OpenTCP(tcpPort, OnPortOpened);
+				if (udpPort > 0) mUPnP.OpenUDP(udpPort, OnPortOpened);
+			}
+
+			// This approach doesn't work on Windows 7 and higher.
+			AppDomain.CurrentDomain.ProcessExit += new EventHandler(delegate(object sender, EventArgs e)
+			{
+				Dispose();
+				GC.SuppressFinalize(this);
+			});
+
+			// This approach works only on Windows
+			try { SetConsoleCtrlHandler(new HandlerRoutine(OnExit), true); }
+			catch (Exception) { }
+
+			// Save periodically
+			mSaveThread = new Thread(delegate(object obj)
+			{
+				for (; ; )
+				{
+					Thread.Sleep(120000);
+					if (mGameServer != null) mGameServer.SaveTo(mFilename);
+				}
+			});
+			mSaveThread.Start();
+
+			for (; ; )
+			{
+				if (console)
+				{
+					Console.WriteLine("Press 'q' followed by ENTER when you want to quit.\n");
+					string command = Console.ReadLine();
+					if (command == "q") break;
+					if (command == "s")
+					{
+						mGameServer.SaveTo(mFilename);
+						Console.WriteLine("Saved as " + mFilename);
+					}
+				}
+				else Thread.Sleep(10000);
+			}
+			Console.WriteLine("Shutting down...");
+
+			Dispose();
+			GC.SuppressFinalize(this);
+		}
+
+		if (console)
+		{
+			Console.WriteLine("The server has shut down. Press ENTER to terminate the application.");
+			Console.ReadLine();
+		}
+	}
+
+	/// <summary>
+	/// Stop the server.
+	/// </summary>
+
+	public void Dispose ()
+	{
+		if (mSaveThread != null)
+		{
+			mSaveThread.Abort();
+			mSaveThread = null;
+		}
+
+		// Stop the game server
+		if (mGameServer != null)
+		{
+			Console.WriteLine("Saved as " + mFilename);
+			mGameServer.SaveTo(mFilename);
+			mGameServer.Stop();
+			mGameServer = null;
+		}
+
+		// Stop the lobby server
+		if (mLobbyServer != null)
+		{
+			mLobbyServer.Stop();
+			mLobbyServer = null;
+		}
+
+		// Close all opened ports
+		if (mUPnP != null)
+		{
+			mUPnP.Close();
+			mUPnP.WaitForThreads();
+			mUPnP = null;
+		}
+	}
+
+	/// <summary>
+	/// UPnP notification of a port being open.
+	/// </summary>
+
+	void OnPortOpened (UPnP up, int port, ProtocolType protocol, bool success)
+	{
+		if (success)
+		{
+			Console.WriteLine("UPnP: " + protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
+		}
+		else
+		{
+			Console.WriteLine("UPnP: Unable to open " + protocol.ToString().ToUpper() + " port " + port);
+		}
+	}
+
 	/// <summary>
 	/// Application entry point -- parse the parameters.
 	/// </summary>
@@ -37,18 +258,20 @@ public class ServerMain
 			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
+			Console.WriteLine("   -console                    <-- Run it in console mode");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 
-			args = new string[] { "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
+			args = new string[] { "-name", "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
 		}
 
-		string name = "TNet Server";
+		string serverName = "TNet Server";
 		int tcpPort = 0;
 		int udpPort = 0;
 		string lobbyAddress = null;
 		int lobbyPort = 0;
 		bool tcpLobby = false;
+		bool console = false;
 
 		for (int i = 0; i < args.Length; )
 		{
@@ -68,7 +291,7 @@ public class ServerMain
 
 			if (param == "-name")
 			{
-				if (val0 != null) name = val0;
+				if (val0 != null) serverName = val0;
 			}
 			else if (param == "-tcp")
 			{
@@ -106,161 +329,18 @@ public class ServerMain
 			{
 				if (val0 != null) lobbyAddress = val0;
 			}
+			else if (param == "-console")
+			{
+				console = true;
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;
 			else ++i;
 		}
 
-		Start(name, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby);
+		Application app = new Application();
+		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, console);
 		return 0;
-	}
-
-	/// <summary>
-	/// Start the server.
-	/// </summary>
-
-	static void Start (string name, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp)
-	{
-		List<IPAddress> ips = Tools.localAddresses;
-		string text = "\nLocal IPs: " + ips.size;
-
-		for (int i = 0; i < ips.size; ++i)
-		{
-			text += "\n  " + (i + 1) + ": " + ips[i];
-			if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
-		}
-		Console.WriteLine(text + "\n");
-		{
-			// Universal Plug & Play is used to determine the external IP address,
-			// and to automatically open up ports on the router / gateway.
-			UPnP up = new UPnP();
-			up.WaitForThreads();
-
-			if (up.status == UPnP.Status.Success)
-			{
-				Console.WriteLine("Gateway IP:  " + up.gatewayAddress);
-			}
-			else
-			{
-				Console.WriteLine("Gateway IP:  None found");
-				up = null;
-			}
-
-			Console.WriteLine("External IP: " + Tools.externalAddress);
-			Console.WriteLine("");
-
-			GameServer gameServer = null;
-			LobbyServer lobbyServer = null;
-
-			if (tcpPort > 0)
-			{
-				gameServer = new GameServer();
-				gameServer.name = name;
-
-				if (!string.IsNullOrEmpty(lobbyAddress))
-				{
-					// Remote lobby address specified, so the lobby link should point to a remote location
-					IPEndPoint ip = Tools.ResolveEndPoint(lobbyAddress, lobbyPort);
-					if (useTcp) gameServer.lobbyLink = new TcpLobbyServerLink(ip);
-					else gameServer.lobbyLink = new UdpLobbyServerLink(ip);
-
-				}
-				else if (lobbyPort > 0)
-				{
-					// Server lobby port should match the lobby port on the client
-					if (useTcp)
-					{
-						lobbyServer = new TcpLobbyServer();
-						lobbyServer.Start(lobbyPort);
-						if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
-					}
-					else
-					{
-						lobbyServer = new UdpLobbyServer();
-						lobbyServer.Start(lobbyPort);
-						if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
-					}
-					
-					// Local lobby server
-					gameServer.lobbyLink = new LobbyServerLink(lobbyServer);
-				}
-
-				// Start the actual game server and load the save file
-				gameServer.Start(tcpPort, udpPort);
-				gameServer.LoadFrom("server.dat");
-			}
-			else if (lobbyPort > 0)
-			{
-				if (useTcp)
-				{
-					if (up != null) up.OpenTCP(lobbyPort, OnPortOpened);
-					lobbyServer = new TcpLobbyServer();
-					lobbyServer.Start(lobbyPort);
-				}
-				else
-				{
-					if (up != null) up.OpenUDP(lobbyPort, OnPortOpened);
-					lobbyServer = new UdpLobbyServer();
-					lobbyServer.Start(lobbyPort);
-				}
-			}
-
-			// Open up ports on the router / gateway
-			if (up != null)
-			{
-				if (tcpPort > 0) up.OpenTCP(tcpPort, OnPortOpened);
-				if (udpPort > 0) up.OpenUDP(udpPort, OnPortOpened);
-			}
-
-			for (; ; )
-			{
-				Console.WriteLine("Press 'q' followed by ENTER when you want to quit.\n");
-				string command = Console.ReadLine();
-				if (command == "q") break;
-			}
-			Console.WriteLine("Shutting down...");
-
-			// Close all opened ports
-			if (up != null)
-			{
-				up.Close();
-				up.WaitForThreads();
-				up = null;
-			}
-
-			// Stop the game server
-			if (gameServer != null)
-			{
-				gameServer.SaveTo("server.dat");
-				gameServer.Stop();
-				gameServer = null;
-			}
-
-			// Stop the lobby server
-			if (lobbyServer != null)
-			{
-				lobbyServer.Stop();
-				lobbyServer = null;
-			}
-		}
-		Console.WriteLine("The server has shut down. Press ENTER to terminate the application.");
-		Console.ReadLine();
-	}
-
-	/// <summary>
-	/// UPnP notification of a port being open.
-	/// </summary>
-
-	static void OnPortOpened (UPnP up, int port, ProtocolType protocol, bool success)
-	{
-		if (success)
-		{
-			Console.WriteLine("UPnP: " + protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
-		}
-		else
-		{
-			Console.WriteLine("UPnP: Unable to open " + protocol.ToString().ToUpper() + " port " + port);
-		}
 	}
 }

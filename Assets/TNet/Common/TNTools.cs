@@ -61,7 +61,7 @@ static public class Tools
 
 	static public int randomPort { get { return 10000 + (int)(System.DateTime.UtcNow.Ticks % 50000); } }
 
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !UNITY_WINRT
 	static List<NetworkInterface> mInterfaces = null;
 
 	/// <summary>
@@ -103,7 +103,7 @@ static public class Tools
 			if (mAddresses == null)
 			{
 				mAddresses = new List<IPAddress>();
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !UNITY_WINRT
 				try
 				{
 					List<NetworkInterface> list = networkInterfaces;
@@ -138,7 +138,7 @@ static public class Tools
 				}
 				catch (System.Exception) {}
 #endif
-#if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX
+#if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX &&!UNITY_WINRT
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
 				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
 				string hn = Dns.GetHostName();
@@ -232,7 +232,7 @@ static public class Tools
 	}
 
 	public delegate void OnResolvedIPs (IPAddress local, IPAddress ext);
-	
+
 	/// <summary>
 	/// Since calling "localAddress" and "externalAddress" would lock up the application, it's better to do it asynchronously.
 	/// </summary>
@@ -316,6 +316,7 @@ static public class Tools
 
 	static bool ResolveExternalIP (string url)
 	{
+#if !UNITY_WINRT
 		if (string.IsNullOrEmpty(url)) return false;
 
 		try
@@ -338,6 +339,7 @@ static public class Tools
 			}
 		}
 		catch (System.Exception) { }
+#endif
 		return false;
 	}
 
@@ -368,9 +370,22 @@ static public class Tools
 		if (address == "localhost") return IPAddress.Loopback;
 
 		IPAddress ip;
+
+		if (address.Contains(":"))
+		{
+			string[] parts = address.Split(':');
+			
+			if (parts.Length == 2)
+			{
+				if (IPAddress.TryParse(parts[0], out ip))
+					return ip;
+			}
+		}
+
 		if (IPAddress.TryParse(address, out ip))
 			return ip;
 
+#if !UNITY_WINRT
 		try
 		{
 			IPAddress[] ips = Dns.GetHostAddresses(address);
@@ -379,13 +394,14 @@ static public class Tools
 				if (!IPAddress.IsLoopback(ips[i]))
 					return ips[i];
 		}
-#if UNITY_EDITOR
+ #if UNITY_EDITOR
 		catch (System.Exception ex)
 		{
 			UnityEngine.Debug.LogWarning(ex.Message + " (" + address + ")");
 		}
-#else
+ #else
 		catch (System.Exception) {}
+ #endif
 #endif
 		return null;
 	}
@@ -523,7 +539,7 @@ static public class Tools
 
 	static public string[] GetFiles (string directory, bool inMyDocuments = false)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
 			if (inMyDocuments) directory = GetDocumentsPath(directory);
@@ -547,7 +563,7 @@ static public class Tools
 
 	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		if (data == null || data.Length == 0)
 		{
 			return DeleteFile(path);
@@ -595,7 +611,7 @@ static public class Tools
 
 	static public byte[] ReadFile (string path)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
 		try
 		{
 			path = FindFile(path);
@@ -617,7 +633,7 @@ static public class Tools
 
 	static public bool DeleteFile (string path)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
 			path = FindFile(path);
@@ -636,7 +652,7 @@ static public class Tools
 
 	static public string GetDocumentsPath (string path = null)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
 		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
 		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
@@ -652,7 +668,7 @@ static public class Tools
 
 	static public string FindFile (string path)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
 			if (string.IsNullOrEmpty(path)) return null;

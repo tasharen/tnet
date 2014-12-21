@@ -20,7 +20,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 	long mNextConnect = 0;
 	IPEndPoint mRemoteAddress;
 
-	void OnEnable ()
+	void Start ()
 	{
 		if (mRemoteAddress == null)
 		{

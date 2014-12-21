@@ -214,6 +214,7 @@ public class GameServer : FileServer
 
 	public void Stop ()
 	{
+		if (onShutdown != null) onShutdown();
 		if (lobbyLink != null) lobbyLink.Stop();
 
 		mAllowUdp = false;
@@ -273,7 +274,6 @@ public class GameServer : FileServer
 						mListener.Stop();
 						mListener = null;
 						if (lobbyLink != null) lobbyLink.Stop();
-						if (onShutdown != null) onShutdown();
 					}
 				}
 				else

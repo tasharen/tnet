@@ -705,10 +705,29 @@ public class GameClient
 
 	public void SaveFile (string filename, byte[] data)
 	{
-		BinaryWriter writer = BeginSend(Packet.RequestSaveFile);
+		if (data != null)
+		{
+			BinaryWriter writer = BeginSend(Packet.RequestSaveFile);
+			writer.Write(filename);
+			writer.Write(data.Length);
+			writer.Write(data);
+		}
+		else
+		{
+			BinaryWriter writer = BeginSend(Packet.RequestDeleteFile);
+			writer.Write(filename);
+		}
+		EndSend();
+	}
+
+	/// <summary>
+	/// Delete the specified file on the server.
+	/// </summary>
+
+	public void DeleteFile (string filename)
+	{
+		BinaryWriter writer = BeginSend(Packet.RequestDeleteFile);
 		writer.Write(filename);
-		writer.Write(data.Length);
-		writer.Write(data);
 		EndSend();
 	}
 

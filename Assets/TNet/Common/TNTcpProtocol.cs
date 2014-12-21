@@ -102,7 +102,9 @@ public class TcpProtocol : Player
 			if (mNoDelay != value)
 			{
 				mNoDelay = value;
+#if !UNITY_WINRT
 				mSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, mNoDelay);
+#endif
 			}
 		}
 	}
@@ -162,7 +164,7 @@ public class TcpProtocol : Player
 					mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 					mConnecting.Add(mSocket);
 				}
-				
+
 				IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
 				Thread th = new Thread(CancelConnect);
 				th.Start(result);
@@ -195,7 +197,7 @@ public class TcpProtocol : Player
 	void CancelConnect (object obj)
 	{
 		IAsyncResult result = (IAsyncResult)obj;
-
+#if !UNITY_WINRT
 		if (result != null && !result.AsyncWaitHandle.WaitOne(3000, true))
 		{
 			try
@@ -209,7 +211,7 @@ public class TcpProtocol : Player
 					lock (mConnecting)
 					{
 						// Last active connection attempt
-						if (mConnecting.size > 0 && mConnecting[mConnecting.size-1] == sock)
+						if (mConnecting.size > 0 && mConnecting[mConnecting.size - 1] == sock)
 						{
 							mSocket = null;
 
@@ -225,6 +227,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception) { }
 		}
+#endif
 	}
 
 	/// <summary>
@@ -248,7 +251,9 @@ public class TcpProtocol : Player
 
 			try
 			{
+#if !UNITY_WINRT
 				sock.EndConnect(result);
+#endif
 			}
 			catch (System.Exception ex)
 			{
@@ -421,7 +426,9 @@ public class TcpProtocol : Player
 					try
 					{
 						// If it's the first packet, let's begin the send process
+#if !UNITY_WINRT
 						mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+#endif
 					}
 					catch (System.Exception ex)
 					{
@@ -443,10 +450,12 @@ public class TcpProtocol : Player
 	{
 		if (stage == Stage.NotConnected) return;
 		int bytes;
-		
+
 		try
 		{
+#if !UNITY_WINRT
 			bytes = mSocket.EndSend(result);
+#endif
 		}
 		catch (System.Exception ex)
 		{
@@ -460,7 +469,7 @@ public class TcpProtocol : Player
 		{
 			// The buffer has been sent and can now be safely recycled
 			mOut.Dequeue().Recycle();
-
+#if !UNITY_WINRT
 			if (bytes > 0 && mSocket != null && mSocket.Connected)
 			{
 				// If there is another packet to send out, let's send it
@@ -480,6 +489,7 @@ public class TcpProtocol : Player
 				}
 			}
 			else Close(true);
+#endif
 		}
 	}
 
@@ -515,7 +525,9 @@ public class TcpProtocol : Player
 			// Queue up the read operation
 			try
 			{
+#if !UNITY_WINRT
 				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
+#endif
 			}
 			catch (System.Exception ex)
 			{
@@ -555,7 +567,9 @@ public class TcpProtocol : Player
 
 		try
 		{
+#if !UNITY_WINRT
 			bytes = socket.EndReceive(result);
+#endif
 			if (socket != mSocket) return;
 		}
 		catch (System.Exception ex)
@@ -577,8 +591,10 @@ public class TcpProtocol : Player
 
 			try
 			{
+#if !UNITY_WINRT
 				// Queue up the next read operation
 				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
+#endif
 			}
 			catch (System.Exception ex)
 			{

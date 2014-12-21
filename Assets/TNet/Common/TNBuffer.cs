@@ -40,6 +40,7 @@ public class Buffer
 	{
 		//Console.WriteLine("DISPOSED " + (Packet)PeekByte(4));
 		mStream.Dispose();
+		mStream = null;
 	}
 
 	/// <summary>
@@ -240,22 +241,23 @@ public class Buffer
 	}
 
 	/// <summary>
-	/// Dispose of the allocated memory.
-	/// </summary>
-
-	public void Dispose () { mStream.Dispose(); }
-
-	/// <summary>
 	/// Begin the writing process.
 	/// </summary>
 
 	public BinaryWriter BeginWriting (bool append)
 	{
-		if (!append || !mWriting)
+		if (mStream == null || !mStream.CanWrite)
+		{
+			mStream = new MemoryStream();
+			mReader = new BinaryReader(mStream);
+			mWriter = new BinaryWriter(mStream);
+		}
+		else if (!append || !mWriting)
 		{
 			mStream.Seek(0, SeekOrigin.Begin);
 			mSize = 0;
 		}
+
 		mWriting = true;
 		return mWriter;
 	}
@@ -266,7 +268,14 @@ public class Buffer
 
 	public BinaryWriter BeginWriting (int startOffset)
 	{
-		mStream.Seek(startOffset, SeekOrigin.Begin);
+		if (mStream == null || !mStream.CanWrite)
+		{
+			mStream = new MemoryStream();
+			mReader = new BinaryReader(mStream);
+			mWriter = new BinaryWriter(mStream);
+		}
+		else mStream.Seek(startOffset, SeekOrigin.Begin);
+
 		mWriting = true;
 		return mWriter;
 	}
