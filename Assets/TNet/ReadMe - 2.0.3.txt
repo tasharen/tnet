@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
-    Copyright © 2012-2014 Tasharen Entertainment
-                  Version 2.0.2
+    Copyright © 2012-2015 Tasharen Entertainment
+                  Version 2.0.3
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,12 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.3
+- NEW: Added an option to TNServerInstance.Start to not open the port via UPnP (for private servers).
+- NEW: TNServer.exe can now be run as a background process and will save periodically.
+- NEW: Added int[] and float[] serialization.
+- FIX: Added a try/catch to multicasting membership subscription as it apparently doesn't work on some computers.
 
 2.0.2
 - NEW: Added tno.Send via player ID. No need to FindPlayer anymore.

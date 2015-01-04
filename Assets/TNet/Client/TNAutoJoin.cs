@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
 using UnityEngine;
@@ -14,7 +14,6 @@ using UnityTools = TNet.UnityTools;
 /// a "Connecting, please wait..." message.
 /// </summary>
 
-[RequireComponent(typeof(TNManager))]
 public class TNAutoJoin : MonoBehaviour
 {
 	static public TNAutoJoin instance;
@@ -36,7 +35,14 @@ public class TNAutoJoin : MonoBehaviour
 	/// Set the instance so this script can be easily found.
 	/// </summary>
 
-	void Awake () { if (instance == null) instance = this; }
+	void Awake ()
+	{
+		if (instance == null)
+		{
+			instance = this;
+			DontDestroyOnLoad(gameObject);
+		}
+	}
 
 	/// <summary>
 	/// Connect to the server if requested.
@@ -63,6 +69,8 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkConnect (bool result, string message)
 	{
+		Debug.Log("OnNetworkConnect: " + result);
+
 		if (result)
 		{
 			// Make it possible to use UDP using a random port
@@ -82,10 +90,10 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkDisconnect ()
 	{
+		Debug.Log("OnNetworkDisconnect");
+
 		if (!string.IsNullOrEmpty(disconnectLevel) && Application.loadedLevelName != disconnectLevel)
-		{
 			Application.LoadLevel(disconnectLevel);
-		}
 	}
 
 	/// <summary>
@@ -94,6 +102,8 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkJoinChannel (bool result, string message)
 	{
+		Debug.Log("OnNetworkJoinChannel: " + result);
+
 		if (result)
 		{
 			if (!string.IsNullOrEmpty(successFunctionName))

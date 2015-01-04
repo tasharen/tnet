@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
 using System;

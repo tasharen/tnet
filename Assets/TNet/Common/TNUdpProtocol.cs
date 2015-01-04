@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
 using System;
@@ -104,17 +104,21 @@ public class UdpProtocol
 		mSocket.MulticastLoopback = true;
 		mMulticast = useMulticasting;
 
-		if (useMulticasting)
+		try
 		{
-			List<IPAddress> ips = Tools.localAddresses;
-
-			foreach (IPAddress ip in ips)
+			if (useMulticasting)
 			{
-				MulticastOption opt = new MulticastOption(multicastIP, ip);
-				mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
+				List<IPAddress> ips = Tools.localAddresses;
+
+				foreach (IPAddress ip in ips)
+				{
+					MulticastOption opt = new MulticastOption(multicastIP, ip);
+					mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
+				}
 			}
+			else mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 		}
-		else mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		catch (System.Exception) { }
 #endif
 		// Port zero means we will be able to send, but not receive
 		if (mPort == 0) return true;
