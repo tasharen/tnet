@@ -69,8 +69,6 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkConnect (bool result, string message)
 	{
-		Debug.Log("OnNetworkConnect: " + result);
-
 		if (result)
 		{
 			// Make it possible to use UDP using a random port
@@ -90,8 +88,6 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkDisconnect ()
 	{
-		Debug.Log("OnNetworkDisconnect");
-
 		if (!string.IsNullOrEmpty(disconnectLevel) && Application.loadedLevelName != disconnectLevel)
 			Application.LoadLevel(disconnectLevel);
 	}
@@ -102,8 +98,6 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnNetworkJoinChannel (bool result, string message)
 	{
-		Debug.Log("OnNetworkJoinChannel: " + result);
-
 		if (result)
 		{
 			if (!string.IsNullOrEmpty(successFunctionName))
