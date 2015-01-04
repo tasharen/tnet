@@ -35,18 +35,13 @@ public class Application : IDisposable
 	/// Function executed by kernel32 when the application exits. This is the only way to reliably detect a closed app in Windows.
 	/// </summary>
 
-	bool OnExit (int type)
-	{
-		Dispose();
-		GC.SuppressFinalize(this);
-		return true;
-	}
+	bool OnExit (int type) { Dispose(); return true; }
 
 	/// <summary>
 	/// Start the server.
 	/// </summary>
 
-	public void Start (string serverName, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp, bool console, string fn = "server.dat")
+	public void Start (string serverName, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp, bool service, string fn = "server.dat")
 	{
 		mFilename = fn;
 		List<IPAddress> ips = Tools.localAddresses;
@@ -140,11 +135,7 @@ public class Application : IDisposable
 			}
 
 			// This approach doesn't work on Windows 7 and higher.
-			AppDomain.CurrentDomain.ProcessExit += new EventHandler(delegate(object sender, EventArgs e)
-			{
-				Dispose();
-				GC.SuppressFinalize(this);
-			});
+			AppDomain.CurrentDomain.ProcessExit += new EventHandler(delegate(object sender, EventArgs e) { Dispose(); });
 
 			// This approach works only on Windows
 			try { SetConsoleCtrlHandler(new HandlerRoutine(OnExit), true); }
@@ -163,7 +154,7 @@ public class Application : IDisposable
 
 			for (; ; )
 			{
-				if (console)
+				if (!service)
 				{
 					Console.WriteLine("Press 'q' followed by ENTER when you want to quit.\n");
 					string command = Console.ReadLine();
@@ -177,12 +168,10 @@ public class Application : IDisposable
 				else Thread.Sleep(10000);
 			}
 			Console.WriteLine("Shutting down...");
-
 			Dispose();
-			GC.SuppressFinalize(this);
 		}
 
-		if (console)
+		if (!service)
 		{
 			Console.WriteLine("The server has shut down. Press ENTER to terminate the application.");
 			Console.ReadLine();
@@ -258,7 +247,7 @@ public class Application : IDisposable
 			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
-			Console.WriteLine("   -console                    <-- Run it in console mode");
+			Console.WriteLine("   -service                    <-- Run it as a service");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 
@@ -271,7 +260,7 @@ public class Application : IDisposable
 		string lobbyAddress = null;
 		int lobbyPort = 0;
 		bool tcpLobby = false;
-		bool console = false;
+		bool service = false;
 
 		for (int i = 0; i < args.Length; )
 		{
@@ -329,9 +318,9 @@ public class Application : IDisposable
 			{
 				if (val0 != null) lobbyAddress = val0;
 			}
-			else if (param == "-console")
+			else if (param == "-service")
 			{
-				console = true;
+				service = true;
 			}
 
 			if (val1 != null) i += 3;
@@ -340,7 +329,7 @@ public class Application : IDisposable
 		}
 
 		Application app = new Application();
-		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, console);
+		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service);
 		return 0;
 	}
 }
