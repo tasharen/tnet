@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
 using System;
@@ -84,18 +84,6 @@ public class UPnP
 	/// </summary>
 
 	public bool hasThreadsActive { get { return mThreads.size > 0; } }
-
-	/// <summary>
-	/// Start the Universal Plug and Play lobby process.
-	/// </summary>
-
-	public UPnP ()
-	{
-		Thread th = new Thread(ThreadDiscover);
-		mDiscover = th;
-		mThreads.Add(th);
-		th.Start(th);
-	}
 
 	/// <summary>
 	/// Wait for all threads to finish.
@@ -368,6 +356,13 @@ public class UPnP
 
 		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
+			if (mDiscover == null)
+			{
+				mDiscover = new Thread(ThreadDiscover);
+				mThreads.Add(mDiscover);
+				mDiscover.Start(mDiscover);
+			}
+
 			string addr = Tools.localAddress.ToString();
 			if (addr == "127.0.0.1") return;
 

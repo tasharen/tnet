@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
 using System;
@@ -739,7 +739,7 @@ public class TcpProtocol : Player
 			else
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(version);
+				writer.Write(0);
 				EndSend();
 				Close(false);
 			}
@@ -757,7 +757,7 @@ public class TcpProtocol : Player
 		{
 			int serverVersion = reader.ReadInt32();
 
-			if (serverVersion == version)
+			if (serverVersion != 0 && serverVersion == version)
 			{
 				id = reader.ReadInt32();
 				stage = Stage.Connected;
@@ -766,7 +766,7 @@ public class TcpProtocol : Player
 			else
 			{
 				id = 0;
-				Error("Version mismatch! Server is running protocol version " + serverVersion + " while you are on version " + version);
+				Error("Version mismatch! Server is running a different protocol version!");
 				Close(false);
 				return false;
 			}
