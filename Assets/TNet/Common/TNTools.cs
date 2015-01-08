@@ -552,6 +552,34 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Find the specified file in the chosen directory or one of its subfolders.
+	/// </summary>
+
+	static public string FindFile (string directory, string fileName)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		string[] files = Directory.GetFiles(directory, fileName);
+		return (files.Length == 0) ? null : files[0];
+#else
+		return null;
+#endif
+	}
+
+	/// <summary>
+	/// Find all files matching the specified pattern, such as "*.txt".
+	/// </summary>
+
+	static public string[] FindFiles (string directory, string pattern)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		string[] files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
+		return (files.Length == 0) ? null : files;
+#else
+		return null;
+#endif
+	}
+
+	/// <summary>
 	/// Application directory to use in My Documents. Generally should be the name of your game.
 	/// </summary>
 

@@ -580,6 +580,11 @@ public sealed class TNObject : MonoBehaviour
 		if (hasBeenDestroyed) return;
 		bool executeLocally = false;
 
+		// Some very odd special case... sending a string[] as the only parameter
+		// results in objs[] being a string[] instead, when it should be object[string[]].
+		if (objs != null && objs.GetType() != typeof(object[]))
+			objs = new object[] { objs };
+
 		if (target == Target.Broadcast)
 		{
 			if (TNManager.isConnected)

@@ -1116,17 +1116,7 @@ public class TNManager : MonoBehaviour
 				Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
 			}
 		}
-		else
-		{
-			try
-			{
-				TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
-			}
-			catch (System.Exception ex)
-			{
-				Debug.LogError(objID + " " + funcID + "\n" + ex.Message + "\n" + ex.StackTrace);
-			}
-		}
+		else TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
 	}
 
 	/// <summary>

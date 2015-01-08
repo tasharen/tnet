@@ -37,7 +37,7 @@ static public class UnityTools
 			for (int b = 0; b < parameters.Length; ++b)
 			{
 				if (b != 0) received += ", ";
-				received += parameters[b].GetType().ToString();
+				received += (parameters[b] != null) ? parameters[b].GetType().ToString() : "<null>";
 			}
 		}
 
@@ -132,17 +132,17 @@ static public class UnityTools
 
 				try
 				{
-					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
+					/*if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
 					}
-					else ent.func.Invoke(ent.obj, parameters);
+					else*/ ent.func.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)
 				{
-					PrintException(ex, ent, funcID, "", parameters);
-					return false;
+				    PrintException(ex, ent, funcID, "", parameters);
+				    return false;
 				}
 			}
 		}
@@ -170,11 +170,11 @@ static public class UnityTools
 
 				try
 				{
-					if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
+					/*if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
 					{
 						ent.func.Invoke(ent.obj, new object[] { parameters });
 					}
-					else ent.func.Invoke(ent.obj, parameters);
+					else*/ ent.func.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)

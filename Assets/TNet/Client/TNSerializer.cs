@@ -863,7 +863,7 @@ public static class Serialization
 			{
 				string[] arr = (string[])obj;
 				bw.WriteInt(arr.Length);
-				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i] ?? "");
 				break;
 			}
 			case 108:
