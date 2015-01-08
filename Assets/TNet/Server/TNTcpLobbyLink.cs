@@ -125,17 +125,17 @@ public class TcpLobbyServerLink : LobbyServerLink
 						return;
 					}
 				}
-				else if (response == Packet.Error)
+				else
 				{
 					// Automatically try to re-establish a connection on disconnect
-					mNextConnect = mWasConnected ? 0 : time + 30000;
+					mNextConnect = mWasConnected ? time + 1000 : time + 30000;
 #if STANDALONE
-					Console.WriteLine("TcpLobbyLink: " + reader.ReadString());
+					if (response == Packet.Error)
+						Console.WriteLine("TcpLobbyLink: " + reader.ReadString());
+					else if (response != Packet.Disconnect)
+						Console.WriteLine("TcpLobbyLink can't handle this packet: " + response);
 #endif
 				}
-#if STANDALONE
-				else Console.WriteLine("TcpLobbyLink can't handle this packet: " + response);
-#endif
 				buffer.Recycle();
 			}
 

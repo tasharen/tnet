@@ -347,6 +347,21 @@ public class UPnP
 	public void OpenUDP (int port, OnPortRequest callback) { Open(port, false, callback); }
 
 	/// <summary>
+	/// Start UPnP and attempt to find the gateway.
+	/// If you want to pause until the gateway is discovered, use WaitForThreads().
+	/// </summary>
+
+	public void Start ()
+	{
+		if (mDiscover == null)
+		{
+			mDiscover = new Thread(ThreadDiscover);
+			mThreads.Add(mDiscover);
+			mDiscover.Start(mDiscover);
+		}
+	}
+
+	/// <summary>
 	/// Open up a port on the gateway.
 	/// </summary>
 
@@ -356,12 +371,8 @@ public class UPnP
 
 		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
-			if (mDiscover == null)
-			{
-				mDiscover = new Thread(ThreadDiscover);
-				mThreads.Add(mDiscover);
-				mDiscover.Start(mDiscover);
-			}
+			if (mDiscover == null) Start();
+			WaitForThreads();
 
 			string addr = Tools.localAddress.ToString();
 			if (addr == "127.0.0.1") return;

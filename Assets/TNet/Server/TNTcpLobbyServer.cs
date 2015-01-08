@@ -141,6 +141,22 @@ public class TcpLobbyServer : LobbyServer
 
 			Buffer buffer = null;
 
+			// Remove stale entries
+			for (int i = mList.list.size; i > 0; )
+			{
+				ServerList.Entry ent = mList.list[--i];
+				TcpProtocol tc = ent.data as TcpProtocol;
+
+				if (tc == null || !tc.isConnected || !mTcp.Contains(tc))
+				{
+#if STANDALONE
+					Console.WriteLine("WARNING: Removing a stale server at " + ent.externalAddress);
+#endif
+					mList.list.RemoveAt(i);
+					mLastChange = mTime;
+				}
+			}
+
 			// Process incoming TCP packets
 			for (int i = 0; i < mTcp.size; ++i)
 			{
