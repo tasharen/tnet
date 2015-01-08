@@ -1191,10 +1191,6 @@ public class TNManager : MonoBehaviour
 	/// Notification of a player being renamed.
 	/// </summary>
 
-	void OnRenamePlayer (Player p, string previous)
-	{
-		mPlayer.name = p.name;
-		UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous);
-	}
+	void OnRenamePlayer (Player p, string previous) { UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous); }
 #endregion
 }
