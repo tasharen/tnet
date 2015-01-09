@@ -211,7 +211,7 @@ static public class Tools
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
 #else
-			System.Console.WriteLine("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
+			Tools.Print(value + " is not one of the local IP addresses. Strange things may happen.");
 #endif
 		}
 	}
@@ -707,6 +707,19 @@ static public class Tools
 		catch (System.Exception) { }
 #endif
 		return null;
+	}
+
+	/// <summary>
+	/// Convenience function -- prints the specified message, prefixed with a timestamp.
+	/// </summary>
+
+	static public void Print (string text)
+	{
+#if STANDALONE
+		System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + text);
+#elif UNITY_EDITOR
+		UnityEngine.Debug.Log(text);
+#endif
 	}
 }
 }

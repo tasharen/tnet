@@ -38,7 +38,7 @@ public class Buffer
 
 	~Buffer ()
 	{
-		//Console.WriteLine("DISPOSED " + (Packet)PeekByte(4));
+		//Tools.Print("DISPOSED " + (Packet)PeekByte(4));
 		mStream.Dispose();
 		mStream = null;
 	}

@@ -48,7 +48,7 @@ public class UdpLobbyServer : LobbyServer
 		mUdp = new UdpProtocol();
 		if (!mUdp.Start(listenPort)) return false;
 #if STANDALONE
-		Console.WriteLine("UDP Lobby Server started on port " + listenPort + " using interface " + 
+		Tools.Print("UDP Lobby Server started on port " + listenPort + " using interface " + 
 			(UdpProtocol.defaultNetworkInterface ?? IPAddress.Any));
 #endif
 		mThread = new Thread(ThreadFunction);
@@ -136,7 +136,7 @@ public class UdpLobbyServer : LobbyServer
 
 				mList.Add(ent, mTime);
 #if STANDALONE
-				Console.WriteLine(ip + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
+				Tools.Print(ip + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
 #endif
 				return true;
 			}
@@ -152,7 +152,7 @@ public class UdpLobbyServer : LobbyServer
 
 				RemoveServer(internalAddress, externalAddress);
 #if STANDALONE
-				Console.WriteLine(ip + " removed a server (" + internalAddress + ", " + externalAddress + ")");
+				Tools.Print(ip + " removed a server (" + internalAddress + ", " + externalAddress + ")");
 #endif
 				return true;
 			}

@@ -172,7 +172,7 @@ public class GameServer : FileServer
 		}
 
 #if STANDALONE
-		Console.WriteLine("Game server started on port " + tcpPort + " using protocol version " + Player.version);
+		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
 		if (!mUdp.Start(udpPort))
 		{
@@ -282,8 +282,8 @@ public class GameServer : FileServer
 					while (mListener != null && mListener.Pending())
 					{
 #if STANDALONE
-					TcpPlayer p = AddPlayer(mListener.AcceptSocket());
-					Console.WriteLine(p.address + " has connected");
+						TcpPlayer p = AddPlayer(mListener.AcceptSocket());
+						Tools.Print(p.address + " has connected");
 #else
 						AddPlayer(mListener.AcceptSocket());
 #endif
@@ -371,7 +371,7 @@ public class GameServer : FileServer
 #if STANDALONE
 						catch (System.Exception ex)
 						{
-							Console.WriteLine("ERROR (ProcessPlayerPacket): " + ex.Message);
+							Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message);
 							RemovePlayer(player);
 						}
 #else
@@ -395,11 +395,7 @@ public class GameServer : FileServer
 						// If the player doesn't send any packets in a while, disconnect him
 						if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
 						{
-#if STANDALONE
-							Console.WriteLine(player.address + " has timed out");
-#elif UNITY_EDITOR
-							UnityEngine.Debug.LogWarning(player.address + " has timed out");
-#endif
+							Tools.Print(player.address + " has timed out");
 							RemovePlayer(player);
 							continue;
 						}
@@ -407,7 +403,7 @@ public class GameServer : FileServer
 					else if (player.lastReceivedTime + 2000 < mTime)
 					{
 #if STANDALONE
-						Console.WriteLine(player.address + " has timed out");
+						Tools.Print(player.address + " has timed out");
 #elif UNITY_EDITOR
 						UnityEngine.Debug.LogWarning(player.address + " has timed out");
 #endif
@@ -429,13 +425,8 @@ public class GameServer : FileServer
 
 	void Error (TcpPlayer p, string error)
 	{
-#if UNITY_EDITOR
-		if (p != null) UnityEngine.Debug.LogError(error + " (" + p.address + ")");
-		else UnityEngine.Debug.LogError(error);
-#elif STANDALONE
-		if (p != null) Console.WriteLine(p.address + " ERROR: " + error);
-		else Console.WriteLine("ERROR: " + error);
-#endif
+		if (p != null) Tools.Print(p.address + " ERROR: " + error);
+		else Tools.Print("ERROR: " + error);
 	}
 
 	/// <summary>
@@ -459,9 +450,8 @@ public class GameServer : FileServer
 		if (p != null)
 		{
 			SendLeaveChannel(p, false);
-#if STANDALONE
-			Console.WriteLine(p.address + " has disconnected");
-#endif
+			Tools.Print(p.address + " has disconnected");
+
 			p.Release();
 			mPlayers.Remove(p);
 
@@ -813,9 +803,8 @@ public class GameServer : FileServer
 				if (onPlayerConnect != null) onPlayerConnect(player);
 				return true;
 			}
-#if STANDALONE
-			Console.WriteLine(player.address + " has failed the verification step");
-#endif
+
+			Tools.Print(player.address + " has failed the verification step");
 			RemovePlayer(player);
 			return false;
 		}
@@ -823,11 +812,7 @@ public class GameServer : FileServer
 		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
-//#if UNITY_EDITOR // DEBUG
-//		if (request != Packet.RequestPing) UnityEngine.Debug.Log("Server: " + request + " " + buffer.position + " " + buffer.size);
-//#else
-//		if (request != Packet.RequestPing) Console.WriteLine("Server: " + request + " " + buffer.position + " " + buffer.size);
-//#endif
+//		if (request != Packet.RequestPing) Tools.Print("Server: " + request + " " + buffer.position + " " + buffer.size);
 
 		switch (request)
 		{
@@ -1092,6 +1077,11 @@ public class GameServer : FileServer
 					}
 				}
 				EndSend(true, player);
+				break;
+			}
+			case Packet.ServerLog:
+			{
+				Tools.Print(reader.ReadString());
 				break;
 			}
 			case Packet.RequestSetTimeout:

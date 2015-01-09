@@ -146,7 +146,7 @@ public class UdpProtocol
 			return false;
 		}
 #elif DEBUG
-		catch (System.Exception ex) { Console.WriteLine("Udp.Start: " + ex.Message); Stop(); return false; }
+		catch (System.Exception ex) { Tools.Print("Udp.Start: " + ex.Message); Stop(); return false; }
 #else
 		catch (System.Exception) { Stop(); return false; }
 #endif
@@ -339,7 +339,7 @@ public class UdpProtocol
 		{
 			bytes = 1;
 #if STANDALONE
-			Console.WriteLine(ex.Message);
+			Tools.Print(ex.Message);
 #else
 			UnityEngine.Debug.Log("[TNet] OnSend: " + ex.Message);
 #endif

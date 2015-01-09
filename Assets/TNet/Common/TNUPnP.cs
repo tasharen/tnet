@@ -210,7 +210,7 @@ public class UPnP
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("[TNet] UPnP discovery failed. TNet won't be able to open ports automatically.");
 #else
-			Console.WriteLine("UPnP discovery failed. TNet won't be able to open ports automatically.");
+			Tools.Print("UPnP discovery failed. TNet won't be able to open ports automatically.");
 #endif
 		}
 	}

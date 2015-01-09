@@ -467,5 +467,12 @@ public enum Packet
 	/// </summary>
 
 	ForwardTargetNotFound,
+
+	/// <summary>
+	/// Print a message on the server. Used to make verbose output possible.
+	/// string: text to log.
+	/// </summary>
+
+	ServerLog,
 }
 }

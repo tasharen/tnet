@@ -66,10 +66,10 @@ public class TcpLobbyServer : LobbyServer
 #if STANDALONE
 		catch (System.Exception ex)
 		{
-			Console.WriteLine("ERROR: " + ex.Message);
+			Tools.Print("ERROR: " + ex.Message);
 			return false;
 		}
-		Console.WriteLine("TCP Lobby Server started on port " + listenPort);
+		Tools.Print("TCP Lobby Server started on port " + listenPort);
 #else
 		catch (System.Exception) { return false; }
 #endif
@@ -150,7 +150,7 @@ public class TcpLobbyServer : LobbyServer
 				if (tc == null || !tc.isConnected || !mTcp.Contains(tc))
 				{
 #if STANDALONE
-					Console.WriteLine("WARNING: Removing a stale server at " + ent.externalAddress);
+					Tools.Print("WARNING: Removing a stale server at " + ent.externalAddress);
 #endif
 					mList.list.RemoveAt(i);
 					mLastChange = mTime;
@@ -175,7 +175,7 @@ public class TcpLobbyServer : LobbyServer
 #if STANDALONE
 					catch (System.Exception ex)
 					{
-						Console.WriteLine("ERROR: " + ex.Message);
+						Tools.Print("ERROR: " + ex.Message);
 						RemoveServer(tc);
 						tc.Disconnect();
 					}
@@ -246,9 +246,7 @@ public class TcpLobbyServer : LobbyServer
 		if (tc.stage == TcpProtocol.Stage.Verifying)
 		{
 			if (tc.VerifyRequestID(buffer, false)) return true;
-#if STANDALONE
-			Console.WriteLine(tc.address + " has failed the verification step");
-#endif
+			Tools.Print(tc.address + " has failed the verification step");
 			return false;
 		}
 
@@ -281,7 +279,7 @@ public class TcpLobbyServer : LobbyServer
 				mList.Add(ent, mTime).data = tc;
 				mLastChange = mTime;
 #if STANDALONE
-				Console.WriteLine(tc.address + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
+				Tools.Print(tc.address + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
 #endif
 				return true;
 			}
@@ -297,14 +295,14 @@ public class TcpLobbyServer : LobbyServer
 
 				RemoveServer(internalAddress, externalAddress);
 #if STANDALONE
-				Console.WriteLine(tc.address + " removed a server (" + internalAddress + ", " + externalAddress + ")");
+				Tools.Print(tc.address + " removed a server (" + internalAddress + ", " + externalAddress + ")");
 #endif
 				return true;
 			}
 			case Packet.Disconnect:
 			{
 #if STANDALONE
-				if (RemoveServer(tc)) Console.WriteLine(tc.address + " has disconnected");
+				if (RemoveServer(tc)) Tools.Print(tc.address + " has disconnected");
 #else
 				RemoveServer(tc);
 #endif
@@ -343,13 +341,13 @@ public class TcpLobbyServer : LobbyServer
 			case Packet.Error:
 			{
 #if STANDALONE
-				Console.WriteLine(tc.address + " error: " + reader.ReadString());
+				Tools.Print(tc.address + " error: " + reader.ReadString());
 #endif
 				return false;
 			}
 		}
 #if STANDALONE
-		Console.WriteLine(tc.address + " sent a packet not handled by the lobby server: " + request);
+		Tools.Print(tc.address + " sent a packet not handled by the lobby server: " + request);
 #endif
 		return false;
 	}

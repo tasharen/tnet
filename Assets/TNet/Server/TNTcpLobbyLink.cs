@@ -22,6 +22,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 	long mNextConnect = 0;
 	bool mWasConnected = false;
 	long mTimeDifference = 0;
+	bool mUpdateNeeded = false;
 
 	/// <summary>
 	/// Create a new link to a remote lobby server.
@@ -66,6 +67,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 		if (!mShutdown)
 		{
 			mGameServer = server;
+			mUpdateNeeded = true;
 
 			if (mThread == null)
 			{
@@ -100,6 +102,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 			// Try to establish a connection
 			if (mGameServer != null && !mTcp.isConnected && mNextConnect < time)
 			{
+				mUpdateNeeded = true;
 				mNextConnect = time + 15000;
 				mTcp.Connect(mRemoteAddress);
 			}
@@ -119,7 +122,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 					else
 					{
 #if STANDALONE
-						Console.WriteLine("TcpLobbyLink: Protocol version mismatch");
+						Tools.Print("TcpLobbyLink: Protocol version mismatch");
 #endif
 						mThread = null;
 						return;
@@ -131,16 +134,17 @@ public class TcpLobbyServerLink : LobbyServerLink
 					mNextConnect = mWasConnected ? time + 1000 : time + 30000;
 #if STANDALONE
 					if (response == Packet.Error)
-						Console.WriteLine("TcpLobbyLink: " + reader.ReadString());
+						Tools.Print("TcpLobbyLink: " + reader.ReadString());
 					else if (response != Packet.Disconnect)
-						Console.WriteLine("TcpLobbyLink can't handle this packet: " + response);
+						Tools.Print("TcpLobbyLink can't handle this packet: " + response);
 #endif
 				}
 				buffer.Recycle();
 			}
 
-			if (mGameServer != null && mTcp.isConnected)
+			if (mGameServer != null && mUpdateNeeded && mTcp.isConnected)
 			{
+				mUpdateNeeded = false;
 				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);
@@ -148,7 +152,6 @@ public class TcpLobbyServerLink : LobbyServerLink
 				Tools.Serialize(writer, mInternal);
 				Tools.Serialize(writer, mExternal);
 				mTcp.EndSend();
-				mGameServer = null;
 			}
 			Thread.Sleep(10);
 		}

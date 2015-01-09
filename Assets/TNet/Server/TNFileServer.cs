@@ -30,7 +30,7 @@ public class FileServer
 #if UNITY_EDITOR
 		UnityEngine.Debug.LogError("[TNet] Error: " + error);
 #elif STANDALONE
-		Console.WriteLine("ERROR: " + error);
+		Tools.Print("ERROR: " + error);
 #endif
 	}
 
