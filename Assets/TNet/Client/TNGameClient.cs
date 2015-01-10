@@ -236,13 +236,13 @@ public class GameClient
 	/// Whether this player is hosting the game.
 	/// </summary>
 
-	public bool isHosting { get { return !mIsInChannel || mHost == mTcp.id; } }
+	public bool isHosting { get { return !mIsInChannel || !mTcp.isConnected || mHost == mTcp.id; } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return mIsInChannel; } }
+	public bool isInChannel { get { return mIsInChannel && mTcp.isConnected; } }
 
 	/// <summary>
 	/// Port used to listen for incoming UDP packets. Set via StartUDP().
@@ -521,7 +521,12 @@ public class GameClient
 	/// Disconnect from the server.
 	/// </summary>
 
-	public void Disconnect () { mTcp.Disconnect(); mCanSend = true; }
+	public void Disconnect ()
+	{
+		mTcp.Disconnect();
+		mCanSend = true;
+		mIsInChannel = false;
+	}
 
 	/// <summary>
 	/// Start listening to incoming UDP packets on the specified port.
@@ -1023,6 +1028,7 @@ public class GameClient
 				mDictionary.Clear();
 				mTcp.Close(false);
 				mLoadFiles.Clear();
+				mIsInChannel = false;
 				if (onDisconnect != null) onDisconnect();
 				break;
 			}
