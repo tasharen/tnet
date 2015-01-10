@@ -346,13 +346,16 @@ public class UPnP
 
 	void Open (int port, bool tcp, OnPortRequest callback)
 	{
+		if (mStatus == Status.Inactive)
+		{
+			Start();
+			WaitForThreads();
+		}
+
 		int id = (port << 8) | (tcp ? 1 : 0);
 
 		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
-			Start();
-			WaitForThreads();
-
 			string addr = Tools.localAddress.ToString();
 			if (addr == "127.0.0.1") return;
 

@@ -55,23 +55,14 @@ public class Application : IDisposable
 
 		Console.WriteLine(text + "\n");
 		{
-			// Universal Plug & Play is used to determine the external IP address,
-			// and to automatically open up ports on the router / gateway.
+			// You don't have to Start() and WaitForThreads(). TNet will do it for you when you try to open a port via UPnP.
+			// It is good practice to have UPnP resolved before trying to use it though. This way there is no delay when
+			// you try to open a port.
 			mUPnP = new UPnP();
+			mUPnP.Start();
 			mUPnP.WaitForThreads();
 
-			if (mUPnP.status == UPnP.Status.Success)
-			{
-				Console.WriteLine("Gateway IP:  " + mUPnP.gatewayAddress);
-			}
-			else
-			{
-				Console.WriteLine("Gateway IP:  None found");
-				mUPnP = null;
-			}
-
-			Console.WriteLine("External IP: " + Tools.externalAddress);
-			Console.WriteLine("");
+			Tools.Print("External IP: " + Tools.externalAddress);
 
 			if (tcpPort > 0)
 			{
@@ -93,13 +84,13 @@ public class Application : IDisposable
 					{
 						mLobbyServer = new TcpLobbyServer();
 						mLobbyServer.Start(lobbyPort);
-						if (mUPnP != null) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
+						if (mUPnP.status != UPnP.Status.Failure) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
 					}
 					else
 					{
 						mLobbyServer = new UdpLobbyServer();
 						mLobbyServer.Start(lobbyPort);
-						if (mUPnP != null) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
+						if (mUPnP.status != UPnP.Status.Failure) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
 					}
 
 					// Local lobby server
@@ -109,29 +100,30 @@ public class Application : IDisposable
 				// Start the actual game server and load the save file
 				mGameServer.Start(tcpPort, udpPort);
 				mGameServer.LoadFrom(mFilename);
-				Console.WriteLine("Loaded " + mFilename);
+				Tools.Print("Loaded " + mFilename);
 			}
 			else if (lobbyPort > 0)
 			{
 				if (useTcp)
 				{
-					if (mUPnP != null) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
+					if (mUPnP.status != UPnP.Status.Failure) mUPnP.OpenTCP(lobbyPort, OnPortOpened);
 					mLobbyServer = new TcpLobbyServer();
 					mLobbyServer.Start(lobbyPort);
 				}
 				else
 				{
-					if (mUPnP != null) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
+					if (mUPnP.status != UPnP.Status.Failure) mUPnP.OpenUDP(lobbyPort, OnPortOpened);
 					mLobbyServer = new UdpLobbyServer();
 					mLobbyServer.Start(lobbyPort);
 				}
 			}
 
 			// Open up ports on the router / gateway
-			if (mUPnP != null)
+			if (mUPnP.status != UPnP.Status.Failure)
 			{
 				if (tcpPort > 0) mUPnP.OpenTCP(tcpPort, OnPortOpened);
 				if (udpPort > 0) mUPnP.OpenUDP(udpPort, OnPortOpened);
+				mUPnP.WaitForThreads();
 			}
 
 			// This approach doesn't work on Windows 7 and higher.
@@ -156,24 +148,24 @@ public class Application : IDisposable
 			{
 				if (!service)
 				{
-					Console.WriteLine("Press 'q' followed by ENTER when you want to quit.\n");
+					Tools.Print("Press 'q' followed by ENTER when you want to quit.\n");
 					string command = Console.ReadLine();
 					if (command == "q") break;
 					if (command == "s")
 					{
 						mGameServer.SaveTo(mFilename);
-						Console.WriteLine("Saved as " + mFilename);
+						Tools.Print("Saved as " + mFilename);
 					}
 				}
 				else Thread.Sleep(10000);
 			}
-			Console.WriteLine("Shutting down...");
+			Tools.Print("Shutting down...");
 			Dispose();
 		}
 
 		if (!service)
 		{
-			Console.WriteLine("The server has shut down. Press ENTER to terminate the application.");
+			Tools.Print("The server has shut down. Press ENTER to terminate the application.");
 			Console.ReadLine();
 		}
 	}
@@ -193,7 +185,7 @@ public class Application : IDisposable
 		// Stop the game server
 		if (mGameServer != null)
 		{
-			Console.WriteLine("Saved as " + mFilename);
+			Tools.Print("Saved as " + mFilename);
 			mGameServer.SaveTo(mFilename);
 			mGameServer.Stop();
 			mGameServer = null;
@@ -223,11 +215,11 @@ public class Application : IDisposable
 	{
 		if (success)
 		{
-			Console.WriteLine("UPnP: " + protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
+			Tools.Print("UPnP: " + protocol.ToString().ToUpper() + " port " + port + " was opened successfully.");
 		}
 		else
 		{
-			Console.WriteLine("UPnP: Unable to open " + protocol.ToString().ToUpper() + " port " + port);
+			Tools.Print("UPnP: Unable to open " + protocol.ToString().ToUpper() + " port " + port);
 		}
 	}
 
