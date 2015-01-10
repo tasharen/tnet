@@ -280,14 +280,7 @@ public class GameServer : FileServer
 				{
 					// Add all pending connections
 					while (mListener != null && mListener.Pending())
-					{
-#if STANDALONE
-						TcpPlayer p = AddPlayer(mListener.AcceptSocket());
-						Tools.Print("[" + p.id + "] " + p.address + " has connected");
-#else
 						AddPlayer(mListener.AcceptSocket());
-#endif
-					}
 				}
 
 				// Process datagrams first
@@ -436,6 +429,8 @@ public class GameServer : FileServer
 	TcpPlayer AddPlayer (Socket socket)
 	{
 		TcpPlayer player = new TcpPlayer();
+		player.id = 0;
+		player.name = "Guest";
 		player.StartReceiving(socket);
 		mPlayers.Add(player);
 		return player;
@@ -449,8 +444,9 @@ public class GameServer : FileServer
 	{
 		if (p != null)
 		{
+			if (p.id != 0) Tools.Print("[" + p.id + "] " + p.name + " has disconnected");
+
 			SendLeaveChannel(p, false);
-			Tools.Print("[" + p.id + "] " + p.address + " has disconnected");
 
 			p.Release();
 			mPlayers.Remove(p);

@@ -83,7 +83,7 @@ public class UPnP
 	/// Whether there are threads active.
 	/// </summary>
 
-	public bool hasThreadsActive { get { return mThreads.size > 0; } }
+	public bool hasThreadsActive { get { return mDiscover != null || mThreads.size > 0; } }
 
 	/// <summary>
 	/// Wait for all threads to finish.
@@ -102,12 +102,8 @@ public class UPnP
 			for (int i = mThreads.size; i > 0; )
 			{
 				Thread th = mThreads[--i];
-
-				if (th != mDiscover)
-				{
-					th.Abort();
-					mThreads.RemoveAt(i);
-				}
+				th.Abort();
+				mThreads.RemoveAt(i);
 			}
 		}
 
@@ -126,7 +122,7 @@ public class UPnP
 
 	public void WaitForThreads ()
 	{
-		for (int i = 0; mThreads.size > 0 && i < 2000; ++i)
+		while (mDiscover != null || mThreads.size > 0)
 			Thread.Sleep(1);
 	}
 
@@ -147,72 +143,55 @@ public class UPnP
 		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
 		int port = 10000 + (int)(DateTime.UtcNow.Ticks % 45000);
 		List<IPAddress> ips = Tools.localAddresses;
+		IPEndPoint searchEndpoint = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900);
 
 		// UPnP discovery should happen on all network interfaces
 		for (int i = 0; i < ips.size; ++i)
 		{
 			IPAddress ip = ips[i];
-			mStatus = Status.Searching;
-			UdpClient receiver = null;
+			UdpClient sender = null;
 
 			try
 			{
-				UdpClient sender = new UdpClient(new IPEndPoint(ip, port));
+#if STANDALONE
+				Tools.Print("Checking UPnP status on " + ip + "...");
+#endif
+				sender = new UdpClient(new IPEndPoint(ip, 0));
+				sender.Client.ReceiveTimeout = 3000;
 
-				sender.Connect(IPAddress.Broadcast, 1900);
-				sender.Send(requestBytes, requestBytes.Length);
-				sender.Close();
-
-				receiver = new UdpClient(new IPEndPoint(ip, port));
-				receiver.Client.ReceiveTimeout = 3000;
-
-				IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+				// Send several requests due to the unreliable nature of UDP
+				for (int b = 0; b < 3; ++b) sender.Send(requestBytes, requestBytes.Length, searchEndpoint);
 
 				for (; ; )
 				{
-					byte[] data = receiver.Receive(ref sourceAddress);
+					IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+					byte[] data = sender.Receive(ref sourceAddress);
 
 					if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 					{
-						receiver.Close();
+						sender.Close();
+						sender = null;
 
-						lock (mThreads)
-						{
-							mGatewayAddress = sourceAddress.Address;
-#if UNITY_EDITOR
-							UnityEngine.Debug.Log("[TNet] UPnP Gateway: " + mGatewayAddress);
+						mGatewayAddress = sourceAddress.Address;
+#if STANDALONE
+						Tools.Print("UPnP Gateway: " + mGatewayAddress);
 #endif
-							mStatus = Status.Success;
-							mThreads.Remove(th);
-						}
+						mStatus = Status.Success;
 						mDiscover = null;
 						return;
 					}
 				}
 			}
-			catch (System.Exception) {}
+			catch (System.Exception) { if (sender != null) sender.Close(); }
 
-			if (receiver != null) receiver.Close();
-
-			lock (mThreads)
-			{
-				mStatus = Status.Failure;
-				mThreads.Remove(th);
-			}
-			mDiscover = null;
-
+			mStatus = Status.Failure;
+#if STANDALONE
+			Tools.Print("UPnP Gateway: Not found");
+#endif
 			// If we found one, we're done
 			if (mStatus == Status.Success) break;
 		}
-
-		if (mStatus != Status.Success)
-		{
-#if UNITY_EDITOR
-			UnityEngine.Debug.LogWarning("[TNet] UPnP discovery failed. TNet won't be able to open ports automatically.");
-#else
-			Tools.Print("UPnP discovery failed. TNet won't be able to open ports automatically.");
-#endif
-		}
+		mDiscover = null;
 	}
 
 	/// <summary>
@@ -353,10 +332,10 @@ public class UPnP
 
 	public void Start ()
 	{
-		if (mDiscover == null)
+		if (mStatus == Status.Inactive)
 		{
+			mStatus = Status.Searching;
 			mDiscover = new Thread(ThreadDiscover);
-			mThreads.Add(mDiscover);
 			mDiscover.Start(mDiscover);
 		}
 	}
@@ -371,7 +350,7 @@ public class UPnP
 
 		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
 		{
-			if (mDiscover == null) Start();
+			Start();
 			WaitForThreads();
 
 			string addr = Tools.localAddress.ToString();

@@ -334,7 +334,6 @@ public class TcpProtocol : Player
 	public void Close (bool notify)
 	{
 		stage = Stage.NotConnected;
-		name = "Guest";
 		data = null;
 
 		if (mReceiveBuffer != null)
@@ -728,7 +727,9 @@ public class TcpProtocol : Player
 				else data = null;
 
 				stage = TcpProtocol.Stage.Connected;
-
+#if STANDALONE
+				Tools.Print("[" + id + "] " + name + " has connected");
+#endif
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);
 				writer.Write(id);

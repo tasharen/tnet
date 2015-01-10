@@ -716,9 +716,10 @@ static public class Tools
 	static public void Print (string text)
 	{
 #if STANDALONE
-		System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + text);
+		if (string.IsNullOrEmpty(text)) System.Console.WriteLine("");
+		else System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + text);
 #elif UNITY_EDITOR
-		UnityEngine.Debug.Log(text);
+		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(text);
 #endif
 	}
 }
