@@ -283,7 +283,7 @@ public class GameServer : FileServer
 					{
 #if STANDALONE
 						TcpPlayer p = AddPlayer(mListener.AcceptSocket());
-						Tools.Print(p.address + " has connected [" + p.id + "]");
+						Tools.Print("[" + p.id + "] " + p.address + " has connected");
 #else
 						AddPlayer(mListener.AcceptSocket());
 #endif
@@ -450,7 +450,7 @@ public class GameServer : FileServer
 		if (p != null)
 		{
 			SendLeaveChannel(p, false);
-			Tools.Print(p.address + " has disconnected [" + p.id + "]");
+			Tools.Print("[" + p.id + "] " + p.address + " has disconnected");
 
 			p.Release();
 			mPlayers.Remove(p);
@@ -1081,7 +1081,7 @@ public class GameServer : FileServer
 			}
 			case Packet.ServerLog:
 			{
-				Tools.Print(reader.ReadString());
+				Tools.Print("[" + player.id + "] " + reader.ReadString());
 				break;
 			}
 			case Packet.RequestSetTimeout:
