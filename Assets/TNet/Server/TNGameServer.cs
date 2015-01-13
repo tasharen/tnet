@@ -305,7 +305,7 @@ public class GameServer : FileServer
 								RemovePlayer(player);
 							}
 						}
-						else if (buffer.size > 4)
+						else if (buffer.size > 0)
 						{
 							Packet request = Packet.Empty;
 
