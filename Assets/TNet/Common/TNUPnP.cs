@@ -132,8 +132,6 @@ public class UPnP
 
 	void ThreadDiscover (object obj)
 	{
-		Thread th = (Thread)obj;
-
 		string request = "M-SEARCH * HTTP/1.1\r\n" +
 						"HOST: 239.255.255.250:1900\r\n" +
 						"ST:upnp:rootdevice\r\n" +
@@ -141,7 +139,6 @@ public class UPnP
 						"MX:3\r\n\r\n";
 
 		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
-		int port = 10000 + (int)(DateTime.UtcNow.Ticks % 45000);
 		List<IPAddress> ips = Tools.localAddresses;
 		IPEndPoint searchEndpoint = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900);
 

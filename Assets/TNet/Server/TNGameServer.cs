@@ -444,8 +444,9 @@ public class GameServer : FileServer
 	{
 		if (p != null)
 		{
+#if STANDALONE
 			if (p.id != 0) Tools.Print("[" + p.id + "] " + p.name + " has disconnected");
-
+#endif
 			SendLeaveChannel(p, false);
 
 			p.Release();
