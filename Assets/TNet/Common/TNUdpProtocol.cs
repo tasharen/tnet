@@ -38,19 +38,19 @@ public class UdpProtocol
 	// Port used to listen and socket used to send and receive
 	int mPort = -1;
 	Socket mSocket;
-	bool mMulticast = true;
 	//List<UdpClient> mClients = new List<UdpClient>();
 
+#if !UNITY_WEBPLAYER
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
 
 	// End point of where the data is coming from
 	EndPoint mEndPoint;
+	bool mMulticast = true;
 
 	// Default end point -- mEndPoint is reset to this value after every receive operation.
 	static EndPoint mDefaultEndPoint;
 
-#if !UNITY_WEBPLAYER
 	// Cached broadcast end-point
 	static IPAddress multicastIP = IPAddress.Parse("224.168.100.17");
 	IPEndPoint mMulticastEndPoint = new IPEndPoint(multicastIP, 0);
@@ -172,6 +172,7 @@ public class UdpProtocol
 		Buffer.Recycle(mOut);
 	}
 
+#if !UNITY_WEBPLAYER
 	/// <summary>
 	/// Receive incoming data.
 	/// </summary>
@@ -211,6 +212,7 @@ public class UdpProtocol
 			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
 		}
 	}
+#endif
 
 	/// <summary>
 	/// Extract the first incoming packet.

@@ -1030,7 +1030,11 @@ public static class Serialization
 
 	static public Vector2 ReadVector2 (this BinaryReader reader)
 	{
-		return new Vector2(reader.ReadSingle(), reader.ReadSingle());
+		float x = reader.ReadSingle();
+		float y = reader.ReadSingle();
+		if (float.IsNaN(x)) x = 0f;
+		if (float.IsNaN(y)) y = 0f;
+		return new Vector2(x, y);
 	}
 
 	/// <summary>
@@ -1039,7 +1043,13 @@ public static class Serialization
 
 	static public Vector3 ReadVector3 (this BinaryReader reader)
 	{
-		return new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		float x = reader.ReadSingle();
+		float y = reader.ReadSingle();
+		float z = reader.ReadSingle();
+		if (float.IsNaN(x)) x = 0f;
+		if (float.IsNaN(y)) y = 0f;
+		if (float.IsNaN(z)) z = 0f;
+		return new Vector3(x, y, z);
 	}
 
 	/// <summary>
@@ -1048,7 +1058,15 @@ public static class Serialization
 
 	static public Vector4 ReadVector4 (this BinaryReader reader)
 	{
-		return new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		float x = reader.ReadSingle();
+		float y = reader.ReadSingle();
+		float z = reader.ReadSingle();
+		float w = reader.ReadSingle();
+		if (float.IsNaN(x)) x = 0f;
+		if (float.IsNaN(y)) y = 0f;
+		if (float.IsNaN(z)) z = 0f;
+		if (float.IsNaN(w)) w = 0f;
+		return new Vector4(x, y, z, w);
 	}
 
 	/// <summary>
@@ -1057,7 +1075,15 @@ public static class Serialization
 
 	static public Quaternion ReadQuaternion (this BinaryReader reader)
 	{
-		return new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		float x = reader.ReadSingle();
+		float y = reader.ReadSingle();
+		float z = reader.ReadSingle();
+		float w = reader.ReadSingle();
+		if (float.IsNaN(x)) x = 0f;
+		if (float.IsNaN(y)) y = 0f;
+		if (float.IsNaN(z)) z = 0f;
+		if (float.IsNaN(w)) w = 0f;
+		return new Quaternion(x, y, z, w);
 	}
 
 	/// <summary>
@@ -1075,7 +1101,15 @@ public static class Serialization
 
 	static public Color ReadColor (this BinaryReader reader)
 	{
-		return new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		float x = reader.ReadSingle();
+		float y = reader.ReadSingle();
+		float z = reader.ReadSingle();
+		float w = reader.ReadSingle();
+		if (float.IsNaN(x)) x = 0f;
+		if (float.IsNaN(y)) y = 0f;
+		if (float.IsNaN(z)) z = 0f;
+		if (float.IsNaN(w)) w = 0f;
+		return new Color(x, y, z, w);
 	}
 
 	/// <summary>
@@ -1173,7 +1207,12 @@ public static class Serialization
 			case 3: return reader.ReadUInt16();
 			case 4: return reader.ReadInt32();
 			case 5: return reader.ReadUInt32();
-			case 6: return reader.ReadSingle();
+			case 6:
+			{
+				float f = reader.ReadSingle();
+				if (float.IsNaN(f)) f = 0f;
+				return f;
+			}
 			case 7: return reader.ReadString();
 			case 8: return reader.ReadVector2();
 			case 9: return reader.ReadVector3();
