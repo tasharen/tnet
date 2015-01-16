@@ -540,6 +540,8 @@ static public class Tools
 	static public string[] GetFiles (string directory, bool inMyDocuments = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		if (!IsAllowedToAccess(directory)) return null;
+
 		try
 		{
 			if (inMyDocuments) directory = GetDocumentsPath(directory);
@@ -558,6 +560,7 @@ static public class Tools
 	static public string FindFile (string directory, string fileName)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		if (!IsAllowedToAccess(directory)) return null;
 		string[] files = Directory.GetFiles(directory, fileName);
 		return (files.Length == 0) ? null : files[0];
 #else
@@ -572,10 +575,54 @@ static public class Tools
 	static public string[] FindFiles (string directory, string pattern)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		if (!IsAllowedToAccess(directory)) return null;
 		string[] files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
 		return (files.Length == 0) ? null : files;
 #else
 		return null;
+#endif
+	}
+
+	/// <summary>
+	/// Whether the application should be allowed to access the specified path.
+	/// The path must be inside the same folder or in the Documents folder.
+	/// </summary>
+
+	static public bool IsAllowedToAccess (string path)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		// Relative paths are not allowed
+		if (path.Contains("..")) return false;
+
+		// Get the full path
+		string fullPath = System.IO.Path.GetFullPath(path);
+
+		// Path is inside the current folder
+		string current = System.Environment.CurrentDirectory;
+		if (fullPath.Contains(current)) return true;
+
+		// Path is inside My Documents
+		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
+		if (fullPath.Contains(docs)) return true;
+
+		// No other paths are allowed
+#endif
+		return false;
+	}
+
+	/// <summary>
+	/// Gets the path to a file in My Documents or OSX equivalent.
+	/// </summary>
+
+	static public string GetDocumentsPath (string path = null)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
+		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+#else
+		return path;
 #endif
 	}
 
@@ -592,15 +639,18 @@ static public class Tools
 	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		if (inMyDocuments) path = GetDocumentsPath(path);
+
 		if (data == null || data.Length == 0)
 		{
 			return DeleteFile(path);
 		}
 		else
 		{
+			if (!IsAllowedToAccess(path)) return false;
+
 			try
 			{
-				if (inMyDocuments) path = GetDocumentsPath(path);
 				string dir = Path.GetDirectoryName(path);
 
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -675,21 +725,6 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// Gets the path to a file in My Documents or OSX equivalent.
-	/// </summary>
-
-	static public string GetDocumentsPath (string path = null)
-	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
-		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
-#else
-		return path;
-#endif
-	}
-
-	/// <summary>
 	/// Tries to find the specified file, checking the raw path, My Documents folder, and the application folder.
 	/// Returns the path if found, null if not found.
 	/// </summary>
@@ -699,6 +734,7 @@ static public class Tools
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
+			if (!IsAllowedToAccess(path)) return null;
 			if (string.IsNullOrEmpty(path)) return null;
 			if (File.Exists(path)) return path;
 			path = GetDocumentsPath(path);

@@ -331,8 +331,15 @@ public class TcpProtocol : Player
 	/// Close the connection.
 	/// </summary>
 
-	public void Close (bool notify)
+	public void Close (bool notify) { lock (mOut) CloseNotThreadSafe(notify); }
+
+	/// <summary>
+	/// Close the connection.
+	/// </summary>
+
+	void CloseNotThreadSafe (bool notify)
 	{
+		Buffer.Recycle(mOut);
 		stage = Stage.NotConnected;
 		data = null;
 
@@ -368,9 +375,14 @@ public class TcpProtocol : Player
 
 	public void Release ()
 	{
-		Close(false);
-		Buffer.Recycle(mIn);
-		Buffer.Recycle(mOut);
+		lock (mOut)
+		{
+			lock (mIn)
+			{
+				CloseNotThreadSafe(false);
+				Buffer.Recycle(mIn);
+			}
+		}
 	}
 
 	/// <summary>
@@ -422,9 +434,9 @@ public class TcpProtocol : Player
 
 				if (mOut.Count == 1)
 				{
+					// If it's the first packet, let's begin the send process
 					try
 					{
-						// If it's the first packet, let's begin the send process
 #if !UNITY_WINRT
 						mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
 #endif
@@ -432,8 +444,7 @@ public class TcpProtocol : Player
 					catch (System.Exception ex)
 					{
 						Error(ex.Message);
-						Close(false);
-						Release();
+						CloseNotThreadSafe(false);
 					}
 				}
 			}
@@ -471,23 +482,21 @@ public class TcpProtocol : Player
 #if !UNITY_WINRT
 			if (bytes > 0 && mSocket != null && mSocket.Connected)
 			{
-				// If there is another packet to send out, let's send it
-				Buffer next = (mOut.Count == 0) ? null : mOut.Peek();
+				// Nothing else left -- just exit
+				if (mOut.Count == 0) return;
 
-				if (next != null)
+				try
 				{
-					try
-					{
-						mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
-					}
-					catch (Exception ex)
-					{
-						Error(ex.Message);
-						Close(false);
-					}
+					Buffer next = mOut.Peek();
+					mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
+				}
+				catch (Exception ex)
+				{
+					Error(ex.Message);
+					CloseNotThreadSafe(false);
 				}
 			}
-			else Close(true);
+			else CloseNotThreadSafe(true);
 #endif
 		}
 	}
