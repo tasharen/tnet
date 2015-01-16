@@ -465,6 +465,24 @@ public class TcpProtocol : Player
 		{
 #if !UNITY_WINRT
 			bytes = mSocket.EndSend(result);
+			Buffer buff = (Buffer)result.AsyncState;
+
+			// If not everything was sent...
+			if (bytes != buff.size)
+			{
+				try
+				{
+					// Advance the position and send the rest
+					buff.position = buff.position + bytes;
+					mSocket.BeginSend(buff.buffer, buff.position, buff.size, SocketFlags.None, OnSend, buff);
+					return;
+				}
+				catch (Exception ex)
+				{
+					Error(ex.Message);
+					CloseNotThreadSafe(false);
+				}
+			}
 #endif
 		}
 		catch (System.Exception ex)
