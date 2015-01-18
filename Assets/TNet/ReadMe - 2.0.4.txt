@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2015 Tasharen Entertainment
-                  Version 2.0.3
+                  Version 2.0.4
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,21 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.4
+- NEW: Added timestamps and player IDs to the server log messages.
+- NEW: Added a new packet that can be used to send messages to be printed directly to the server's log.
+- NEW: TNet's ReadFile and similar functions can no longer access files outside the executable's folder and Documents.
+- FIX: Added some extra code to ensure that stale servers get removed from the Lobby Server's list.
+- FIX: UPnP should now work better.
+- FIX: Fixed string[] serialization (apparently there is a strange edge case in C#)
+- FIX: Strings sent via RFC parameters can now be empty.
+- FIX: Renamed players should no longer affect other clients.
+- FIX: TNManager.isHosting should now check for the connected state as well.
+- FIX: Game servers should now respond to UDP pings correctly.
+- FIX: You can no longer receive NaNs through TNet. They will now automatically get set to zero.
+- FIX: Removed warnings from web player compilation.
+- FIX: TNet should now handle packets that have been sent only partially.
 
 2.0.3
 - NEW: Added an option to TNServerInstance.Start to not open the port via UPnP (for private servers).
