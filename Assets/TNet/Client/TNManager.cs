@@ -844,6 +844,19 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Write a server log entry.
+	/// </summary>
+
+	static public void Log (string text)
+	{
+		if (isConnected)
+		{
+			TNManager.BeginSend(Packet.ServerLog).Write(text);
+			TNManager.EndSend();
+		}
+	}
+
+	/// <summary>
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
