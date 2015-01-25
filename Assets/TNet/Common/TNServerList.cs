@@ -21,8 +21,9 @@ public class ServerList
 		public int playerCount;
 		public IPEndPoint internalAddress;
 		public IPEndPoint externalAddress;
-		public long recordTime;
-		public object data;
+
+		[System.NonSerialized] public long recordTime;
+		[System.NonSerialized] public TcpProtocol tcp;
 
 		public void WriteTo (BinaryWriter writer)
 		{
@@ -66,7 +67,6 @@ public class ServerList
 					ent.name = name;
 					ent.playerCount = playerCount;
 					ent.recordTime = time;
-					list[i] = ent;
 					return ent;
 				}
 			}
@@ -88,24 +88,7 @@ public class ServerList
 
 	public Entry Add (Entry newEntry, long time)
 	{
-		lock (list)
-		{
-			for (int i = 0; i < list.size; ++i)
-			{
-				Entry ent = list[i];
-
-				if (ent.internalAddress.Equals(newEntry.internalAddress) &&
-					ent.externalAddress.Equals(newEntry.externalAddress))
-				{
-					ent.name = newEntry.name;
-					ent.playerCount = newEntry.playerCount;
-					ent.recordTime = time;
-					return ent;
-				}
-			}
-			newEntry.recordTime = time;
-			list.Add(newEntry);
-		}
+		lock (list) AddInternal(newEntry, time);
 		return newEntry;
 	}
 
@@ -113,7 +96,7 @@ public class ServerList
 	/// Remove an existing entry from the list.
 	/// </summary>
 
-	public bool Remove (IPEndPoint internalAddress, IPEndPoint externalAddress)
+	public Entry Remove (IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
 		lock (list)
 		{
@@ -125,11 +108,33 @@ public class ServerList
 					ent.externalAddress.Equals(externalAddress))
 				{
 					list.RemoveAt(i);
-					return true;
+					return ent;
 				}
 			}
 		}
-		return false;
+		return null;
+	}
+
+	/// <summary>
+	/// Remove an existing entry from the list.
+	/// </summary>
+
+	public Entry Remove (TcpProtocol tcp)
+	{
+		lock (list)
+		{
+			for (int i = 0; i < list.size; ++i)
+			{
+				Entry ent = list[i];
+
+				if (ent.tcp == tcp)
+				{
+					list.RemoveAt(i);
+					return ent;
+				}
+			}
+		}
+		return null;
 	}
 
 	/// <summary>

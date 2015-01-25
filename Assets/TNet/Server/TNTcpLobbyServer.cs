@@ -142,18 +142,20 @@ public class TcpLobbyServer : LobbyServer
 			Buffer buffer = null;
 
 			// Remove stale entries
-			for (int i = mList.list.size; i > 0; )
+			lock (mList.list)
 			{
-				ServerList.Entry ent = mList.list[--i];
-				TcpProtocol tc = ent.data as TcpProtocol;
-
-				if (tc == null || !tc.isConnected || !mTcp.Contains(tc))
+				for (int i = mList.list.size; i > 0; )
 				{
+					ServerList.Entry ent = mList.list[--i];
+
+					if (ent.tcp == null || !ent.tcp.isConnected || !mTcp.Contains(ent.tcp))
+					{
 #if STANDALONE
-					Tools.Print("WARNING: Removing a stale server at " + ent.externalAddress);
+						Tools.Print("[-] " + ent.name);
 #endif
-					mList.list.RemoveAt(i);
-					mLastChange = mTime;
+						mList.list.RemoveAt(i);
+						mLastChange = mTime;
+					}
 				}
 			}
 
@@ -194,6 +196,12 @@ public class TcpLobbyServer : LobbyServer
 				}
 			}
 
+			if (buffer != null)
+			{
+				buffer.Recycle();
+				buffer = null;
+			}
+
 			// We only want to send instant updates if the number of players is under a specific threshold
 			if (mTcp.size > instantUpdatesClientLimit) mInstantUpdates = false;
 
@@ -220,7 +228,7 @@ public class TcpLobbyServer : LobbyServer
 				{
 					buffer = Buffer.Create();
 					BinaryWriter writer = buffer.BeginPacket(Packet.ResponseServerList);
-					mList.WriteTo(writer);
+					lock (mList.list) mList.WriteTo(writer);
 					buffer.EndPacket();
 				}
 				tc.SendTcpPacket(buffer);
@@ -276,11 +284,7 @@ public class TcpLobbyServer : LobbyServer
 				if (ent.externalAddress.Address.Equals(IPAddress.None))
 					ent.externalAddress = tc.tcpEndPoint;
 
-				mList.Add(ent, mTime).data = tc;
-				mLastChange = mTime;
-#if STANDALONE
-				Tools.Print(tc.address + " added a server (" + ent.internalAddress + ", " + ent.externalAddress + ")");
-#endif
+				AddServer(ent, tc);
 				return true;
 			}
 			case Packet.RequestRemoveServer:
@@ -294,18 +298,11 @@ public class TcpLobbyServer : LobbyServer
 					externalAddress = tc.tcpEndPoint;
 
 				RemoveServer(internalAddress, externalAddress);
-#if STANDALONE
-				Tools.Print(tc.address + " removed a server (" + internalAddress + ", " + externalAddress + ")");
-#endif
 				return true;
 			}
 			case Packet.Disconnect:
 			{
-#if STANDALONE
-				if (RemoveServer(tc)) Tools.Print(tc.address + " has disconnected");
-#else
 				RemoveServer(tc);
-#endif
 				mTcp.Remove(tc);
 				return true;
 			}
@@ -340,9 +337,7 @@ public class TcpLobbyServer : LobbyServer
 			}
 			case Packet.Error:
 			{
-#if STANDALONE
-				Tools.Print(tc.address + " error: " + reader.ReadString());
-#endif
+				if (RemoveServer(tc)) Tools.Print(tc.address + " error: " + reader.ReadString());
 				return false;
 			}
 		}
@@ -356,25 +351,33 @@ public class TcpLobbyServer : LobbyServer
 	/// Remove all entries added by the specified client.
 	/// </summary>
 
-	bool RemoveServer (Player player)
+	bool RemoveServer (TcpProtocol tcp)
 	{
-		bool changed = false;
+		ServerList.Entry ent = mList.Remove(tcp);
 
-		lock (mList.list)
+		if (ent != null)
 		{
-			for (int i = mList.list.size; i > 0; )
-			{
-				ServerList.Entry ent = mList.list[--i];
-
-				if (ent.data == player)
-				{
-					mList.list.RemoveAt(i);
-					mLastChange = mTime;
-					changed = true;
-				}
-			}
+			mLastChange = mTime;
+#if STANDALONE
+			Tools.Print("[-] " + ent.name);
+#endif
+			return true;
 		}
-		return changed;
+		return false;
+	}
+
+	/// <summary>
+	/// Add a new server to the list.
+	/// </summary>
+
+	public void AddServer (ServerList.Entry ent, TcpProtocol tcp)
+	{
+		mLastChange = mTime;
+		ent = mList.Add(ent, mTime);
+		ent.tcp = tcp;
+#if STANDALONE
+		Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
+#endif
 	}
 
 	/// <summary>
@@ -383,8 +386,13 @@ public class TcpLobbyServer : LobbyServer
 
 	public override void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
 		mLastChange = mTime;
+#if STANDALONE
+		ServerList.Entry ent = mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
+		Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
+#else
+		mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
+#endif
 	}
 
 	/// <summary>
@@ -393,8 +401,15 @@ public class TcpLobbyServer : LobbyServer
 
 	public override void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		if (mList.Remove(internalAddress, externalAddress))
+		ServerList.Entry ent = mList.Remove(internalAddress, externalAddress);
+
+		if (ent != null)
+		{
 			mLastChange = mTime;
+#if STANDALONE
+			Tools.Print("[-] " + ent.name);
+#endif
+		}
 	}
 }
 }

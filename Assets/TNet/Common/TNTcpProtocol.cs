@@ -755,7 +755,7 @@ public class TcpProtocol : Player
 
 				stage = TcpProtocol.Stage.Connected;
 #if STANDALONE
-				Tools.Print("[" + id + "] " + name + " has connected");
+				if (id != 0) Tools.Print("[" + id + "] " + name + " has connected");
 #endif
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);
