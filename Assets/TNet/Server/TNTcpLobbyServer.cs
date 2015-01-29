@@ -159,7 +159,7 @@ public class TcpLobbyServer : LobbyServer
 						tc.Disconnect();
 					}
 #else
-					catch (System.Exception) tc.Disconnect();
+					catch (System.Exception) { tc.Disconnect(); }
 #endif
 					if (buffer != null)
 					{
