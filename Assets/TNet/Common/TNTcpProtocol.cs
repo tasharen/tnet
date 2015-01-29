@@ -128,6 +128,7 @@ public class TcpProtocol : Player
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
 		Disconnect();
+		data = null;
 
 		Buffer.Recycle(mIn);
 		Buffer.Recycle(mOut);
@@ -341,7 +342,6 @@ public class TcpProtocol : Player
 	{
 		Buffer.Recycle(mOut);
 		stage = Stage.NotConnected;
-		data = null;
 
 		if (mReceiveBuffer != null)
 		{
@@ -383,6 +383,7 @@ public class TcpProtocol : Player
 				Buffer.Recycle(mIn);
 			}
 		}
+		data = null;
 	}
 
 	/// <summary>

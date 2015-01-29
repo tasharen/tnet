@@ -20,10 +20,10 @@ namespace TNet
 public class TcpLobbyServer : LobbyServer
 {
 	// List of servers that's currently being updated
-	ServerList mList = new ServerList();
 	long mTime = 0;
 	long mLastChange = 0;
 	List<TcpProtocol> mTcp = new List<TcpProtocol>();
+	ServerList mList = new ServerList();
 	TcpListener mListener;
 	int mPort = 0;
 	Thread mThread;
@@ -95,7 +95,6 @@ public class TcpLobbyServer : LobbyServer
 			mListener.Stop();
 			mListener = null;
 		}
-		mList.Clear();
 	}
 
 	/// <summary>
@@ -141,26 +140,8 @@ public class TcpLobbyServer : LobbyServer
 
 			Buffer buffer = null;
 
-			// Remove stale entries
-			lock (mList.list)
-			{
-				for (int i = mList.list.size; i > 0; )
-				{
-					ServerList.Entry ent = mList.list[--i];
-
-					if (ent.tcp == null || !ent.tcp.isConnected || !mTcp.Contains(ent.tcp))
-					{
-#if STANDALONE
-						Tools.Print("[-] " + ent.name);
-#endif
-						mList.list.RemoveAt(i);
-						mLastChange = mTime;
-					}
-				}
-			}
-
 			// Process incoming TCP packets
-			for (int i = 0; i < mTcp.size; ++i)
+			for (int i = 0; i < mTcp.size; )
 			{
 				TcpProtocol tc = mTcp[i];
 
@@ -169,24 +150,16 @@ public class TcpLobbyServer : LobbyServer
 					try
 					{
 						if (!ProcessPacket(buffer, tc))
-						{
-							RemoveServer(tc);
 							tc.Disconnect();
-						}
 					}
 #if STANDALONE
 					catch (System.Exception ex)
 					{
 						Tools.Print("ERROR: " + ex.Message);
-						RemoveServer(tc);
 						tc.Disconnect();
 					}
 #else
-					catch (System.Exception)
-					{
-						RemoveServer(tc);
-						tc.Disconnect();
-					}
+					catch (System.Exception) tc.Disconnect();
 #endif
 					if (buffer != null)
 					{
@@ -194,6 +167,13 @@ public class TcpLobbyServer : LobbyServer
 						buffer = null;
 					}
 				}
+
+				if (tc.stage == TcpProtocol.Stage.NotConnected)
+				{
+					RemoveServer(tc);
+					mTcp.RemoveAt(i);
+				}
+				else ++i;
 			}
 
 			if (buffer != null)
@@ -209,27 +189,56 @@ public class TcpLobbyServer : LobbyServer
 			for (int i = 0; i < mTcp.size; ++i)
 			{
 				TcpProtocol tc = mTcp[i];
-				if (tc.stage != TcpProtocol.Stage.Connected || tc.data == null || !(tc.data is long)) continue;
 
-				long customTimestamp = (long)tc.data;
+				// Skip clients that have not yet verified themselves
+				if (tc.stage != TcpProtocol.Stage.Connected) continue;
+
+				// Skip server links (data being a timestamp)
+				if (tc.data == null || !(tc.data is long)) continue;
+
+				long lastSendTime = (long)tc.data;
 
 				// If timestamp was set then the list was already sent previously
-				if (customTimestamp != 0)
+				if (lastSendTime != 0)
 				{
 					// List hasn't changed -- do nothing
-					if (customTimestamp >= mLastChange) continue;
+					if (lastSendTime >= mLastChange) continue;
 					
 					// Too many clients: we want the updates to be infrequent
-					if (!mInstantUpdates && customTimestamp + 4000 > mTime) continue;
+					if (!mInstantUpdates && lastSendTime + 4000 > mTime) continue;
 				}
 
 				// Create the server list packet
 				if (buffer == null)
 				{
-					buffer = Buffer.Create();
-					BinaryWriter writer = buffer.BeginPacket(Packet.ResponseServerList);
-					lock (mList.list) mList.WriteTo(writer);
-					buffer.EndPacket();
+					lock (mList.list)
+					{
+						buffer = Buffer.Create();
+						BinaryWriter writer = buffer.BeginPacket(Packet.ResponseServerList);
+
+						int serverCount = mList.list.size;
+
+						for (int b = 0; b < mTcp.size; ++b)
+						{
+							if (!mTcp[b].isConnected) continue;
+							ServerList.Entry ent = (mTcp[b].data as ServerList.Entry);
+							if (ent != null) ++serverCount;
+						}
+
+						writer.Write(GameServer.gameID);
+						writer.Write((ushort)serverCount);
+
+						for (int b = 0; b < mList.list.size; ++b)
+							mList.list[b].WriteTo(writer);
+
+						for (int b = 0; b < mTcp.size; ++b)
+						{
+							if (!mTcp[b].isConnected) continue;
+							ServerList.Entry ent = (mTcp[b].data as ServerList.Entry);
+							if (ent != null) ent.WriteTo(writer);
+						}
+						buffer.EndPacket();
+					}
 				}
 				tc.SendTcpPacket(buffer);
 				tc.data = mTime;
@@ -293,18 +302,12 @@ public class TcpLobbyServer : LobbyServer
 				IPEndPoint internalAddress, externalAddress;
 				Tools.Serialize(reader, out internalAddress);
 				Tools.Serialize(reader, out externalAddress);
-
-				if (externalAddress.Address.Equals(IPAddress.None))
-					externalAddress = tc.tcpEndPoint;
-
-				RemoveServer(internalAddress, externalAddress);
+				RemoveServer(tc);
 				return true;
 			}
 			case Packet.Disconnect:
 			{
-				RemoveServer(tc);
-				mTcp.Remove(tc);
-				return true;
+				return false;
 			}
 			case Packet.RequestSaveFile:
 			{
@@ -337,7 +340,6 @@ public class TcpLobbyServer : LobbyServer
 			}
 			case Packet.Error:
 			{
-				if (RemoveServer(tc)) Tools.Print(tc.address + " error: " + reader.ReadString());
 				return false;
 			}
 		}
@@ -353,11 +355,12 @@ public class TcpLobbyServer : LobbyServer
 
 	bool RemoveServer (TcpProtocol tcp)
 	{
-		ServerList.Entry ent = mList.Remove(tcp);
+		ServerList.Entry ent = tcp.data as ServerList.Entry;
 
 		if (ent != null)
 		{
 			mLastChange = mTime;
+			tcp.data = null;
 #if STANDALONE
 			Tools.Print("[-] " + ent.name);
 #endif
@@ -370,11 +373,11 @@ public class TcpLobbyServer : LobbyServer
 	/// Add a new server to the list.
 	/// </summary>
 
-	public void AddServer (ServerList.Entry ent, TcpProtocol tcp)
+	void AddServer (ServerList.Entry ent, TcpProtocol tcp)
 	{
 		mLastChange = mTime;
-		ent = mList.Add(ent, mTime);
-		ent.tcp = tcp;
+		ent.recordTime = mTime;
+		tcp.data = ent;
 #if STANDALONE
 		Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
 #endif

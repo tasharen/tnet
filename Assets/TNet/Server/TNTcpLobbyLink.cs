@@ -94,14 +94,20 @@ public class TcpLobbyServerLink : LobbyServerLink
 			{
 				mTcp.Disconnect();
 				mThread = null;
+#if STANDALONE
+				Tools.Print("TcpLobbyLink shut down");
+#endif
 				break;
 			}
 
 			Buffer buffer;
 
 			// Try to establish a connection
-			if (mGameServer != null && !mTcp.isConnected && mNextConnect < time)
+			if (mGameServer != null && !mTcp.isConnected && !mTcp.isTryingToConnect && mNextConnect < time)
 			{
+#if STANDALONE
+				Tools.Print("TcpLobbyLink is connecting to " + mRemoteAddress + "...");
+#endif
 				mUpdateNeeded = true;
 				mNextConnect = time + 15000;
 				mTcp.Connect(mRemoteAddress);
@@ -118,31 +124,34 @@ public class TcpLobbyServerLink : LobbyServerLink
 					{
 						mTimeDifference = reader.ReadInt64() - (System.DateTime.UtcNow.Ticks / 10000);
 						mWasConnected = true;
+#if STANDALONE
+						Tools.Print("TcpLobbyLink connection established");
+#endif
 					}
 					else
 					{
 #if STANDALONE
-						Tools.Print("TcpLobbyLink: Protocol version mismatch");
+						Tools.Print("TcpLobbyLink Error: Protocol version mismatch");
 #endif
 						mThread = null;
 						return;
 					}
 				}
-				else
-				{
-					// Automatically try to re-establish a connection on disconnect
-					mNextConnect = mWasConnected ? time + 1000 : time + 30000;
 #if STANDALONE
-					if (response == Packet.Error)
-						Tools.Print("TcpLobbyLink: " + reader.ReadString());
-					else if (response != Packet.Disconnect)
-						Tools.Print("TcpLobbyLink can't handle this packet: " + response);
+				else if (response == Packet.Error) Tools.Print("TcpLobbyLink Error: " + reader.ReadString());
+				else if (response == Packet.Disconnect) Tools.Print("TcpLobbyLink disconnected");
+				else Tools.Print("TcpLobbyLink can't handle this packet: " + response);
 #endif
-				}
 				buffer.Recycle();
 			}
 
-			if (mGameServer != null && mUpdateNeeded && mTcp.isConnected)
+			// Automatically try to re-establish a connection on disconnect
+			if (mWasConnected && !mTcp.isConnected && !mTcp.isTryingToConnect)
+			{
+				mNextConnect = time + 5000;
+				mWasConnected = false;
+			}
+			else if (mGameServer != null && mUpdateNeeded && mTcp.isConnected)
 			{
 				mUpdateNeeded = false;
 				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);

@@ -87,6 +87,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 					}
 					else if (response == Packet.ResponseServerList)
 					{
+						lock (knownServers.list) knownServers.list.Clear();
 						knownServers.ReadFrom(reader, time);
 						changed = true;
 					}

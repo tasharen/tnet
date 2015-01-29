@@ -933,9 +933,13 @@ public class GameClient
 			case Packet.ResponsePlayerLeft:
 			{
 				Player p = GetPlayer(reader.ReadInt32());
-				if (p != null) mDictionary.Remove(p.id);
-				players.Remove(p);
-				if (onPlayerLeft != null) onPlayerLeft(p);
+
+				if (p != null)
+				{
+					mDictionary.Remove(p.id);
+					players.Remove(p);
+					if (onPlayerLeft != null) onPlayerLeft(p);
+				}
 				break;
 			}
 			case Packet.ResponsePlayerJoined:

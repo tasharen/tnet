@@ -23,7 +23,6 @@ public class ServerList
 		public IPEndPoint externalAddress;
 
 		[System.NonSerialized] public long recordTime;
-		[System.NonSerialized] public TcpProtocol tcp;
 
 		public void WriteTo (BinaryWriter writer)
 		{
@@ -106,28 +105,6 @@ public class ServerList
 
 				if (ent.internalAddress.Equals(internalAddress) &&
 					ent.externalAddress.Equals(externalAddress))
-				{
-					list.RemoveAt(i);
-					return ent;
-				}
-			}
-		}
-		return null;
-	}
-
-	/// <summary>
-	/// Remove an existing entry from the list.
-	/// </summary>
-
-	public Entry Remove (TcpProtocol tcp)
-	{
-		lock (list)
-		{
-			for (int i = 0; i < list.size; ++i)
-			{
-				Entry ent = list[i];
-
-				if (ent.tcp == tcp)
 				{
 					list.RemoveAt(i);
 					return ent;
