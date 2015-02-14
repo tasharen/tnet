@@ -210,6 +210,12 @@ public class Buffer
 	}
 
 	/// <summary>
+	/// Release all currently unused memory sitting in the memory pool.
+	/// </summary>
+
+	static public void ReleaseUnusedMemory () { lock (mPool) mPool.Release(); }
+
+	/// <summary>
 	/// Mark the buffer as being in use.
 	/// </summary>
 
@@ -221,10 +227,10 @@ public class Buffer
 
 	public void Clear ()
 	{
-		mCounter = 0;
 		mSize = 0;
-		if (mStream.Capacity > 1024) mStream.SetLength(256);
-		mStream.Seek(0, SeekOrigin.Begin);
+		mCounter = 0;
+		if (mStream.Capacity > 1024) mStream = null;
+		else mStream.Seek(0, SeekOrigin.Begin);
 		mWriting = true;
 	}
 

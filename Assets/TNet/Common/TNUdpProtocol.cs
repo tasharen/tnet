@@ -209,7 +209,15 @@ public class UdpProtocol
 		if (mSocket != null)
 		{
 			mEndPoint = mDefaultEndPoint;
-			mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
+
+			try
+			{
+				mSocket.BeginReceiveFrom(mTemp, 0, mTemp.Length, SocketFlags.None, ref mEndPoint, OnReceive, null);
+			}
+			catch (System.Exception ex)
+			{
+				Error(new IPEndPoint(Tools.localAddress, 0), ex.Message);
+			}
 		}
 	}
 #endif

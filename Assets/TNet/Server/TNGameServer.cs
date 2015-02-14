@@ -1078,7 +1078,11 @@ public class GameServer : FileServer
 			}
 			case Packet.ServerLog:
 			{
+#if UNITY_EDITOR
+				reader.ReadString();
+#else
 				Tools.Print("[" + player.id + "] " + reader.ReadString());
+#endif
 				break;
 			}
 			case Packet.RequestSetTimeout:

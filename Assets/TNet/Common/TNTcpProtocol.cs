@@ -303,8 +303,6 @@ public class TcpProtocol : Player
 
 	public void Disconnect (bool notify)
 	{
-		if (!isConnected) return;
-
 		try
 		{
 			lock (mConnecting)

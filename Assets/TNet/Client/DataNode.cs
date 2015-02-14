@@ -3,6 +3,8 @@
 // Copyright © 2011-2015 Tasharen Entertainment
 //----------------------------------------------
 
+//#define LZMA
+
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
 #endif
@@ -54,6 +56,24 @@ public interface IDataNodeSerializable
 [Serializable]
 public class DataNode
 {
+#if LZMA
+	public enum SaveType
+	{
+		Text,
+		Binary,
+		Compressed,
+	}
+
+	// Must remain 4 bytes long
+	static byte[] mLZMA = new byte[] { (byte)'C', (byte)'D', (byte)'0', (byte)'1' };
+#else
+	public enum SaveType
+	{
+		Text,
+		Binary,
+	}
+#endif
+
 	// Actual saved value
 	object mValue = null;
 
@@ -278,29 +298,42 @@ public class DataNode
 	/// Write the node hierarchy to the specified filename.
 	/// </summary>
 
-	public void Write (string path) { Write(path, false); }
-
-	/// <summary>
-	/// Read the node hierarchy from the specified file.
-	/// </summary>
-
-	static public DataNode Read (string path) { return Read(path, false); }
+	[System.Obsolete("Use DataNode.Write(path, SaveType)")]
+	public void Write (string path, bool binary) { Write(path, binary ? SaveType.Binary : SaveType.Text); }
 
 	/// <summary>
 	/// Write the node hierarchy to the specified filename.
 	/// </summary>
 
-	public void Write (string path, bool binary)
+	public void Write (string path, SaveType type = SaveType.Text)
 	{
 		MemoryStream stream = new MemoryStream();
 
-		if (binary)
+		if (type == SaveType.Binary)
 		{
 			BinaryWriter writer = new BinaryWriter(stream);
 			writer.WriteObject(this);
 			Tools.WriteFile(path, stream.ToArray(), false);
 			writer.Close();
 		}
+#if LZMA
+		else if (type == SaveType.Compressed)
+		{
+			BinaryWriter writer = new BinaryWriter(stream);
+			writer.WriteObject(this);
+
+			stream.Position = 0;
+			MemoryStream comp = LZMA.Compress(stream, mLZMA);
+
+			if (comp != null)
+			{
+				Tools.WriteFile(path, comp.ToArray(), false);
+				comp.Close();
+			}
+			else Tools.WriteFile(path, stream.ToArray(), false);
+			writer.Close();
+		}
+#endif
 		else
 		{
 			StreamWriter writer = new StreamWriter(stream);
@@ -312,47 +345,106 @@ public class DataNode
 
 	/// <summary>
 	/// Read the node hierarchy from the specified file.
+	/// Kept for backwards compatibility. In most cases you will want to use the generic Read(path) function instead.
 	/// </summary>
 
-	static public DataNode Read (string path, bool binary)
+	[System.Obsolete("The 'binary' parameter is no longer needed. Use DataNode.Read(path) instead.")]
+	static public DataNode Read (string path, bool binary) { return Read(path); }
+
+	/// <summary>
+	/// Read the node hierarchy from the specified file.
+	/// </summary>
+
+	static public DataNode Read (string path)
 	{
-		if (binary)
+		FileStream stream = File.OpenRead(path);
+		int length = (int)stream.Seek(0, SeekOrigin.End);
+
+		if (length < 4)
 		{
-			FileStream stream = File.OpenRead(path);
-			BinaryReader reader = new BinaryReader(stream);
-			DataNode node = reader.ReadObject<DataNode>();
-			reader.Close();
-			return node;
+			stream.Close();
+			return null;
 		}
-		else
-		{
-			StreamReader reader = new StreamReader(path);
-			DataNode node = Read(reader);
-			reader.Close();
-			return node;
-		}
+		else stream.Seek(0, SeekOrigin.Begin);
+
+		byte[] bytes = new byte[length];
+		stream.Read(bytes, 0, length);
+		stream.Close();
+		return Read(bytes);
 	}
 
 	/// <summary>
 	/// Read the node hierarchy from the specified buffer.
 	/// </summary>
 
-	static public DataNode Read (byte[] bytes, bool binary)
+	static public DataNode Read (byte[] data)
 	{
-		if (bytes == null || bytes.Length == 0) return null;
-		MemoryStream stream = new MemoryStream(bytes);
+		if (data == null || data.Length < 4) return null;
 
-		if (binary)
+		SaveType type = SaveType.Binary;
+
+		if (data[0] == 'V' && data[1] == 'e' && data[2] == 'r' && data[3] == 's')
 		{
-			BinaryReader reader = new BinaryReader(stream);
-			DataNode node = reader.ReadObject<DataNode>();
+			type = SaveType.Text;
+		}
+		else if (data[0] == 'R' && data[1] == 'o' && data[2] == 'o' && data[3] == 't')
+		{
+			type = SaveType.Text;
+		}
+#if LZMA
+		else if (data[0] == mLZMA[0] && data[1] == mLZMA[1] && data[2] == mLZMA[2] && data[3] == mLZMA[3])
+		{
+			type = SaveType.Compressed;
+		}
+#endif
+		return Read(data, type);
+	}
+
+	/// <summary>
+	/// Read the node hierarchy from the specified buffer. Kept for backwards compatibility.
+	/// In most cases you will want to use the Read(bytes) function instead.
+	/// </summary>
+
+	[System.Obsolete("The 'binary' parameter is no longer used. Use DataNode.Read(bytes) instead")]
+	static public DataNode Read (byte[] bytes, bool binary) { return Read(bytes); }
+
+	/// <summary>
+	/// Read the node hierarchy from the specified buffer.
+	/// </summary>
+
+	static public DataNode Read (byte[] bytes, SaveType type)
+	{
+		if (bytes == null || bytes.Length < 4) return null;
+
+		if (type == SaveType.Text)
+		{
+			MemoryStream stream = new MemoryStream(bytes);
+			StreamReader reader = new StreamReader(stream);
+			DataNode node = Read(reader);
 			reader.Close();
 			return node;
 		}
-		else
+#if LZMA
+		else if (type == SaveType.Compressed)
 		{
-			StreamReader reader = new StreamReader(stream);
-			DataNode node = Read(reader);
+			bool skipPrefix = true;
+
+			for (int i = 0; i < 4; ++i)
+			{
+				if (bytes[i] != mLZMA[i])
+				{
+					skipPrefix = false;
+					break;
+				}
+			}
+
+			bytes = LZMA.Decompress(bytes, skipPrefix ? 4 : 0);
+		}
+#endif
+		{
+			MemoryStream stream = new MemoryStream(bytes);
+			BinaryReader reader = new BinaryReader(stream);
+			DataNode node = reader.ReadObject<DataNode>();
 			reader.Close();
 			return node;
 		}
@@ -362,7 +454,20 @@ public class DataNode
 	/// Just here for consistency.
 	/// </summary>
 
-	public void Write (BinaryWriter writer) { writer.WriteObject(this); }
+	public void Write (BinaryWriter writer, bool compressed = false)
+	{
+#if LZMA
+		if (compressed)
+		{
+			LZMA lzma = new LZMA();
+			lzma.BeginWriting().WriteObject(this);
+			for (int i = 0; i < 4; ++i) writer.Write(mLZMA[i]);
+			writer.Write(lzma.Compress());
+		}
+		else
+#endif
+			writer.WriteObject(this);
+	}
 
 	/// <summary>
 	/// Write the node hierarchy to the stream reader, saving it in text format.
@@ -476,8 +581,13 @@ public class DataNode
 			writer.Write((bool)value ? "true" : "false");
 			writer.Write('\n');
 		}
-		else if (type == typeof(Int32) || type == typeof(float) || type == typeof(UInt32) ||
-			type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+		else if (type == typeof(float))
+		{
+			if (name != null) writer.Write(" = ");
+			writer.Write(((float)value).ToString(CultureInfo.InvariantCulture));
+			writer.Write('\n');
+		}
+		else if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
 		{
 			if (name != null) writer.Write(" = ");
 			writer.Write(value.ToString());
@@ -788,7 +898,7 @@ public class DataNode
 				{
 					float f;
 
-					if (float.TryParse(line, out f))
+					if (float.TryParse(line, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
 					{
 						mValue = f;
 						return true;
