@@ -1,6 +1,6 @@
 //----------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //----------------------------------------------
 
 // Note on the UDP lobby: Although it's a better choice than TCP (and plus it allows LAN broadcasts),
@@ -55,9 +55,8 @@ public class Application : IDisposable
 
 		Console.WriteLine(text + "\n");
 		{
-			// You don't have to Start() and WaitForThreads(). TNet will do it for you when you try to open a port via UPnP.
-			// It is good practice to have UPnP resolved before trying to use it though. This way there is no delay when
-			// you try to open a port.
+			// Universal Plug & Play is used to determine the external IP address,
+			// and to automatically open up ports on the router / gateway.
 			mUPnP = new UPnP();
 			mUPnP.Start();
 			mUPnP.WaitForThreads();
@@ -233,21 +232,20 @@ public class Application : IDisposable
 		if (args == null || args.Length == 0)
 		{
 			Console.WriteLine("No arguments specified, assuming default values.");
-			Console.WriteLine("In the future you can specify your own ports like so:\n");
-			Console.WriteLine("   -name \"Your Server\"         <-- Name your server");
-			Console.WriteLine("   -tcp [port]                 <-- TCP port for clients to connect to");
-			Console.WriteLine("   -udp [port]                 <-- UDP port used for communication");
-			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
-			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
-			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
-			Console.WriteLine("   -service                    <-- Run it as a service");
+			Console.WriteLine("In the future you can specify arguments like these:\n");
+			Console.WriteLine("   -name \"Your Server\"      <-- Name your server");
+			Console.WriteLine("   -world \"Your World\"      <-- World to choose");
+			Console.WriteLine("   -tcp [port]              <-- TCP port for clients to connect to");
+			Console.WriteLine("   -public                  <-- Make the server public");
+			Console.WriteLine("   -service                 <-- Run it as a service");
 			Console.WriteLine("\nFor example:");
-			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
+			Console.WriteLine("  WWServer -name \"My Server\" -tcp 5127 -public");
 
-			args = new string[] { "-name", "TNet Server", "-tcp", "5127", "-udp", "5128", "-udpLobby", "5129" };
+			args = new string[] { "-name", "Windward Server", "-tcp", "5127", "-world", "World" };
 		}
 
-		string serverName = "TNet Server";
+		string serverName = "Windward Server";
+		string worldName = "World";
 		int tcpPort = 0;
 		int udpPort = 0;
 		string lobbyAddress = null;
@@ -274,6 +272,10 @@ public class Application : IDisposable
 			if (param == "-name")
 			{
 				if (val0 != null) serverName = val0;
+			}
+			else if (param == "-world")
+			{
+				if (val0 != null) worldName = val0;
 			}
 			else if (param == "-tcp")
 			{
@@ -311,6 +313,12 @@ public class Application : IDisposable
 			{
 				if (val0 != null) lobbyAddress = val0;
 			}
+			else if (param == "-public")
+			{
+				lobbyAddress = "server.tasharen.com";
+				lobbyPort = 5190;
+				tcpLobby = true;
+			}
 			else if (param == "-service")
 			{
 				service = true;
@@ -321,8 +329,10 @@ public class Application : IDisposable
 			else ++i;
 		}
 
+		if (string.IsNullOrEmpty(worldName)) worldName = "World";
+		worldName = Tools.GetDocumentsPath("Windward/Worlds/" + worldName + ".dat");
 		Application app = new Application();
-		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service);
+		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, worldName);
 		return 0;
 	}
 }
