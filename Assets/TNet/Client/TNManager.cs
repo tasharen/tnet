@@ -849,6 +849,9 @@ public class TNManager : MonoBehaviour
 
 	static public void Log (string text)
 	{
+#if UNITY_EDITOR
+		if (!TNServerInstance.isActive) Debug.Log(text);
+#endif
 		if (isConnected)
 		{
 			TNManager.BeginSend(Packet.ServerLog).Write(text);

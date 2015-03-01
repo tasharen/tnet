@@ -24,7 +24,11 @@ public class UdpProtocol
 	/// It's important to set this prior to calling StartUDP or the change won't have any effect.
 	/// </summary>
 
+#if UNITY_IPHONE
+	static public bool useMulticasting = false;
+#else
 	static public bool useMulticasting = true;
+#endif
 
 	/// <summary>
 	/// When you have multiple network interfaces, it's often important to be able to specify

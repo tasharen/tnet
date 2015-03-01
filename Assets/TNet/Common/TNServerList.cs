@@ -48,6 +48,26 @@ public class ServerList
 
 	public List<Entry> list = new List<Entry>();
 
+	static int SortByPC (Entry a, Entry b)
+	{
+		if (b.playerCount == a.playerCount) return a.name.CompareTo(b.name);
+		return b.playerCount.CompareTo(a.playerCount);
+	}
+
+	static int SortAlphabetic (Entry a, Entry b) { return a.name.CompareTo(b.name); }
+
+	/// <summary>
+	/// Sort the server list, arranging it by the number of players.
+	/// </summary>
+
+	public void SortByPlayers () { list.Sort(SortByPC); }
+
+	/// <summary>
+	/// Sort the server list, arranging entries alphabetically.
+	/// </summary>
+
+	public void SortAlphabetic () { list.Sort(SortAlphabetic); }
+
 	/// <summary>
 	/// Add a new entry to the list.
 	/// </summary>

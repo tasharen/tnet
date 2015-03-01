@@ -388,18 +388,12 @@ public class GameServer : FileServer
 						// If the player doesn't send any packets in a while, disconnect him
 						if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
 						{
-							Tools.Print(player.address + " has timed out");
 							RemovePlayer(player);
 							continue;
 						}
 					}
 					else if (player.lastReceivedTime + 2000 < mTime)
 					{
-#if STANDALONE
-						Tools.Print(player.address + " has timed out");
-#elif UNITY_EDITOR
-						UnityEngine.Debug.LogWarning(player.address + " has timed out");
-#endif
 						RemovePlayer(player);
 						continue;
 					}
@@ -901,12 +895,12 @@ public class GameServer : FileServer
 				// Join a random new channel
 				if (channelID == -1)
 				{
-					channelID = mRandom.Next(100000000);
+					channelID = 10001 + mRandom.Next(100000000);
 
 					for (int i = 0; i < 1000; ++i)
 					{
 						if (!ChannelExists(channelID)) break;
-						channelID = mRandom.Next(100000000);
+						channelID = 10001 + mRandom.Next(100000000);
 					}
 				}
 
