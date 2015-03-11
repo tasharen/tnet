@@ -350,6 +350,13 @@ public class GameServer : FileServer
 				{
 					TcpPlayer player = mPlayers[i];
 
+					// Remove disconnected players
+					if (!player.isSocketConnected)
+					{
+						RemovePlayer(player);
+						continue;
+					}
+
 					// Process up to 100 packets at a time
 					for (int b = 0; b < 100 && player.ReceivePacket(out buffer); ++b)
 					{
@@ -362,11 +369,13 @@ public class GameServer : FileServer
 									received = true;
 							}
 #if STANDALONE
-						catch (System.Exception ex)
-						{
-							Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message);
-							RemovePlayer(player);
-						}
+							catch (System.Exception ex)
+							{
+								Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message);
+								RemovePlayer(player);
+								buffer.Recycle();
+								continue;
+							}
 #else
 							catch (System.Exception ex)
 							{
@@ -375,8 +384,8 @@ public class GameServer : FileServer
 							}
 #endif
 #else
-						if (ProcessPlayerPacket(buffer, player, true))
-							received = true;
+							if (ProcessPlayerPacket(buffer, player, true))
+								received = true;
 #endif
 						}
 						buffer.Recycle();

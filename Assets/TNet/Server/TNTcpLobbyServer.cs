@@ -145,6 +145,28 @@ public class TcpLobbyServer : LobbyServer
 			{
 				TcpProtocol tc = mTcp[i];
 
+				if (!tc.isSocketConnected)
+				{
+					RemoveServer(tc);
+					mTcp.RemoveAt(i);
+					ServerList.Entry se = tc.data as ServerList.Entry;
+					if (se != null) Tools.Print("Warning: Orphaned connection detected. Removing " + se.name);
+					continue;
+				}
+				else if (tc.data is ServerList.Entry)
+				{
+					ServerList.Entry ent = tc.data as ServerList.Entry;
+					
+					if (ent != null && ent.recordTime + 30000 < mTime)
+					{
+						tc.Disconnect();
+						RemoveServer(tc);
+						mTcp.RemoveAt(i);
+						Tools.Print("Warning: Time out detected. Removing " + ent.name);
+						continue;
+					}
+				}
+
 				while (tc.ReceivePacket(out buffer))
 				{
 					try
@@ -360,10 +382,11 @@ public class TcpLobbyServer : LobbyServer
 		if (ent != null)
 		{
 			mLastChange = mTime;
-			tcp.data = null;
 #if STANDALONE
-			Tools.Print("[-] " + ent.name);
+			if (tcp.data != null)
+				Tools.Print("[-] " + ent.name);
 #endif
+			tcp.data = null;
 			return true;
 		}
 		return false;
@@ -375,12 +398,27 @@ public class TcpLobbyServer : LobbyServer
 
 	void AddServer (ServerList.Entry ent, TcpProtocol tcp)
 	{
-		mLastChange = mTime;
 		ent.recordTime = mTime;
-		tcp.data = ent;
+
+		if (ent.name == "ArenMook's Development Server #2")
+			ent.name = "Unnamed Server";
+
+		bool noChange = false;
+
+		if (tcp.data != null)
+		{
+			ServerList.Entry old = tcp.data as ServerList.Entry;
+			if (old != null && old.playerCount == ent.playerCount && old.name == ent.name)
+				noChange = true;
+		}
+
+		if (!noChange) mLastChange = mTime;
+
 #if STANDALONE
-		Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
+		if (tcp.data == null)
+			Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
 #endif
+		tcp.data = ent;
 	}
 
 	/// <summary>

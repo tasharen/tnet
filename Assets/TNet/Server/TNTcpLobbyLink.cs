@@ -23,6 +23,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 	bool mWasConnected = false;
 	long mTimeDifference = 0;
 	bool mUpdateNeeded = false;
+	long mNextSend = 0;
 
 	/// <summary>
 	/// Create a new link to a remote lobby server.
@@ -145,15 +146,17 @@ public class TcpLobbyServerLink : LobbyServerLink
 				buffer.Recycle();
 			}
 
+
 			// Automatically try to re-establish a connection on disconnect
 			if (mWasConnected && !mTcp.isConnected && !mTcp.isTryingToConnect)
 			{
 				mNextConnect = time + 5000;
 				mWasConnected = false;
 			}
-			else if (mGameServer != null && mUpdateNeeded && mTcp.isConnected)
+			else if (mGameServer != null && mTcp.isConnected && (mUpdateNeeded || mNextSend < time))
 			{
 				mUpdateNeeded = false;
+				mNextSend = time + 5000;
 				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);

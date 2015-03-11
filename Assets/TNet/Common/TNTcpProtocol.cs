@@ -77,7 +77,20 @@ public class TcpProtocol : Player
 	/// Whether the connection is currently active.
 	/// </summary>
 
-	public bool isConnected { get { return stage == Stage.Connected; } }
+	public bool isConnected { get { return stage == Stage.Connected && mSocket != null && mSocket.Connected; } }
+
+	/// <summary>
+	/// Socket used for communication.
+	/// </summary>
+
+	public Socket socket { get { return mSocket; } }
+
+	/// <summary>
+	/// Whether the socket is currently connected. A socket can be connected while verifying the connection.
+	/// In most cases you should use 'isConnected' instead.
+	/// </summary>
+
+	public bool isSocketConnected { get { return mSocket != null && mSocket.Connected; } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
