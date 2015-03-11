@@ -191,7 +191,7 @@ public class GameClient
 	IPEndPoint mPacketSource;
 
 	// Temporary, not important
-	static Buffer mBuffer;
+	Buffer mBuffer;
 
 	// Packets should not be sent in between of level-switching operations.
 	bool mCanSend = true;
