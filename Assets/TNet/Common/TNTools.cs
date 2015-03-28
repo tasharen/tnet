@@ -61,6 +61,24 @@ static public class Tools
 
 	static public int randomPort { get { return 10000 + (int)(System.DateTime.UtcNow.Ticks % 50000); } }
 
+	/// <summary>
+	/// Path to the persistent data path.
+	/// </summary>
+
+	static public string persistentDataPath
+	{
+		get
+		{
+#if UNITY_ANDROID || UNITY_IPHONE || UNITY_WEBPLAYER || UNITY_WINRT || UNITY_FLASH
+			string s = UnityEngine.Application.persistentDataPath;
+#else
+			string s = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+#endif
+			s = s.Replace("\\", "/");
+			return s;
+		}
+	}
+
 #if !UNITY_WEBPLAYER && !UNITY_WINRT
 	static List<NetworkInterface> mInterfaces = null;
 
@@ -138,7 +156,7 @@ static public class Tools
 				}
 				catch (System.Exception) {}
 #endif
-#if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX &&!UNITY_WINRT
+#if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX && !UNITY_WINRT
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
 				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
 				string hn = Dns.GetHostName();
@@ -595,15 +613,20 @@ static public class Tools
 		if (path.Contains("..")) return false;
 
 		// Get the full path
-		string fullPath = System.IO.Path.GetFullPath(path);
+		string fullPath = System.IO.Path.GetFullPath(path).Replace("\\", "/");
 
 		// Path is inside the current folder
-		string current = System.Environment.CurrentDirectory;
+		string current = System.Environment.CurrentDirectory.Replace("\\", "/");
 		if (fullPath.Contains(current)) return true;
 
 		// Path is inside My Documents
-		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
+		string docs = persistentDataPath;
+
+		if (!string.IsNullOrEmpty(applicationDirectory))
+		{
+			docs = Path.Combine(docs, applicationDirectory);
+			docs = docs.Replace("\\", "/");
+		}
 		if (fullPath.Contains(docs)) return true;
 
 		// No other paths are allowed
@@ -618,12 +641,13 @@ static public class Tools
 	static public string GetDocumentsPath (string path = null)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-		string docs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-		if (!string.IsNullOrEmpty(applicationDirectory)) docs = Path.Combine(docs, applicationDirectory);
-		return string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
-#else
-		return path;
+		string docs = persistentDataPath;
+		if (!string.IsNullOrEmpty(applicationDirectory))
+			docs = Path.Combine(docs, applicationDirectory).Replace("\\", "/");
+		path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+		path = path.Replace("\\", "/");
 #endif
+		return path;
 	}
 
 	/// <summary>
@@ -647,7 +671,15 @@ static public class Tools
 		}
 		else
 		{
-			if (!IsAllowedToAccess(path)) return false;
+			path = path.Replace("\\", "/");
+
+			if (!IsAllowedToAccess(path))
+			{
+#if !STANDALONE
+				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+#endif
+				return false;
+			}
 
 			try
 			{
@@ -670,7 +702,7 @@ static public class Tools
 				File.WriteAllBytes(path, data);
 				if (File.Exists(path)) return true;
  #if !STANDALONE
-				UnityEngine.Debug.LogWarning("Unable to write " + path);
+				UnityEngine.Debug.LogWarning("Unable to write to " + path);
  #endif
 			}
  #if STANDALONE
@@ -679,6 +711,8 @@ static public class Tools
 			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
  #endif
 		}
+#elif !STANDALONE
+		UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 		return false;
 	}
@@ -736,7 +770,7 @@ static public class Tools
 		{
 			if (!IsAllowedToAccess(path)) return null;
 			if (string.IsNullOrEmpty(path)) return null;
-			if (File.Exists(path)) return path;
+			if (File.Exists(path)) return path.Replace("\\", "/");
 			path = GetDocumentsPath(path);
 			if (File.Exists(path)) return path;
 		}

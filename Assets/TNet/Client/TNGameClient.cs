@@ -245,6 +245,12 @@ public class GameClient
 	public bool isInChannel { get { return mIsInChannel && mTcp.isConnected; } }
 
 	/// <summary>
+	/// TCP end point, available only if we're actually connected to a server.
+	/// </summary>
+
+	public IPEndPoint tcpEndPoint { get { return mTcp.isConnected ? mTcp.tcpEndPoint : null; } }
+
+	/// <summary>
 	/// Port used to listen for incoming UDP packets. Set via StartUDP().
 	/// </summary>
 

@@ -160,6 +160,12 @@ public class TNManager : MonoBehaviour
 	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSource : null; } }
 
 	/// <summary>
+	/// TCP end point, available only if we're actually connected to the server.
+	/// </summary>
+
+	static public IPEndPoint tcpEndPoint { get { return (mInstance != null) ? mInstance.mClient.tcpEndPoint : null; } }
+
+	/// <summary>
 	/// Custom data associated with the channel.
 	/// </summary>
 

@@ -356,6 +356,9 @@ public class UPnP
 			string addr = Tools.localAddress.ToString();
 			if (addr == "127.0.0.1") return;
 
+#if UNITY_EDITOR
+			UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port);
+#endif
 			mPorts.Add(id);
 
 			ExtraParams xp = new ExtraParams();
