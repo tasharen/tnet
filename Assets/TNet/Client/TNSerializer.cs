@@ -163,6 +163,7 @@ public static class Serialization
 		if (value == null) return null;
 
 		Type valueType = value.GetType();
+		if (valueType == desiredType) return value;
 		if (desiredType.IsAssignableFrom(valueType)) return value;
 
 		if (valueType == typeof(int))

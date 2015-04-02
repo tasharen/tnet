@@ -49,7 +49,9 @@ public class TNManager : MonoBehaviour
 	public GameObject[] objects;
 
 	// Network client
-	GameClient mClient = new GameClient();
+	[System.NonSerialized] GameClient mClient = new GameClient();
+	[System.NonSerialized] bool mAsyncLoad = false;
+	[System.NonSerialized] bool mJoining = false;
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -68,7 +70,7 @@ public class TNManager : MonoBehaviour
 	/// then 'false' just before OnNetworkJoinChannel was gets out.
 	/// </summary>
 
-	static public bool isJoiningChannel { get { return mInstance != null && mInstance.mClient.isSwitchingScenes; } }
+	static public bool isJoiningChannel { get { return mInstance != null && (mInstance.mJoining || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes); } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -86,7 +88,7 @@ public class TNManager : MonoBehaviour
 	/// Whether the player is currently in a channel.
 	/// </summary>
 
-	static public bool isInChannel { get { return mInstance != null && mInstance.mClient.isConnected && mInstance.mClient.isInChannel; } }
+	static public bool isInChannel { get { return !isJoiningChannel && mInstance.mClient.isConnected && mInstance.mClient.isInChannel; } }
 
 	/// <summary>
 	/// You can pause TNManager's message processing if you like.
@@ -405,8 +407,9 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, string levelName)
 	{
-		if (mInstance != null)
+		if (mInstance != null && TNManager.isConnected)
 		{
+			mInstance.mJoining = true;
 			mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 		}
 		else Application.LoadLevel(levelName);
@@ -425,6 +428,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
+			mInstance.mJoining = true;
 			mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
@@ -440,8 +444,9 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null)
+		if (mInstance != null && TNManager.isConnected)
 		{
+			mInstance.mJoining = true;
 			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
 		}
 	}
@@ -456,8 +461,9 @@ public class TNManager : MonoBehaviour
 
 	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (mInstance != null)
+		if (mInstance != null && TNManager.isConnected)
 		{
+			mInstance.mJoining = true;
 			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
@@ -881,25 +887,65 @@ public class TNManager : MonoBehaviour
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	static public void EndSend () { mInstance.mClient.EndSend(true); }
+	static public void EndSend ()
+	{
+		if (!isJoiningChannel) mInstance.mClient.EndSend(true);
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
+		}
+	}
 
 	/// <summary>
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	static public void EndSend (bool reliable) { mInstance.mClient.EndSend(reliable); }
+	static public void EndSend (bool reliable)
+	{
+		if (!isJoiningChannel) mInstance.mClient.EndSend(reliable);
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
+		}
+	}
 
 	/// <summary>
 	/// Broadcast the packet to everyone on the LAN.
 	/// </summary>
 
-	static public void EndSend (int port) { mInstance.mClient.EndSend(port); }
+	static public void EndSend (int port)
+	{
+		if (!isJoiningChannel) mInstance.mClient.EndSend(port);
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
+		}
+	}
 
 	/// <summary>
 	/// Broadcast the packet to the specified endpoint via UDP.
 	/// </summary>
 
-	static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
+	static public void EndSend (IPEndPoint target)
+	{
+		if (!isJoiningChannel) mInstance.mClient.EndSend(target);
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
+		}
+	}
 
 #region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
@@ -1145,7 +1191,7 @@ public class TNManager : MonoBehaviour
 	/// Process incoming packets in the update function.
 	/// </summary>
 
-	void Update () { mClient.ProcessPackets(); }
+	void Update () { if (!mAsyncLoad) mClient.ProcessPackets(); }
 
 #endregion
 #region Callbacks -- Modify these if you don't like the broadcast approach
@@ -1166,13 +1212,23 @@ public class TNManager : MonoBehaviour
 	/// Notification that happens when the client gets disconnected from the server.
 	/// </summary>
 
-	void OnDisconnect () { UnityTools.Broadcast("OnNetworkDisconnect"); }
+	void OnDisconnect ()
+	{
+		mAsyncLoad = false;
+		mJoining = false;
+		UnityTools.Broadcast("OnNetworkDisconnect");
+	}
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message) { UnityTools.Broadcast("OnNetworkJoinChannel", success, message); }
+	void OnJoinChannel (bool success, string message)
+	{
+		mAsyncLoad = false;
+		mJoining = false;
+		UnityTools.Broadcast("OnNetworkJoinChannel", success, message);
+	}
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
@@ -1188,8 +1244,33 @@ public class TNManager : MonoBehaviour
 	void OnLoadLevel (string levelName)
 	{
 		if (!string.IsNullOrEmpty(levelName))
-			Application.LoadLevel(levelName);
+		{
+			mAsyncLoad = true;
+			StartCoroutine("LoadLevelCoroutine", levelName);
+		}
 	}
+
+	System.Collections.IEnumerator LoadLevelCoroutine (string levelName)
+	{
+		yield return null;
+		loadLevelOperation = Application.LoadLevelAsync(levelName);
+		loadLevelOperation.allowSceneActivation = false;
+
+		while (loadLevelOperation.progress < 0.9f)
+			yield return null;
+
+		loadLevelOperation.allowSceneActivation = true;
+		yield return loadLevelOperation;
+
+		loadLevelOperation = null;
+		mAsyncLoad = false;
+	}
+
+	/// <summary>
+	/// When a level is being loaded, this value will contain the async coroutine for the LoadLevel operation.
+	/// </summary>
+
+	static public AsyncOperation loadLevelOperation = null;
 
 	/// <summary>
 	/// Notification of a new player joining the channel.

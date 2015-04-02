@@ -447,6 +447,20 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Cancel the send operation.
+	/// </summary>
+
+	public void CancelSend ()
+	{
+		if (mBuffer != null)
+		{
+			mBuffer.EndPacket();
+			mBuffer.Recycle();
+			mBuffer = null;
+		}
+	}
+
+	/// <summary>
 	/// Send the outgoing buffer.
 	/// </summary>
 
