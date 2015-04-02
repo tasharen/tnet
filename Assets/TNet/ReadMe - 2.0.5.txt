@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2015 Tasharen Entertainment
-                  Version 2.0.4
+                  Version 2.0.5
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,17 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.0.5
+- NEW: TNet's level loading is now asynchronous.
+- NEW: Added SortByPlayers() and SortAlphabetic() functions to the TNServerList.
+- NEW: Added support for LZMA-based DataNode compression. It's used in Windward and requires the public LZMA library.
+- FIX: File saving should now work on Android properly.
+- FIX: TCP lobby link now sends "keep alive" messages to ensure that the stale servers get removed properly.
+- FIX: Variety of minor tweaks and improvements merged from Windward's development branch.
+- FIX: UDP multicasting will now be off by default on iOS devices.
+- FIX: Float parsing from text format should now work with floats specified as "1,23", not just "1.23".
+- FIX: Disconnect() call will now properly shut down a connection attempt in progress.
 
 2.0.4
 - NEW: Added timestamps and player IDs to the server log messages.
