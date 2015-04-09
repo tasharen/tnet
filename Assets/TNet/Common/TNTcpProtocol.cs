@@ -557,12 +557,11 @@ public class TcpProtocol : Player
 			// Save the timestamp
 			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
-			// Save the address
-			tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
-
 			// Queue up the read operation
 			try
 			{
+				// Save the address
+				tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
 #if !UNITY_WINRT
 				mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
 #endif

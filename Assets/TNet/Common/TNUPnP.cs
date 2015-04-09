@@ -122,8 +122,19 @@ public class UPnP
 
 	public void WaitForThreads ()
 	{
+		System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+		sw.Start();
+
 		while (mDiscover != null || mThreads.size > 0)
-			Thread.Sleep(1);
+		{
+			if (sw.ElapsedMilliseconds > 2000)
+			{
+				Tools.Print("UPnP.WaitForThreads() took too long -- aborting.");
+				break;
+			}
+			Thread.Sleep(10);
+		}
+		sw.Stop();
 	}
 
 	/// <summary>
@@ -343,46 +354,49 @@ public class UPnP
 
 	void Open (int port, bool tcp, OnPortRequest callback)
 	{
-		if (mStatus == Status.Inactive)
+		if (port > 0)
 		{
-			Start();
-			WaitForThreads();
-		}
+			int id = (port << 8) | (tcp ? 1 : 0);
 
-		int id = (port << 8) | (tcp ? 1 : 0);
+			if (!mPorts.Contains(id) && mStatus != Status.Failure)
+			{
+				if (mStatus == Status.Inactive)
+				{
+					Start();
+					WaitForThreads();
+				}
 
-		if (port > 0 && !mPorts.Contains(id) && mStatus != Status.Failure)
-		{
-			string addr = Tools.localAddress.ToString();
-			if (addr == "127.0.0.1") return;
+				string addr = Tools.localAddress.ToString();
+				if (addr == "127.0.0.1") return;
 
 #if UNITY_EDITOR
-			UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port);
+				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port);
 #endif
-			mPorts.Add(id);
+				mPorts.Add(id);
 
-			ExtraParams xp = new ExtraParams();
-			xp.callback = callback;
-			xp.port = port;
-			xp.protocol = tcp ? ProtocolType.Tcp : ProtocolType.Udp;
-			xp.action = "AddPortMapping";
-			xp.request = "<NewRemoteHost></NewRemoteHost>\n" +
-				"<NewExternalPort>" + port + "</NewExternalPort>\n" +
-				"<NewProtocol>" + (tcp ? "TCP" : "UDP") + "</NewProtocol>\n" +
-				"<NewInternalPort>" + port + "</NewInternalPort>\n" +
-				"<NewInternalClient>" + addr + "</NewInternalClient>\n" +
-				"<NewEnabled>1</NewEnabled>\n" +
-				"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
-				"<NewLeaseDuration>0</NewLeaseDuration>\n";
+				ExtraParams xp = new ExtraParams();
+				xp.callback = callback;
+				xp.port = port;
+				xp.protocol = tcp ? ProtocolType.Tcp : ProtocolType.Udp;
+				xp.action = "AddPortMapping";
+				xp.request = "<NewRemoteHost></NewRemoteHost>\n" +
+					"<NewExternalPort>" + port + "</NewExternalPort>\n" +
+					"<NewProtocol>" + (tcp ? "TCP" : "UDP") + "</NewProtocol>\n" +
+					"<NewInternalPort>" + port + "</NewInternalPort>\n" +
+					"<NewInternalClient>" + addr + "</NewInternalClient>\n" +
+					"<NewEnabled>1</NewEnabled>\n" +
+					"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
+					"<NewLeaseDuration>0</NewLeaseDuration>\n";
 
-			xp.th = new Thread(OpenRequest);
-			lock (mThreads) mThreads.Add(xp.th);
-			xp.th.Start(xp);
+				xp.th = new Thread(OpenRequest);
+				lock (mThreads) mThreads.Add(xp.th);
+				xp.th.Start(xp);
+				return;
+			}
 		}
-		else if (callback != null)
-		{
+
+		if (callback != null)
 			callback(this, port, tcp ? ProtocolType.Tcp : ProtocolType.Udp, false);
-		}
 	}
 
 	/// <summary>
