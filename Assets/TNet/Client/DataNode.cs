@@ -381,22 +381,23 @@ public class DataNode
 	{
 		if (data == null || data.Length < 4) return null;
 
-		SaveType type = SaveType.Binary;
-
-		if (data[0] == 'V' && data[1] == 'e' && data[2] == 'r' && data[3] == 's')
-		{
-			type = SaveType.Text;
-		}
-		else if (data[0] == 'R' && data[1] == 'o' && data[2] == 'o' && data[3] == 't')
-		{
-			type = SaveType.Text;
-		}
+		SaveType type = SaveType.Text;
 #if LZMA
-		else if (data[0] == mLZMA[0] && data[1] == mLZMA[1] && data[2] == mLZMA[2] && data[3] == mLZMA[3])
+		if (data[0] == mLZMA[0] && data[1] == mLZMA[1] && data[2] == mLZMA[2] && data[3] == mLZMA[3])
 		{
 			type = SaveType.Compressed;
 		}
+		else
 #endif
+		{
+			for (int i = 0; i < 4; ++i)
+			{
+				byte ch = data[i];
+				if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) continue;
+				type = SaveType.Binary;
+				break;
+			}
+		}
 		return Read(data, type);
 	}
 

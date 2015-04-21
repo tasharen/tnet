@@ -328,8 +328,14 @@ public sealed class TNObject : MonoBehaviour
 	public bool Execute (byte funcID, params object[] parameters)
 	{
 		if (mParent != null) return mParent.Execute(funcID, parameters);
-		if (rebuildMethodList) RebuildMethodList();
-		return UnityTools.ExecuteAll(mRFCs, funcID, parameters);
+		if (UnityTools.ExecuteAll(mRFCs, funcID, parameters)) return true;
+
+		if (rebuildMethodList)
+		{
+			RebuildMethodList();
+			return UnityTools.ExecuteAll(mRFCs, funcID, parameters);
+		}
+		return false;
 	}
 
 	/// <summary>
@@ -339,8 +345,14 @@ public sealed class TNObject : MonoBehaviour
 	public bool Execute (string funcName, params object[] parameters)
 	{
 		if (mParent != null) return mParent.Execute(funcName, parameters);
-		if (rebuildMethodList) RebuildMethodList();
-		return UnityTools.ExecuteAll(mRFCs, funcName, parameters);
+		if (UnityTools.ExecuteAll(mRFCs, funcName, parameters)) return true;
+
+		if (rebuildMethodList)
+		{
+			RebuildMethodList();
+			return UnityTools.ExecuteAll(mRFCs, funcName, parameters);
+		}
+		return false;
 	}
 
 	/// <summary>
@@ -353,13 +365,18 @@ public sealed class TNObject : MonoBehaviour
 
 		if (obj != null)
 		{
-			if (!obj.Execute(funcID, parameters))
+			if (obj.Execute(funcID, parameters)) return;
+
+			if (obj.rebuildMethodList)
 			{
-#if UNITY_EDITOR
-				Debug.LogError("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
-					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
-#endif
+				obj.RebuildMethodList();
+				if (obj.Execute(funcID, parameters)) return;
 			}
+
+#if UNITY_EDITOR
+			Debug.LogError("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
+				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
+#endif
 		}
 #if UNITY_EDITOR
 		else if (TNManager.isJoiningChannel)
@@ -382,13 +399,18 @@ public sealed class TNObject : MonoBehaviour
 
 		if (obj != null)
 		{
-			if (!obj.Execute(funcName, parameters))
+			if (obj.Execute(funcName, parameters)) return;
+
+			if (obj.rebuildMethodList)
 			{
-#if UNITY_EDITOR
-				Debug.LogError("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
-					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
-#endif
+				obj.RebuildMethodList();
+				if (obj.Execute(funcName, parameters)) return;
 			}
+			
+#if UNITY_EDITOR
+			Debug.LogError("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
+				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
+#endif
 		}
 #if UNITY_EDITOR
 		else if (TNManager.isJoiningChannel)
@@ -585,9 +607,11 @@ public sealed class TNObject : MonoBehaviour
 		if (objs != null && objs.GetType() != typeof(object[]))
 			objs = new object[] { objs };
 
+		bool connected = TNManager.isConnected;
+
 		if (target == Target.Broadcast)
 		{
-			if (TNManager.isConnected)
+			if (connected)
 			{
 				BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
 				writer.Write(GetUID(uid, rfcID));
@@ -602,7 +626,7 @@ public sealed class TNObject : MonoBehaviour
 			// We're the host, and the packet should be going to the host -- just echo it locally
 			executeLocally = true;
 		}
-		else if (TNManager.isInChannel)
+		else if (!connected || TNManager.isInChannel)
 		{
 			// We want to echo UDP-based packets locally instead of having them bounce through the server
 			if (!reliable)
@@ -619,12 +643,15 @@ public sealed class TNObject : MonoBehaviour
 				}
 			}
 
-			byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
-			BinaryWriter writer = TNManager.BeginSend(packetID);
-			writer.Write(GetUID(uid, rfcID));
-			if (rfcID == 0) writer.Write(rfcName);
-			writer.WriteArray(objs);
-			TNManager.EndSend(reliable);
+			if (connected)
+			{
+				byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
+				BinaryWriter writer = TNManager.BeginSend(packetID);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
+				writer.WriteArray(objs);
+				TNManager.EndSend(reliable);
+			}
 		}
 		else if (!TNManager.isConnected && (target == Target.All || target == Target.AllSaved))
 		{

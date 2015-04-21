@@ -13,7 +13,7 @@ using TNet;
 [RequireComponent(typeof(TNObject))]
 public abstract class TNBehaviour : MonoBehaviour
 {
-	TNObject mTNO;
+	[System.NonSerialized] TNObject mTNO;
 
 	public TNObject tno
 	{

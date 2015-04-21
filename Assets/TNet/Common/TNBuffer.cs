@@ -341,7 +341,7 @@ public class Buffer
 	public int PeekByte (int offset)
 	{
 		long pos = mStream.Position;
-		if (offset < 0 || offset + 1 > pos) return -1;
+		if (offset < 0 || offset + 1 > size) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		int val = mReader.ReadByte();
 		mStream.Seek(pos, SeekOrigin.Begin);
@@ -355,7 +355,7 @@ public class Buffer
 	public int PeekInt (int offset)
 	{
 		long pos = mStream.Position;
-		if (offset < 0 || offset + 4 > pos) return -1;
+		if (offset < 0 || offset + 4 > size) return -1;
 		mStream.Seek(offset, SeekOrigin.Begin);
 		int val = mReader.ReadInt32();
 		mStream.Seek(pos, SeekOrigin.Begin);

@@ -107,6 +107,7 @@ static public class UnityTools
 				}
 				catch (System.Exception ex)
 				{
+					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
 					PrintException(ex, ent, funcID, "", parameters);
 					return false;
 				}
@@ -132,15 +133,12 @@ static public class UnityTools
 
 				try
 				{
-					/*if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
-					{
-						ent.func.Invoke(ent.obj, new object[] { parameters });
-					}
-					else*/ ent.func.Invoke(ent.obj, parameters);
+					ent.func.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)
 				{
+					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
 				    PrintException(ex, ent, funcID, "", parameters);
 				    return false;
 				}
@@ -170,15 +168,12 @@ static public class UnityTools
 
 				try
 				{
-					/*if (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[]))
-					{
-						ent.func.Invoke(ent.obj, new object[] { parameters });
-					}
-					else*/ ent.func.Invoke(ent.obj, parameters);
+					ent.func.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)
 				{
+					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
 					PrintException(ex, ent, 0, funcName, parameters);
 				}
 			}
@@ -204,9 +199,6 @@ static public class UnityTools
 
 			if (method != null)
 			{
-#if UNITY_EDITOR
-				method.Invoke(mb, parameters);
-#else
 				try
 				{
 					method.Invoke(mb, parameters);
@@ -216,7 +208,6 @@ static public class UnityTools
 					Debug.LogError(ex.InnerException.Message + " (" + mb.GetType() + "." + methodName + ")\n" +
 						ex.InnerException.StackTrace + "\n", mb);
 				}
-#endif
 			}
 		}
 	}

@@ -70,7 +70,13 @@ public class TNManager : MonoBehaviour
 	/// then 'false' just before OnNetworkJoinChannel was gets out.
 	/// </summary>
 
-	static public bool isJoiningChannel { get { return mInstance != null && (mInstance.mJoining || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes); } }
+	static public bool isJoiningChannel
+	{
+		get
+		{
+			return (mInstance != null && (mInstance.mJoining || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes));
+		}
+	}
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -88,7 +94,8 @@ public class TNManager : MonoBehaviour
 	/// Whether the player is currently in a channel.
 	/// </summary>
 
-	static public bool isInChannel { get { return !isJoiningChannel && mInstance.mClient.isConnected && mInstance.mClient.isInChannel; } }
+	static public bool isInChannel { get { return !isJoiningChannel && (mInstance == null ||
+		mInstance.mClient == null || (mInstance.mClient.isConnected && mInstance.mClient.isInChannel)); } }
 
 	/// <summary>
 	/// You can pause TNManager's message processing if you like.
@@ -354,10 +361,14 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
-		instance.mClient.Disconnect();
-		instance.mClient.playerName = mPlayer.name;
-		instance.mClient.playerData = mPlayer.data;
-		instance.mClient.Connect(externalIP, internalIP);
+		if (!instance.mClient.isTryingToConnect)
+		{
+			instance.mClient.Disconnect();
+			instance.mClient.playerName = mPlayer.name;
+			instance.mClient.playerData = mPlayer.data;
+			instance.mClient.Connect(externalIP, internalIP);
+		}
+		else Debug.LogWarning("Already connecting...");
 	}
 
 	/// <summary>
@@ -366,18 +377,22 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect (string address, int port)
 	{
-		IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
+		if (!instance.mClient.isTryingToConnect)
+		{
+			IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
 
-		if (ip == null)
-		{
-			instance.OnConnect(false, "Unable to resolve [" + address + "]");
+			if (ip == null)
+			{
+				instance.OnConnect(false, "Unable to resolve [" + address + "]");
+			}
+			else
+			{
+				instance.mClient.playerName = mPlayer.name;
+				instance.mClient.playerData = mPlayer.data;
+				instance.mClient.Connect(ip, null);
+			}
 		}
-		else
-		{
-			instance.mClient.playerName = mPlayer.name;
-			instance.mClient.playerData = mPlayer.data;
-			instance.mClient.Connect(ip, null);
-		}
+		else Debug.LogWarning("Already connecting...");
 	}
 
 	/// <summary>
@@ -409,8 +424,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			mInstance.mJoining = true;
-			mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+			if (!mInstance.mJoining)
+			{
+				mInstance.mJoining = true;
+				mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+			}
+			else Debug.LogWarning("Already joining, ignored");
 		}
 		else Application.LoadLevel(levelName);
 	}
@@ -428,8 +447,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			mInstance.mJoining = true;
-			mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+			if (!mInstance.mJoining)
+			{
+				mInstance.mJoining = true;
+				mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+			}
+			else Debug.LogWarning("Already joining, ignored");
 		}
 		else Application.LoadLevel(levelName);
 	}
@@ -446,8 +469,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			mInstance.mJoining = true;
-			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+			if (!mInstance.mJoining)
+			{
+				mInstance.mJoining = true;
+				mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+			}
+			else Debug.LogWarning("Already joining, ignored");
 		}
 	}
 
@@ -463,8 +490,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			mInstance.mJoining = true;
-			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+			if (!mInstance.mJoining)
+			{
+				mInstance.mJoining = true;
+				mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+			}
+			else Debug.LogWarning("Already joining, ignored");
 		}
 		else Application.LoadLevel(levelName);
 	}
@@ -875,13 +906,13 @@ public class TNManager : MonoBehaviour
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	static public BinaryWriter BeginSend (Packet type) { return mInstance.mClient.BeginSend(type); }
+	static public BinaryWriter BeginSend (Packet type) { return instance.mClient.BeginSend(type); }
 
 	/// <summary>
 	/// Begin sending a new packet to the server.
 	/// </summary>
 
-	static public BinaryWriter BeginSend (byte packetID) { return mInstance.mClient.BeginSend(packetID); }
+	static public BinaryWriter BeginSend (byte packetID) { return instance.mClient.BeginSend(packetID); }
 
 	/// <summary>
 	/// Send the outgoing buffer.
@@ -889,7 +920,10 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend ()
 	{
-		if (!isJoiningChannel) mInstance.mClient.EndSend(true);
+		if (!isJoiningChannel)
+		{
+			mInstance.mClient.EndSend(true);
+		}
 		else
 		{
 			mInstance.mClient.CancelSend();
@@ -905,7 +939,10 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend (bool reliable)
 	{
-		if (!isJoiningChannel) mInstance.mClient.EndSend(reliable);
+		if (!isJoiningChannel)
+		{
+			mInstance.mClient.EndSend(reliable);
+		}
 		else
 		{
 			mInstance.mClient.CancelSend();

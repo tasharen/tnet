@@ -439,6 +439,9 @@ public class TcpProtocol : Player
 		if (mSocket != null && mSocket.Connected)
 		{
 			buffer.BeginReading();
+//#if UNITY_EDITOR
+//            UnityEngine.Debug.Log("Sending: " + (Packet)buffer.PeekByte(4));
+//#endif
 
 			lock (mOut)
 			{
@@ -461,7 +464,13 @@ public class TcpProtocol : Player
 				}
 			}
 		}
-		else buffer.Recycle();
+		else
+		{
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogWarning("No valid socket");
+#endif
+			buffer.Recycle();
+		}
 	}
 
 	/// <summary>
