@@ -1379,6 +1379,12 @@ public class GameServer : FileServer
 		}
 	}
 
+#if !UNITY_WEBPLAYER && !UNITY_FLASH
+	// Cached to reduce memory allocation
+	MemoryStream mWriteStream = null;
+	BinaryWriter mWriter = null;
+#endif
+
 	/// <summary>
 	/// Save the server's current state into the specified file so it can be easily restored later.
 	/// </summary>
@@ -1388,12 +1394,20 @@ public class GameServer : FileServer
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		if (mListener == null) return;
 
-		MemoryStream stream = new MemoryStream();
-		BinaryWriter writer = new BinaryWriter(stream);
+		if (mWriteStream == null)
+		{
+			mWriteStream = new MemoryStream();
+			mWriter = new BinaryWriter(mWriteStream);
+		}
+		else
+		{
+			mWriter.Seek(0, SeekOrigin.Begin);
+			mWriteStream.SetLength(0);
+		}
 
 		lock (mLock)
 		{
-			writer.Write(0);
+			mWriter.Write(0);
 			int count = 0;
 
 			for (int i = 0; i < mChannels.size; ++i)
@@ -1402,21 +1416,20 @@ public class GameServer : FileServer
 
 				if (!ch.closed && ch.persistent && ch.hasData)
 				{
-					writer.Write(ch.id);
-					ch.SaveTo(writer);
+					mWriter.Write(ch.id);
+					ch.SaveTo(mWriter);
 					++count;
 				}
 			}
 
 			if (count > 0)
 			{
-				stream.Seek(0, SeekOrigin.Begin);
-				writer.Write(count);
+				mWriteStream.Seek(0, SeekOrigin.Begin);
+				mWriter.Write(count);
 			}
 		}
 
-		Tools.WriteFile(fileName, stream.ToArray());
-		stream.Close();
+		Tools.WriteFile(fileName, mWriteStream);
 #endif
 	}
 

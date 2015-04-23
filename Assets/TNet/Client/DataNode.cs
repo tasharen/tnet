@@ -3,7 +3,9 @@
 // Copyright © 2011-2015 Tasharen Entertainment
 //----------------------------------------------
 
-//#define LZMA
+#if WINDWARD
+#define LZMA
+#endif
 
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
@@ -313,7 +315,7 @@ public class DataNode
 		{
 			BinaryWriter writer = new BinaryWriter(stream);
 			writer.WriteObject(this);
-			Tools.WriteFile(path, stream.ToArray(), false);
+			Tools.WriteFile(path, stream, false);
 			writer.Close();
 		}
 #if LZMA
@@ -327,10 +329,10 @@ public class DataNode
 
 			if (comp != null)
 			{
-				Tools.WriteFile(path, comp.ToArray(), false);
+				Tools.WriteFile(path, comp, false);
 				comp.Close();
 			}
-			else Tools.WriteFile(path, stream.ToArray(), false);
+			else Tools.WriteFile(path, stream, false);
 			writer.Close();
 		}
 #endif
@@ -338,7 +340,7 @@ public class DataNode
 		{
 			StreamWriter writer = new StreamWriter(stream);
 			Write(writer, 0);
-			Tools.WriteFile(path, stream.ToArray(), false);
+			Tools.WriteFile(path, stream, false);
 			writer.Close();
 		}
 	}

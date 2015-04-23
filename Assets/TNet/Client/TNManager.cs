@@ -868,25 +868,6 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Destroy the specified game object.
-	/// </summary>
-
-	static public void Destroy (GameObject go)
-	{
-		if (isConnected)
-		{
-			TNObject obj = go.GetComponent<TNObject>();
-
-			if (obj != null)
-			{
-				obj.DestroySelf();
-				return;
-			}
-		}
-		GameObject.Destroy(go);
-	}
-
-	/// <summary>
 	/// Write a server log entry.
 	/// </summary>
 
@@ -1194,7 +1175,12 @@ public class TNManager : MonoBehaviour
 	void OnDestroyObject (uint objID)
 	{
 		TNObject obj = TNObject.Find(objID);
-		if (obj) GameObject.Destroy(obj.gameObject);
+
+		if (obj)
+		{
+			if (obj.onDestroy != null) obj.onDestroy();
+			Object.Destroy(obj.gameObject);
+		}
 	}
 
 	/// <summary>

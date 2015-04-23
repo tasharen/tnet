@@ -82,6 +82,16 @@ public sealed class TNObject : MonoBehaviour
 	
 	[System.NonSerialized] public bool hasBeenDestroyed = false;
 
+	public delegate void OnDestroyCallback ();
+
+	/// <summary>
+	/// If you want to know when this object is getting destroyed, subscribe to this delegate.
+	/// This delegate is guaranteed to be called before OnDestroy() notifications get sent out.
+	/// This is useful if you want parts of the object to remain behind (such as buggy Unity 4 cloth).
+	/// </summary>
+
+	[System.NonSerialized] public OnDestroyCallback onDestroy;
+
 	/// <summary>
 	/// Whether this object belongs to the player.
 	/// </summary>
@@ -107,11 +117,15 @@ public sealed class TNObject : MonoBehaviour
 
 			if (TNManager.isConnected)
 			{
-				StartCoroutine(EnsureDestroy());
+				Invoke("EnsureDestroy", 5f);
 				TNManager.BeginSend(Packet.RequestDestroy).Write(uid);
 				TNManager.EndSend();
 			}
-			else GameObject.Destroy(gameObject);
+			else
+			{
+				if (onDestroy != null) onDestroy();
+				Object.Destroy(gameObject);
+			}
 		}
 	}
 
@@ -119,10 +133,10 @@ public sealed class TNObject : MonoBehaviour
 	/// If this function is still here in 5 seconds then something went wrong, so force-destroy the object.
 	/// </summary>
 
-	System.Collections.IEnumerator EnsureDestroy ()
+	void EnsureDestroy ()
 	{
-		yield return new WaitForSeconds(5f);
-		Destroy(gameObject);
+		if (onDestroy != null) onDestroy();
+		Object.Destroy(gameObject);
 	}
 
 	/// <summary>

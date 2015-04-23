@@ -718,6 +718,70 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Write the specified file, creating all the subdirectories in the process.
+	/// </summary>
+
+	static public bool WriteFile (string path, MemoryStream data, bool inMyDocuments = false)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		if (inMyDocuments) path = GetDocumentsPath(path);
+
+		if (data == null || data.Length == 0)
+		{
+			return DeleteFile(path);
+		}
+		else
+		{
+			path = path.Replace("\\", "/");
+
+			if (!IsAllowedToAccess(path))
+			{
+#if !STANDALONE
+				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+#endif
+				return false;
+			}
+
+			try
+			{
+				string dir = Path.GetDirectoryName(path);
+
+				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+					Directory.CreateDirectory(dir);
+
+				if (File.Exists(path))
+				{
+					FileAttributes att = File.GetAttributes(path);
+
+					if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+					{
+						att = (att & ~FileAttributes.ReadOnly);
+						File.SetAttributes(path, att);
+					}
+				}
+
+				FileStream fs = new FileStream(path, FileMode.Create);
+				data.Seek(0, SeekOrigin.Begin);
+				data.WriteTo(fs);
+				fs.Close();
+				if (File.Exists(path)) return true;
+#if !STANDALONE
+				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+#endif
+			}
+#if STANDALONE
+			catch (System.Exception) { }
+#else
+			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+#endif
+		}
+#elif !STANDALONE
+		UnityEngine.Debug.LogWarning("Unable to write to " + path);
+#endif
+		return false;
+	}
+
+	/// <summary>
 	/// Read the specified file, returning all bytes read.
 	/// </summary>
 

@@ -222,6 +222,11 @@ public class Channel
 		}
 	}
 
+	// Cached to reduce memory allocations
+	List<uint> mCleanedOBJs = new List<uint>();
+	List<CreatedObject> mCreatedOBJs = new List<CreatedObject>();
+	List<RFC> mCreatedRFCs = new List<RFC>();
+
 	/// <summary>
 	/// Save the channel's data into the specified file.
 	/// </summary>
@@ -236,10 +241,6 @@ public class Channel
 		writer.Write(persistent);
 		writer.Write(playerLimit);
 
-		List<uint> cleanedObjs = new List<uint>();
-		List<CreatedObject> createdObjects = new List<CreatedObject>();
-		List<RFC> createdRFCs = new List<RFC>();
-
 		// Record which objects are temporary and which ones are not
 		for (int i = 0; i < created.size; ++i)
 		{
@@ -247,8 +248,8 @@ public class Channel
 
 			if (co.type == 1)
 			{
-				createdObjects.Add(co);
-				cleanedObjs.Add(co.objectID);
+				mCreatedOBJs.Add(co);
+				mCleanedOBJs.Add(co.objectID);
 			}
 		}
 
@@ -257,15 +258,29 @@ public class Channel
 		{
 			RFC rfc = rfcs[i];
 			uint objID = rfc.objectID;
-			if (objID < 32768 || cleanedObjs.Contains(objID))
-				createdRFCs.Add(rfc);
+
+			if (objID < 32768)
+			{
+				mCreatedRFCs.Add(rfc);
+			}
+			else
+			{
+				for (int b = 0; b < mCleanedOBJs.size; ++b)
+				{
+					if (mCleanedOBJs.buffer[b] == objID)
+					{
+						mCreatedRFCs.Add(rfc);
+						break;
+					}
+				}
+			}
 		}
 
-		writer.Write(createdRFCs.size);
+		writer.Write(mCreatedRFCs.size);
 
-		for (int i = 0; i < createdRFCs.size; ++i)
+		for (int i = 0; i < mCreatedRFCs.size; ++i)
 		{
-			RFC rfc = createdRFCs[i];
+			RFC rfc = mCreatedRFCs[i];
 			writer.Write(rfc.uid);
 			if (rfc.functionID == 0) writer.Write(rfc.functionName);
 			writer.Write(rfc.buffer.size);
@@ -277,11 +292,11 @@ public class Channel
 			}
 		}
 
-		writer.Write(createdObjects.size);
+		writer.Write(mCreatedOBJs.size);
 
-		for (int i = 0; i < createdObjects.size; ++i)
+		for (int i = 0; i < mCreatedOBJs.size; ++i)
 		{
-			CreatedObject co = createdObjects[i];
+			CreatedObject co = mCreatedOBJs[i];
 			writer.Write(co.playerID);
 			writer.Write(co.objectID);
 			writer.Write(co.objectIndex);
@@ -296,6 +311,10 @@ public class Channel
 
 		writer.Write(destroyed.size);
 		for (int i = 0; i < destroyed.size; ++i) writer.Write(destroyed[i]);
+
+		mCleanedOBJs.Clear();
+		mCreatedOBJs.Clear();
+		mCreatedRFCs.Clear();
 	}
 
 	/// <summary>
