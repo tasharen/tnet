@@ -608,6 +608,14 @@ public class DataNode
 			writer.Write(value.ToString());
 			writer.Write("L\n");
 		}
+		else if (type == typeof(ObsInt))
+		{
+			ObsInt o = (ObsInt)value;
+			if (name != null) writer.Write(" = ");
+			writer.Write("ObsInt(");
+			writer.Write((int)o);
+			writer.Write(")\n");
+		}
 		else if (type == typeof(Vector2))
 		{
 			Vector2 v = (Vector2)value;
@@ -999,6 +1007,12 @@ public class DataNode
 		{
 			double b;
 			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) mValue = b;
+		}
+		else if (type == typeof(ObsInt))
+		{
+			int val = 0;
+			if (int.TryParse(text, out val))
+				mValue = new ObsInt(val);
 		}
 		else if (type == typeof(Vector2))
 		{

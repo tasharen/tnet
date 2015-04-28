@@ -43,6 +43,45 @@ public interface IBinarySerializable
 }
 
 /// <summary>
+/// Obfuscated type integer. Usable just like any integer, but when it's in memory it's not recognizable.
+/// Useful for avoiding CheatEngine lookups.
+/// </summary>
+
+public struct ObsInt
+{
+	public int obscured;
+	public int revealed { get { return Restore(obscured); } set { obscured = Obfuscate(value); } }
+
+	public ObsInt (int val) { obscured = Obfuscate(val); }
+
+	static public implicit operator int (ObsInt o) { return Restore(o.obscured); }
+	//static public implicit operator ObsInt (int i) { return new ObsInt(i); }
+
+	public override string ToString () { return Restore(obscured).ToString(); }
+
+	const int mask1 = 0x00550055;
+	const int d1 = 7;
+	const int mask2 = 0x0000cccc;
+	const int d2 = 14;
+
+	static int Obfuscate (int x)
+	{
+		int t = (x ^ (x >> d1)) & mask1;
+		int u = x ^ t ^ (t << d1);
+		t = (u ^ (u >> d2)) & mask2;
+		return u ^ t ^ (t << d2);
+	}
+
+	static int Restore (int y)
+	{
+		int t = (y ^ (y >> d2)) & mask2;
+		int u = y ^ t ^ (t << d2);
+		t = (u ^ (u >> d1)) & mask1;
+		return u ^ t ^ (t << d1);
+	}
+}
+
+/// <summary>
 /// This class contains various serialization extension methods that make it easy to serialize
 /// any object into binary form that's smaller in size than what you would get by simply using
 /// the Binary Formatter. If you want more efficient serialization, implement IBinarySerializable.
@@ -84,6 +123,7 @@ public static class Serialization
 			else if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
+			else if (name == "ObsInt") type = typeof(ObsInt);
 			else if (name.StartsWith("IList"))
 			{
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
@@ -130,6 +170,7 @@ public static class Serialization
 			else if (type == typeof(Rect)) name = "Rect";
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
+			else if (type == typeof(ObsInt)) name = "ObsInt";
 			else if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
@@ -174,6 +215,7 @@ public static class Serialization
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
 			if (desiredType == typeof(float)) return (float)(int)value;
 			if (desiredType == typeof(long)) return (long)(int)value;
+			if (desiredType == typeof(ObsInt)) return new ObsInt((int)value);
 		}
 		else if (valueType == typeof(float))
 		{
@@ -186,6 +228,10 @@ public static class Serialization
 		else if (valueType == typeof(long))
 		{
 			if (desiredType == typeof(int)) return (int)(long)value;
+		}
+		else if (valueType == typeof(ObsInt))
+		{
+			if (desiredType == typeof(int)) return (int)(ObsInt)value;
 		}
 		else if (valueType == typeof(Color32))
 		{
@@ -543,6 +589,7 @@ public static class Serialization
 		if (type == typeof(TNObject)) return 17;
 		if (type == typeof(long)) return 18;
 		if (type == typeof(ulong)) return 19;
+		if (type == typeof(ObsInt)) return 20;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -562,6 +609,7 @@ public static class Serialization
 		if (type == typeof(TNObject[])) return 117;
 		if (type == typeof(long[])) return 118;
 		if (type == typeof(ulong[])) return 119;
+		if (type == typeof(ObsInt[])) return 120;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -597,6 +645,7 @@ public static class Serialization
 			case 17: return typeof(TNObject);
 			case 18: return typeof(long);
 			case 19: return typeof(ulong);
+			case 20: return typeof(ObsInt);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -616,6 +665,7 @@ public static class Serialization
 			case 117: return typeof(TNObject[]);
 			case 118: return typeof(long[]);
 			case 119: return typeof(ulong[]);
+			case 120: return typeof(ObsInt[]);
 		}
 		return null;
 	}
@@ -818,6 +868,8 @@ public static class Serialization
 			case 16: bw.Write((short)obj); break;
 			case 17: bw.Write((uint)(obj as TNObject).uid); break;
 			case 18: bw.Write((long)obj); break;
+			case 19: bw.Write((ulong)obj); break;
+			case 20: bw.Write(((ObsInt)obj).obscured); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -936,6 +988,20 @@ public static class Serialization
 				long[] arr = (long[])obj;
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 119:
+			{
+				ulong[] arr = (ulong[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 120:
+			{
+				ObsInt[] arr = (ObsInt[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i].obscured);
 				break;
 			}
 			case 254: // Serialization using Reflection
@@ -1227,6 +1293,12 @@ public static class Serialization
 			case 17: return TNObject.Find(reader.ReadUInt32());
 			case 18: return reader.ReadInt64();
 			case 19: return reader.ReadUInt64();
+			case 20:
+			{
+				ObsInt obs;
+				obs.obscured = reader.ReadInt32();
+				return obs;
+			}
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -1441,6 +1513,13 @@ public static class Serialization
 				int elements = reader.ReadInt();
 				ulong[] arr = new ulong[elements];
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt64();
+				return arr;
+			}
+			case 120:
+			{
+				int elements = reader.ReadInt();
+				ObsInt[] arr = new ObsInt[elements];
+				for (int b = 0; b < elements; ++b) arr[b].obscured = reader.ReadInt32();
 				return arr;
 			}
 			case 253:
