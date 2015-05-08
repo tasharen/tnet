@@ -369,6 +369,23 @@ public sealed class TNObject : MonoBehaviour
 		return false;
 	}
 
+	// Delete objects that had orphaned RFC calls due to improper sends
+	static List<uint> mDelete = new List<uint>();
+
+	/// <summary>
+	/// Clean up orphaned RFCs.
+	/// </summary>
+
+	static void CleanupOrphanedRFCs ()
+	{
+		for (int i = 0; i < mDelete.size; ++i)
+		{
+			TNManager.BeginSend(Packet.RequestDestroy).Write(mDelete[i]);
+			TNManager.EndSend();
+		}
+		mDelete.Clear();
+	}
+
 	/// <summary>
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 	/// </summary>
@@ -395,11 +412,16 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		else if (TNManager.isJoiningChannel)
 		{
-			Debug.Log("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID +
-				" before it has been created.");
+			Debug.Log("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
+			mDelete.Add(objID);
 		}
-		else Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID +
-			" before it has been created.");
+		else
+		{
+			Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
+			mDelete.Add(objID);
+		}
+#else
+		else mDelete.Add(objID);
 #endif
 	}
 
@@ -614,13 +636,16 @@ public sealed class TNObject : MonoBehaviour
 		if (!Application.isPlaying) return;
 #endif
 		if (hasBeenDestroyed) return;
-		bool executeLocally = false;
+
+		// Clean up orphaned RFCs first
+		if (mDelete.size != 0 && TNManager.isHosting && !TNManager.isJoiningChannel) CleanupOrphanedRFCs();
 
 		// Some very odd special case... sending a string[] as the only parameter
 		// results in objs[] being a string[] instead, when it should be object[string[]].
 		if (objs != null && objs.GetType() != typeof(object[]))
 			objs = new object[] { objs };
 
+		bool executeLocally = false;
 		bool connected = TNManager.isConnected;
 
 		if (target == Target.Broadcast)

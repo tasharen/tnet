@@ -939,7 +939,10 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend (int port)
 	{
-		if (!isJoiningChannel) mInstance.mClient.EndSend(port);
+		if (!isJoiningChannel)
+		{
+			mInstance.mClient.EndSend(port);
+		}
 		else
 		{
 			mInstance.mClient.CancelSend();
@@ -955,7 +958,10 @@ public class TNManager : MonoBehaviour
 
 	static public void EndSend (IPEndPoint target)
 	{
-		if (!isJoiningChannel) mInstance.mClient.EndSend(target);
+		if (!isJoiningChannel)
+		{
+			mInstance.mClient.EndSend(target);
+		}
 		else
 		{
 			mInstance.mClient.CancelSend();

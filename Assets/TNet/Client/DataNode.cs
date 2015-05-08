@@ -1,7 +1,7 @@
-//----------------------------------------------
-//            NGUI: Next-Gen UI kit
-// Copyright © 2011-2015 Tasharen Entertainment
-//----------------------------------------------
+//---------------------------------------------
+//            Tasharen Network
+// Copyright © 2012-2015 Tasharen Entertainment
+//---------------------------------------------
 
 #if WINDWARD
 #define LZMA
@@ -198,6 +198,20 @@ public class DataNode
 	public DataNode AddChild (string name, object value)
 	{
 		DataNode node = AddChild();
+		node.name = name;
+		node.value = (value is Enum) ? value.ToString() : value;
+		return node;
+	}
+
+	/// <summary>
+	/// Add a new child node after checking to see if it already exists. If it does, the existing value is returned.
+	/// </summary>
+
+	public DataNode AddMissingChild (string name, object value)
+	{
+		DataNode node = GetChild(name);
+		if (node != null) return node;
+		node = AddChild();
 		node.name = name;
 		node.value = (value is Enum) ? value.ToString() : value;
 		return node;
