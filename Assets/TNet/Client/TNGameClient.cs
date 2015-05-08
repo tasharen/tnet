@@ -543,9 +543,12 @@ public class GameClient
 
 	public void Disconnect ()
 	{
+		if (isTryingToConnect)
+		{
+			mCanSend = true;
+			mIsInChannel = false;
+		}
 		mTcp.Disconnect();
-		mCanSend = true;
-		mIsInChannel = false;
 	}
 
 	/// <summary>
@@ -1047,13 +1050,14 @@ public class GameClient
 			case Packet.Disconnect:
 			{
 				mData = "";
-				if (isInChannel && onLeftChannel != null) onLeftChannel();
+				if (mIsInChannel && onLeftChannel != null) onLeftChannel();
 				players.Clear();
 				mDictionary.Clear();
 				mTcp.Close(false);
 				mLoadFiles.Clear();
 				mIsInChannel = false;
 				if (onDisconnect != null) onDisconnect();
+				mCanSend = true;
 				break;
 			}
 			case Packet.ResponseLoadFile:

@@ -184,7 +184,11 @@ public class ExampleMenu : MonoBehaviour
 	/// You can call TNManager.JoinChannel here if you like, but in this example we let the player choose.
 	/// </summary>
 
-	void OnNetworkConnect (bool success, string message) { mMessage = message; }
+	void OnNetworkConnect (bool success, string message)
+	{
+		mMessage = message;
+		if (success) Debug.Log("Connected!");
+	}
 
 	/// <summary>
 	/// This menu is shown when a connection has been established and the player has not yet joined any channel.
@@ -238,6 +242,15 @@ public class ExampleMenu : MonoBehaviour
 	void OnNetworkLeaveChannel ()
 	{
 		Application.LoadLevel(mainMenu);
+	}
+
+	/// <summary>
+	/// Simply print a message when disconnected. If you have a "disconnected" scene, you would load it in OnNetworkDisconnect.
+	/// </summary>
+
+	void OnNetworkDisconnect ()
+	{
+		Debug.Log("Disconnected!");
 	}
 
 	/// <summary>
