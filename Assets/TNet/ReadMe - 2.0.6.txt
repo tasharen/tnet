@@ -71,6 +71,11 @@ http://www.tasharen.com/?page_id=4518
  Version History
 -----------------------------------------------------
 
+2.0.6
+- NEW: Added a new integer type that isn't stored as a plain integer in memory (guard against CheatEngine).
+- FIX: Calling Disconnect() will now always ensure that the OnNetworkLeaveChannel gets called before OnNetworkDisconnect.
+- FIX: Optimizations related to memory allocation, greatly reducing TNet's impact on GC.
+
 2.0.5
 - NEW: TNet's level loading is now asynchronous.
 - NEW: Added SortByPlayers() and SortAlphabetic() functions to the TNServerList.
