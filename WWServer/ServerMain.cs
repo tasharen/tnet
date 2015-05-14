@@ -241,7 +241,11 @@ public class Application : IDisposable
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  WWServer -name \"My Server\" -tcp 5127 -public");
 
+#if DEBUG
+			args = new string[] { "-name", "(TP) Beginner - East Coast 1", "-tcp", "6229", "-public", "-world", "World1" };
+#else
 			args = new string[] { "-name", "Windward Server", "-tcp", "5127", "-world", "World" };
+#endif
 		}
 
 		string serverName = "Windward Server";
@@ -316,7 +320,7 @@ public class Application : IDisposable
 			else if (param == "-public")
 			{
 				lobbyAddress = "server.tasharen.com";
-				lobbyPort = 5190;
+				lobbyPort = 5191;
 				tcpLobby = true;
 			}
 			else if (param == "-service")

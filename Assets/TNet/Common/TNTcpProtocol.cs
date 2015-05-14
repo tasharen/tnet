@@ -516,8 +516,19 @@ public class TcpProtocol : Player
 
 		lock (mOut)
 		{
-			// The buffer has been sent and can now be safely recycled
-			mOut.Dequeue().Recycle();
+			try
+			{
+				// The buffer has been sent and can now be safely recycled
+				Buffer buff = mOut.Dequeue();
+				if (buff != null) buff.Recycle();
+			}
+			catch (Exception ex)
+			{
+				Error(ex.Message);
+				CloseNotThreadSafe(false);
+				return;
+			}
+
 #if !UNITY_WINRT
 			if (bytes > 0 && mSocket != null && mSocket.Connected)
 			{

@@ -232,8 +232,12 @@ public class Buffer
 	{
 		mSize = 0;
 		mCounter = 0;
-		if (mStream.Capacity > 1024) mStream = null;
-		else mStream.Seek(0, SeekOrigin.Begin);
+
+		if (mStream != null)
+		{
+			if (mStream.Capacity > 1024) mStream = null;
+			else mStream.Seek(0, SeekOrigin.Begin);
+		}
 		mWriting = true;
 	}
 
