@@ -474,5 +474,13 @@ public enum Packet
 	/// </summary>
 
 	ServerLog,
+
+	/// <summary>
+	/// Mark the channel as closed and kick out all the players.
+	/// int32: channel ID.
+	/// bool: whether to disconnect the players, or just make them leave the channel.
+	/// </summary>
+
+	RequestDeleteChannel,
 }
 }

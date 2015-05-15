@@ -118,7 +118,11 @@ public class GameServer : FileServer
 	/// Whether the server is currently actively serving players.
 	/// </summary>
 
+#if MULTI_THREADED
 	public bool isActive { get { return mThread != null; } }
+#else
+	public bool isActive { get { return mListener != null; } }
+#endif
 
 	/// <summary>
 	/// Whether the server is listening for incoming connections.
@@ -167,7 +171,7 @@ public class GameServer : FileServer
 		}
 		catch (System.Exception ex)
 		{
-			Error(ex.Message);
+			Error(ex.Message, ex.StackTrace);
 			return false;
 		}
 
@@ -176,7 +180,7 @@ public class GameServer : FileServer
 #endif
 		if (!mUdp.Start(udpPort))
 		{
-			Error("Unable to listen to UDP port " + udpPort);
+			Error("Unable to listen to UDP port " + udpPort, null);
 			Stop();
 			return false;
 		}
@@ -301,7 +305,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Process) " + ex.Message + "\n" + ex.StackTrace);
+								Error("(ThreadFunction Process) " + ex.Message + "\n", ex.StackTrace);
 								RemovePlayer(player);
 							}
 						}
@@ -337,7 +341,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Read " + request + ") " + ex.Message);
+								Error("(ThreadFunction Read " + request + ") ", ex.Message);
 								RemovePlayer(player);
 							}
 						}
@@ -371,7 +375,7 @@ public class GameServer : FileServer
 #if STANDALONE
 							catch (System.Exception ex)
 							{
-								Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message);
+								Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message + "\n", ex.Stacktrace);
 								RemovePlayer(player);
 								buffer.Recycle();
 								continue;
@@ -379,7 +383,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Process) " + ex.Message + "\n" + ex.StackTrace);
+								Error("(ThreadFunction Process) " + ex.Message + "\n", ex.StackTrace);
 								RemovePlayer(player);
 							}
 #endif
@@ -419,10 +423,10 @@ public class GameServer : FileServer
 	/// Log an error message.
 	/// </summary>
 
-	void Error (TcpPlayer p, string error)
+	void Error (TcpPlayer p, string error, string stack)
 	{
-		if (p != null) Tools.Print(p.address + " ERROR: " + error);
-		else Tools.Print("ERROR: " + error);
+		if (p != null) Error(p.address + " ERROR: " + error, stack);
+		else Error("ERROR: " + error, stack);
 	}
 
 	/// <summary>
@@ -822,7 +826,7 @@ public class GameServer : FileServer
 			}
 			case Packet.Error:
 			{
-				Error(player, reader.ReadString());
+				Error(player, reader.ReadString(), null);
 				break;
 			}
 			case Packet.Disconnect:
@@ -1356,6 +1360,34 @@ public class GameServer : FileServer
 				player.channel.closed = true;
 				break;
 			}
+			case Packet.RequestDeleteChannel:
+			{
+				int id = reader.ReadInt32();
+				bool dc = reader.ReadBoolean();
+
+				for (int i = 0; i < mChannels.size; ++i)
+				{
+					Channel ch = mChannels[i];
+
+					if (ch != null && ch.id == id)
+					{
+						for (int b = ch.players.size; b > 0; )
+						{
+							TcpPlayer p = ch.players[--b];
+
+							if (p != null)
+							{
+								if (dc) p.Disconnect(true);
+								else SendLeaveChannel(p, true);
+							}
+						}
+
+						mChannels.RemoveAt(i);
+						break;
+					}
+				}
+				break;
+			}
 			case Packet.RequestSetPlayerLimit:
 			{
 				player.channel.playerLimit = reader.ReadUInt16();
@@ -1466,7 +1498,7 @@ public class GameServer : FileServer
 			}
 			catch (System.Exception ex)
 			{
-				Error("Loading from " + fileName + ": " + ex.Message);
+				Error("Loading from " + fileName + ": " + ex.Message, ex.StackTrace);
 				return false;
 			}
 		}

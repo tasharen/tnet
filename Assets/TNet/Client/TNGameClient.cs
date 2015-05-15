@@ -479,6 +479,21 @@ public class GameClient
 	/// Send the outgoing buffer.
 	/// </summary>
 
+	public void EndSendForced ()
+	{
+		if (mBuffer != null)
+		{
+			mBuffer.EndPacket();
+			mTcp.SendTcpPacket(mBuffer);
+			mBuffer.Recycle();
+			mBuffer = null;
+		}
+	}
+
+	/// <summary>
+	/// Send the outgoing buffer.
+	/// </summary>
+
 	public void EndSend (bool reliable)
 	{
 		mBuffer.EndPacket();
@@ -643,6 +658,21 @@ public class GameClient
 		if (isConnected && isInChannel)
 		{
 			BeginSend(Packet.RequestLeaveChannel);
+			EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Delete the specified channel.
+	/// </summary>
+
+	public void DeleteChannel (int id, bool disconnect)
+	{
+		if (isConnected)
+		{
+			BinaryWriter writer = BeginSend(Packet.RequestDeleteChannel);
+			writer.Write(id);
+			writer.Write(disconnect);
 			EndSend();
 		}
 	}
