@@ -171,7 +171,7 @@ public class GameServer : FileServer
 		}
 		catch (System.Exception ex)
 		{
-			Error(ex.Message, ex.StackTrace);
+			Tools.LogError(ex);
 			return false;
 		}
 
@@ -180,7 +180,7 @@ public class GameServer : FileServer
 #endif
 		if (!mUdp.Start(udpPort))
 		{
-			Error("Unable to listen to UDP port " + udpPort, null);
+			Tools.LogError("Unable to listen to UDP port " + udpPort, null);
 			Stop();
 			return false;
 		}
@@ -305,7 +305,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Process) " + ex.Message + "\n", ex.StackTrace);
+								Tools.LogError(ex);
 								RemovePlayer(player);
 							}
 						}
@@ -341,7 +341,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Read " + request + ") ", ex.Message);
+								Tools.LogError(ex);
 								RemovePlayer(player);
 							}
 						}
@@ -383,7 +383,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Error("(ThreadFunction Process) " + ex.Message + "\n", ex.StackTrace);
+								Tools.LogError(ex);
 								RemovePlayer(player);
 							}
 #endif
@@ -425,8 +425,8 @@ public class GameServer : FileServer
 
 	void Error (TcpPlayer p, string error, string stack)
 	{
-		if (p != null) Error(p.address + " " + error, stack);
-		else Error(error, stack);
+		if (p != null) Tools.LogError(p.address + " " + error, stack);
+		else Tools.LogError(error, stack);
 	}
 
 	/// <summary>
@@ -1498,7 +1498,7 @@ public class GameServer : FileServer
 			}
 			catch (System.Exception ex)
 			{
-				Error("Loading from " + fileName + ": " + ex.Message, ex.StackTrace);
+				Tools.LogError("Loading from " + fileName + ": " + ex.Message, ex.StackTrace);
 				return false;
 			}
 		}

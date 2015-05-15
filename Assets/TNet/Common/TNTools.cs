@@ -856,5 +856,50 @@ static public class Tools
 		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(text);
 #endif
 	}
+
+	/// <summary>
+	/// Log an error message.
+	/// </summary>
+
+	static public void LogError (System.Exception ex)
+	{
+		Tools.Print("ERROR: " + ex.Message);
+
+		try
+		{
+			string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
+			string dir = Path.GetDirectoryName(path);
+			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+			StreamWriter sw = new StreamWriter(path, true);
+			sw.WriteLine("ERROR: " + ex.Message);
+			sw.WriteLine(ex.StackTrace);
+			sw.Close();
+		}
+		catch (System.Exception) { }
+	}
+
+	/// <summary>
+	/// Log an error message.
+	/// </summary>
+
+	static public void LogError (string msg, string stack = null)
+	{
+		Tools.Print("ERROR: " + msg);
+
+		if (!string.IsNullOrEmpty(stack))
+		{
+			try
+			{
+				string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
+				string dir = Path.GetDirectoryName(path);
+				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+				StreamWriter sw = new StreamWriter(path, true);
+				sw.WriteLine("ERROR: " + msg);
+				sw.WriteLine(stack);
+				sw.Close();
+			}
+			catch (System.Exception) { }
+		}
+	}
 }
 }

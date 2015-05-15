@@ -22,29 +22,6 @@ public class FileServer
 	Dictionary<string, byte[]> mSavedFiles = new Dictionary<string, byte[]>();
 
 	/// <summary>
-	/// Log an error message.
-	/// </summary>
-
-	protected void Error (string error, string stack)
-	{
-#if UNITY_EDITOR
-		UnityEngine.Debug.LogError("[TNet] Error: " + error);
-#elif STANDALONE
-		Tools.Print("ERROR: " + error);
-#endif
-		if (!string.IsNullOrEmpty(stack))
-		{
-			string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
-			string dir = Path.GetDirectoryName(path);
-			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-			StreamWriter sw = new StreamWriter(path, true);
-			sw.WriteLine(error);
-			sw.WriteLine(stack);
-			sw.Close();
-		}
-	}
-
-	/// <summary>
 	/// Save the specified file.
 	/// </summary>
 

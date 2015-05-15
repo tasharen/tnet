@@ -186,7 +186,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex.Message);
+				Error(ex);
 			}
 		}
 		else Error("Unable to resolve the specified address");
@@ -457,7 +457,7 @@ public class TcpProtocol : Player
 					}
 					catch (System.Exception ex)
 					{
-						Error(ex.Message);
+						Error(ex);
 						CloseNotThreadSafe(false);
 					}
 				}
@@ -499,7 +499,7 @@ public class TcpProtocol : Player
 				}
 				catch (Exception ex)
 				{
-					Error(ex.Message);
+					Error(ex);
 					CloseNotThreadSafe(false);
 				}
 			}
@@ -509,7 +509,7 @@ public class TcpProtocol : Player
 		{
 			bytes = 0;
 			Close(true);
-			Error(ex.Message);
+			Error(ex);
 			return;
 		}
 
@@ -532,7 +532,7 @@ public class TcpProtocol : Player
 				}
 				catch (Exception ex)
 				{
-					Error(ex.Message);
+					Error(ex);
 					CloseNotThreadSafe(false);
 				}
 			}
@@ -578,7 +578,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex.Message);
+				Error(ex);
 				Disconnect(true);
 			}
 		}
@@ -622,7 +622,7 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			if (socket != mSocket) return;
-			Error(ex.Message);
+			Error(ex);
 			Disconnect(true);
 			return;
 		}
@@ -645,7 +645,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex.Message);
+				Error(ex);
 				Close(false);
 			}
 		}
@@ -734,6 +734,16 @@ public class TcpProtocol : Player
 			else break;
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	public void Error (Exception ex)
+	{
+		Error(Buffer.Create(), ex.Message);
+		Tools.LogError(ex);
 	}
 
 	/// <summary>
