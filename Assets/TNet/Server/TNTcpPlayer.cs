@@ -69,20 +69,20 @@ public class TcpPlayer : TcpProtocol
 
 		// Step 3: Inform the player of who is hosting
 		if (channel.host == null) channel.host = this;
-		buffer.BeginPacket(Packet.ResponseSetHost, offset);
+		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Step 4: Send the channel's data
 		if (!string.IsNullOrEmpty(channel.data))
 		{
-			buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
+			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
 			writer.Write(channel.data);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Step 5: Inform the player of what level we're on
-		buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
+		writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
@@ -105,7 +105,7 @@ public class TcpPlayer : TcpProtocol
 			// If the previous owner is not present, transfer ownership to the host
 			if (!isPresent) obj.playerID = channel.host.id;
 
-			buffer.BeginPacket(Packet.ResponseCreate, offset);
+			writer = buffer.BeginPacket(Packet.ResponseCreate, offset);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
@@ -116,7 +116,7 @@ public class TcpPlayer : TcpProtocol
 		// Step 7: Send the list of objects that have been destroyed
 		if (channel.destroyed.size != 0)
 		{
-			buffer.BeginPacket(Packet.ResponseDestroy, offset);
+			writer = buffer.BeginPacket(Packet.ResponseDestroy, offset);
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
@@ -127,7 +127,7 @@ public class TcpPlayer : TcpProtocol
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
 			Channel.RFC rfc = channel.rfcs[i];
-			buffer.BeginWriting(offset);
+			writer = buffer.BeginWriting(offset);
 			writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
 			offset = buffer.EndWriting();
 		}
