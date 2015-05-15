@@ -375,7 +375,7 @@ public class GameServer : FileServer
 #if STANDALONE
 							catch (System.Exception ex)
 							{
-								Tools.Print("ERROR (ProcessPlayerPacket): " + ex.Message + "\n", ex.Stacktrace);
+								Error("(ProcessPlayerPacket): " + ex.Message + "\n", ex.StackTrace);
 								RemovePlayer(player);
 								buffer.Recycle();
 								continue;
@@ -425,8 +425,8 @@ public class GameServer : FileServer
 
 	void Error (TcpPlayer p, string error, string stack)
 	{
-		if (p != null) Error(p.address + " ERROR: " + error, stack);
-		else Error("ERROR: " + error, stack);
+		if (p != null) Error(p.address + " " + error, stack);
+		else Error(error, stack);
 	}
 
 	/// <summary>
