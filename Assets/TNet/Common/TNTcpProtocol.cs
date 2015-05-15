@@ -143,8 +143,8 @@ public class TcpProtocol : Player
 		Disconnect();
 		data = null;
 
-		Buffer.Recycle(mIn);
-		Buffer.Recycle(mOut);
+		lock (mIn) Buffer.Recycle(mIn);
+		lock (mOut) Buffer.Recycle(mOut);
 
 		// Some routers, like Asus RT-N66U don't support NAT Loopback, and connecting to an external IP
 		// will connect to the router instead. So if it's a local IP, connect to it first.
@@ -442,7 +442,6 @@ public class TcpProtocol : Player
 //#if UNITY_EDITOR
 //            UnityEngine.Debug.Log("Sending: " + (Packet)buffer.PeekByte(4));
 //#endif
-
 			lock (mOut)
 			{
 				mOut.Enqueue(buffer);
@@ -517,7 +516,9 @@ public class TcpProtocol : Player
 		lock (mOut)
 		{
 			// The buffer has been sent and can now be safely recycled
-			mOut.Dequeue().Recycle();
+			Buffer b = (mOut.Count != 0) ? mOut.Dequeue() : null;
+			if (b != null) b.Recycle();
+
 #if !UNITY_WINRT
 			if (bytes > 0 && mSocket != null && mSocket.Connected)
 			{
@@ -589,12 +590,12 @@ public class TcpProtocol : Player
 
 	public bool ReceivePacket (out Buffer buffer)
 	{
-		if (mIn.Count != 0)
+		lock (mIn)
 		{
-			lock (mIn)
+			if (mIn.Count != 0)
 			{
 				buffer = mIn.Dequeue();
-				return true;
+				return buffer != null;
 			}
 		}
 		buffer = null;
@@ -680,9 +681,17 @@ public class TcpProtocol : Player
 
 				if (mExpected < 0 || mExpected > 16777216)
 				{
-					// HTTP Get: 542393671
-					Close(true);
-					return false;
+					Error("Malformed data packet");
+#if UNITY_EDITOR
+					UnityEngine.Debug.LogError(mOffset + ", " + available + " / " + mExpected);
+#endif
+					mReceiveBuffer = null;
+					mExpected = 0;
+					mOffset = 0;
+
+					BeginSend(Packet.RequestCloseChannel);
+					EndSend();
+					break;
 				}
 			}
 

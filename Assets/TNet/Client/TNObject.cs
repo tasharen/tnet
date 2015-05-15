@@ -318,6 +318,7 @@ public sealed class TNObject : MonoBehaviour
 			mDictionary[uid] = this;
 			mList.Add(this);
 			mIsRegistered = true;
+			mDelete.Remove(uid);
 		}
 	}
 
@@ -331,6 +332,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (mDictionary != null) mDictionary.Remove(uid);
 			if (mList != null) mList.Remove(this);
+			mDelete.Remove(uid);
 			mIsRegistered = false;
 		}
 	}
@@ -372,6 +374,15 @@ public sealed class TNObject : MonoBehaviour
 	// Delete objects that had orphaned RFC calls due to improper sends
 	static List<uint> mDelete = new List<uint>();
 
+#if UNITY_EDITOR
+	/// <summary>
+	/// Clean up orphaned RFCs.
+	/// </summary>
+
+	[ContextMenu("Cleanup")]
+	void Cleanup () { CleanupOrphanedRFCs(); }
+#endif
+
 	/// <summary>
 	/// Clean up orphaned RFCs.
 	/// </summary>
@@ -380,8 +391,17 @@ public sealed class TNObject : MonoBehaviour
 	{
 		for (int i = 0; i < mDelete.size; ++i)
 		{
-			TNManager.BeginSend(Packet.RequestDestroy).Write(mDelete[i]);
-			TNManager.EndSend();
+			if (Find(mDelete[i]) == null)
+			{
+#if UNITY_EDITOR
+				Debug.Log("Destroying " + mDelete[i]);
+#endif
+				TNManager.BeginSend(Packet.RequestDestroy).Write(mDelete[i]);
+				TNManager.EndSend();
+			}
+#if UNITY_EDITOR
+			else Debug.Log(mDelete[i] + " is fine");
+#endif
 		}
 		mDelete.Clear();
 	}
@@ -453,9 +473,14 @@ public sealed class TNObject : MonoBehaviour
 		{
 			Debug.Log("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
 				" before it has been created.");
+			mDelete.Add(objID);
 		}
-		else Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
-			" before it has been created.");
+		else
+		{
+			Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
+				" before it has been created.");
+			mDelete.Add(objID);
+		}
 #endif
 	}
 
@@ -636,9 +661,6 @@ public sealed class TNObject : MonoBehaviour
 		if (!Application.isPlaying) return;
 #endif
 		if (hasBeenDestroyed) return;
-
-		// Clean up orphaned RFCs first
-		if (mDelete.size != 0 && TNManager.isHosting && !TNManager.isJoiningChannel) CleanupOrphanedRFCs();
 
 		// Some very odd special case... sending a string[] as the only parameter
 		// results in objs[] being a string[] instead, when it should be object[string[]].

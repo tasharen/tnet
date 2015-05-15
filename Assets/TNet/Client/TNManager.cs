@@ -514,6 +514,12 @@ public class TNManager : MonoBehaviour
 	static public void LeaveChannel () { if (mInstance != null) mInstance.mClient.LeaveChannel(); }
 
 	/// <summary>
+	/// Delete the specified channel.
+	/// </summary>
+
+	static public void DeleteChannel (int id, bool disconnect) { if (mInstance != null) mInstance.mClient.DeleteChannel(id, disconnect); }
+
+	/// <summary>
 	/// Change the maximum number of players that can join the channel the player is currently in.
 	/// </summary>
 
@@ -933,6 +939,13 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
+	[ContextMenu("Close channel")]
+	void ForceCloseChannel ()
+	{
+		mInstance.mClient.BeginSend(Packet.RequestCloseChannel);
+		mInstance.mClient.EndSendForced();
+	}
+
 	/// <summary>
 	/// Broadcast the packet to everyone on the LAN.
 	/// </summary>
@@ -1087,6 +1100,23 @@ public class TNManager : MonoBehaviour
 		return persistent ? (byte)1 : (byte)2;
 	}
 
+	List<uint> mOrphaned = new List<uint>();
+
+	[ContextMenu("Cleanup")]
+	void Cleanup ()
+	{
+		for (int i = 0; i < mOrphaned.size; ++i)
+		{
+			uint id = mOrphaned[i];
+#if UNITY_EDITOR
+			Debug.Log("Deleting " + id);
+#endif
+			TNManager.BeginSend(Packet.RequestDestroy).Write(id);
+			TNManager.EndSend();
+		}
+		mOrphaned.Clear();
+	}
+
 	/// <summary>
 	/// Notification of a new object being created.
 	/// </summary>
@@ -1099,7 +1129,8 @@ public class TNManager : MonoBehaviour
 		if (index == 65535)
 		{
 			// Load the object from the resources folder
-			go = LoadGameObject(reader.ReadString());
+			string str = reader.ReadString();
+			go = LoadGameObject(str);
 		}
 		else if (index >= 0 && index < objects.Length)
 		{
@@ -1130,6 +1161,7 @@ public class TNManager : MonoBehaviour
 				Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
 			}
 		}
+		else if (go == null) mOrphaned.Add(objectID);
 		mObjectOwner = -1;
 	}
 

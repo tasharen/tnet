@@ -54,6 +54,7 @@ public class Buffer
 	{
 		get
 		{
+			if (mStream == null) return 0;
 			return mWriting ? (int)mStream.Position : mSize - (int)mStream.Position;
 		}
 	}
@@ -62,7 +63,19 @@ public class Buffer
 	/// Position within the stream.
 	/// </summary>
 
-	public int position { get { return (int)mStream.Position; } set { mStream.Seek(value, SeekOrigin.Begin); } }
+	public int position
+	{
+		get
+		{
+			if (mStream == null) return 0;
+			return (int)mStream.Position;
+		}
+		set
+		{
+			if (mStream != null)
+				mStream.Seek(value, SeekOrigin.Begin);
+		}
+	}
 
 	/// <summary>
 	/// Underlying memory stream.
@@ -74,7 +87,7 @@ public class Buffer
 	/// Get the entire buffer (note that it may be bigger than 'size').
 	/// </summary>
 
-	public byte[] buffer { get { return mStream.GetBuffer(); } }
+	public byte[] buffer { get { return mStream != null ? mStream.GetBuffer() : null; } }
 
 	/// <summary>
 	/// Number of buffers in the recycled list.
@@ -232,8 +245,12 @@ public class Buffer
 	{
 		mSize = 0;
 		mCounter = 0;
-		if (mStream.Capacity > 1024) mStream = null;
-		else mStream.Seek(0, SeekOrigin.Begin);
+
+		if (mStream != null)
+		{
+			if (mStream.Capacity > 1024) mStream = null;
+			else mStream.Seek(0, SeekOrigin.Begin);
+		}
 		mWriting = true;
 	}
 
@@ -295,7 +312,7 @@ public class Buffer
 
 	public int EndWriting ()
 	{
-		if (mWriting)
+		if (mWriting && mStream != null)
 		{
 			mSize = position;
 			mStream.Seek(0, SeekOrigin.Begin);
@@ -310,7 +327,7 @@ public class Buffer
 
 	public BinaryReader BeginReading ()
 	{
-		if (mWriting)
+		if (mWriting && mStream != null)
 		{
 			mWriting = false;
 			mSize = (int)mStream.Position;
@@ -325,12 +342,15 @@ public class Buffer
 
 	public BinaryReader BeginReading (int startOffset)
 	{
-		if (mWriting)
+		if (mStream != null)
 		{
-			mWriting = false;
-			mSize = (int)mStream.Position;
+			if (mWriting)
+			{
+				mWriting = false;
+				mSize = (int)mStream.Position;
+			}
+			mStream.Seek(startOffset, SeekOrigin.Begin);
 		}
-		mStream.Seek(startOffset, SeekOrigin.Begin);
 		return mReader;
 	}
 
@@ -340,11 +360,16 @@ public class Buffer
 
 	public int PeekByte (int offset)
 	{
-		long pos = mStream.Position;
-		if (offset < 0 || offset + 1 > size) return -1;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		int val = mReader.ReadByte();
-		mStream.Seek(pos, SeekOrigin.Begin);
+		int val = 0;
+
+		if (mStream != null)
+		{
+			long pos = mStream.Position;
+			if (offset < 0 || offset + 1 > size) return -1;
+			mStream.Seek(offset, SeekOrigin.Begin);
+			val = mReader.ReadByte();
+			mStream.Seek(pos, SeekOrigin.Begin);
+		}
 		return val;
 	}
 
@@ -354,11 +379,16 @@ public class Buffer
 
 	public int PeekInt (int offset)
 	{
-		long pos = mStream.Position;
-		if (offset < 0 || offset + 4 > size) return -1;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		int val = mReader.ReadInt32();
-		mStream.Seek(pos, SeekOrigin.Begin);
+		int val = 0;
+
+		if (mStream != null)
+		{
+			long pos = mStream.Position;
+			if (offset < 0 || offset + 4 > size) return -1;
+			mStream.Seek(offset, SeekOrigin.Begin);
+			val = mReader.ReadInt32();
+			mStream.Seek(pos, SeekOrigin.Begin);
+		}
 		return val;
 	}
 
@@ -368,11 +398,16 @@ public class Buffer
 
 	public byte[] PeekBytes (int offset, int length)
 	{
-		long pos = mStream.Position;
-		if (offset < 0 || offset + length > pos) return null;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		byte[] bytes = mReader.ReadBytes(length);
-		mStream.Seek(pos, SeekOrigin.Begin);
+		byte[] bytes = null;
+
+		if (mStream != null)
+		{
+			long pos = mStream.Position;
+			if (offset < 0 || offset + length > pos) return null;
+			mStream.Seek(offset, SeekOrigin.Begin);
+			bytes = mReader.ReadBytes(length);
+			mStream.Seek(pos, SeekOrigin.Begin);
+		}
 		return bytes;
 	}
 
@@ -418,7 +453,7 @@ public class Buffer
 
 	public int EndPacket ()
 	{
-		if (mWriting)
+		if (mWriting && mStream != null)
 		{
 			mSize = position;
 			mStream.Seek(0, SeekOrigin.Begin);
@@ -435,7 +470,7 @@ public class Buffer
 
 	public int EndTcpPacketStartingAt (int startOffset)
 	{
-		if (mWriting)
+		if (mWriting && mStream != null)
 		{
 			mSize = position;
 			mStream.Seek(startOffset, SeekOrigin.Begin);
@@ -452,7 +487,7 @@ public class Buffer
 
 	public int EndTcpPacketWithOffset (int offset)
 	{
-		if (mWriting)
+		if (mWriting && mStream != null)
 		{
 			mSize = position;
 			mStream.Seek(0, SeekOrigin.Begin);
