@@ -375,7 +375,7 @@ public class GameServer : FileServer
 #if STANDALONE
 							catch (System.Exception ex)
 							{
-								Error("(ProcessPlayerPacket): " + ex.Message + "\n", ex.StackTrace);
+								Tools.LogError("(ProcessPlayerPacket): " + ex.Message + "\n", ex.StackTrace);
 								RemovePlayer(player);
 								buffer.Recycle();
 								continue;
