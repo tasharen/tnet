@@ -114,6 +114,18 @@ public class GameServer : FileServer
 	bool mAllowUdp = false;
 	object mLock = 0;
 
+	// List of admin keywords
+	List<string> mAdmin = new List<string>();
+
+	// List of banned players
+	List<string> mBan = new List<string>();
+
+	/// <summary>
+	/// Add a new entry to the list.
+	/// </summary>
+
+	static void AddUnique (List<string> list, string s) { if (!list.Contains(s)) list.Add(s); }
+
 	/// <summary>
 	/// Whether the server is currently actively serving players.
 	/// </summary>
@@ -161,6 +173,9 @@ public class GameServer : FileServer
 	public bool Start (int tcpPort, int udpPort)
 	{
 		Stop();
+
+		Tools.LoadList("ServerConfig/ban.txt", mBan);
+		Tools.LoadList("ServerConfig/admin.txt", mAdmin);
 
 		try
 		{
@@ -284,7 +299,20 @@ public class GameServer : FileServer
 				{
 					// Add all pending connections
 					while (mListener != null && mListener.Pending())
-						AddPlayer(mListener.AcceptSocket());
+					{
+						Socket socket = mListener.AcceptSocket();
+
+						if (socket != null)
+						{
+							IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
+
+							if (remote == null || mBan.Contains(remote.Address.ToString()))
+							{
+								socket.Close();
+							}
+							else AddPlayer(socket);
+						}
+					}
 				}
 
 				// Process datagrams first
@@ -375,7 +403,7 @@ public class GameServer : FileServer
 #if STANDALONE
 							catch (System.Exception ex)
 							{
-								Tools.LogError("(ProcessPlayerPacket): " + ex.Message + "\n", ex.StackTrace);
+								Error(player, ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 								buffer.Recycle();
 								continue;
@@ -383,7 +411,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex, player.name);
+								Error(player, ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 							}
 #endif
@@ -423,10 +451,20 @@ public class GameServer : FileServer
 	/// Log an error message.
 	/// </summary>
 
-	void Error (TcpPlayer p, string error, string stack)
+	void Error (TcpPlayer p, string error, string stack, bool logInFile = true)
 	{
-		if (p != null) Tools.LogError(p.address + " " + error, stack);
-		else Tools.LogError(error, stack);
+		if (p != null) Tools.LogError(p.address + " " + error, stack, logInFile);
+		else Tools.LogError(error, stack, logInFile);
+	}
+
+	/// <summary>
+	/// Log an error message.
+	/// </summary>
+
+	void Log (TcpPlayer p, string msg)
+	{
+		if (p != null) Tools.Log(p.name + " (" + p.address + "): " + msg);
+		else Tools.Log(msg);
 	}
 
 	/// <summary>
@@ -498,6 +536,12 @@ public class GameServer : FileServer
 		for (int i = 0; i < mPlayers.size; ++i)
 		{
 			if (mPlayers[i].name == name)
+				return mPlayers[i];
+		}
+
+		for (int i = 0; i < mPlayers.size; ++i)
+		{
+			if (mPlayers[i].address == name)
 				return mPlayers[i];
 		}
 		return null;
@@ -802,10 +846,19 @@ public class GameServer : FileServer
 		{
 			if (player.VerifyRequestID(buffer, true))
 			{
-				mDictionaryID.Add(player.id, player);
-				if (lobbyLink != null) lobbyLink.SendUpdate(this);
-				if (onPlayerConnect != null) onPlayerConnect(player);
-				return true;
+				if (!mBan.Contains(player.name))
+				{
+					mDictionaryID.Add(player.id, player);
+					if (lobbyLink != null) lobbyLink.SendUpdate(this);
+					if (onPlayerConnect != null) onPlayerConnect(player);
+					return true;
+				}
+				else
+				{
+					Log(player, "User is banned");
+					RemovePlayer(player);
+					return false;
+				}
 			}
 
 			Tools.Print(player.address + " has failed the verification step");
@@ -1022,9 +1075,17 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestSaveFile:
 			{
-				string fileName = reader.ReadString();
-				byte[] data = reader.ReadBytes(reader.ReadInt32());
-				if (!string.IsNullOrEmpty(fileName)) SaveFile(fileName, data);
+				try
+				{
+					string fileName = reader.ReadString();
+					byte[] data = reader.ReadBytes(reader.ReadInt32());
+					if (!string.IsNullOrEmpty(fileName)) SaveFile(fileName, data);
+				}
+				catch (Exception ex)
+				{
+					Error(player, ex.Message, ex.StackTrace);
+					RemovePlayer(player);
+				}
 				break;
 			}
 			case Packet.RequestLoadFile:
@@ -1147,12 +1208,135 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.RequestVerifyAdmin:
+			{
+				string pass = reader.ReadString();
+
+				if (!string.IsNullOrEmpty(pass) && mAdmin.Contains(pass))
+				{
+					if (!player.isAdmin)
+					{
+						player.isAdmin = true;
+						Log(player, "Admin verified");
+					}
+				}
+				else
+				{
+					Error(player, "Tried to authenticate as admin and failed (" + pass + ")", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestCreateAdmin:
+			{
+				string s = reader.ReadString();
+
+				if (player.isAdmin)
+				{
+					if (!mAdmin.Contains(s)) mAdmin.Add(s);
+					Log(player, "Added an admin (" + s + ")");
+					Tools.SaveList("ServerConfig/admin.txt", mAdmin);
+				}
+				else
+				{
+					Error(player, "Tried to add an admin (" + s + ") and failed", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestRemoveAdmin:
+			{
+				string s = reader.ReadString();
+
+				if (player.isAdmin)
+				{
+					mAdmin.Remove(s);
+					Log(player, "Removed an admin (" + s + ")");
+					Tools.SaveList("ServerConfig/admin.txt", mAdmin);
+				}
+				else
+				{
+					Error(player, "Tried to remove an admin (" + s + ") and failed", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestBanCheck:
+			{
+				string s = reader.ReadString();
+
+				if (mBan.Contains(s))
+				{
+					AddUnique(mBan, player.name);
+					AddUnique(mBan, player.tcpEndPoint.Address.ToString());
+					Tools.SaveList("ServerConfig/ban.txt", mBan);
+
+					Log(player, "Failed a ban check: " + s);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestKick:
+			{
+				int id = reader.ReadInt32();
+				string s = (id != 0) ? null : reader.ReadString();
+				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
+
+				if (player.isAdmin)
+				{
+					if (other != null)
+					{
+						Log(player, "Kicked " + other.name + " (" + other.address + ")");
+						RemovePlayer(other);
+					}
+				}
+				else
+				{
+					Error(player, "Tried to kick " + (other != null ? other.name : s) + " and failed", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestBan:
+			{
+				int id = reader.ReadInt32();
+				string s = (id != 0) ? null : reader.ReadString();
+				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
+
+				if (player.isAdmin)
+				{
+					if (other != null)
+					{
+						Log(player, "Banned " + other.name + " (" + other.address + ")");
+
+						if (other != null)
+						{
+							AddUnique(mBan, other.name);
+							AddUnique(mBan, other.tcpEndPoint.Address.ToString());
+							Tools.SaveList("ServerConfig/ban.txt", mBan);
+							RemovePlayer(other);
+						}
+					}
+					else if (id == 0)
+					{
+						Log(player, "Banned " + s);
+						AddUnique(mBan, s);
+						Tools.SaveList("ServerConfig/ban.txt", mBan);
+					}
+				}
+				else
+				{
+					Error(player, "Tried to ban " + (other != null ? other.name : s) + " and failed", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
 			default:
 			{
-				if (player.channel != null && (int)request <= (int)Packet.ForwardToPlayerSaved)
+				if (player.channel != null && (int)request < (int)Packet.UserPacket)
 				{
 					// Other packets can only be processed while in a channel
-					if ((int)request >= (int)Packet.ForwardToAll)
+					if (request >= Packet.ForwardToAll && request <= Packet.ForwardToPlayerSaved)
 					{
 						ProcessForwardPacket(player, buffer, reader, request, reliable);
 					}
@@ -1356,10 +1540,12 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestCloseChannel:
 			{
-				Error(player, "***** Trying to close a channel", null);
-				player.Disconnect();
-				//player.channel.persistent = false;
-				//player.channel.closed = true;
+				if (player.channel != null)
+				{
+					Log(player, "Closing channel " + player.channel.id);
+					player.channel.persistent = false;
+					player.channel.closed = true;
+				}
 				break;
 			}
 			case Packet.RequestDeleteChannel:
@@ -1367,7 +1553,9 @@ public class GameServer : FileServer
 				int id = reader.ReadInt32();
 				bool dc = reader.ReadBoolean();
 
-				for (int i = 0; i < mChannels.Count; ++i)
+				Log(player, "Deleting channel " + id);
+
+				for (int i = 0; i < mChannels.size; ++i)
 				{
 					Channel ch = mChannels[i];
 
@@ -1379,10 +1567,14 @@ public class GameServer : FileServer
 
 							if (p != null)
 							{
-								if (dc) p.Disconnect(true);
+								if (dc) RemovePlayer(p);
 								else SendLeaveChannel(p, true);
 							}
 						}
+
+						ch.persistent = false;
+						ch.closed = true;
+						ch.Reset();
 
 						mChannels.RemoveAt(i);
 						break;
@@ -1427,6 +1619,9 @@ public class GameServer : FileServer
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		if (mListener == null) return;
+
+		Tools.SaveList("ServerConfig/ban.txt", mBan);
+		Tools.SaveList("ServerConfig/admin.txt", mAdmin);
 
 		if (mWriteStream == null)
 		{

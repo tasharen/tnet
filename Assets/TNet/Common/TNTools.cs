@@ -611,6 +611,7 @@ static public class Tools
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		// Relative paths are not allowed
 		if (path.Contains("..")) return false;
+		if (path.IndexOf("ServerConfig", System.StringComparison.CurrentCultureIgnoreCase) != -1) return false;
 
 		// Get the full path
 		string fullPath = null;
@@ -798,9 +799,10 @@ static public class Tools
 	static public byte[] ReadFile (string path)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
+		path = FindFile(path);
+
 		try
 		{
-			path = FindFile(path);
 			if (!string.IsNullOrEmpty(path))
 				return File.ReadAllBytes(path);
 		}
@@ -857,10 +859,11 @@ static public class Tools
 	/// Convenience function -- prints the specified message, prefixed with a timestamp.
 	/// </summary>
 
-	static public void Print (string text)
+	static public void Print (string text, bool appendTime = true)
 	{
 #if STANDALONE
 		if (string.IsNullOrEmpty(text)) System.Console.WriteLine("");
+		else if (!appendTime) System.Console.WriteLine(text);
 		else System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + text);
 #elif UNITY_EDITOR
 		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(text);
@@ -868,12 +871,13 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// Log an error message.
+	/// Write a new log entry.
 	/// </summary>
 
-	static public void LogError (System.Exception ex, string playerName)
+	static public void Log (string msg)
 	{
-		Tools.Print("ERROR: " + ex.Message);
+		msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
+		Tools.Print(msg, false);
 
 		try
 		{
@@ -881,9 +885,7 @@ static public class Tools
 			string dir = Path.GetDirectoryName(path);
 			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 			StreamWriter sw = new StreamWriter(path, true);
-			if (string.IsNullOrEmpty(playerName)) sw.WriteLine("ERROR: " + ex.Message + " (Player: " + playerName + ")");
-			else sw.WriteLine("ERROR: " + ex.Message);
-			sw.WriteLine(ex.StackTrace);
+			sw.WriteLine(msg);
 			sw.Close();
 		}
 		catch (System.Exception) { }
@@ -893,11 +895,43 @@ static public class Tools
 	/// Log an error message.
 	/// </summary>
 
-	static public void LogError (string msg, string stack = null)
+	static public void LogError (System.Exception ex, string playerName, bool logInFile = true)
+	{
+		string msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] ERROR: " + ex.Message;
+		Tools.Print(msg, false);
+
+		if (logInFile)
+		{
+			try
+			{
+				string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
+				string dir = Path.GetDirectoryName(path);
+				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+				StreamWriter sw = new StreamWriter(path, true);
+
+				if (string.IsNullOrEmpty(playerName))
+				{
+					sw.WriteLine(msg + " (Player: " + playerName + ")");
+				}
+				else sw.WriteLine(msg);
+
+				string stack = ex.StackTrace;
+				if (!string.IsNullOrEmpty(stack)) sw.WriteLine(stack);
+				sw.Close();
+			}
+			catch (System.Exception) { }
+		}
+	}
+
+	/// <summary>
+	/// Log an error message.
+	/// </summary>
+
+	static public void LogError (string msg, string stack = null, bool logInFile = true)
 	{
 		Tools.Print("ERROR: " + msg);
 
-		if (!string.IsNullOrEmpty(stack))
+		if (logInFile)
 		{
 			try
 			{
@@ -906,10 +940,51 @@ static public class Tools
 				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 				StreamWriter sw = new StreamWriter(path, true);
 				sw.WriteLine("ERROR: " + msg);
-				sw.WriteLine(stack);
+				if (!string.IsNullOrEmpty(stack)) sw.WriteLine(stack);
 				sw.Close();
 			}
 			catch (System.Exception) { }
+		}
+	}
+
+	/// <summary>
+	/// Save this configuration list.
+	/// </summary>
+
+	static internal void SaveList (string path, List<string> list)
+	{
+		if (list.size > 0)
+		{
+			path = Tools.GetDocumentsPath(path);
+			string dir = Path.GetDirectoryName(path);
+			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+			StreamWriter sw = new StreamWriter(path, false);
+			for (int i = 0; i < list.size; ++i) sw.WriteLine(list[i]);
+			sw.Close();
+		}
+		else Tools.DeleteFile(path);
+	}
+
+	/// <summary>
+	/// Helper function that loads a list from within specified file.
+	/// </summary>
+
+	static internal void LoadList (string path, List<string> list)
+	{
+		list.Clear();
+		path = Tools.GetDocumentsPath(path);
+
+		if (path != null && File.Exists(path))
+		{
+			StreamReader reader = new StreamReader(path);
+
+			while (!reader.EndOfStream)
+			{
+				string s = reader.ReadLine();
+				if (!string.IsNullOrEmpty(s)) list.Add(s);
+				else break;
+			}
+			reader.Close();
 		}
 	}
 }

@@ -52,6 +52,27 @@ public class TNManager : MonoBehaviour
 	[System.NonSerialized] GameClient mClient = new GameClient();
 	[System.NonSerialized] bool mAsyncLoad = false;
 	[System.NonSerialized] bool mJoining = false;
+	[System.NonSerialized] bool mIsAdmin = false;
+
+	/// <summary>
+	/// Whether the player has verified himself as an administrator.
+	/// </summary>
+
+	static public bool isAdmin { get { return (mInstance != null && mInstance.mIsAdmin); } }
+
+	/// <summary>
+	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
+	/// </summary>
+
+	static public void SetAdmin (string pass)
+	{
+		if (mInstance)
+		{
+			mInstance.mIsAdmin = true;
+			BeginSend(Packet.RequestVerifyAdmin).Write(pass);
+			EndSend();
+		}
+	}
 
 	/// <summary>
 	/// TNet Client used for communication.
@@ -1073,16 +1094,18 @@ public class TNManager : MonoBehaviour
 	{
 		if (string.IsNullOrEmpty(path))
 		{
+#if UNITY_EDITOR
 			Debug.LogError("[TNet] Null path passed to TNManager.LoadGameObject!");
+#endif
 			return null;
 		}
 
 		GameObject go = Resources.Load(path, typeof(GameObject)) as GameObject;
 
+#if UNITY_EDITOR
 		if (go == null)
-		{
 			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
-		}
+#endif
 		return go;
 	}
 
@@ -1277,6 +1300,7 @@ public class TNManager : MonoBehaviour
 	{
 		mAsyncLoad = false;
 		mJoining = false;
+		mIsAdmin = false;
 		UnityTools.Broadcast("OnNetworkDisconnect");
 	}
 

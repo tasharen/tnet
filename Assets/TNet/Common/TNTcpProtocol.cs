@@ -579,7 +579,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex);
+				if (!(ex is SocketException)) Error(ex);
 				Disconnect(true);
 			}
 		}
@@ -623,7 +623,7 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			if (socket != mSocket) return;
-			Error(ex);
+			if (!(ex is SocketException)) Error(ex);
 			Disconnect(true);
 			return;
 		}
@@ -646,7 +646,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex);
+				if (!(ex is SocketException)) Error(ex);
 				Close(false);
 			}
 		}
@@ -795,7 +795,7 @@ public class TcpProtocol : Player
 
 				stage = TcpProtocol.Stage.Connected;
 #if STANDALONE
-				if (id != 0) Tools.Print("[" + id + "] " + name + " has connected");
+				if (id != 0) Tools.Log("[" + id + "] " + name + " has connected (" + address + ")");
 #endif
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);

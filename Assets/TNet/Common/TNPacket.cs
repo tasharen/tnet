@@ -482,5 +482,50 @@ public enum Packet
 	/// </summary>
 
 	RequestDeleteChannel,
+
+	/// <summary>
+	/// Request to be made an administrator.
+	/// string: password.
+	/// </summary>
+
+	RequestVerifyAdmin,
+
+	/// <summary>
+	/// Request to add a new admin.
+	/// </summary>
+
+	RequestCreateAdmin,
+
+	/// <summary>
+	/// Remove this admin from the list.
+	/// </summary>
+
+	RequestRemoveAdmin,
+
+	/// <summary>
+	/// Kick the specified player.
+	/// int32: Player ID.
+	/// string: player name or address
+	/// </summary>
+
+	RequestKick,
+
+	/// <summary>
+	/// Ban this player.
+	/// int32: Player ID.
+	/// string: player name or address (if ID is '0')
+	/// </summary>
+
+	RequestBan,
+
+	/// <summary>
+	/// Checks the following string against the ban list. If the string is there, the player gets disconnected.
+	/// </summary>
+
+	RequestBanCheck,
+
+	//===================================================================================
+
+	UserPacket,
 }
 }

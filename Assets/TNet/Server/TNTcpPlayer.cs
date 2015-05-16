@@ -37,6 +37,12 @@ public class TcpPlayer : TcpProtocol
 	public bool udpIsUsable = false;
 
 	/// <summary>
+	/// Whether this player has authenticated as an administrator.
+	/// </summary>
+
+	public bool isAdmin = false;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
