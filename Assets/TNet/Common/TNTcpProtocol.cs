@@ -434,6 +434,7 @@ public class TcpProtocol : Player
 
 	public void SendTcpPacket (Buffer buffer)
 	{
+		
 		buffer.MarkAsUsed();
 
 		if (mSocket != null && mSocket.Connected)
