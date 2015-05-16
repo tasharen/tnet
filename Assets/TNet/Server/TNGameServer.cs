@@ -171,7 +171,7 @@ public class GameServer : FileServer
 		}
 		catch (System.Exception ex)
 		{
-			Tools.LogError(ex);
+			Tools.LogError(ex, null);
 			return false;
 		}
 
@@ -305,7 +305,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, null);
 								RemovePlayer(player);
 							}
 						}
@@ -341,7 +341,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, (player != null) ? player.name : null);
 								RemovePlayer(player);
 							}
 						}
@@ -383,7 +383,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, player.name);
 								RemovePlayer(player);
 							}
 #endif
@@ -1024,7 +1024,7 @@ public class GameServer : FileServer
 			{
 				string fileName = reader.ReadString();
 				byte[] data = reader.ReadBytes(reader.ReadInt32());
-				SaveFile(fileName, data);
+				if (!string.IsNullOrEmpty(fileName)) SaveFile(fileName, data);
 				break;
 			}
 			case Packet.RequestLoadFile:
@@ -1356,8 +1356,10 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestCloseChannel:
 			{
-				player.channel.persistent = false;
-				player.channel.closed = true;
+				Error(player, "***** Trying to close a channel", null);
+				player.Disconnect();
+				//player.channel.persistent = false;
+				//player.channel.closed = true;
 				break;
 			}
 			case Packet.RequestDeleteChannel:
@@ -1365,7 +1367,7 @@ public class GameServer : FileServer
 				int id = reader.ReadInt32();
 				bool dc = reader.ReadBoolean();
 
-				for (int i = 0; i < mChannels.size; ++i)
+				for (int i = 0; i < mChannels.Count; ++i)
 				{
 					Channel ch = mChannels[i];
 

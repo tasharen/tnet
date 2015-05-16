@@ -1081,7 +1081,7 @@ public class TNManager : MonoBehaviour
 
 		if (go == null)
 		{
-			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: " + path);
+			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
 		}
 		return go;
 	}

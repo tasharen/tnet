@@ -861,9 +861,10 @@ public class GameClient
 		}
 
 //#if !UNITY_EDITOR // DEBUG
-//		if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#else
-//		if (response != Packet.ResponsePing) UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//        if (response != Packet.ResponsePing && response != Packet.Broadcast)
+//            UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
 //#endif
 
 		OnPacket callback;
@@ -1022,7 +1023,11 @@ public class GameClient
 			{
 				mCanSend = true;
 				mIsInChannel = reader.ReadBoolean();
-				if (onJoinChannel != null) onJoinChannel(mIsInChannel, mIsInChannel ? null : reader.ReadString());
+				string msg = mIsInChannel ? null : reader.ReadString();
+#if UNITY_EDITOR
+				if (!mIsInChannel) UnityEngine.Debug.LogError("ResponseJoinChannel: " + mIsInChannel + ", " + msg);
+#endif
+				if (onJoinChannel != null) onJoinChannel(mIsInChannel, msg);
 				break;
 			}
 			case Packet.ResponseLeaveChannel:
