@@ -440,7 +440,8 @@ public class TcpProtocol : Player
 		{
 			buffer.BeginReading();
 //#if UNITY_EDITOR
-//            UnityEngine.Debug.Log("Sending: " + (Packet)buffer.PeekByte(4));
+//            Packet packet = (Packet)buffer.PeekByte(4);
+//            if (packet != Packet.RequestPing) UnityEngine.Debug.Log("Sending: " + packet);
 //#endif
 			lock (mOut)
 			{
@@ -743,7 +744,7 @@ public class TcpProtocol : Player
 	public void Error (Exception ex)
 	{
 		Error(Buffer.Create(), ex.Message);
-		Tools.LogError(ex);
+		Tools.LogError(ex, name);
 	}
 
 	/// <summary>

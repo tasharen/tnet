@@ -613,7 +613,17 @@ static public class Tools
 		if (path.Contains("..")) return false;
 
 		// Get the full path
-		string fullPath = System.IO.Path.GetFullPath(path).Replace("\\", "/");
+		string fullPath = null;
+
+		try
+		{
+			fullPath = System.IO.Path.GetFullPath(path).Replace("\\", "/");
+		}
+		catch (System.Exception ex)
+		{
+			LogError("Path: " + path + "\n" + ex.Message, ex.StackTrace);
+			return false;
+		}
 
 		// Path is inside the current folder
 		string current = System.Environment.CurrentDirectory.Replace("\\", "/");
@@ -861,7 +871,7 @@ static public class Tools
 	/// Log an error message.
 	/// </summary>
 
-	static public void LogError (System.Exception ex)
+	static public void LogError (System.Exception ex, string playerName)
 	{
 		Tools.Print("ERROR: " + ex.Message);
 
@@ -871,7 +881,8 @@ static public class Tools
 			string dir = Path.GetDirectoryName(path);
 			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 			StreamWriter sw = new StreamWriter(path, true);
-			sw.WriteLine("ERROR: " + ex.Message);
+			if (string.IsNullOrEmpty(playerName)) sw.WriteLine("ERROR: " + ex.Message + " (Player: " + playerName + ")");
+			else sw.WriteLine("ERROR: " + ex.Message);
 			sw.WriteLine(ex.StackTrace);
 			sw.Close();
 		}

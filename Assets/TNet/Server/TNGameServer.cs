@@ -171,7 +171,7 @@ public class GameServer : FileServer
 		}
 		catch (System.Exception ex)
 		{
-			Tools.LogError(ex);
+			Tools.LogError(ex, null);
 			return false;
 		}
 
@@ -305,7 +305,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, null);
 								RemovePlayer(player);
 							}
 						}
@@ -341,7 +341,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, (player != null) ? player.name : null);
 								RemovePlayer(player);
 							}
 						}
@@ -383,7 +383,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex);
+								Tools.LogError(ex, player.name);
 								RemovePlayer(player);
 							}
 #endif
