@@ -524,6 +524,19 @@ public enum Packet
 
 	RequestBanCheck,
 
+	/// <summary>
+	/// Remove ban from this keyword.
+	/// string: data to remove.
+	/// </summary>
+
+	RequestUnban,
+
+	/// <summary>
+	/// Log information about all the connected players.
+	/// </summary>
+
+	RequestLogPlayers,
+
 	//===================================================================================
 
 	UserPacket,

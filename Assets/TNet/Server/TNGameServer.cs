@@ -1192,19 +1192,31 @@ public class GameServer : FileServer
 			}
 			case Packet.Broadcast:
 			{
-				// 4 bytes for size, 1 byte for ID
-				buffer.position = buffer.position - 5;
+				Tools.Print("Broadcast: " + player.name + ", " + player.address);
 
-				// Forward the packet to everyone connected to the server
-				for (int i = 0; i < mPlayers.size; ++i)
+				if (player.nextBroadcast < mTime)
 				{
-					TcpPlayer tp = mPlayers[i];
+					player.nextBroadcast = mTime + 250;
 
-					if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
+					// 4 bytes for size, 1 byte for ID
+					buffer.position = buffer.position - 5;
+
+					// Forward the packet to everyone connected to the server
+					for (int i = 0; i < mPlayers.size; ++i)
 					{
-						tp.SendTcpPacket(buffer);
+						TcpPlayer tp = mPlayers[i];
+
+						if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
+						{
+							tp.SendTcpPacket(buffer);
+						}
+						else mUdp.Send(buffer, tp.udpEndPoint);
 					}
-					else mUdp.Send(buffer, tp.udpEndPoint);
+				}
+				else
+				{
+					Log(player, "SPAM filter trigger! " + (player.channel != null ? player.channel.id : -1));
+					RemovePlayer(player);
 				}
 				break;
 			}
@@ -1273,6 +1285,35 @@ public class GameServer : FileServer
 
 					Log(player, "Failed a ban check: " + s);
 					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestUnban:
+			{
+				string s = reader.ReadString();
+
+				if (player.isAdmin)
+				{
+					mBan.Remove(s);
+					Tools.SaveList("ServerConfig/ban.txt", mBan);
+					Log(player, "Removed an banned keyword (" + s + ")");
+				}
+				else
+				{
+					Error(player, "Tried to unban (" + s + ") and failed", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestLogPlayers:
+			{
+				if (player.isAdmin)
+				{
+					for (int i = 0; i < mPlayers.size; ++i)
+					{
+						TcpPlayer p = mPlayers[i];
+						Log(p, p.channel + " " + p.isAdmin);
+					}
 				}
 				break;
 			}

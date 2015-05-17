@@ -43,6 +43,12 @@ public class TcpPlayer : TcpProtocol
 	public bool isAdmin = false;
 
 	/// <summary>
+	/// Time of the next possible broadcast, used to catch spammers.
+	/// </summary>
+
+	public long nextBroadcast = 0;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
