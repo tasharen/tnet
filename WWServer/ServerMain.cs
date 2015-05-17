@@ -242,7 +242,7 @@ public class Application : IDisposable
 			Console.WriteLine("  WWServer -name \"My Server\" -tcp 5127 -public");
 
 #if DEBUG
-			args = new string[] { "-name", "(TP) Beginner - East Coast 1", "-tcp", "6229", "-public", "-world", "World1" };
+			args = new string[] { "-name", "(TP) Beginner - East Coast 1", "-tcp", "6229", "-public", "-world", "World5" };
 #else
 			args = new string[] { "-name", "Windward Server", "-tcp", "5127", "-world", "World" };
 #endif
@@ -256,6 +256,7 @@ public class Application : IDisposable
 		int lobbyPort = 0;
 		bool tcpLobby = false;
 		bool service = false;
+		bool localPath = false;
 
 		for (int i = 0; i < args.Length; )
 		{
@@ -327,6 +328,10 @@ public class Application : IDisposable
 			{
 				service = true;
 			}
+			else if (param == "-localPath")
+			{
+				localPath = true;
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;
@@ -334,7 +339,16 @@ public class Application : IDisposable
 		}
 
 		if (string.IsNullOrEmpty(worldName)) worldName = "World";
-		worldName = Tools.GetDocumentsPath("Windward/Worlds/" + worldName + ".dat");
+
+		worldName = "Worlds/" + worldName + ".dat";
+		
+		if (!localPath)
+		{
+			Tools.applicationDirectory = "Windward";
+			worldName = Tools.GetDocumentsPath(worldName);
+		}
+		else Tools.persistentDataPath = "";
+
 		Application app = new Application();
 		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, worldName);
 		return 0;
