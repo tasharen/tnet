@@ -487,14 +487,14 @@ public class TcpProtocol : Player
 #if !UNITY_WINRT
 			bytes = mSocket.EndSend(result);
 			Buffer buff = (Buffer)result.AsyncState;
-			buff.position += bytes;
 
 			// If not everything was sent...
-			if (buff.size > 0)
+			if (bytes < buff.size)
 			{
 				try
 				{
 					// Advance the position and send the rest
+					buff.position += bytes;
 					mSocket.BeginSend(buff.buffer, buff.position, buff.size, SocketFlags.None, OnSend, buff);
 					return;
 				}
