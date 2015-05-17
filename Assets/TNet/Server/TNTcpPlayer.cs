@@ -49,6 +49,12 @@ public class TcpPlayer : TcpProtocol
 	public long nextBroadcast = 0;
 
 	/// <summary>
+	/// Count broadcasts done per second.
+	/// </summary>
+
+	public int broadcastCount = 0;
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 

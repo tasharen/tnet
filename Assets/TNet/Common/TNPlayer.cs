@@ -38,6 +38,49 @@ public class Player
 
 	public object data = null;
 
+	/// <summary>
+	/// Player's known aliases. These will be checked against the ban list.
+	/// Ideal usage: Steam ID, computer ID, account ID, etc.
+	/// </summary>
+
+	public List<string> aliases = null;
+
+	/// <summary>
+	/// Add a new alias to work with.
+	/// </summary>
+
+	public bool AddAlias (string s)
+	{
+		if (!string.IsNullOrEmpty(s))
+		{
+			if (aliases == null)
+			{
+				aliases = new List<string>();
+				aliases.Add(s);
+				return true;
+			}
+			else if (!aliases.Contains(s))
+			{
+				aliases.Add(s);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Does the player have this alias?
+	/// </summary>
+
+	public bool HasAlias (string s)
+	{
+		if (aliases == null) return false;
+		for (int i = 0; i < aliases.size; ++i)
+			if (aliases[i] == s)
+				return true;
+		return false;
+	}
+
 #if !STANDALONE
 	static DataNode mDummy = new DataNode("Version", version);
 

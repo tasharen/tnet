@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Threading;
 using System.Net;
+using System.Text;
 
 namespace TNet
 {
@@ -121,10 +122,18 @@ public class GameServer : FileServer
 	List<string> mBan = new List<string>();
 
 	/// <summary>
-	/// Add a new entry to the list.
+	/// Add a new entry to the list. Returns 'true' if a new entry was added.
 	/// </summary>
 
-	static void AddUnique (List<string> list, string s) { if (!list.Contains(s)) list.Add(s); }
+	static bool AddUnique (List<string> list, string s)
+	{
+		if (!string.IsNullOrEmpty(s) && !list.Contains(s))
+		{
+			list.Add(s);
+			return true;
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Whether the server is currently actively serving players.
@@ -463,7 +472,22 @@ public class GameServer : FileServer
 
 	void Log (TcpPlayer p, string msg)
 	{
-		if (p != null) Tools.Log(p.name + " (" + p.address + "): " + msg);
+		StringBuilder sb = new StringBuilder();
+
+		if (p != null)
+		{
+			sb.Append(p.name);
+			sb.Append(" (");
+			sb.Append(p.address);
+
+			if (p.aliases != null)
+				for (int i = 0; i < p.aliases.size; ++i)
+					sb.Append(", " + p.aliases.buffer[i]);
+
+			sb.Append("): ");
+			sb.Append(msg);
+			Tools.Log(sb.ToString());
+		}
 		else Tools.Log(msg);
 	}
 
@@ -533,16 +557,28 @@ public class GameServer : FileServer
 
 	TcpPlayer GetPlayer (string name)
 	{
-		for (int i = 0; i < mPlayers.size; ++i)
+		if (!string.IsNullOrEmpty(name))
 		{
-			if (mPlayers[i].name == name)
-				return mPlayers[i];
-		}
+			// Exact name match
+			for (int i = 0; i < mPlayers.size; ++i)
+			{
+				if (mPlayers[i].name == name)
+					return mPlayers[i];
+			}
 
-		for (int i = 0; i < mPlayers.size; ++i)
-		{
-			if (mPlayers[i].address == name)
-				return mPlayers[i];
+			// Partial name match
+			for (int i = 0; i < mPlayers.size; ++i)
+			{
+				if (mPlayers[i].name.IndexOf(name, StringComparison.CurrentCultureIgnoreCase) != -1)
+					return mPlayers[i];
+			}
+
+			// Alias match
+			for (int i = 0; i < mPlayers.size; ++i)
+			{
+				TcpPlayer p = mPlayers[i];
+				if (p.HasAlias(name)) return p;
+			}
 		}
 		return null;
 	}
@@ -1192,16 +1228,22 @@ public class GameServer : FileServer
 			}
 			case Packet.Broadcast:
 			{
-				Tools.Print("Broadcast: " + player.name + ", " + player.address);
+				//Tools.Print("Broadcast: " + player.name + ", " + player.address);
 
 				if (player.nextBroadcast < mTime)
 				{
-					player.nextBroadcast = mTime + 250;
+					player.nextBroadcast = mTime + 500;
+					player.broadcastCount = 0;
 				}
-				else
+				else if (++player.broadcastCount > 5)
 				{
 					Log(player, "SPAM filter trigger! " + (player.channel != null ? player.channel.id : -1));
-					//RemovePlayer(player);
+					RemovePlayer(player);
+					break;
+				}
+				else if (player.broadcastCount > 2)
+				{
+					Log(player, "Possible spam! " + (player.channel != null ? player.channel.id : -1));
 				}
 
 				// 4 bytes for size, 1 byte for ID
@@ -1273,20 +1315,9 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestBanCheck:
+			case Packet.RequestSetAlias:
 			{
-				string s = reader.ReadString();
-
-				if (mBan.Contains(s))
-				{
-					AddUnique(mBan, player.name);
-					AddUnique(mBan, player.tcpEndPoint.Address.ToString());
-					Tools.SaveList("ServerConfig/ban.txt", mBan);
-
-					Log(player, "Failed a ban check: " + s);
-					RemovePlayer(player);
-				}
-				else Log(player, "Passed a ban check: " + s);
+				SetAlias(player, reader.ReadString());
 				break;
 			}
 			case Packet.RequestUnban:
@@ -1313,7 +1344,8 @@ public class GameServer : FileServer
 					for (int i = 0; i < mPlayers.size; ++i)
 					{
 						TcpPlayer p = mPlayers[i];
-						Log(p, p.channel + " " + p.isAdmin);
+						if (p.isAdmin) Log(p, p.channel.id + " ADMIN");
+						Log(p, p.channel.id.ToString());
 					}
 				}
 				break;
@@ -1349,19 +1381,19 @@ public class GameServer : FileServer
 				{
 					if (other != null)
 					{
-						Log(player, "Banned " + other.name + " (" + other.address + ")");
+						Log(player, "BANNED " + other.name + " (" + other.address + ")");
+						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
 
-						if (other != null)
-						{
-							AddUnique(mBan, other.name);
-							AddUnique(mBan, other.tcpEndPoint.Address.ToString());
-							Tools.SaveList("ServerConfig/ban.txt", mBan);
-							RemovePlayer(other);
-						}
+						if (other.aliases != null)
+							for (int i = 0; i < other.aliases.size; ++i)
+								AddUnique(mBan, other.aliases[i]);
+
+						Tools.SaveList("ServerConfig/ban.txt", mBan);
+						RemovePlayer(other);
 					}
 					else if (id == 0)
 					{
-						Log(player, "Banned " + s);
+						Log(player, "BANNED " + s);
 						AddUnique(mBan, s);
 						Tools.SaveList("ServerConfig/ban.txt", mBan);
 					}
@@ -1395,6 +1427,23 @@ public class GameServer : FileServer
 			}
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Set an alias and check it against the ban list.
+	/// </summary>
+
+	void SetAlias (TcpPlayer player, string s)
+	{
+		if (mBan.Contains(s))
+		{
+			if (AddUnique(mBan, player.tcpEndPoint.Address.ToString()))
+				Tools.SaveList("ServerConfig/ban.txt", mBan);
+
+			Log(player, "Failed a ban check: " + s);
+			RemovePlayer(player);
+		}
+		else Log(player, "Passed a ban check: " + s);
 	}
 
 	/// <summary>

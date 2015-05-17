@@ -519,10 +519,11 @@ public enum Packet
 	RequestBan,
 
 	/// <summary>
-	/// Checks the following string against the ban list. If the string is there, the player gets disconnected.
+	/// Assigns the specified alias to the player. If this alias fails to pass the ban list, the player get disconnected.
+	/// string: alias to add.
 	/// </summary>
 
-	RequestBanCheck,
+	RequestSetAlias,
 
 	/// <summary>
 	/// Remove ban from this keyword.

@@ -61,6 +61,8 @@ static public class Tools
 
 	static public int randomPort { get { return 10000 + (int)(System.DateTime.UtcNow.Ticks % 50000); } }
 
+	static string mBasePath = null;
+
 	/// <summary>
 	/// Path to the persistent data path.
 	/// </summary>
@@ -69,13 +71,20 @@ static public class Tools
 	{
 		get
 		{
+			if (mBasePath == null)
+			{
 #if UNITY_ANDROID || UNITY_IPHONE || UNITY_WEBPLAYER || UNITY_WINRT || UNITY_FLASH
-			string s = UnityEngine.Application.persistentDataPath;
+				mBasePath = UnityEngine.Application.persistentDataPath;
 #else
-			string s = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+				mBasePath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
 #endif
-			s = s.Replace("\\", "/");
-			return s;
+				mBasePath = mBasePath.Replace("\\", "/");
+			}
+			return mBasePath;
+		}
+		set
+		{
+			mBasePath = value;
 		}
 	}
 
