@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Collections.Generic;
 using System.Threading;
+using System.Text;
 
 namespace TNet
 {

@@ -880,33 +880,29 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// Write a new log entry.
+	/// Convenience function -- prints the specified message, prefixed with a timestamp.
 	/// </summary>
 
-	static public void Log (string msg)
+	static public void Print (TcpPlayer p, string text, bool appendTime = true)
 	{
-		msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
-		Tools.Print(msg, false);
-
-		try
-		{
-			string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
-			string dir = Path.GetDirectoryName(path);
-			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-			StreamWriter sw = new StreamWriter(path, true);
-			sw.WriteLine(msg);
-			sw.Close();
-		}
-		catch (System.Exception) { }
+#if STANDALONE
+		if (!appendTime) System.Console.WriteLine(p.name + " (" + p.address + "): " + text);
+		else System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + p.name + " (" + p.address + "): " + text);
+#elif UNITY_EDITOR
+		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(p.name + " (" + p.address + "): " + text);
+#endif
 	}
 
 	/// <summary>
-	/// Log an error message.
+	/// Write a new log entry.
 	/// </summary>
 
-	static public void LogError (System.Exception ex, string playerName, bool logInFile = true)
+	static public void Log (string msg, bool logInFile = true)
 	{
-		string msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] ERROR: " + ex.Message;
+#if UNITY_EDITOR
+		UnityEngine.Debug.Log(msg);
+#else
+		msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
 		Tools.Print(msg, false);
 
 		if (logInFile)
@@ -917,19 +913,12 @@ static public class Tools
 				string dir = Path.GetDirectoryName(path);
 				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 				StreamWriter sw = new StreamWriter(path, true);
-
-				if (string.IsNullOrEmpty(playerName))
-				{
-					sw.WriteLine(msg + " (Player: " + playerName + ")");
-				}
-				else sw.WriteLine(msg);
-
-				string stack = ex.StackTrace;
-				if (!string.IsNullOrEmpty(stack)) sw.WriteLine(stack);
+				sw.WriteLine(msg);
 				sw.Close();
 			}
 			catch (System.Exception) { }
 		}
+#endif
 	}
 
 	/// <summary>
@@ -938,6 +927,9 @@ static public class Tools
 
 	static public void LogError (string msg, string stack = null, bool logInFile = true)
 	{
+#if UNITY_EDITOR
+		UnityEngine.Debug.LogError(msg);
+#else
 		Tools.Print("ERROR: " + msg);
 
 		if (logInFile)
@@ -954,6 +946,7 @@ static public class Tools
 			}
 			catch (System.Exception) { }
 		}
+#endif
 	}
 
 	/// <summary>

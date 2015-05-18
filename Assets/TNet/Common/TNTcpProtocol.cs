@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
+using System.Text;
 
 namespace TNet
 {
@@ -186,10 +187,10 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				Error(ex);
+				RespondWithError(ex);
 			}
 		}
-		else Error("Unable to resolve the specified address");
+		else RespondWithError("Unable to resolve the specified address");
 		return false;
 	}
 
@@ -231,7 +232,7 @@ public class TcpProtocol : Player
 
 							if (!ConnectToFallback())
 							{
-								Error("Unable to connect");
+								RespondWithError("Unable to connect");
 								Close(false);
 							}
 						}
@@ -295,7 +296,7 @@ public class TcpProtocol : Player
 			}
 			else if (!ConnectToFallback())
 			{
-				Error(errMsg);
+				RespondWithError(errMsg);
 				Close(false);
 			}
 		}
@@ -458,7 +459,7 @@ public class TcpProtocol : Player
 					}
 					catch (System.Exception ex)
 					{
-						Error(ex);
+						RespondWithError(ex);
 						CloseNotThreadSafe(false);
 					}
 				}
@@ -500,7 +501,7 @@ public class TcpProtocol : Player
 				}
 				catch (Exception ex)
 				{
-					Error(ex);
+					RespondWithError(ex);
 					CloseNotThreadSafe(false);
 				}
 			}
@@ -510,7 +511,7 @@ public class TcpProtocol : Player
 		{
 			bytes = 0;
 			Close(true);
-			Error(ex);
+			RespondWithError(ex);
 			return;
 		}
 
@@ -533,7 +534,7 @@ public class TcpProtocol : Player
 				}
 				catch (Exception ex)
 				{
-					Error(ex);
+					RespondWithError(ex);
 					CloseNotThreadSafe(false);
 				}
 			}
@@ -579,7 +580,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				if (!(ex is SocketException)) Error(ex);
+				if (!(ex is SocketException)) RespondWithError(ex);
 				Disconnect(true);
 			}
 		}
@@ -623,7 +624,7 @@ public class TcpProtocol : Player
 		catch (System.Exception ex)
 		{
 			if (socket != mSocket) return;
-			if (!(ex is SocketException)) Error(ex);
+			if (!(ex is SocketException)) RespondWithError(ex);
 			Disconnect(true);
 			return;
 		}
@@ -646,7 +647,7 @@ public class TcpProtocol : Player
 			}
 			catch (System.Exception ex)
 			{
-				if (!(ex is SocketException)) Error(ex);
+				if (!(ex is SocketException)) RespondWithError(ex);
 				Close(false);
 			}
 		}
@@ -682,17 +683,22 @@ public class TcpProtocol : Player
 
 				if (mExpected < 0 || mExpected > 16777216)
 				{
-					Error("Malformed data packet");
 #if UNITY_EDITOR
-					UnityEngine.Debug.LogError(mOffset + ", " + available + " / " + mExpected);
+					UnityEngine.Debug.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+#else
+					Tools.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
 #endif
 					mReceiveBuffer = null;
 					mExpected = 0;
 					mOffset = 0;
-
+#if STANDALONE
+					Disconnect();
+					return false;
+#else
 					BeginSend(Packet.RequestCloseChannel);
 					EndSend();
 					break;
+#endif
 				}
 			}
 
@@ -738,26 +744,61 @@ public class TcpProtocol : Player
 	}
 
 	/// <summary>
-	/// Add an error packet to the incoming queue.
+	/// Log an error message.
 	/// </summary>
 
-	public void Error (Exception ex)
+	public void LogError (string error, string stack = null, bool logInFile = true)
 	{
-		Error(Buffer.Create(), ex.Message);
-		Tools.LogError(ex, name);
+		Log("ERROR: " + error, stack, logInFile);
+	}
+
+	/// <summary>
+	/// Log an error message.
+	/// </summary>
+
+	public void Log (string msg, string stack = null, bool logInFile = true)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.Append(name);
+		sb.Append(" (");
+		sb.Append(address);
+
+		if (aliases != null)
+			for (int i = 0; i < aliases.size; ++i)
+				sb.Append(", " + aliases.buffer[i]);
+
+		sb.Append("): ");
+		sb.Append(msg);
+
+		if (stack != null)
+		{
+			sb.Append("\n");
+			sb.Append(stack);
+		}
+		Tools.Log(sb.ToString(), logInFile);
 	}
 
 	/// <summary>
 	/// Add an error packet to the incoming queue.
 	/// </summary>
 
-	public void Error (string error) { Error(Buffer.Create(), error); }
+	public void RespondWithError (string error) { RespondWithError(Buffer.Create(), error); }
 
 	/// <summary>
 	/// Add an error packet to the incoming queue.
 	/// </summary>
 
-	void Error (Buffer buffer, string error)
+	public void RespondWithError (Exception ex)
+	{
+		RespondWithError(Buffer.Create(), ex.Message);
+		LogError(ex.Message, ex.StackTrace, true);
+	}
+
+	/// <summary>
+	/// Add an error packet to the incoming queue.
+	/// </summary>
+
+	void RespondWithError (Buffer buffer, string error)
 	{
 		buffer.BeginPacket(Packet.Error).Write(error);
 		buffer.EndTcpPacketWithOffset(4);
@@ -795,7 +836,7 @@ public class TcpProtocol : Player
 
 				stage = TcpProtocol.Stage.Connected;
 #if STANDALONE
-				if (id != 0) Tools.Log("[" + id + "] " + name + " has connected (" + address + ")");
+				if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");
 #endif
 				BinaryWriter writer = BeginSend(Packet.ResponseID);
 				writer.Write(version);
@@ -834,12 +875,12 @@ public class TcpProtocol : Player
 			else
 			{
 				id = 0;
-				Error("Version mismatch! Server is running a different protocol version!");
+				RespondWithError("Version mismatch! Server is running a different protocol version!");
 				Close(false);
 				return false;
 			}
 		}
-		Error("Expected a response ID, got " + packet);
+		RespondWithError("Expected a response ID, got " + packet);
 		Close(false);
 #if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("[TNet] VerifyResponseID expected ResponseID, got " + packet);

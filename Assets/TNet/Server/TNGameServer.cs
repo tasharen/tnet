@@ -195,7 +195,7 @@ public class GameServer : FileServer
 		}
 		catch (System.Exception ex)
 		{
-			Tools.LogError(ex, null);
+			Tools.LogError(ex.Message, ex.StackTrace, true);
 			return false;
 		}
 
@@ -342,7 +342,7 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex, null);
+								Tools.LogError(ex.Message, ex.StackTrace, true);
 								RemovePlayer(player);
 							}
 						}
@@ -378,7 +378,8 @@ public class GameServer : FileServer
 							}
 							catch (System.Exception ex)
 							{
-								Tools.LogError(ex, (player != null) ? player.name : null);
+								if (player != null) player.LogError(ex.Message, ex.StackTrace);
+								else Tools.LogError(ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 							}
 						}
@@ -412,7 +413,7 @@ public class GameServer : FileServer
 #if STANDALONE
 							catch (System.Exception ex)
 							{
-								Error(player, ex.Message, ex.StackTrace);
+								player.LogError(ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 								buffer.Recycle();
 								continue;
@@ -420,7 +421,7 @@ public class GameServer : FileServer
 #else
 							catch (System.Exception ex)
 							{
-								Error(player, ex.Message, ex.StackTrace);
+								player.LogError(ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 							}
 #endif
@@ -457,41 +458,6 @@ public class GameServer : FileServer
 	}
 
 	/// <summary>
-	/// Log an error message.
-	/// </summary>
-
-	void Error (TcpPlayer p, string error, string stack, bool logInFile = true)
-	{
-		if (p != null) Tools.LogError(p.address + " " + error, stack, logInFile);
-		else Tools.LogError(error, stack, logInFile);
-	}
-
-	/// <summary>
-	/// Log an error message.
-	/// </summary>
-
-	void Log (TcpPlayer p, string msg)
-	{
-		StringBuilder sb = new StringBuilder();
-
-		if (p != null)
-		{
-			sb.Append(p.name);
-			sb.Append(" (");
-			sb.Append(p.address);
-
-			if (p.aliases != null)
-				for (int i = 0; i < p.aliases.size; ++i)
-					sb.Append(", " + p.aliases.buffer[i]);
-
-			sb.Append("): ");
-			sb.Append(msg);
-			Tools.Log(sb.ToString());
-		}
-		else Tools.Log(msg);
-	}
-
-	/// <summary>
 	/// Add a new player entry.
 	/// </summary>
 
@@ -514,7 +480,7 @@ public class GameServer : FileServer
 		if (p != null)
 		{
 #if STANDALONE
-			if (p.id != 0) Tools.Print("[" + p.id + "] " + p.name + " has disconnected");
+			if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
 			SendLeaveChannel(p, false);
 
@@ -891,7 +857,7 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					Log(player, "User is banned");
+					player.Log("User is banned");
 					RemovePlayer(player);
 					return false;
 				}
@@ -915,7 +881,7 @@ public class GameServer : FileServer
 			}
 			case Packet.Error:
 			{
-				Error(player, reader.ReadString(), null);
+				player.LogError(reader.ReadString());
 				break;
 			}
 			case Packet.Disconnect:
@@ -1119,7 +1085,7 @@ public class GameServer : FileServer
 				}
 				catch (Exception ex)
 				{
-					Error(player, ex.Message, ex.StackTrace);
+					player.LogError(ex.Message, ex.StackTrace);
 					RemovePlayer(player);
 				}
 				break;
@@ -1237,13 +1203,13 @@ public class GameServer : FileServer
 				}
 				else if (++player.broadcastCount > 5)
 				{
-					Log(player, "SPAM filter trigger! " + (player.channel != null ? player.channel.id : -1));
+					player.Log("SPAM filter trigger! " + (player.channel != null ? player.channel.id : -1));
 					RemovePlayer(player);
 					break;
 				}
 				else if (player.broadcastCount > 2)
 				{
-					Log(player, "Possible spam! " + (player.channel != null ? player.channel.id : -1));
+					player.Log("Possible spam! " + (player.channel != null ? player.channel.id : -1));
 				}
 
 				// 4 bytes for size, 1 byte for ID
@@ -1271,12 +1237,12 @@ public class GameServer : FileServer
 					if (!player.isAdmin)
 					{
 						player.isAdmin = true;
-						Log(player, "Admin verified");
+						player.Log("Admin verified");
 					}
 				}
 				else
 				{
-					Error(player, "Tried to authenticate as admin and failed (" + pass + ")", null);
+					player.LogError("Tried to authenticate as admin and failed (" + pass + ")");
 					RemovePlayer(player);
 				}
 				break;
@@ -1288,12 +1254,12 @@ public class GameServer : FileServer
 				if (player.isAdmin)
 				{
 					if (!mAdmin.Contains(s)) mAdmin.Add(s);
-					Log(player, "Added an admin (" + s + ")");
+					player.Log("Added an admin (" + s + ")");
 					Tools.SaveList("ServerConfig/admin.txt", mAdmin);
 				}
 				else
 				{
-					Error(player, "Tried to add an admin (" + s + ") and failed", null);
+					player.LogError("Tried to add an admin (" + s + ") and failed");
 					RemovePlayer(player);
 				}
 				break;
@@ -1305,12 +1271,12 @@ public class GameServer : FileServer
 				if (player.isAdmin)
 				{
 					mAdmin.Remove(s);
-					Log(player, "Removed an admin (" + s + ")");
+					player.Log("Removed an admin (" + s + ")");
 					Tools.SaveList("ServerConfig/admin.txt", mAdmin);
 				}
 				else
 				{
-					Error(player, "Tried to remove an admin (" + s + ") and failed", null);
+					player.LogError("Tried to remove an admin (" + s + ") and failed", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1328,11 +1294,11 @@ public class GameServer : FileServer
 				{
 					mBan.Remove(s);
 					Tools.SaveList("ServerConfig/ban.txt", mBan);
-					Log(player, "Removed an banned keyword (" + s + ")");
+					player.Log("Removed an banned keyword (" + s + ")");
 				}
 				else
 				{
-					Error(player, "Tried to unban (" + s + ") and failed", null);
+					player.LogError("Tried to unban (" + s + ") and failed", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1344,8 +1310,8 @@ public class GameServer : FileServer
 					for (int i = 0; i < mPlayers.size; ++i)
 					{
 						TcpPlayer p = mPlayers[i];
-						if (p.isAdmin) Log(p, p.channel.id + " ADMIN");
-						Log(p, p.channel.id.ToString());
+						if (p.isAdmin) p.Log(p.channel.id + " ADMIN");
+						p.Log(p.channel.id.ToString());
 					}
 				}
 				break;
@@ -1360,13 +1326,13 @@ public class GameServer : FileServer
 				{
 					if (other != null)
 					{
-						Log(player, "Kicked " + other.name + " (" + other.address + ")");
+						player.Log("Kicked " + other.name + " (" + other.address + ")");
 						RemovePlayer(other);
 					}
 				}
 				else
 				{
-					Error(player, "Tried to kick " + (other != null ? other.name : s) + " and failed", null);
+					player.LogError("Tried to kick " + (other != null ? other.name : s) + " and failed", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1381,7 +1347,7 @@ public class GameServer : FileServer
 				{
 					if (other != null)
 					{
-						Log(player, "BANNED " + other.name + " (" + other.address + ")");
+						player.Log("BANNED " + other.name + " (" + other.address + ")");
 						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
 
 						if (other.aliases != null)
@@ -1393,14 +1359,14 @@ public class GameServer : FileServer
 					}
 					else if (id == 0)
 					{
-						Log(player, "BANNED " + s);
+						player.Log("BANNED " + s);
 						AddUnique(mBan, s);
 						Tools.SaveList("ServerConfig/ban.txt", mBan);
 					}
 				}
 				else
 				{
-					Error(player, "Tried to ban " + (other != null ? other.name : s) + " and failed", null);
+					player.LogError("Tried to ban " + (other != null ? other.name : s) + " and failed", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1440,10 +1406,10 @@ public class GameServer : FileServer
 			if (AddUnique(mBan, player.tcpEndPoint.Address.ToString()))
 				Tools.SaveList("ServerConfig/ban.txt", mBan);
 
-			Log(player, "Failed a ban check: " + s);
+			player.Log("Failed a ban check: " + s);
 			RemovePlayer(player);
 		}
-		else Log(player, "Passed a ban check: " + s);
+		else player.Log("Passed a ban check: " + s);
 	}
 
 	/// <summary>
@@ -1633,7 +1599,7 @@ public class GameServer : FileServer
 			{
 				if (player.channel != null)
 				{
-					Log(player, "Closing channel " + player.channel.id);
+					player.Log("Closing channel " + player.channel.id);
 					player.channel.persistent = false;
 					player.channel.closed = true;
 				}
@@ -1644,7 +1610,7 @@ public class GameServer : FileServer
 				int id = reader.ReadInt32();
 				bool dc = reader.ReadBoolean();
 
-				Log(player, "Deleting channel " + id);
+				player.Log("Deleting channel " + id);
 
 				for (int i = 0; i < mChannels.size; ++i)
 				{

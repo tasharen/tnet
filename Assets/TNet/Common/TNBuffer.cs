@@ -138,6 +138,9 @@ public class Buffer
 
 	public bool Recycle ()
 	{
+#if STANDALONE
+		return true;
+#else
 		lock (this)
 		{
 			if (mInPool)
@@ -156,6 +159,7 @@ public class Buffer
 			}
 			return true;
 		}
+#endif
 	}
 
 	/// <summary>
@@ -164,6 +168,9 @@ public class Buffer
 
 	static public void Recycle (Queue<Buffer> list)
 	{
+#if STANDALONE
+		list.Clear();
+#else
 		lock (mPool)
 		{
 			while (list.Count != 0)
@@ -173,6 +180,7 @@ public class Buffer
 				mPool.Add(b);
 			}
 		}
+#endif
 	}
 
 	/// <summary>
@@ -181,6 +189,9 @@ public class Buffer
 
 	static public void Recycle (Queue<Datagram> list)
 	{
+#if STANDALONE
+		list.Clear();
+#else
 		lock (mPool)
 		{
 			while (list.Count != 0)
@@ -190,6 +201,7 @@ public class Buffer
 				mPool.Add(b);
 			}
 		}
+#endif
 	}
 
 	/// <summary>
@@ -198,6 +210,9 @@ public class Buffer
 
 	static public void Recycle (List<Buffer> list)
 	{
+#if STANDALONE
+		list.Clear();
+#else
 		lock (mPool)
 		{
 			for (int i = 0; i < list.size; ++i)
@@ -208,6 +223,7 @@ public class Buffer
 			}
 			list.Clear();
 		}
+#endif
 	}
 
 	/// <summary>
@@ -216,6 +232,9 @@ public class Buffer
 
 	static public void Recycle (List<Datagram> list)
 	{
+#if STANDALONE
+		list.Clear();
+#else
 		lock (mPool)
 		{
 			for (int i = 0; i < list.size; ++i)
@@ -226,6 +245,7 @@ public class Buffer
 			}
 			list.Clear();
 		}
+#endif
 	}
 
 	/// <summary>
