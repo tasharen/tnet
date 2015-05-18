@@ -1322,7 +1322,7 @@ public class GameServer : FileServer
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
 
-				if (player.isAdmin)
+				if (player.isAdmin || other == player)
 				{
 					if (other != null)
 					{
@@ -1343,7 +1343,7 @@ public class GameServer : FileServer
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
 
-				if (player.isAdmin)
+				if (player.isAdmin || other == player)
 				{
 					if (other != null)
 					{

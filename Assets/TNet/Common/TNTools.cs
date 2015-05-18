@@ -904,21 +904,26 @@ static public class Tools
 #else
 		msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
 		Tools.Print(msg, false);
-
-		if (logInFile)
-		{
-			try
-			{
-				string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
-				string dir = Path.GetDirectoryName(path);
-				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-				StreamWriter sw = new StreamWriter(path, true);
-				sw.WriteLine(msg);
-				sw.Close();
-			}
-			catch (System.Exception) { }
-		}
+		if (logInFile) LogFile(msg);
 #endif
+	}
+
+	/// <summary>
+	/// Log the specified string to the log file.
+	/// </summary>
+
+	static public void LogFile (string msg)
+	{
+		try
+		{
+			string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
+			string dir = Path.GetDirectoryName(path);
+			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+			StreamWriter sw = new StreamWriter(path, true);
+			sw.WriteLine(msg);
+			sw.Close();
+		}
+		catch (System.Exception) { }
 	}
 
 	/// <summary>

@@ -27,7 +27,9 @@ public class Buffer
 	volatile int mCounter = 0;
 	volatile int mSize = 0;
 	volatile bool mWriting = false;
+#if !STANDALONE
 	volatile bool mInPool = false;
+#endif
 
 	Buffer ()
 	{
@@ -123,7 +125,9 @@ public class Buffer
 				if (mPool.size != 0)
 				{
 					b = mPool.Pop();
+#if !STANDALONE
 					b.mInPool = false;
+#endif
 				}
 				else b = new Buffer();
 			}
