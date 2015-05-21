@@ -1187,9 +1187,7 @@ public static class Serialization
 	{
 		string str = reader.ReadString();
 		if (string.IsNullOrEmpty(str)) return null;
-
-		DataNode node = new DataNode();
-		node.name = str;
+		DataNode node = new DataNode(str);
 
 #if IGNORE_ERRORS
 		try

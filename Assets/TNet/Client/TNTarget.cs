@@ -46,5 +46,11 @@ public enum Target
 	/// </summary>
 
 	Broadcast,
+
+	/// <summary>
+	/// Send this packet to administrators.
+	/// </summary>
+
+	Admin,
 }
 }

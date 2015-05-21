@@ -114,6 +114,8 @@ public class GameServer : FileServer
 	UdpProtocol mUdp = new UdpProtocol();
 	bool mAllowUdp = false;
 	object mLock = 0;
+	DataNode mData = null;
+	string mFilename = "world.dat";
 
 	// List of admin keywords
 	List<string> mAdmin = new List<string>();
@@ -185,6 +187,21 @@ public class GameServer : FileServer
 
 		Tools.LoadList("ServerConfig/ban.txt", mBan);
 		Tools.LoadList("ServerConfig/admin.txt", mAdmin);
+
+		// Banning by IPs is pointless
+		for (int i = mBan.size; i > 0; )
+		{
+			IPAddress ip;
+			if (IPAddress.TryParse(mBan[--i], out ip))
+				mBan.RemoveAt(i);
+		}
+
+#if WINDWARD
+		AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
+		AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
+		AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
+		AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
+#endif
 
 		try
 		{
@@ -811,6 +828,13 @@ public class GameServer : FileServer
 	{
 		if (player.channel == null || player.channel != channel)
 		{
+			// Send the server data the first time
+			if (player.channel == null && mData != null)
+			{
+				player.BeginSend(Packet.RequestSetServerOption).Write(mData);
+				player.EndSend();
+			}
+
 			// Set the player's channel
 			player.channel = channel;
 
@@ -837,6 +861,12 @@ public class GameServer : FileServer
 	}
 
 	/// <summary>
+	/// Extra verification steps, if necessary.
+	/// </summary>
+
+	protected virtual bool Verify (BinaryReader reader) { return true; }
+
+	/// <summary>
 	/// Receive and process a single incoming packet.
 	/// Returns 'true' if a packet was received, 'false' otherwise.
 	/// </summary>
@@ -846,11 +876,20 @@ public class GameServer : FileServer
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (player.VerifyRequestID(buffer, true))
+			BinaryReader rd = player.VerifyRequestID(buffer, true);
+
+			if (rd != null)
 			{
-				if (!mBan.Contains(player.name))
+				if (player.isAdmin || !mBan.Contains(player.name))
 				{
 					mDictionaryID.Add(player.id, player);
+
+					if (mData != null)
+					{
+						player.BeginSend(Packet.ResponseServerOptions).Write(mData);
+						player.EndSend();
+					}
+
 					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					if (onPlayerConnect != null) onPlayerConnect(player);
 					return true;
@@ -1192,6 +1231,7 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
 				//Tools.Print("Broadcast: " + player.name + ", " + player.address);
@@ -1219,6 +1259,7 @@ public class GameServer : FileServer
 				for (int i = 0; i < mPlayers.size; ++i)
 				{
 					TcpPlayer tp = mPlayers[i];
+					if (request == Packet.BroadcastAdmin && !tp.isAdmin) continue;
 
 					if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
 					{
@@ -1268,7 +1309,8 @@ public class GameServer : FileServer
 			{
 				string s = reader.ReadString();
 
-				if (player.isAdmin)
+				// First administrator can't be removed
+				if (player.isAdmin && (mAdmin.size == 0 || mAdmin[0] != s))
 				{
 					mAdmin.Remove(s);
 					player.Log("Removed an admin (" + s + ")");
@@ -1276,14 +1318,24 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					player.LogError("Tried to remove an admin (" + s + ") and failed", null);
+					player.LogError("Tried to remove an admin (" + s + ") without authorization", null);
 					RemovePlayer(player);
 				}
 				break;
 			}
 			case Packet.RequestSetAlias:
 			{
-				SetAlias(player, reader.ReadString());
+				string s = reader.ReadString();
+				SetAlias(player, s);
+
+				if (mAdmin.Contains(s))
+				{
+					player.isAdmin = true;
+					player.Log("Admin verified");
+				}
+#if WINDWARD
+				if (player.aliases.size > 2) RemovePlayer(player);
+#endif
 				break;
 			}
 			case Packet.RequestUnban:
@@ -1298,7 +1350,7 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					player.LogError("Tried to unban (" + s + ") and failed", null);
+					player.LogError("Tried to unban (" + s + ") without authorization", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1313,6 +1365,83 @@ public class GameServer : FileServer
 						if (p.isAdmin) p.Log(p.channel.id + " ADMIN");
 						p.Log(p.channel.id.ToString());
 					}
+				}
+				break;
+			}
+			case Packet.RequestSetBanList:
+			{
+				string s = reader.ReadString();
+
+				if (player.isAdmin)
+				{
+					if (!string.IsNullOrEmpty(s))
+					{
+						string[] lines = s.Split('\n');
+						mBan.Clear();
+						for (int i = 0; i < lines.Length; ++i) mBan.Add(lines[i]);
+					}
+					else mBan.Clear();
+				}
+				else
+				{
+					player.LogError("Tried to set the ban list without authorization", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestReloadServerData:
+			{
+				if (player.isAdmin)
+				{
+					Tools.LoadList("ServerConfig/ban.txt", mBan);
+					Tools.LoadList("ServerConfig/admin.txt", mAdmin);
+					LoadData();
+
+					if (mData == null) mData = new DataNode("Version", Player.version);
+
+					Buffer buff = Buffer.Create();
+					buff.BeginPacket(Packet.ResponseServerOptions).Write(mData);
+					buff.EndPacket();
+
+					// Forward the packet to everyone connected to the server
+					for (int i = 0; i < mPlayers.size; ++i)
+					{
+						TcpPlayer tp = mPlayers[i];
+						tp.SendTcpPacket(buff);
+					}
+					buff.Recycle();
+				}
+				else
+				{
+					player.LogError("Tried to request reloaded server data without authorization", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestSetServerOption:
+			{
+				if (player.isAdmin)
+				{
+					if (mData == null) mData = new DataNode("Version", Player.version);
+
+					DataNode child = mData.ReplaceChild(reader.ReadDataNode());
+
+					Buffer buff = Buffer.Create();
+					buff.BeginPacket(Packet.ResponseSetServerOption).Write(child);
+					buff.EndPacket();
+
+					// Forward the packet to everyone connected to the server
+					for (int i = 0; i < mPlayers.size; ++i)
+					{
+						TcpPlayer tp = mPlayers[i];
+						tp.SendTcpPacket(buff);
+					}
+					buff.Recycle();
+				}
+				else
+				{
+					player.LogError("Tried to set the ban server data without authorization", null);
+					RemovePlayer(player);
 				}
 				break;
 			}
@@ -1332,7 +1461,7 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					player.LogError("Tried to kick " + (other != null ? other.name : s) + " and failed", null);
+					player.LogError("Tried to kick " + (other != null ? other.name : s) + " without authorization", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1343,11 +1472,23 @@ public class GameServer : FileServer
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
 
-				if (player.isAdmin || other == player)
+				bool playerBan = (other == player && mData != null && mData.GetChild<bool>("playersCanBan"));
+
+				if (player.isAdmin || playerBan)
 				{
 					if (other != null)
 					{
-						player.Log("BANNED " + other.name + " (" + other.address + ")");
+						player.Log("BANNED " + other.name + " (" + (other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
+
+						// Just to show the name of the player
+						string banText = "// [" + other.name + "]";
+
+						if (player != other)
+						{
+							banText += " banned by [" + player.name + "] - " + (player.aliases.size > 0 ? player.aliases[0] : player.address);
+						}
+
+						AddUnique(mBan, banText);
 						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
 
 						if (other.aliases != null)
@@ -1360,13 +1501,19 @@ public class GameServer : FileServer
 					else if (id == 0)
 					{
 						player.Log("BANNED " + s);
+						string banText = "// [" + s + "] banned by [" + player.name + "] - " + (player.aliases.size > 0 ? player.aliases[0] : player.address);
+						AddUnique(mBan, banText);
 						AddUnique(mBan, s);
 						Tools.SaveList("ServerConfig/ban.txt", mBan);
 					}
 				}
+				else if (!playerBan)
+				{
+					// Do nothing -- players can't ban other players, even themselves for security reasons
+				}
 				else
 				{
-					player.LogError("Tried to ban " + (other != null ? other.name : s) + " and failed", null);
+					player.LogError("Tried to ban " + (other != null ? other.name : s) + " without authorization", null);
 					RemovePlayer(player);
 				}
 				break;
@@ -1403,10 +1550,7 @@ public class GameServer : FileServer
 	{
 		if (mBan.Contains(s))
 		{
-			if (AddUnique(mBan, player.tcpEndPoint.Address.ToString()))
-				Tools.SaveList("ServerConfig/ban.txt", mBan);
-
-			player.Log("Failed a ban check: " + s);
+			player.Log("FAILED a ban check: " + s);
 			RemovePlayer(player);
 		}
 		else player.Log("Passed a ban check: " + s);
@@ -1674,6 +1818,8 @@ public class GameServer : FileServer
 
 	public void SaveTo (string fileName)
 	{
+		mFilename = fileName;
+
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		if (mListener == null) return;
 
@@ -1716,7 +1862,41 @@ public class GameServer : FileServer
 		}
 
 		Tools.WriteFile(fileName, mWriteStream);
+		SaveData();
 #endif
+	}
+
+	/// <summary>
+	/// Save the server's human-readable data.
+	/// </summary>
+
+	void SaveData ()
+	{
+		if (!string.IsNullOrEmpty(mFilename))
+		{
+			try
+			{
+				mData.Write(mFilename + ".config", DataNode.SaveType.Text, true);
+			}
+			catch (Exception) { }
+		}
+	}
+
+	/// <summary>
+	/// Load the server's human-readable data.
+	/// </summary>
+
+	void LoadData ()
+	{
+		if (!string.IsNullOrEmpty(mFilename))
+		{
+			try
+			{
+				byte[] data = File.ReadAllBytes(mFilename + ".config");
+				mData = DataNode.Read(data, DataNode.SaveType.Text);
+			}
+			catch (Exception) { mData = null; }
+		}
 	}
 
 	/// <summary>
@@ -1725,10 +1905,14 @@ public class GameServer : FileServer
 
 	public bool LoadFrom (string fileName)
 	{
+		mFilename = fileName;
+
 #if UNITY_WEBPLAYER || UNITY_FLASH
 		// There is no file access in the web player.
 		return false;
 #else
+		LoadData();
+
 		byte[] bytes = Tools.ReadFile(fileName);
 		if (bytes == null) return false;
 

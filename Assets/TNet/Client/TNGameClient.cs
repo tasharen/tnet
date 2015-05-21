@@ -36,6 +36,7 @@ public class GameClient
 	public delegate void OnForwardedPacket (BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 	public delegate void OnLoadFile (string filename, byte[] data);
+	public delegate void OnServerData (DataNode data);
 
 	/// <summary>
 	/// Custom packet listeners. You can set these to handle custom packets.
@@ -133,6 +134,19 @@ public class GameClient
 	/// </summary>
 
 	public OnDestroy onDestroy;
+
+	/// <summary>
+	/// Server data is stored separately from the game data and can be changed only by admins.
+	/// It's also sent to all players as soon as they join, and can be used for such things as MOTD.
+	/// </summary>
+
+	public OnServerData onServerOption;
+
+	/// <summary>
+	/// Server data associated with the connected server. Don't try to change it manually.
+	/// </summary>
+
+	public DataNode serverOptions;
 
 	/// <summary>
 	/// Notification of a client packet arriving.
@@ -883,6 +897,7 @@ public class GameClient
 			case Packet.ForwardToAllSaved:
 			case Packet.ForwardToOthersSaved:
 			case Packet.ForwardToHost:
+			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
 				if (onForwardedPacket != null) onForwardedPacket(reader);
@@ -1104,8 +1119,62 @@ public class GameClient
 				if (lfc != null) lfc(filename, data);
 				break;
 			}
+			case Packet.ResponseServerOptions:
+			{
+				serverOptions = reader.ReadDataNode();
+
+				if (onServerOption != null)
+				{
+					for (int i = 0; i < serverOptions.children.size; ++i)
+					{
+						DataNode child = serverOptions.children[i];
+						onServerOption(child);
+					}
+				}
+				break;
+			}
+			case Packet.ResponseSetServerOption:
+			{
+				if (serverOptions == null) serverOptions = new DataNode("Version", Player.version);
+				DataNode child = serverOptions.ReplaceChild(reader.ReadDataNode());
+				if (onServerOption != null) onServerOption(child);
+				break;
+			}
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public T GetServerOption<T> (string key) { return (serverOptions != null) ? serverOptions.GetChild<T>(key) : default(T); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public T GetServerOption<T> (string key, T def) { return (serverOptions != null) ? serverOptions.GetChild<T>(key, def) : def; }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	public void SetServerOption (string key, object val)
+	{
+		DataNode node = new DataNode(key, val);
+		BeginSend(Packet.RequestSetServerOption).Write(node);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	public void SetServerOption (DataNode node)
+	{
+		BeginSend(Packet.RequestSetServerOption).Write(node);
+		EndSend();
 	}
 }
 }

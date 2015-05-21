@@ -3,6 +3,10 @@
 // Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
+#if !STANDALONE
+#define RECYCLE_BUFFERS
+#endif
+
 using System;
 using System.IO;
 using System.Net;
@@ -27,7 +31,7 @@ public class Buffer
 	volatile int mCounter = 0;
 	volatile int mSize = 0;
 	volatile bool mWriting = false;
-#if !STANDALONE
+#if RECYCLE_BUFFERS
 	volatile bool mInPool = false;
 #endif
 
@@ -125,7 +129,7 @@ public class Buffer
 				if (mPool.size != 0)
 				{
 					b = mPool.Pop();
-#if !STANDALONE
+#if RECYCLE_BUFFERS
 					b.mInPool = false;
 #endif
 				}
@@ -142,9 +146,7 @@ public class Buffer
 
 	public bool Recycle ()
 	{
-#if STANDALONE
-		return true;
-#else
+#if RECYCLE_BUFFERS
 		lock (this)
 		{
 			if (mInPool)
@@ -163,6 +165,8 @@ public class Buffer
 			}
 			return true;
 		}
+#else
+		return true;
 #endif
 	}
 
@@ -172,9 +176,7 @@ public class Buffer
 
 	static public void Recycle (Queue<Buffer> list)
 	{
-#if STANDALONE
-		list.Clear();
-#else
+#if RECYCLE_BUFFERS
 		lock (mPool)
 		{
 			while (list.Count != 0)
@@ -184,6 +186,8 @@ public class Buffer
 				mPool.Add(b);
 			}
 		}
+#else
+		list.Clear();
 #endif
 	}
 
@@ -193,9 +197,7 @@ public class Buffer
 
 	static public void Recycle (Queue<Datagram> list)
 	{
-#if STANDALONE
-		list.Clear();
-#else
+#if RECYCLE_BUFFERS
 		lock (mPool)
 		{
 			while (list.Count != 0)
@@ -205,6 +207,8 @@ public class Buffer
 				mPool.Add(b);
 			}
 		}
+#else
+		list.Clear();
 #endif
 	}
 
@@ -214,9 +218,7 @@ public class Buffer
 
 	static public void Recycle (List<Buffer> list)
 	{
-#if STANDALONE
-		list.Clear();
-#else
+#if RECYCLE_BUFFERS
 		lock (mPool)
 		{
 			for (int i = 0; i < list.size; ++i)
@@ -227,6 +229,8 @@ public class Buffer
 			}
 			list.Clear();
 		}
+#else
+		list.Clear();
 #endif
 	}
 
@@ -236,9 +240,7 @@ public class Buffer
 
 	static public void Recycle (List<Datagram> list)
 	{
-#if STANDALONE
-		list.Clear();
-#else
+#if RECYCLE_BUFFERS
 		lock (mPool)
 		{
 			for (int i = 0; i < list.size; ++i)
@@ -249,6 +251,8 @@ public class Buffer
 			}
 			list.Clear();
 		}
+#else
+		list.Clear();
 #endif
 	}
 

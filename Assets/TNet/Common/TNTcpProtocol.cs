@@ -352,14 +352,8 @@ public class TcpProtocol : Player
 
 	void CloseNotThreadSafe (bool notify)
 	{
-		Buffer.Recycle(mOut);
+		lock (mOut) Buffer.Recycle(mOut);
 		stage = Stage.NotConnected;
-
-		if (mReceiveBuffer != null)
-		{
-			mReceiveBuffer.Recycle();
-			mReceiveBuffer = null;
-		}
 
 		if (mSocket != null)
 		{
@@ -376,8 +370,20 @@ public class TcpProtocol : Player
 				Buffer buffer = Buffer.Create();
 				buffer.BeginPacket(Packet.Disconnect);
 				buffer.EndTcpPacketWithOffset(4);
-				lock (mIn) mIn.Enqueue(buffer);
+
+				lock (mIn)
+				{
+					Buffer.Recycle(mIn);
+					mIn.Enqueue(buffer);
+				}
 			}
+			else lock (mIn) Buffer.Recycle(mIn);
+		}
+
+		if (mReceiveBuffer != null)
+		{
+			mReceiveBuffer.Recycle();
+			mReceiveBuffer = null;
 		}
 	}
 
@@ -563,7 +569,7 @@ public class TcpProtocol : Player
 
 		if (mSocket != null && mSocket.Connected)
 		{
-			// We are not verifying the connection
+			// We are now verifying the connection
 			stage = Stage.Verifying;
 
 			// Save the timestamp
@@ -809,7 +815,7 @@ public class TcpProtocol : Player
 	/// Verify the connection.
 	/// </summary>
 
-	public bool VerifyRequestID (Buffer buffer, bool uniqueID)
+	public BinaryReader VerifyRequestID (Buffer buffer, bool uniqueID)
 	{
 		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
@@ -843,17 +849,14 @@ public class TcpProtocol : Player
 				writer.Write(id);
 				writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
 				EndSend();
-				return true;
+				return reader;
 			}
-			else
-			{
-				BinaryWriter writer = BeginSend(Packet.ResponseID);
-				writer.Write(0);
-				EndSend();
-				Close(false);
-			}
+
+			BeginSend(Packet.ResponseID).Write(0);
+			EndSend();
+			Close(false);
 		}
-		return false;
+		return null;
 	}
 
 	/// <summary>

@@ -615,12 +615,15 @@ static public class Tools
 	/// The path must be inside the same folder or in the Documents folder.
 	/// </summary>
 
-	static public bool IsAllowedToAccess (string path)
+	static public bool IsAllowedToAccess (string path, bool allowConfigAccess = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		// Relative paths are not allowed
 		if (path.Contains("..")) return false;
-		if (path.IndexOf("ServerConfig", System.StringComparison.CurrentCultureIgnoreCase) != -1) return false;
+
+		// Config folder is restricted by default
+		if (!allowConfigAccess && path.IndexOf("ServerConfig", System.StringComparison.CurrentCultureIgnoreCase) != -1)
+			return false;
 
 		// Get the full path
 		string fullPath = null;
@@ -680,7 +683,7 @@ static public class Tools
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 
-	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false)
+	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		if (inMyDocuments) path = GetDocumentsPath(path);
@@ -693,7 +696,7 @@ static public class Tools
 		{
 			path = path.Replace("\\", "/");
 
-			if (!IsAllowedToAccess(path))
+			if (!IsAllowedToAccess(path, allowConfigAccess))
 			{
 #if !STANDALONE
 				UnityEngine.Debug.LogWarning("Unable to write to " + path);
@@ -741,10 +744,18 @@ static public class Tools
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 
-	static public bool WriteFile (string path, MemoryStream data, bool inMyDocuments = false)
+	static public bool WriteFile (string path, MemoryStream data, bool inMyDocuments = false, bool allowConfigAccess = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		if (inMyDocuments) path = GetDocumentsPath(path);
+
+		if (!IsAllowedToAccess(path, allowConfigAccess))
+		{
+#if !STANDALONE
+			UnityEngine.Debug.LogWarning("Unable to write to " + path);
+#endif
+			return false;
+		}
 
 		if (data == null || data.Length == 0)
 		{
@@ -753,14 +764,6 @@ static public class Tools
 		else
 		{
 			path = path.Replace("\\", "/");
-
-			if (!IsAllowedToAccess(path))
-			{
-#if !STANDALONE
-				UnityEngine.Debug.LogWarning("Unable to write to " + path);
-#endif
-				return false;
-			}
 
 			try
 			{
@@ -805,10 +808,10 @@ static public class Tools
 	/// Read the specified file, returning all bytes read.
 	/// </summary>
 
-	static public byte[] ReadFile (string path)
+	static public byte[] ReadFile (string path, bool allowConfigAccess = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
-		path = FindFile(path);
+		path = FindFile(path, allowConfigAccess);
 
 		try
 		{
@@ -848,12 +851,12 @@ static public class Tools
 	/// Returns the path if found, null if not found.
 	/// </summary>
 
-	static public string FindFile (string path)
+	static public string FindFile (string path, bool allowConfigAccess = false)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
-			if (!IsAllowedToAccess(path)) return null;
+			if (!IsAllowedToAccess(path, allowConfigAccess)) return null;
 			if (string.IsNullOrEmpty(path)) return null;
 			if (File.Exists(path)) return path.Replace("\\", "/");
 			path = GetDocumentsPath(path);

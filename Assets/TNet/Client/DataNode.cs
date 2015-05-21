@@ -218,6 +218,25 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Set the specified child, replacing an existing one if one already exists with the same name.
+	/// </summary>
+
+	public DataNode ReplaceChild (DataNode child)
+	{
+		for (int i = 0; i < children.size; ++i)
+		{
+			if (children[i].name == child.name)
+			{
+				children[i] = child;
+				return children[i];
+			}
+		}
+
+		children.Add(child);
+		return child;
+	}
+
+	/// <summary>
 	/// Set a child value. Will add a new child if a child with the same name is not already present.
 	/// </summary>
 
@@ -321,7 +340,7 @@ public class DataNode
 	/// Write the node hierarchy to the specified filename.
 	/// </summary>
 
-	public void Write (string path, SaveType type = SaveType.Text)
+	public void Write (string path, SaveType type = SaveType.Text, bool allowConfigAccess = false)
 	{
 		MemoryStream stream = new MemoryStream();
 
@@ -329,7 +348,7 @@ public class DataNode
 		{
 			BinaryWriter writer = new BinaryWriter(stream);
 			writer.WriteObject(this);
-			Tools.WriteFile(path, stream, false);
+			Tools.WriteFile(path, stream, false, allowConfigAccess);
 			writer.Close();
 		}
 #if LZMA
@@ -343,10 +362,10 @@ public class DataNode
 
 			if (comp != null)
 			{
-				Tools.WriteFile(path, comp, false);
+				Tools.WriteFile(path, comp, false, allowConfigAccess);
 				comp.Close();
 			}
-			else Tools.WriteFile(path, stream, false);
+			else Tools.WriteFile(path, stream, false, allowConfigAccess);
 			writer.Close();
 		}
 #endif
@@ -354,25 +373,19 @@ public class DataNode
 		{
 			StreamWriter writer = new StreamWriter(stream);
 			Write(writer, 0);
-			Tools.WriteFile(path, stream, false);
+			Tools.WriteFile(path, stream, false, allowConfigAccess);
 			writer.Close();
 		}
 	}
 
 	/// <summary>
 	/// Read the node hierarchy from the specified file.
-	/// Kept for backwards compatibility. In most cases you will want to use the generic Read(path) function instead.
 	/// </summary>
 
-	[System.Obsolete("The 'binary' parameter is no longer needed. Use DataNode.Read(path) instead.")]
-	static public DataNode Read (string path, bool binary) { return Read(path); }
-
-	/// <summary>
-	/// Read the node hierarchy from the specified file.
-	/// </summary>
-
-	static public DataNode Read (string path)
+	static public DataNode Read (string path, bool allowConfigAccess = false)
 	{
+		if (!Tools.IsAllowedToAccess(path, allowConfigAccess)) return null;
+
 		FileStream stream = File.OpenRead(path);
 		int length = (int)stream.Seek(0, SeekOrigin.End);
 
@@ -490,13 +503,26 @@ public class DataNode
 	/// Write the node hierarchy to the stream reader, saving it in text format.
 	/// </summary>
 
-	public void Write (StreamWriter writer) { Write(writer, 0); }
+	public void Write (StreamWriter writer, int tab = 0)
+	{
+		// Only proceed if this node has some data associated with it
+		if (isSerializable)
+		{
+			// Write down its own data
+			Write(writer, tab, name, value, true);
+
+			// Iterate through children
+			for (int i = 0; i < children.size; ++i)
+				children[i].Write(writer, tab + 1);
+		}
+		if (tab == 0) writer.Flush();
+	}
 
 	/// <summary>
 	/// Read the node hierarchy from the stream reader containing data in text format.
 	/// </summary>
 
-	static public DataNode Read (StreamReader reader)
+	static public DataNode Read (TextReader reader)
 	{
 		string line = GetNextLine(reader);
 		int offset = CalculateTabs(line);
@@ -542,25 +568,6 @@ public class DataNode
 	}
 #endregion
 #region Private Functions
-
-	/// <summary>
-	/// Write the node into the stream writer.
-	/// </summary>
-
-	void Write (StreamWriter writer, int tab)
-	{
-		// Only proceed if this node has some data associated with it
-		if (isSerializable)
-		{
-			// Write down its own data
-			Write(writer, tab, name, value, true);
-
-			// Iterate through children
-			for (int i = 0; i < children.size; ++i)
-				children[i].Write(writer, tab + 1);
-		}
-		if (tab == 0) writer.Flush();
-	}
 
 	/// <summary>
 	/// Write the values into the stream writer.
@@ -816,7 +823,7 @@ public class DataNode
 	/// Read this node and all of its children from the stream reader.
 	/// </summary>
 
-	string Read (StreamReader reader, string line, ref int offset)
+	string Read (TextReader reader, string line, ref int offset)
 	{
 		if (line != null)
 		{
@@ -1219,7 +1226,7 @@ public class DataNode
 	/// Get the next line from the stream reader.
 	/// </summary>
 
-	static string GetNextLine (StreamReader reader)
+	static string GetNextLine (TextReader reader)
 	{
 		string line = reader.ReadLine();
 

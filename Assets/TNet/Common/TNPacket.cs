@@ -37,6 +37,7 @@ public enum Packet
 	/// int32: Protocol version.
 	/// string: Player Name.
 	/// object: Player data.
+	/// string: Admin key. (used to flag administrators)
 	/// </summary>
 
 	RequestID,
@@ -537,6 +538,48 @@ public enum Packet
 	/// </summary>
 
 	RequestLogPlayers,
+
+	/// <summary>
+	/// Change the ban list to the specified one. Only administrators can do this.
+	/// string: ban list's contents.
+	/// </summary>
+
+	RequestSetBanList,
+
+	/// <summary>
+	/// The entire server data root node sent back from the server when the player connects or it gets reloaded.
+	/// DataNode: data.
+	/// </summary>
+
+	ResponseServerOptions,
+
+	/// <summary>
+	/// Sets a server option. Only administrators can do this.
+	/// DataNode: data. Note that some types may not be readable on the server side, such as Vector3 for example.
+	/// </summary>
+
+	RequestSetServerOption,
+
+	/// <summary>
+	/// Server option sent back from the server to all connected clients in response to RequestSetServerOption.
+	/// DataNode: data.
+	/// </summary>
+
+	ResponseSetServerOption,
+
+	/// <summary>
+	/// Reload configuration, admin and ban list data. Only administrators can use this command.
+	/// </summary>
+
+	RequestReloadServerData,
+
+	/// <summary>
+	/// Echo this message to administrators connected to the server. Same as Broadcast, but only goes to admins.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	BroadcastAdmin,
 
 	//===================================================================================
 

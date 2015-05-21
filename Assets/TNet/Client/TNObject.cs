@@ -682,6 +682,18 @@ public sealed class TNObject : MonoBehaviour
 			}
 			else executeLocally = true;
 		}
+		else if (target == Target.Admin)
+		{
+			if (connected)
+			{
+				BinaryWriter writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
+				writer.WriteArray(objs);
+				TNManager.EndSend(reliable);
+			}
+			else executeLocally = true;
+		}
 		else if (target == Target.Host && TNManager.isHosting)
 		{
 			// We're the host, and the packet should be going to the host -- just echo it locally

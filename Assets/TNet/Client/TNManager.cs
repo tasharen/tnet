@@ -58,7 +58,13 @@ public class TNManager : MonoBehaviour
 	/// Whether the player has verified himself as an administrator.
 	/// </summary>
 
-	static public bool isAdmin { get { return (mInstance != null && mInstance.mIsAdmin); } }
+	static public bool isAdmin
+	{
+		get
+		{
+			return (mInstance != null && mInstance.mIsAdmin);
+		}
+	}
 
 	/// <summary>
 	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
@@ -328,6 +334,55 @@ public class TNManager : MonoBehaviour
 			return mInstance;
 		}
 	}
+
+	/// <summary>
+	/// Ensure we have an instance to work with.
+	/// </summary>
+
+	static public TNManager Create ()
+	{
+#if UNITY_EDITOR
+		if (!Application.isPlaying) return mInstance;
+#endif
+		if (mInstance == null)
+		{
+			GameObject go = new GameObject("Network Manager");
+			mInstance = go.AddComponent<TNManager>();
+		}
+		return mInstance;
+	}
+
+	static DataNode mDummyOptions = new DataNode("Version", Player.version);
+
+	/// <summary>
+	/// Server options are set by administrators. Don't try to change this structure yourself -- use SetServerOption() instead.
+	/// </summary>
+
+	static public DataNode serverOptions { get { return ((mInstance != null) ? mInstance.mClient.serverOptions : null) ?? mDummyOptions; } }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetServerOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key) : default(T); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetServerOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key, def) : def; }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetServerOption (string key, object val) { if (mInstance != null) mInstance.mClient.SetServerOption(key, val); }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetServerOption (DataNode node) { if (mInstance != null) mInstance.mClient.SetServerOption(node); }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.
