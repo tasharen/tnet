@@ -1478,15 +1478,19 @@ public class GameServer : FileServer
 				{
 					if (other != null)
 					{
-						player.Log("BANNED " + other.name + " (" + (other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
+						player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
+							other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
 
 						// Just to show the name of the player
 						string banText = "// [" + other.name + "]";
 
 						if (player != other)
 						{
-							banText += " banned by [" + player.name + "] - " + (player.aliases.size > 0 ? player.aliases[0] : player.address);
+							banText += " banned by [" + player.name + "]- " + (other.aliases != null &&
+								player.aliases.size > 0 ? player.aliases[0] : player.address);
 						}
+
+						NGUIDebug.Log(banText);
 
 						AddUnique(mBan, banText);
 						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
@@ -1501,7 +1505,8 @@ public class GameServer : FileServer
 					else if (id == 0)
 					{
 						player.Log("BANNED " + s);
-						string banText = "// [" + s + "] banned by [" + player.name + "] - " + (player.aliases.size > 0 ? player.aliases[0] : player.address);
+						string banText = "// [" + s + "] banned by [" + player.name + "]- " + (player.aliases != null &&
+							player.aliases.size > 0 ? player.aliases[0] : player.address);
 						AddUnique(mBan, banText);
 						AddUnique(mBan, s);
 						Tools.SaveList("ServerConfig/ban.txt", mBan);
@@ -1553,7 +1558,12 @@ public class GameServer : FileServer
 			player.Log("FAILED a ban check: " + s);
 			RemovePlayer(player);
 		}
-		else player.Log("Passed a ban check: " + s);
+		else
+		{
+			player.Log("Passed a ban check: " + s);
+			if (player.aliases == null) player.aliases = new List<string>();
+			AddUnique(player.aliases, s);
+		}
 	}
 
 	/// <summary>

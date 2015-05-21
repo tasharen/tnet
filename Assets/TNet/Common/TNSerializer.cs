@@ -9,7 +9,7 @@
 
 //#define IGNORE_ERRORS
 
-#if UNITY_ENGINE
+#if !STANDALONE
 using UnityEngine;
 #endif
 
@@ -116,7 +116,7 @@ public static class Serialization
 
 		if (!mNameToType.TryGetValue(name, out type))
 		{
-#if UNITY_ENGINE
+#if !STANDALONE
 			if (name == "Vector2") type = typeof(Vector2);
 			else if (name == "Vector3") type = typeof(Vector3);
 			else if (name == "Vector4") type = typeof(Vector4);
@@ -169,7 +169,7 @@ public static class Serialization
 
 		if (!mTypeToName.TryGetValue(type, out name))
 		{
-#if UNITY_ENGINE
+#if !STANDALONE
 			if (type == typeof(Vector2)) name = "Vector2";
 			else if (type == typeof(Vector3)) name = "Vector3";
 			else if (type == typeof(Vector4)) name = "Vector4";
@@ -244,7 +244,7 @@ public static class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(ObsInt)value;
 		}
-#if UNITY_ENGINE
+#if !STANDALONE
 		else if (valueType == typeof(Color32))
 		{
 			if (desiredType == typeof(Color))
@@ -382,7 +382,7 @@ public static class Serialization
 
 				// Don't do anything with static fields
 				if ((field.Attributes & FieldAttributes.Static) != 0) continue;
-#if UNITY_ENGINE
+#if !STANDALONE
 				// Ignore fields that were not marked as serializable
 				if (!field.IsDefined(typeof(SerializeField), true))
 #endif
@@ -487,7 +487,7 @@ public static class Serialization
 		}
 	}
 
-#if UNITY_ENGINE
+#if !STANDALONE
 	/// <summary>
 	/// Write a value to the stream.
 	/// </summary>
@@ -593,7 +593,7 @@ public static class Serialization
 		if (type == typeof(uint)) return 5;
 		if (type == typeof(float)) return 6;
 		if (type == typeof(string)) return 7;
-#if UNITY_ENGINE
+#if !STANDALONE
 		if (type == typeof(Vector2)) return 8;
 		if (type == typeof(Vector3)) return 9;
 		if (type == typeof(Vector4)) return 10;
@@ -604,7 +604,7 @@ public static class Serialization
 		if (type == typeof(DataNode)) return 14;
 		if (type == typeof(double)) return 15;
 		if (type == typeof(short)) return 16;
-#if UNITY_ENGINE
+#if !STANDALONE
 		if (type == typeof(TNObject)) return 17;
 #endif
 		if (type == typeof(long)) return 18;
@@ -618,7 +618,7 @@ public static class Serialization
 		if (type == typeof(uint[])) return 105;
 		if (type == typeof(float[])) return 106;
 		if (type == typeof(string[])) return 107;
-#if UNITY_ENGINE
+#if !STANDALONE
 		if (type == typeof(Vector2[])) return 108;
 		if (type == typeof(Vector3[])) return 109;
 		if (type == typeof(Vector4[])) return 110;
@@ -628,7 +628,7 @@ public static class Serialization
 #endif
 		if (type == typeof(double[])) return 115;
 		if (type == typeof(short[])) return 116;
-#if UNITY_ENGINE
+#if !STANDALONE
 		if (type == typeof(TNObject[])) return 117;
 #endif
 		if (type == typeof(long[])) return 118;
@@ -657,7 +657,7 @@ public static class Serialization
 			case 5: return typeof(uint);
 			case 6: return typeof(float);
 			case 7: return typeof(string);
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 8: return typeof(Vector2);
 			case 9: return typeof(Vector3);
 			case 10: return typeof(Vector4);
@@ -668,7 +668,7 @@ public static class Serialization
 			case 14: return typeof(DataNode);
 			case 15: return typeof(double);
 			case 16: return typeof(short);
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 17: return typeof(TNObject);
 #endif
 			case 18: return typeof(long);
@@ -682,7 +682,7 @@ public static class Serialization
 			case 105: return typeof(uint[]);
 			case 106: return typeof(float[]);
 			case 107: return typeof(string[]);
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 108: return typeof(Vector2[]);
 			case 109: return typeof(Vector3[]);
 			case 110: return typeof(Vector4[]);
@@ -692,7 +692,7 @@ public static class Serialization
 #endif
 			case 115: return typeof(double[]);
 			case 116: return typeof(short[]);
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 117: return typeof(TNObject[]);
 #endif
 			case 118: return typeof(long[]);
@@ -767,7 +767,7 @@ public static class Serialization
 		// If this is a custom type, there is more work to be done
 		if (prefix > 250)
  		{
-#if UNITY_EDITOR
+#if !STANDALONE
 			if (obj is GameObject)
 			{
 				Debug.LogError("It's not possible to send entire game objects as parameters because Unity has no consistent way to identify them.\n" +
@@ -889,7 +889,7 @@ public static class Serialization
 			case 5: bw.Write((uint)obj); break;
 			case 6: bw.Write((float)obj); break;
 			case 7: bw.Write((string)obj); break;
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 8: bw.Write((Vector2)obj); break;
 			case 9: bw.Write((Vector3)obj); break;
 			case 10: bw.Write((Vector4)obj); break;
@@ -900,7 +900,7 @@ public static class Serialization
 			case 14: bw.Write((DataNode)obj); break;
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 17: bw.Write((uint)(obj as TNObject).uid); break;
 #endif
 			case 18: bw.Write((long)obj); break;
@@ -955,7 +955,7 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i] ?? "");
 				break;
 			}
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 108:
 			{
 				Vector2[] arr = (Vector2[])obj;
@@ -1013,7 +1013,7 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 117:
 			{
 				TNObject[] arr = (TNObject[])obj;
@@ -1071,7 +1071,7 @@ public static class Serialization
 			}
 			default:
 			{
-#if UNITY_ENGINE
+#if !STANDALONE
 				Debug.LogError("Prefix " + prefix + " is not supported");
 #else
 				Tools.LogError("Prefix " + prefix + " is not supported");
@@ -1135,7 +1135,7 @@ public static class Serialization
 		return count;
 	}
 
-#if UNITY_ENGINE
+#if !STANDALONE
 	/// <summary>
 	/// Read a value from the stream.
 	/// </summary>
@@ -1325,7 +1325,7 @@ public static class Serialization
 				return f;
 			}
 			case 7: return reader.ReadString();
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 8: return reader.ReadVector2();
 			case 9: return reader.ReadVector3();
 			case 10: return reader.ReadVector4();
@@ -1336,7 +1336,7 @@ public static class Serialization
 			case 14: return reader.ReadDataNode();
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 17: return TNObject.Find(reader.ReadUInt32());
 #endif
 			case 18: return reader.ReadInt64();
@@ -1485,7 +1485,7 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadString();
 				return arr;
 			}
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 108:
 			{
 				int elements = reader.ReadInt();
@@ -1544,7 +1544,7 @@ public static class Serialization
 					arr[b] = reader.ReadInt16();
 				return arr;
 			}
-#if UNITY_ENGINE
+#if !STANDALONE
 			case 117:
 			{
 				int elements = reader.ReadInt();

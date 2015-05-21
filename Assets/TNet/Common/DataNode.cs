@@ -16,7 +16,7 @@ using System.IO;
 using System.Globalization;
 using System.Collections.Generic;
 
-#if UNITY_EDITOR
+#if !STANDALONE
 using UnityEngine;
 #endif
 
@@ -640,7 +640,7 @@ public class DataNode
 			writer.Write((int)o);
 			writer.Write(")\n");
 		}
-#if UNITY_ENGINE
+#if !STANDALONE
 		else if (type == typeof(Vector2))
 		{
 			Vector2 v = (Vector2)value;
@@ -780,15 +780,15 @@ public class DataNode
 				child.Write(writer, tab + 1);
 			}
 		}
-#if UNITY_ENGINE
+#if !STANDALONE
 		else if (value is GameObject)
 		{
-			Tools.LogError("It's not possible to serialize game objects.");
+			Debug.LogError("It's not possible to serialize game objects.");
 			writer.Write('\n');
 		}
 		else if ((value as Component) != null)
 		{
-			Tools.LogError("It's not possible to serialize components (" + value.GetType() + ")", value as Component);
+			Debug.LogError("It's not possible to serialize components (" + value.GetType() + ")", value as Component);
 			writer.Write('\n');
 		}
 #endif
@@ -892,7 +892,7 @@ public class DataNode
 				mValue = line.Substring(1, line.Length - 2);
 				return true;
 			}
-#if UNITY_ENGINE
+#if !STANDALONE
 			else if (line[0] == '0' && line[1] == 'x' && line.Length > 7)
 			{
 				mValue = ParseColor32(line, 2);
@@ -1041,7 +1041,7 @@ public class DataNode
 			if (int.TryParse(text, out val))
 				mValue = new ObsInt(val);
 		}
-#if UNITY_ENGINE
+#if !STANDALONE
 		else if (type == typeof(Vector2))
 		{
 			if (parts == null) parts = text.Split(',');
@@ -1140,7 +1140,7 @@ public class DataNode
 			return false;
 		}
 		else
-#if UNITY_ENGINE
+#if !STANDALONE
 			if (!type.IsSubclassOf(typeof(Component)))
 #endif
 		{
@@ -1330,7 +1330,7 @@ public class DataNode
 		return 0xF;
 	}
 
-#if UNITY_ENGINE
+#if !STANDALONE
 	/// <summary>
 	/// Parse a RrGgBbAa color encoded in the string.
 	/// </summary>
