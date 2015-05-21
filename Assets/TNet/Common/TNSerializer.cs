@@ -9,7 +9,10 @@
 
 //#define IGNORE_ERRORS
 
+#if UNITY_ENGINE
 using UnityEngine;
+#endif
+
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Collections.Generic;
 using System.Collections;
@@ -113,6 +116,7 @@ public static class Serialization
 
 		if (!mNameToType.TryGetValue(name, out type))
 		{
+#if UNITY_ENGINE
 			if (name == "Vector2") type = typeof(Vector2);
 			else if (name == "Vector3") type = typeof(Vector3);
 			else if (name == "Vector4") type = typeof(Vector4);
@@ -120,7 +124,9 @@ public static class Serialization
 			else if (name == "Rect") type = typeof(Rect);
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
-			else if (name == "string[]") type = typeof(string[]);
+			else
+#endif
+			if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
 			else if (name == "ObsInt") type = typeof(ObsInt);
@@ -131,7 +137,7 @@ public static class Serialization
 					Type elemType = NameToType(name.Substring(6, name.Length - 7));
 					type = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
 				}
-				else Debug.LogWarning("Malformed type: " + name);
+				else Tools.LogError("Malformed type: " + name);
 			}
 			else if (name.StartsWith("TList"))
 			{
@@ -140,7 +146,7 @@ public static class Serialization
 					Type elemType = NameToType(name.Substring(6, name.Length - 7));
 					type = typeof(TNet.List<>).MakeGenericType(elemType);
 				}
-				else Debug.LogWarning("Malformed type: " + name);
+				else Tools.LogError("Malformed type: " + name);
 			}
 			else type = Type.GetType(name);
 			mNameToType[name] = type;
@@ -156,13 +162,14 @@ public static class Serialization
 	{
 		if (type == null)
 		{
-			Debug.LogError("Type cannot be null");
+			Tools.LogError("Type cannot be null");
 			return null;
 		}
 		string name;
 
 		if (!mTypeToName.TryGetValue(type, out name))
 		{
+#if UNITY_ENGINE
 			if (type == typeof(Vector2)) name = "Vector2";
 			else if (type == typeof(Vector3)) name = "Vector3";
 			else if (type == typeof(Vector4)) name = "Vector4";
@@ -170,7 +177,9 @@ public static class Serialization
 			else if (type == typeof(Rect)) name = "Rect";
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
-			else if (type == typeof(ObsInt)) name = "ObsInt";
+			else
+#endif
+			if (type == typeof(ObsInt)) name = "ObsInt";
 			else if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
@@ -194,6 +203,8 @@ public static class Serialization
 		}
 		return name;
 	}
+
+	static int Round (float val) { return (int)(val + 0.5f); } 
 
 	/// <summary>
 	/// Helper function to convert the specified value into the provided type.
@@ -220,10 +231,10 @@ public static class Serialization
 		else if (valueType == typeof(float))
 		{
 			// Float conversion
-			if (desiredType == typeof(byte)) return (byte)Mathf.RoundToInt((float)value);
-			if (desiredType == typeof(short)) return (short)Mathf.RoundToInt((float)value);
-			if (desiredType == typeof(ushort)) return (ushort)Mathf.RoundToInt((float)value);
-			if (desiredType == typeof(int)) return Mathf.RoundToInt((float)value);
+			if (desiredType == typeof(byte)) return (byte)Round((float)value);
+			if (desiredType == typeof(short)) return (short)Round((float)value);
+			if (desiredType == typeof(ushort)) return (ushort)Round((float)value);
+			if (desiredType == typeof(int)) return Round((float)value);
 		}
 		else if (valueType == typeof(long))
 		{
@@ -233,6 +244,7 @@ public static class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(ObsInt)value;
 		}
+#if UNITY_ENGINE
 		else if (valueType == typeof(Color32))
 		{
 			if (desiredType == typeof(Color))
@@ -271,6 +283,7 @@ public static class Serialization
 				return new Vector4(c.r, c.g, c.b, c.a);
 			}
 		}
+#endif
 
 #if REFLECTION_SUPPORT
 		if (desiredType.IsEnum)
@@ -298,7 +311,7 @@ public static class Serialization
 			}
 		}
 #endif
-		Debug.LogError("Unable to convert " + valueType + " to " + desiredType);
+		Tools.LogError("Unable to convert " + valueType + " to " + desiredType);
 		return null;
 	}
 
@@ -324,7 +337,7 @@ public static class Serialization
 		}
 		catch (Exception ex)
 		{
-			Debug.LogError(ex.Message);
+			Tools.LogError(ex.Message);
 			return null;
 		}
 	}
@@ -369,9 +382,10 @@ public static class Serialization
 
 				// Don't do anything with static fields
 				if ((field.Attributes & FieldAttributes.Static) != 0) continue;
-
+#if UNITY_ENGINE
 				// Ignore fields that were not marked as serializable
 				if (!field.IsDefined(typeof(SerializeField), true))
+#endif
 				{
 					// Class is not serializable
 					if (!serializable) continue;
@@ -423,7 +437,7 @@ public static class Serialization
 		}
 		catch (Exception ex)
 		{
-			Debug.LogError(ex.Message);
+			Tools.LogError(ex.Message);
 			return false;
 		}
 		return true;
@@ -473,6 +487,7 @@ public static class Serialization
 		}
 	}
 
+#if UNITY_ENGINE
 	/// <summary>
 	/// Write a value to the stream.
 	/// </summary>
@@ -541,6 +556,7 @@ public static class Serialization
 		writer.Write(c.b);
 		writer.Write(c.a);
 	}
+#endif
 
 	/// <summary>
 	/// Write the node hierarchy to the binary writer (binary format).
@@ -577,16 +593,20 @@ public static class Serialization
 		if (type == typeof(uint)) return 5;
 		if (type == typeof(float)) return 6;
 		if (type == typeof(string)) return 7;
+#if UNITY_ENGINE
 		if (type == typeof(Vector2)) return 8;
 		if (type == typeof(Vector3)) return 9;
 		if (type == typeof(Vector4)) return 10;
 		if (type == typeof(Quaternion)) return 11;
 		if (type == typeof(Color32)) return 12;
 		if (type == typeof(Color)) return 13;
+#endif
 		if (type == typeof(DataNode)) return 14;
 		if (type == typeof(double)) return 15;
 		if (type == typeof(short)) return 16;
+#if UNITY_ENGINE
 		if (type == typeof(TNObject)) return 17;
+#endif
 		if (type == typeof(long)) return 18;
 		if (type == typeof(ulong)) return 19;
 		if (type == typeof(ObsInt)) return 20;
@@ -598,15 +618,19 @@ public static class Serialization
 		if (type == typeof(uint[])) return 105;
 		if (type == typeof(float[])) return 106;
 		if (type == typeof(string[])) return 107;
+#if UNITY_ENGINE
 		if (type == typeof(Vector2[])) return 108;
 		if (type == typeof(Vector3[])) return 109;
 		if (type == typeof(Vector4[])) return 110;
 		if (type == typeof(Quaternion[])) return 111;
 		if (type == typeof(Color32[])) return 112;
 		if (type == typeof(Color[])) return 113;
+#endif
 		if (type == typeof(double[])) return 115;
 		if (type == typeof(short[])) return 116;
+#if UNITY_ENGINE
 		if (type == typeof(TNObject[])) return 117;
+#endif
 		if (type == typeof(long[])) return 118;
 		if (type == typeof(ulong[])) return 119;
 		if (type == typeof(ObsInt[])) return 120;
@@ -633,16 +657,20 @@ public static class Serialization
 			case 5: return typeof(uint);
 			case 6: return typeof(float);
 			case 7: return typeof(string);
+#if UNITY_ENGINE
 			case 8: return typeof(Vector2);
 			case 9: return typeof(Vector3);
 			case 10: return typeof(Vector4);
 			case 11: return typeof(Quaternion);
 			case 12: return typeof(Color32);
 			case 13: return typeof(Color);
+#endif
 			case 14: return typeof(DataNode);
 			case 15: return typeof(double);
 			case 16: return typeof(short);
+#if UNITY_ENGINE
 			case 17: return typeof(TNObject);
+#endif
 			case 18: return typeof(long);
 			case 19: return typeof(ulong);
 			case 20: return typeof(ObsInt);
@@ -654,15 +682,19 @@ public static class Serialization
 			case 105: return typeof(uint[]);
 			case 106: return typeof(float[]);
 			case 107: return typeof(string[]);
+#if UNITY_ENGINE
 			case 108: return typeof(Vector2[]);
 			case 109: return typeof(Vector3[]);
 			case 110: return typeof(Vector4[]);
 			case 111: return typeof(Quaternion[]);
 			case 112: return typeof(Color32[]);
 			case 113: return typeof(Color[]);
+#endif
 			case 115: return typeof(double[]);
 			case 116: return typeof(short[]);
+#if UNITY_ENGINE
 			case 117: return typeof(TNObject[]);
+#endif
 			case 118: return typeof(long[]);
 			case 119: return typeof(ulong[]);
 			case 120: return typeof(ObsInt[]);
@@ -857,16 +889,20 @@ public static class Serialization
 			case 5: bw.Write((uint)obj); break;
 			case 6: bw.Write((float)obj); break;
 			case 7: bw.Write((string)obj); break;
+#if UNITY_ENGINE
 			case 8: bw.Write((Vector2)obj); break;
 			case 9: bw.Write((Vector3)obj); break;
 			case 10: bw.Write((Vector4)obj); break;
 			case 11: bw.Write((Quaternion)obj); break;
 			case 12: bw.Write((Color32)obj); break;
 			case 13: bw.Write((Color)obj); break;
+#endif
 			case 14: bw.Write((DataNode)obj); break;
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
+#if UNITY_ENGINE
 			case 17: bw.Write((uint)(obj as TNObject).uid); break;
+#endif
 			case 18: bw.Write((long)obj); break;
 			case 19: bw.Write((ulong)obj); break;
 			case 20: bw.Write(((ObsInt)obj).obscured); break;
@@ -919,6 +955,7 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i] ?? "");
 				break;
 			}
+#if UNITY_ENGINE
 			case 108:
 			{
 				Vector2[] arr = (Vector2[])obj;
@@ -961,6 +998,7 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
+#endif
 			case 115:
 			{
 				double[] arr = (double[])obj;
@@ -975,6 +1013,7 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
+#if UNITY_ENGINE
 			case 117:
 			{
 				TNObject[] arr = (TNObject[])obj;
@@ -983,6 +1022,7 @@ public static class Serialization
 					bw.Write((uint)arr[i].uid);
 				break;
 			}
+#endif
 			case 118:
 			{
 				long[] arr = (long[])obj;
@@ -1031,7 +1071,11 @@ public static class Serialization
 			}
 			default:
 			{
+#if UNITY_ENGINE
 				Debug.LogError("Prefix " + prefix + " is not supported");
+#else
+				Tools.LogError("Prefix " + prefix + " is not supported");
+#endif
 				break;
 			}
 		}
@@ -1091,6 +1135,7 @@ public static class Serialization
 		return count;
 	}
 
+#if UNITY_ENGINE
 	/// <summary>
 	/// Read a value from the stream.
 	/// </summary>
@@ -1178,6 +1223,7 @@ public static class Serialization
 		if (float.IsNaN(w)) w = 0f;
 		return new Color(x, y, z, w);
 	}
+#endif
 
 	/// <summary>
 	/// Read the node hierarchy from the binary reader (binary format).
@@ -1279,16 +1325,20 @@ public static class Serialization
 				return f;
 			}
 			case 7: return reader.ReadString();
+#if UNITY_ENGINE
 			case 8: return reader.ReadVector2();
 			case 9: return reader.ReadVector3();
 			case 10: return reader.ReadVector4();
 			case 11: return reader.ReadQuaternion();
 			case 12: return reader.ReadColor32();
 			case 13: return reader.ReadColor();
+#endif
 			case 14: return reader.ReadDataNode();
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
+#if UNITY_ENGINE
 			case 17: return TNObject.Find(reader.ReadUInt32());
+#endif
 			case 18: return reader.ReadInt64();
 			case 19: return reader.ReadUInt64();
 			case 20:
@@ -1370,7 +1420,7 @@ public static class Serialization
 				}
 				catch (Exception ex)
 				{
-					Debug.LogError(ex.Message + "\n" + "Expected: " + type + "[" + elements + "]\n" +
+					Tools.LogError(ex.Message + "\n" + "Expected: " + type + "[" + elements + "]\n" +
 						"Created: " + (created != null ? created.GetType().ToString() : "<null>"));
 				}
 
@@ -1381,10 +1431,10 @@ public static class Serialization
 					for (int i = 0; i < elements; ++i)
 						arr[i] = reader.ReadObject(null, prefix, type, sameType);
 				}
-				else Debug.LogError("Failed to create a " + type);
+				else Tools.LogError("Failed to create a " + type);
 				return arr;
 #else
-				Debug.LogError("Reflection is not supported on this platform");
+				Tools.LogError("Reflection is not supported on this platform");
 				return null;
 #endif
 			}
@@ -1435,6 +1485,7 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadString();
 				return arr;
 			}
+#if UNITY_ENGINE
 			case 108:
 			{
 				int elements = reader.ReadInt();
@@ -1477,6 +1528,7 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadColor();
 				return arr;
 			}
+#endif
 			case 115:
 			{
 				int elements = reader.ReadInt();
@@ -1492,6 +1544,7 @@ public static class Serialization
 					arr[b] = reader.ReadInt16();
 				return arr;
 			}
+#if UNITY_ENGINE
 			case 117:
 			{
 				int elements = reader.ReadInt();
@@ -1499,6 +1552,7 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = TNObject.Find(reader.ReadUInt32());
 				return arr;
 			}
+#endif
 			case 118:
 			{
 				int elements = reader.ReadInt();
@@ -1533,7 +1587,7 @@ public static class Serialization
 				if (obj == null)
 				{
 					obj = type.Create();
-					if (obj == null) Debug.LogError("Unable to create an instance of " + type);
+					if (obj == null) Tools.LogError("Unable to create an instance of " + type);
 				}
 
 				if (obj != null)
@@ -1548,7 +1602,7 @@ public static class Serialization
 
 						if (string.IsNullOrEmpty(fieldName))
 						{
-							Debug.LogError("Null field specified when serializing " + type);
+							Tools.LogError("Null field specified when serializing " + type);
 							continue;
 						}
 
@@ -1560,7 +1614,7 @@ public static class Serialization
 
 						// Assign the value
 						if (fi != null) fi.SetValue(obj, Serialization.ConvertValue(val, fi.FieldType));
-						else Debug.LogError("Unable to set field " + type + "." + fieldName);
+						else Tools.LogError("Unable to set field " + type + "." + fieldName);
 					}
 				}
 				return obj;
@@ -1580,7 +1634,7 @@ public static class Serialization
 			}
 			default:
 			{
-				Debug.LogError("Unknown prefix: " + prefix + " at position " + reader.BaseStream.Position);
+				Tools.LogError("Unknown prefix: " + prefix + " at position " + reader.BaseStream.Position);
 				return null;
 			}
 		}
@@ -1588,7 +1642,7 @@ public static class Serialization
 		}
 		catch (Exception ex)
 		{
-			Debug.LogError(ex.Message + " at position " + reader.BaseStream.Position);
+			Tools.LogError(ex.Message + " at position " + reader.BaseStream.Position);
 		}
 		return null;
 #endif

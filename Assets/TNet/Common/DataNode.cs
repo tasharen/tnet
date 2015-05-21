@@ -15,7 +15,10 @@ using System;
 using System.IO;
 using System.Globalization;
 using System.Collections.Generic;
+
+#if UNITY_EDITOR
 using UnityEngine;
+#endif
 
 #if REFLECTION_SUPPORT
 using System.Reflection;
@@ -637,6 +640,7 @@ public class DataNode
 			writer.Write((int)o);
 			writer.Write(")\n");
 		}
+#if UNITY_ENGINE
 		else if (type == typeof(Vector2))
 		{
 			Vector2 v = (Vector2)value;
@@ -687,129 +691,129 @@ public class DataNode
 			}
 			writer.Write('\n');
 		}
+		else if (type == typeof(Vector4))
+		{
+			Vector4 v = (Vector4)value;
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('(');
+			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+		else if (type == typeof(Quaternion))
+		{
+			Quaternion q = (Quaternion)value;
+			Vector3 v = q.eulerAngles;
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('(');
+			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+		else if (type == typeof(Rect))
+		{
+			Rect r = (Rect)value;
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('(');
+			writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
+			writer.Write(")\n");
+		}
+#endif
+		else if (value is TList)
+		{
+			TList list = value as TList;
+
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('\n');
+
+			if (list.Count > 0)
+			{
+				for (int i = 0, imax = list.Count; i < imax; ++i)
+					Write(writer, tab + 1, null, list.Get(i), false);
+			}
+		}
+		else if (value is System.Collections.IList)
+		{
+			System.Collections.IList list = value as System.Collections.IList;
+
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('\n');
+
+			if (list.Count > 0)
+			{
+				for (int i = 0, imax = list.Count; i < imax; ++i)
+					Write(writer, tab + 1, null, list[i], false);
+			}
+		}
+		else if (value is IDataNodeSerializable)
+		{
+			IDataNodeSerializable ser = value as IDataNodeSerializable;
+			DataNode node = new DataNode();
+			ser.Serialize(node);
+
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			writer.Write('\n');
+
+			for (int i = 0; i < node.children.size; ++i)
+			{
+				DataNode child = node.children[i];
+				child.Write(writer, tab + 1);
+			}
+		}
+#if UNITY_ENGINE
+		else if (value is GameObject)
+		{
+			Tools.LogError("It's not possible to serialize game objects.");
+			writer.Write('\n');
+		}
+		else if ((value as Component) != null)
+		{
+			Tools.LogError("It's not possible to serialize components (" + value.GetType() + ")", value as Component);
+			writer.Write('\n');
+		}
+#endif
 		else
 		{
-			if (type == typeof(Vector4))
+			if (writeType)
 			{
-				Vector4 v = (Vector4)value;
 				if (name != null) writer.Write(" = ");
 				writer.Write(Serialization.TypeToName(type));
-				writer.Write('(');
-				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
-				writer.Write(")\n");
 			}
-			else if (type == typeof(Quaternion))
-			{
-				Quaternion q = (Quaternion)value;
-				Vector3 v = q.eulerAngles;
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-				writer.Write('(');
-				writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
-				writer.Write(")\n");
-			}
-			else if (type == typeof(Rect))
-			{
-				Rect r = (Rect)value;
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-				writer.Write('(');
-				writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
-				writer.Write(", ");
-				writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
-				writer.Write(")\n");
-			}
-			else if (value is TList)
-			{
-				TList list = value as TList;
-
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-				writer.Write('\n');
-
-				if (list.Count > 0)
-				{
-					for (int i = 0, imax = list.Count; i < imax; ++i)
-						Write(writer, tab + 1, null, list.Get(i), false);
-				}
-			}
-			else if (value is System.Collections.IList)
-			{
-				System.Collections.IList list = value as System.Collections.IList;
-
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-				writer.Write('\n');
-
-				if (list.Count > 0)
-				{
-					for (int i = 0, imax = list.Count; i < imax; ++i)
-						Write(writer, tab + 1, null, list[i], false);
-				}
-			}
-			else if (value is IDataNodeSerializable)
-			{
-				IDataNodeSerializable ser = value as IDataNodeSerializable;
-				DataNode node = new DataNode();
-				ser.Serialize(node);
-
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-				writer.Write('\n');
-
-				for (int i = 0; i < node.children.size; ++i)
-				{
-					DataNode child = node.children[i];
-					child.Write(writer, tab + 1);
-				}
-			}
-			else if (value is GameObject)
-			{
-				Debug.LogError("It's not possible to serialize game objects.");
-				writer.Write('\n');
-			}
-			else if ((value as Component) != null)
-			{
-				Debug.LogError("It's not possible to serialize components (" + value.GetType() + ")", value as Component);
-				writer.Write('\n');
-			}
-			else
-			{
-				if (writeType)
-				{
-					if (name != null) writer.Write(" = ");
-					writer.Write(Serialization.TypeToName(type));
-				}
-				writer.Write('\n');
+			writer.Write('\n');
 
 #if REFLECTION_SUPPORT
-				List<FieldInfo> fields = type.GetSerializableFields();
+			List<FieldInfo> fields = type.GetSerializableFields();
 
-				if (fields.size > 0)
+			if (fields.size > 0)
+			{
+				for (int i = 0; i < fields.size; ++i)
 				{
-					for (int i = 0; i < fields.size; ++i)
-					{
-						FieldInfo field = fields[i];
-						object val = field.GetValue(value);
-						if (val != null) Write(writer, tab + 1, field.Name, val, true);
-					}
+					FieldInfo field = fields[i];
+					object val = field.GetValue(value);
+					if (val != null) Write(writer, tab + 1, field.Name, val, true);
 				}
-#endif
 			}
+#endif
 		}
 	}
 
@@ -888,6 +892,7 @@ public class DataNode
 				mValue = line.Substring(1, line.Length - 2);
 				return true;
 			}
+#if UNITY_ENGINE
 			else if (line[0] == '0' && line[1] == 'x' && line.Length > 7)
 			{
 				mValue = ParseColor32(line, 2);
@@ -916,6 +921,7 @@ public class DataNode
 				mValue = b;
 				return true;
 			}
+#endif
 		}
 
 		int dataStart = line.IndexOf('(');
@@ -1035,6 +1041,7 @@ public class DataNode
 			if (int.TryParse(text, out val))
 				mValue = new ObsInt(val);
 		}
+#if UNITY_ENGINE
 		else if (type == typeof(Vector2))
 		{
 			if (parts == null) parts = text.Split(',');
@@ -1124,6 +1131,7 @@ public class DataNode
 					mValue = new Rect(v.x, v.y, v.z, v.w);
 			}
 		}
+#endif
 		else if (type.Implements(typeof(IDataNodeSerializable)))
 		{
 			IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
@@ -1131,7 +1139,10 @@ public class DataNode
 			mValue = ds;
 			return false;
 		}
-		else if (!type.IsSubclassOf(typeof(Component)))
+		else
+#if UNITY_ENGINE
+			if (!type.IsSubclassOf(typeof(Component)))
+#endif
 		{
 			bool isIList = type.Implements(typeof(System.Collections.IList));
 			bool isTList = (!isIList && type.Implements(typeof(TList)));
@@ -1139,7 +1150,7 @@ public class DataNode
 
 			if (mValue == null)
 			{
-				Debug.LogError("Unable to create a " + type);
+				Tools.LogError("Unable to create a " + type);
 				return true;
 			}
 
@@ -1166,11 +1177,11 @@ public class DataNode
 							child.ResolveValue(elemType);
 							list.Add(child.mValue);
 						}
-						else Debug.LogWarning("Unexpected node in an array: " + child.name);
+						else Tools.LogError("Unexpected node in an array: " + child.name);
 					}
 					return false;
 				}
-				else Debug.LogError("Unable to determine the element type of " + type);
+				else Tools.LogError("Unable to determine the element type of " + type);
 			}
 			else if (isIList)
 			{
@@ -1200,11 +1211,11 @@ public class DataNode
 							if (fixedSize) list[i] = child.mValue;
 							else list.Add(child.mValue);
 						}
-						else Debug.LogWarning("Unexpected node in an array: " + child.name);
+						else Tools.LogError("Unexpected node in an array: " + child.name);
 					}
 					return false;
 				}
-				else Debug.LogError("Unable to determine the element type of " + type);
+				else Tools.LogError("Unable to determine the element type of " + type);
 			}
 			else if (type.IsClass)
 			{
@@ -1215,7 +1226,7 @@ public class DataNode
 				}
 				return false;
 			}
-			else Debug.LogError("Unhandled type: " + type);
+			else Tools.LogError("Unhandled type: " + type);
 		}
 		return true;
 	}
@@ -1319,6 +1330,7 @@ public class DataNode
 		return 0xF;
 	}
 
+#if UNITY_ENGINE
 	/// <summary>
 	/// Parse a RrGgBbAa color encoded in the string.
 	/// </summary>
@@ -1331,6 +1343,7 @@ public class DataNode
 		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
 		return new Color32(r, g, b, a);
 	}
+#endif
 #endregion
 }
 }
