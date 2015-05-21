@@ -1490,8 +1490,6 @@ public class GameServer : FileServer
 								player.aliases.size > 0 ? player.aliases[0] : player.address);
 						}
 
-						NGUIDebug.Log(banText);
-
 						AddUnique(mBan, banText);
 						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
 
