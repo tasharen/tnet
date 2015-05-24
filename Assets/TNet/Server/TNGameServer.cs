@@ -1190,7 +1190,7 @@ public class GameServer : FileServer
 #if UNITY_EDITOR
 				reader.ReadString();
 #else
-				Tools.Print("[" + player.id + "] " + reader.ReadString());
+				player.Log(reader.ReadString());
 #endif
 				break;
 			}
@@ -1259,6 +1259,7 @@ public class GameServer : FileServer
 				for (int i = 0; i < mPlayers.size; ++i)
 				{
 					TcpPlayer tp = mPlayers[i];
+					if (!tp.isConnected) continue;
 					if (request == Packet.BroadcastAdmin && !tp.isAdmin) continue;
 
 					if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
