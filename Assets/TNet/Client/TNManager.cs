@@ -364,6 +364,12 @@ public class TNManager : MonoBehaviour
 	/// Retrieve the specified server option.
 	/// </summary>
 
+	static public DataNode GetServerOption (string key) { return (mInstance != null) ? mInstance.mClient.GetServerOption(key) : null; }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
 	static public T GetServerOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key) : default(T); }
 
 	/// <summary>

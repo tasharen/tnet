@@ -1108,6 +1108,7 @@ public class GameClient
 				mIsInChannel = false;
 				if (onDisconnect != null) onDisconnect();
 				mCanSend = true;
+				serverOptions = null;
 				break;
 			}
 			case Packet.ResponseLoadFile:
@@ -1143,6 +1144,12 @@ public class GameClient
 		}
 		return true;
 	}
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public DataNode GetServerOption (string key) { return (serverOptions != null) ? serverOptions.GetChild(key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.

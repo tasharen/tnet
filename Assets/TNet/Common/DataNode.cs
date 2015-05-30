@@ -640,7 +640,6 @@ public class DataNode
 			writer.Write((int)o);
 			writer.Write(")\n");
 		}
-#if !STANDALONE
 		else if (type == typeof(Vector2))
 		{
 			Vector2 v = (Vector2)value;
@@ -709,15 +708,16 @@ public class DataNode
 		else if (type == typeof(Quaternion))
 		{
 			Quaternion q = (Quaternion)value;
-			Vector3 v = q.eulerAngles;
 			if (name != null) writer.Write(" = ");
 			writer.Write(Serialization.TypeToName(type));
 			writer.Write('(');
-			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.Write(q.x.ToString(CultureInfo.InvariantCulture));
 			writer.Write(", ");
-			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.Write(q.y.ToString(CultureInfo.InvariantCulture));
 			writer.Write(", ");
-			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.Write(q.z.ToString(CultureInfo.InvariantCulture));
+			writer.Write(", ");
+			writer.Write(q.w.ToString(CultureInfo.InvariantCulture));
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Rect))
@@ -735,7 +735,6 @@ public class DataNode
 			writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
 			writer.Write(")\n");
 		}
-#endif
 		else if (value is TList)
 		{
 			TList list = value as TList;
@@ -892,7 +891,6 @@ public class DataNode
 				mValue = line.Substring(1, line.Length - 2);
 				return true;
 			}
-#if !STANDALONE
 			else if (line[0] == '0' && line[1] == 'x' && line.Length > 7)
 			{
 				mValue = ParseColor32(line, 2);
@@ -921,7 +919,6 @@ public class DataNode
 				mValue = b;
 				return true;
 			}
-#endif
 		}
 
 		int dataStart = line.IndexOf('(');
@@ -1041,7 +1038,6 @@ public class DataNode
 			if (int.TryParse(text, out val))
 				mValue = new ObsInt(val);
 		}
-#if !STANDALONE
 		else if (type == typeof(Vector2))
 		{
 			if (parts == null) parts = text.Split(',');
@@ -1085,6 +1081,7 @@ public class DataNode
 		{
 			if (parts == null) parts = text.Split(',');
 
+#if !STANDALONE
 			if (parts.Length == 3)
 			{
 				Vector3 v;
@@ -1093,7 +1090,9 @@ public class DataNode
 					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
 					mValue = Quaternion.Euler(v);
 			}
-			else if (parts.Length == 4)
+			else
+#endif
+				if (parts.Length == 4)
 			{
 				Quaternion v;
 				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
@@ -1131,7 +1130,6 @@ public class DataNode
 					mValue = new Rect(v.x, v.y, v.z, v.w);
 			}
 		}
-#endif
 		else if (type.Implements(typeof(IDataNodeSerializable)))
 		{
 			IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
@@ -1330,7 +1328,6 @@ public class DataNode
 		return 0xF;
 	}
 
-#if !STANDALONE
 	/// <summary>
 	/// Parse a RrGgBbAa color encoded in the string.
 	/// </summary>
@@ -1343,7 +1340,6 @@ public class DataNode
 		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
 		return new Color32(r, g, b, a);
 	}
-#endif
 #endregion
 }
 }

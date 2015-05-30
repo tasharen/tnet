@@ -242,7 +242,7 @@ public class Application : IDisposable
 			Console.WriteLine("  WWServer -name \"My Server\" -tcp 5127 -public");
 
 #if DEBUG
-			args = new string[] { "-name", "(TP) Beginner - East Coast 1", "-tcp", "6229", "-public", "-world", "World5" };
+			args = new string[] { "-name", "(TP) Aren's Test Server", "-tcp", "6229", "-public", "-world", "Test" };
 #else
 			args = new string[] { "-name", "Windward Server", "-tcp", "5127", "-world", "World" };
 #endif

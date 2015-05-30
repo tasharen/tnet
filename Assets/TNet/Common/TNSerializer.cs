@@ -23,6 +23,75 @@ using System;
 using System.Reflection;
 #endif
 
+#if STANDALONE
+public struct Vector2
+{
+	public float x;
+	public float y;
+
+	public Vector2 (float xx, float yy) { x = xx; y = yy; }
+}
+
+public struct Vector3
+{
+	public float x;
+	public float y;
+	public float z;
+
+	public Vector3 (float xx, float yy, float zz) { x = xx; y = yy; z = zz; }
+}
+
+public struct Vector4
+{
+	public float x;
+	public float y;
+	public float z;
+	public float w;
+
+	public Vector4 (float xx, float yy, float zz, float ww) { x = xx; y = yy; z = zz; w = ww; }
+}
+
+public struct Quaternion
+{
+	public float x;
+	public float y;
+	public float z;
+	public float w;
+
+	public Quaternion (float xx, float yy, float zz, float ww) { x = xx; y = yy; z = zz; w = ww; }
+}
+
+public struct Rect
+{
+	public float x;
+	public float y;
+	public float width;
+	public float height;
+
+	public Rect (float xx, float yy, float ww, float hh) { x = xx; y = yy; width = ww; height = hh; }
+}
+
+public struct Color
+{
+	public float r;
+	public float g;
+	public float b;
+	public float a;
+
+	public Color (float rr, float gg, float bb, float aa = 0f) { r = rr; g = gg; b = bb; a = aa; }
+}
+
+public struct Color32
+{
+	public byte r;
+	public byte g;
+	public byte b;
+	public byte a;
+
+	public Color32 (byte rr, byte gg, byte bb, byte aa = 0) { r = rr; g = gg; b = bb; a = aa; }
+}
+#endif
+
 namespace TNet
 {
 /// <summary>
@@ -116,7 +185,6 @@ public static class Serialization
 
 		if (!mNameToType.TryGetValue(name, out type))
 		{
-#if !STANDALONE
 			if (name == "Vector2") type = typeof(Vector2);
 			else if (name == "Vector3") type = typeof(Vector3);
 			else if (name == "Vector4") type = typeof(Vector4);
@@ -124,9 +192,7 @@ public static class Serialization
 			else if (name == "Rect") type = typeof(Rect);
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
-			else
-#endif
-			if (name == "string[]") type = typeof(string[]);
+			else if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
 			else if (name == "ObsInt") type = typeof(ObsInt);
@@ -148,7 +214,17 @@ public static class Serialization
 				}
 				else Tools.LogError("Malformed type: " + name);
 			}
-			else type = Type.GetType(name);
+			else
+			{
+				try
+				{
+					type = Type.GetType(name);
+				}
+				catch (Exception)
+				{
+					Tools.LogError("Unable to resolve type: " + name);
+				}
+			}
 			mNameToType[name] = type;
 		}
 		return type;
@@ -169,7 +245,6 @@ public static class Serialization
 
 		if (!mTypeToName.TryGetValue(type, out name))
 		{
-#if !STANDALONE
 			if (type == typeof(Vector2)) name = "Vector2";
 			else if (type == typeof(Vector3)) name = "Vector3";
 			else if (type == typeof(Vector4)) name = "Vector4";
@@ -177,9 +252,7 @@ public static class Serialization
 			else if (type == typeof(Rect)) name = "Rect";
 			else if (type == typeof(Color)) name = "Color";
 			else if (type == typeof(Color32)) name = "Color32";
-			else
-#endif
-			if (type == typeof(ObsInt)) name = "ObsInt";
+			else if (type == typeof(ObsInt)) name = "ObsInt";
 			else if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
@@ -244,7 +317,6 @@ public static class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(ObsInt)value;
 		}
-#if !STANDALONE
 		else if (valueType == typeof(Color32))
 		{
 			if (desiredType == typeof(Color))
@@ -260,10 +332,12 @@ public static class Serialization
 				Vector3 v = (Vector3)value;
 				return new Color(v.x, v.y, v.z);
 			}
+#if !STANDALONE
 			else if (desiredType == typeof(Quaternion))
 			{
 				return Quaternion.Euler((Vector3)value);
 			}
+#endif
 		}
 		else if (valueType == typeof(Color))
 		{
@@ -283,7 +357,6 @@ public static class Serialization
 				return new Vector4(c.r, c.g, c.b, c.a);
 			}
 		}
-#endif
 
 #if REFLECTION_SUPPORT
 		if (desiredType.IsEnum)
@@ -487,7 +560,6 @@ public static class Serialization
 		}
 	}
 
-#if !STANDALONE
 	/// <summary>
 	/// Write a value to the stream.
 	/// </summary>
@@ -556,7 +628,6 @@ public static class Serialization
 		writer.Write(c.b);
 		writer.Write(c.a);
 	}
-#endif
 
 	/// <summary>
 	/// Write the node hierarchy to the binary writer (binary format).
@@ -593,14 +664,12 @@ public static class Serialization
 		if (type == typeof(uint)) return 5;
 		if (type == typeof(float)) return 6;
 		if (type == typeof(string)) return 7;
-#if !STANDALONE
 		if (type == typeof(Vector2)) return 8;
 		if (type == typeof(Vector3)) return 9;
 		if (type == typeof(Vector4)) return 10;
 		if (type == typeof(Quaternion)) return 11;
 		if (type == typeof(Color32)) return 12;
 		if (type == typeof(Color)) return 13;
-#endif
 		if (type == typeof(DataNode)) return 14;
 		if (type == typeof(double)) return 15;
 		if (type == typeof(short)) return 16;
@@ -618,14 +687,12 @@ public static class Serialization
 		if (type == typeof(uint[])) return 105;
 		if (type == typeof(float[])) return 106;
 		if (type == typeof(string[])) return 107;
-#if !STANDALONE
 		if (type == typeof(Vector2[])) return 108;
 		if (type == typeof(Vector3[])) return 109;
 		if (type == typeof(Vector4[])) return 110;
 		if (type == typeof(Quaternion[])) return 111;
 		if (type == typeof(Color32[])) return 112;
 		if (type == typeof(Color[])) return 113;
-#endif
 		if (type == typeof(double[])) return 115;
 		if (type == typeof(short[])) return 116;
 #if !STANDALONE
@@ -657,14 +724,12 @@ public static class Serialization
 			case 5: return typeof(uint);
 			case 6: return typeof(float);
 			case 7: return typeof(string);
-#if !STANDALONE
 			case 8: return typeof(Vector2);
 			case 9: return typeof(Vector3);
 			case 10: return typeof(Vector4);
 			case 11: return typeof(Quaternion);
 			case 12: return typeof(Color32);
 			case 13: return typeof(Color);
-#endif
 			case 14: return typeof(DataNode);
 			case 15: return typeof(double);
 			case 16: return typeof(short);
@@ -682,14 +747,12 @@ public static class Serialization
 			case 105: return typeof(uint[]);
 			case 106: return typeof(float[]);
 			case 107: return typeof(string[]);
-#if !STANDALONE
 			case 108: return typeof(Vector2[]);
 			case 109: return typeof(Vector3[]);
 			case 110: return typeof(Vector4[]);
 			case 111: return typeof(Quaternion[]);
 			case 112: return typeof(Color32[]);
 			case 113: return typeof(Color[]);
-#endif
 			case 115: return typeof(double[]);
 			case 116: return typeof(short[]);
 #if !STANDALONE
@@ -889,14 +952,12 @@ public static class Serialization
 			case 5: bw.Write((uint)obj); break;
 			case 6: bw.Write((float)obj); break;
 			case 7: bw.Write((string)obj); break;
-#if !STANDALONE
 			case 8: bw.Write((Vector2)obj); break;
 			case 9: bw.Write((Vector3)obj); break;
 			case 10: bw.Write((Vector4)obj); break;
 			case 11: bw.Write((Quaternion)obj); break;
 			case 12: bw.Write((Color32)obj); break;
 			case 13: bw.Write((Color)obj); break;
-#endif
 			case 14: bw.Write((DataNode)obj); break;
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
@@ -955,7 +1016,6 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i] ?? "");
 				break;
 			}
-#if !STANDALONE
 			case 108:
 			{
 				Vector2[] arr = (Vector2[])obj;
@@ -998,7 +1058,6 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
 			}
-#endif
 			case 115:
 			{
 				double[] arr = (double[])obj;
@@ -1135,7 +1194,6 @@ public static class Serialization
 		return count;
 	}
 
-#if !STANDALONE
 	/// <summary>
 	/// Read a value from the stream.
 	/// </summary>
@@ -1223,7 +1281,6 @@ public static class Serialization
 		if (float.IsNaN(w)) w = 0f;
 		return new Color(x, y, z, w);
 	}
-#endif
 
 	/// <summary>
 	/// Read the node hierarchy from the binary reader (binary format).
@@ -1325,14 +1382,12 @@ public static class Serialization
 				return f;
 			}
 			case 7: return reader.ReadString();
-#if !STANDALONE
 			case 8: return reader.ReadVector2();
 			case 9: return reader.ReadVector3();
 			case 10: return reader.ReadVector4();
 			case 11: return reader.ReadQuaternion();
 			case 12: return reader.ReadColor32();
 			case 13: return reader.ReadColor();
-#endif
 			case 14: return reader.ReadDataNode();
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
@@ -1485,7 +1540,6 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadString();
 				return arr;
 			}
-#if !STANDALONE
 			case 108:
 			{
 				int elements = reader.ReadInt();
@@ -1528,7 +1582,6 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadColor();
 				return arr;
 			}
-#endif
 			case 115:
 			{
 				int elements = reader.ReadInt();
