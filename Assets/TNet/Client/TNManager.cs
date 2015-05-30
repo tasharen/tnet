@@ -1097,6 +1097,7 @@ public class TNManager : MonoBehaviour
 			mClient.onCreate			= OnCreateObject;
 			mClient.onDestroy			= OnDestroyObject;
 			mClient.onForwardedPacket	= OnForwardedPacket;
+			mClient.onSetAdmin			= OnSetAdmin;
 
 #if UNITY_EDITOR
 			List<IPAddress> ips = TNet.Tools.localAddresses;
@@ -1331,6 +1332,12 @@ public class TNManager : MonoBehaviour
 		}
 		else TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
 	}
+
+	/// <summary>
+	/// Set the administrator.
+	/// </summary>
+
+	void OnSetAdmin (Player p) { if (p == player) mIsAdmin = true; }
 
 	/// <summary>
 	/// Process incoming packets in the update function.

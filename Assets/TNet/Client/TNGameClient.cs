@@ -37,6 +37,7 @@ public class GameClient
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 	public delegate void OnLoadFile (string filename, byte[] data);
 	public delegate void OnServerData (DataNode data);
+	public delegate void OnSetAdmin (Player p);
 
 	/// <summary>
 	/// Custom packet listeners. You can set these to handle custom packets.
@@ -141,6 +142,12 @@ public class GameClient
 	/// </summary>
 
 	public OnServerData onServerOption;
+
+	/// <summary>
+	/// Callback triggered when the player gets verified as an administrator.
+	/// </summary>
+
+	public OnSetAdmin onSetAdmin;
 
 	/// <summary>
 	/// Server data associated with the connected server. Don't try to change it manually.
@@ -1132,6 +1139,12 @@ public class GameClient
 						onServerOption(child);
 					}
 				}
+				break;
+			}
+			case Packet.ResponseVerifyAdmin:
+			{
+				Player p = GetPlayer(reader.ReadInt32());
+				if (onSetAdmin != null) onSetAdmin(p);
 				break;
 			}
 			case Packet.ResponseSetServerOption:

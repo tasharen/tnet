@@ -1280,6 +1280,9 @@ public class GameServer : FileServer
 					{
 						player.isAdmin = true;
 						player.Log("Admin verified");
+
+						player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+						player.EndSend();
 					}
 				}
 				else
@@ -1333,6 +1336,9 @@ public class GameServer : FileServer
 				{
 					player.isAdmin = true;
 					player.Log("Admin verified");
+
+					player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+					player.EndSend();
 				}
 #if WINDWARD
 				if (player.aliases.size > 2) RemovePlayer(player);

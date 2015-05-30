@@ -581,6 +581,13 @@ public enum Packet
 
 	BroadcastAdmin,
 
+	/// <summary>
+	/// Response coming from the server for authenticated administrators.
+	/// int32: ID of the player.
+	/// </summary>
+
+	ResponseVerifyAdmin,
+
 	//===================================================================================
 
 	UserPacket,
