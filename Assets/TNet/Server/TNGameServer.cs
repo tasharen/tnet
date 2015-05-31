@@ -1530,10 +1530,11 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestGetFileList:
 			{
-				string path = Tools.FindDirectory(reader.ReadString(), player.isAdmin);
+				string original = reader.ReadString();
+				string path = Tools.FindDirectory(original, player.isAdmin);
 
 				BinaryWriter writer = player.BeginSend(Packet.ResponseGetFileList);
-				writer.Write(path);
+				writer.Write(original);
 
 				if (!string.IsNullOrEmpty(path))
 				{

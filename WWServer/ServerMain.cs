@@ -242,7 +242,7 @@ public class Application : IDisposable
 			Console.WriteLine("  WWServer -name \"My Server\" -tcp 5127 -public");
 
 #if DEBUG
-			args = new string[] { "-name", "(TP) Aren's Test Server", "-tcp", "6229", "-public", "-world", "Test" };
+			args = new string[] { "-name", "(TP) Aren's Test Server", "-tcp", "6229", "-world", "Test" };
 #else
 			args = new string[] { "-name", "Windward Server", "-tcp", "5127", "-world", "World" };
 #endif
@@ -256,7 +256,7 @@ public class Application : IDisposable
 		int lobbyPort = 0;
 		bool tcpLobby = false;
 		bool service = false;
-		bool localPath = false;
+		bool localPath = Directory.Exists("ServerConfig/");
 
 		for (int i = 0; i < args.Length; )
 		{
