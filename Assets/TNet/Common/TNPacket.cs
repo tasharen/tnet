@@ -588,6 +588,22 @@ public enum Packet
 
 	ResponseVerifyAdmin,
 
+	/// <summary>
+	/// Get the list of files in the specified folder.
+	/// string: Path.
+	/// </summary>
+
+	RequestGetFileList,
+
+	/// <summary>
+	/// Server returning a list of files from RequestGetFileList.
+	/// string: Path.
+	/// int32: Number of filenames that follow.
+	/// string[] files.
+	/// </summary>
+
+	ResponseGetFileList,
+
 	//===================================================================================
 
 	UserPacket,

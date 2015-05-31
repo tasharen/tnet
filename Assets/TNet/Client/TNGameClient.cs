@@ -35,6 +35,7 @@ public class GameClient
 	public delegate void OnDestroy (uint objID);
 	public delegate void OnForwardedPacket (BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
+	public delegate void OnGetFiles (string path, string[] files);
 	public delegate void OnLoadFile (string filename, byte[] data);
 	public delegate void OnServerData (DataNode data);
 	public delegate void OnSetAdmin (Player p);
@@ -202,8 +203,11 @@ public class GameClient
 	bool mIsInChannel = false;
 	string mData = "";
 
+	// Each GetFileList() call can specify its own callback
+	Dictionary<string, OnGetFiles> mGetFiles = new Dictionary<string, OnGetFiles>();
+
 	// Each LoadFile() call can specify its own callback
-	List<OnLoadFile> mLoadFiles = new List<OnLoadFile>();
+	Dictionary<string, OnLoadFile> mLoadFiles = new Dictionary<string, OnLoadFile>();
 
 	// Server's UDP address
 	IPEndPoint mServerUdpEndPoint;
@@ -767,12 +771,24 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Retrieve a list of files from the server.
+	/// </summary>
+
+	public void GetFiles (string path, OnGetFiles callback)
+	{
+		mGetFiles[path] = callback;
+		BinaryWriter writer = BeginSend(Packet.RequestGetFileList);
+		writer.Write(path);
+		EndSend();
+	}
+
+	/// <summary>
 	/// Load the specified file from the server.
 	/// </summary>
 
 	public void LoadFile (string filename, OnLoadFile callback)
 	{
-		mLoadFiles.Add(callback);
+		mLoadFiles[filename] = callback;
 		BinaryWriter writer = BeginSend(Packet.RequestLoadFile);
 		writer.Write(filename);
 		EndSend();
@@ -1118,13 +1134,33 @@ public class GameClient
 				serverOptions = null;
 				break;
 			}
+			case Packet.ResponseGetFileList:
+			{
+				string filename = reader.ReadString();
+				int size = reader.ReadInt32();
+				string[] files = null;
+
+				if (size > 0)
+				{
+					for (int i = 0; i < size; ++i)
+						files[i] = reader.ReadString();
+				}
+
+				OnGetFiles cb = null;
+				if (mGetFiles.TryGetValue(filename, out cb))
+					mGetFiles.Remove(filename);
+				if (cb != null) cb(filename, files);
+				break;
+			}
 			case Packet.ResponseLoadFile:
 			{
 				string filename = reader.ReadString();
 				int size = reader.ReadInt32();
 				byte[] data = reader.ReadBytes(size);
-				OnLoadFile lfc = mLoadFiles.Pop();
-				if (lfc != null) lfc(filename, data);
+				OnLoadFile cb = null;
+				if (mLoadFiles.TryGetValue(filename, out cb))
+					mLoadFiles.Remove(filename);
+				if (cb != null) cb(filename, data);
 				break;
 			}
 			case Packet.ResponseServerOptions:

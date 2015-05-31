@@ -847,17 +847,39 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Find a directory, given the specified path.
+	/// </summary>
+
+	static public string FindDirectory (string path, bool allowConfigAccess = false)
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		try
+		{
+			path = path.Replace("\\", "/");
+			if (!path.EndsWith("/")) path += "/";
+			if (!IsAllowedToAccess(path, allowConfigAccess)) return null;
+			if (Directory.Exists(path)) return path;
+			path = GetDocumentsPath(path);
+			if (Directory.Exists(path)) return path;
+		}
+		catch (System.Exception) {}
+#endif
+		return null;
+	}
+
+	/// <summary>
 	/// Tries to find the specified file, checking the raw path, My Documents folder, and the application folder.
 	/// Returns the path if found, null if not found.
 	/// </summary>
 
 	static public string FindFile (string path, bool allowConfigAccess = false)
 	{
+		if (string.IsNullOrEmpty(path)) return null;
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
 			if (!IsAllowedToAccess(path, allowConfigAccess)) return null;
-			if (string.IsNullOrEmpty(path)) return null;
 			if (File.Exists(path)) return path.Replace("\\", "/");
 			path = GetDocumentsPath(path);
 			if (File.Exists(path)) return path;

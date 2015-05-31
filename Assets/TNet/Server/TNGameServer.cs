@@ -1528,6 +1528,27 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.RequestGetFileList:
+			{
+				string path = Tools.FindDirectory(reader.ReadString(), player.isAdmin);
+
+				BinaryWriter writer = player.BeginSend(Packet.ResponseGetFileList);
+				writer.Write(path);
+
+				if (!string.IsNullOrEmpty(path))
+				{
+					string[] files = Tools.GetFiles(path);
+					writer.Write(files.Length);
+					for (int i = 0, imax = files.Length; i < imax; ++i)
+						writer.Write(files[i]);
+				}
+				else
+				{
+					writer.Write(0);
+				}
+				player.EndSend();
+				break;
+			}
 			default:
 			{
 				if (player.channel != null && (int)request < (int)Packet.UserPacket)
