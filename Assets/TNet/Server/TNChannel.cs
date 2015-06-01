@@ -41,6 +41,7 @@ public class Channel
 	public string data = "";
 	public bool persistent = false;
 	public bool closed = false;
+	public bool locked = false;
 	public ushort playerLimit = 65535;
 	public List<TcpPlayer> players = new List<TcpPlayer>();
 	public List<RFC> rfcs = new List<RFC>();
@@ -233,7 +234,7 @@ public class Channel
 
 	public void SaveTo (BinaryWriter writer)
 	{
-		writer.Write(Player.version);
+		writer.Write(13);
 		writer.Write(level);
 		writer.Write(data);
 		writer.Write(objectCounter);
@@ -315,6 +316,8 @@ public class Channel
 		mCleanedOBJs.Clear();
 		mCreatedOBJs.Clear();
 		mCreatedRFCs.Clear();
+
+		writer.Write(locked);
 	}
 
 	/// <summary>
@@ -324,7 +327,13 @@ public class Channel
 	public bool LoadFrom (BinaryReader reader)
 	{
 		int version = reader.ReadInt32();
-		if (version != Player.version) return false;
+		if (version < 12)
+		{
+#if UNITY_EDITOR
+			UnityEngine.Debug.LogWarning("Incompatible data: " + version);
+#endif
+			return false;
+		}
 
 		// Clear all RFCs, just in case
 		for (int i = 0; i < rfcs.size; ++i)
@@ -374,6 +383,8 @@ public class Channel
 
 		size = reader.ReadInt32();
 		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadUInt32());
+
+		locked = (version > 12 && reader.ReadBoolean());
 		return true;
 	}
 }

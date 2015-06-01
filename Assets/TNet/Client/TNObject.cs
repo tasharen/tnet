@@ -115,11 +115,18 @@ public sealed class TNObject : MonoBehaviour
 		{
 			hasBeenDestroyed = true;
 
-			if (TNManager.isConnected)
+			if (TNManager.isConnected && TNManager.isInChannel)
 			{
-				Invoke("EnsureDestroy", 5f);
-				TNManager.BeginSend(Packet.RequestDestroy).Write(uid);
-				TNManager.EndSend();
+				if (TNManager.client.isChannelLocked)
+				{
+					Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
+				}
+				else
+				{
+					Invoke("EnsureDestroy", 5f);
+					TNManager.BeginSend(Packet.RequestDestroy).Write(uid);
+					TNManager.EndSend();
+				}
 			}
 			else
 			{
@@ -661,6 +668,14 @@ public sealed class TNObject : MonoBehaviour
 		if (!Application.isPlaying) return;
 #endif
 		if (hasBeenDestroyed) return;
+
+		if (TNManager.isChannelLocked && (target == Target.AllSaved || target == Target.Others))
+		{
+#if UNITY_EDITOR
+			Debug.LogError("Can't send persistent RFCs while in a locked channel");
+#endif
+			return;
+		}
 
 		// Some very odd special case... sending a string[] as the only parameter
 		// results in objs[] being a string[] instead, when it should be object[string[]].

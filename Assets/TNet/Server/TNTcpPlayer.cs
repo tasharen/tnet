@@ -157,7 +157,15 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndWriting();
 		}
 
-		// Step 9: The join process is now complete
+		// Step 9: Inform the player that the channel is now locked
+		if (channel.locked)
+		{
+			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
+			writer.Write(true);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Step 10: The join process is now complete
 		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(true);
 		offset = buffer.EndTcpPacketStartingAt(offset);

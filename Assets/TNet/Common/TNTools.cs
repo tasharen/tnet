@@ -837,9 +837,12 @@ static public class Tools
 		try
 		{
 			path = FindFile(path);
+
 			if (!string.IsNullOrEmpty(path) && File.Exists(path))
+			{
 				File.Delete(path);
-			return true;
+				return true;
+			}
 		}
 		catch (System.Exception) { }
 #endif
@@ -957,10 +960,12 @@ static public class Tools
 
 	static public void LogError (string msg, string stack = null, bool logInFile = true)
 	{
+		if (msg.Contains("forcibly closed")) return;
 #if UNITY_EDITOR
 		UnityEngine.Debug.LogError(msg);
 #else
-		Tools.Print("ERROR: " + msg);
+		msg = "ERROR: " + msg;
+		Tools.Print(msg);
 
 		if (logInFile)
 		{
@@ -970,7 +975,15 @@ static public class Tools
 				string dir = Path.GetDirectoryName(path);
 				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 				StreamWriter sw = new StreamWriter(path, true);
-				sw.WriteLine("ERROR: " + msg);
+				sw.WriteLine(msg);
+				if (!string.IsNullOrEmpty(stack)) sw.WriteLine(stack);
+				sw.Close();
+
+				path = Tools.GetDocumentsPath("Debug/TNetErrors.txt");
+				dir = Path.GetDirectoryName(path);
+				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+				sw = new StreamWriter(path, true);
+				sw.WriteLine(msg);
 				if (!string.IsNullOrEmpty(stack)) sw.WriteLine(stack);
 				sw.Close();
 			}

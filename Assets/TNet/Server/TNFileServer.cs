@@ -25,10 +25,14 @@ public class FileServer
 	/// Save the specified file.
 	/// </summary>
 
-	public void SaveFile (string fileName, byte[] data)
+	public bool SaveFile (string fileName, byte[] data)
 	{
-		mSavedFiles[fileName] = data;
-		Tools.WriteFile(fileName, data);
+		if (Tools.WriteFile(fileName, data))
+		{
+			mSavedFiles[fileName] = data;
+			return true;
+		}
+		return false;
 	}
 
 	/// <summary>
@@ -51,10 +55,14 @@ public class FileServer
 	/// Delete the specified file.
 	/// </summary>
 
-	public void DeleteFile (string fileName)
+	public bool DeleteFile (string fileName)
 	{
-		mSavedFiles.Remove(fileName);
-		Tools.DeleteFile(fileName);
+		if (Tools.DeleteFile(fileName))
+		{
+			mSavedFiles.Remove(fileName);
+			return true;
+		}
+		return false;
 	}
 }
 }

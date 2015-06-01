@@ -1120,7 +1120,15 @@ public class GameServer : FileServer
 				{
 					string fileName = reader.ReadString();
 					byte[] data = reader.ReadBytes(reader.ReadInt32());
-					if (!string.IsNullOrEmpty(fileName)) SaveFile(fileName, data);
+					
+					if (!string.IsNullOrEmpty(fileName))
+					{
+						if (SaveFile(fileName, data))
+						{
+							player.Log("Saved " + fileName);
+						}
+						else player.LogError("Unable to save " + fileName);
+					}
 				}
 				catch (Exception ex)
 				{
@@ -1149,7 +1157,16 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestDeleteFile:
 			{
-				DeleteFile(reader.ReadString());
+				string fileName = reader.ReadString();
+
+				if (!string.IsNullOrEmpty(fileName))
+				{
+					if (DeleteFile(fileName))
+					{
+						player.Log("Deleted " + fileName);
+					}
+					else player.LogError("Unable to delete " + fileName);
+				}
 				break;
 			}
 			case Packet.RequestNoDelay:
@@ -1550,6 +1567,26 @@ public class GameServer : FileServer
 				player.EndSend();
 				break;
 			}
+			case Packet.RequestLockChannel:
+			{
+				bool locked = reader.ReadBoolean();
+
+				if (player.isAdmin)
+				{
+					if (player.channel != null)
+					{
+						player.channel.locked = locked;
+						BeginSend(Packet.ResponseLockChannel).Write(locked);
+						EndSend(true);
+					}
+				}
+				else
+				{
+					player.LogError("RequestLockChannel(" + locked + ") without authorization", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
 			default:
 			{
 				if (player.channel != null && (int)request < (int)Packet.UserPacket)
@@ -1619,6 +1656,13 @@ public class GameServer : FileServer
 			}
 			case Packet.ForwardToPlayerSaved:
 			{
+				if (player.channel.locked && !player.isAdmin)
+				{
+					player.LogError("Tried to call a persistent RFC while the channel is locked", null);
+					RemovePlayer(player);
+					break;
+				}
+
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
 
@@ -1655,6 +1699,13 @@ public class GameServer : FileServer
 				// If the request should be saved, let's do so
 				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 				{
+					if (player.channel.locked && !player.isAdmin)
+					{
+						player.LogError("Tried to call a persistent RFC while the channel is locked", null);
+						RemovePlayer(player);
+						break;
+					}
+
 					uint target = reader.ReadUInt32();
 					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
 					buffer.position = origin;
@@ -1691,73 +1742,101 @@ public class GameServer : FileServer
 		{
 			case Packet.RequestCreate:
 			{
-				// Create a new object
-				ushort objectIndex = reader.ReadUInt16();
-				byte type = reader.ReadByte();
-				uint uniqueID = 0;
-
-				if (type != 0)
+				if (!player.channel.locked)
 				{
-					uniqueID = --player.channel.objectCounter;
+					// Create a new object
+					ushort objectIndex = reader.ReadUInt16();
+					byte type = reader.ReadByte();
+					uint uniqueID = 0;
 
-					// 1-32767 is reserved for existing scene objects.
-					// 32768 - 16777215 is for dynamically created objects.
-					if (uniqueID < 32768)
+					if (type != 0)
 					{
-						player.channel.objectCounter = 0xFFFFFF;
-						uniqueID = 0xFFFFFF;
+						uniqueID = --player.channel.objectCounter;
+
+						// 1-32767 is reserved for existing scene objects.
+						// 32768 - 16777215 is for dynamically created objects.
+						if (uniqueID < 32768)
+						{
+							player.channel.objectCounter = 0xFFFFFF;
+							uniqueID = 0xFFFFFF;
+						}
+
+						Channel.CreatedObject obj = new Channel.CreatedObject();
+						obj.playerID = player.id;
+						obj.objectIndex = objectIndex;
+						obj.objectID = uniqueID;
+						obj.type = type;
+
+						if (buffer.size > 0)
+						{
+							obj.buffer = buffer;
+							buffer.MarkAsUsed();
+						}
+						player.channel.created.Add(obj);
 					}
 
-					Channel.CreatedObject obj = new Channel.CreatedObject();
-					obj.playerID = player.id;
-					obj.objectIndex = objectIndex;
-					obj.objectID = uniqueID;
-					obj.type = type;
-
-					if (buffer.size > 0)
-					{
-						obj.buffer = buffer;
-						buffer.MarkAsUsed();
-					}
-					player.channel.created.Add(obj);
+					// Inform the channel
+					BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+					writer.Write(player.id);
+					writer.Write(objectIndex);
+					writer.Write(uniqueID);
+					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
+					EndSend(true, player.channel, null);
 				}
-
-				// Inform the channel
-				BinaryWriter writer = BeginSend(Packet.ResponseCreate);
-				writer.Write(player.id);
-				writer.Write(objectIndex);
-				writer.Write(uniqueID);
-				if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
-				EndSend(true, player.channel, null);
+				else
+				{
+					player.LogError("Tried to create an object in a locked channel", null);
+					RemovePlayer(player);
+				}
 				break;
 			}
 			case Packet.RequestDestroy:
 			{
-				// Destroy the specified network object
-				uint uniqueID = reader.ReadUInt32();
-
-				// Remove this object
-				if (player.channel.DestroyObject(uniqueID))
+				if (!player.channel.locked)
 				{
-					// Inform all players in the channel that the object should be destroyed
-					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
-					writer.Write((ushort)1);
-					writer.Write(uniqueID);
-					EndSend(true, player.channel, null);
+					// Destroy the specified network object
+					uint uniqueID = reader.ReadUInt32();
+
+					// Remove this object
+					if (player.channel.DestroyObject(uniqueID))
+					{
+						// Inform all players in the channel that the object should be destroyed
+						BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+						writer.Write((ushort)1);
+						writer.Write(uniqueID);
+						EndSend(true, player.channel, null);
+					}
+				}
+				else
+				{
+					player.LogError("Tried to destroy an object in a locked channel", null);
+					RemovePlayer(player);
 				}
 				break;
 			}
 			case Packet.RequestLoadLevel:
 			{
-				// Change the currently loaded level
-				if (player.channel.host == player)
+#if WINDWARD
+				if (player.isAdmin)
+#else
+				if (!player.channel.locked)
+#endif
 				{
-					player.channel.Reset();
-					player.channel.level = reader.ReadString();
+					// Change the currently loaded level
+					if (player.channel.host == player)
+					{
+						player.channel.Reset();
+						player.channel.level = reader.ReadString();
 
-					BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
-					writer.Write(string.IsNullOrEmpty(player.channel.level) ? "" : player.channel.level);
-					EndSend(true, player.channel, null);
+						BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
+						writer.Write(string.IsNullOrEmpty(player.channel.level) ? "" : player.channel.level);
+						EndSend(true, player.channel, null);
+					}
+				}
+				else
+				{
+					player.LogError("Tried to load a new level while not authorized", null);
+					RemovePlayer(player);
 				}
 				break;
 			}
@@ -1778,66 +1857,110 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestCloseChannel:
 			{
-				if (player.channel != null)
+				if (player.isAdmin)
 				{
-					player.Log("Closing channel " + player.channel.id);
-					player.channel.persistent = false;
-					player.channel.closed = true;
+					if (player.channel != null)
+					{
+						player.Log("Closing channel " + player.channel.id);
+						player.channel.persistent = false;
+						player.channel.closed = true;
+					}
+				}
+				else
+				{
+					player.LogError("Tried to call a close a channel while not authorized", null);
+					RemovePlayer(player);
 				}
 				break;
 			}
 			case Packet.RequestDeleteChannel:
 			{
-				int id = reader.ReadInt32();
-				bool dc = reader.ReadBoolean();
-
-				player.Log("Deleting channel " + id);
-
-				for (int i = 0; i < mChannels.size; ++i)
+				if (player.isAdmin)
 				{
-					Channel ch = mChannels[i];
+					int id = reader.ReadInt32();
+					bool dc = reader.ReadBoolean();
 
-					if (ch != null && ch.id == id)
+					player.Log("Deleting channel " + id);
+
+					for (int i = 0; i < mChannels.size; ++i)
 					{
-						for (int b = ch.players.size; b > 0; )
+						Channel ch = mChannels[i];
+
+						if (ch != null && ch.id == id)
 						{
-							TcpPlayer p = ch.players[--b];
-
-							if (p != null)
+							for (int b = ch.players.size; b > 0; )
 							{
-								if (dc) RemovePlayer(p);
-								else SendLeaveChannel(p, true);
+								TcpPlayer p = ch.players[--b];
+
+								if (p != null)
+								{
+									if (dc) RemovePlayer(p);
+									else SendLeaveChannel(p, true);
+								}
 							}
+
+							ch.persistent = false;
+							ch.closed = true;
+							ch.Reset();
+
+							mChannels.RemoveAt(i);
+							break;
 						}
-
-						ch.persistent = false;
-						ch.closed = true;
-						ch.Reset();
-
-						mChannels.RemoveAt(i);
-						break;
 					}
+				}
+				else
+				{
+					player.LogError("Tried to call a delete a channel while not authorized", null);
+					RemovePlayer(player);
 				}
 				break;
 			}
 			case Packet.RequestSetPlayerLimit:
 			{
+#if WINDWARD
+				if (player.isAdmin)
+				{
+					player.channel.playerLimit = reader.ReadUInt16();
+				}
+				else
+				{
+					player.LogError("Tried to set a player limit while not authorized", null);
+					RemovePlayer(player);
+				}
+#else
 				player.channel.playerLimit = reader.ReadUInt16();
+#endif
 				break;
 			}
 			case Packet.RequestRemoveRFC:
 			{
-				uint id = reader.ReadUInt32();
-				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
-				player.channel.DeleteRFC(id, funcName);
+				if (player.isAdmin || !player.channel.locked)
+				{
+					uint id = reader.ReadUInt32();
+					string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
+					player.channel.DeleteRFC(id, funcName);
+				}
+				else
+				{
+					player.LogError("Tried to remove an RFC while not authorized", null);
+					RemovePlayer(player);
+				}
 				break;
 			}
 			case Packet.RequestSetChannelData:
 			{
-				player.channel.data = reader.ReadString();
-				BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
-				writer.Write(player.channel.data);
-				EndSend(true, player.channel, null);
+				if (player.isAdmin || !player.channel.locked)
+				{
+					player.channel.data = reader.ReadString();
+					BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
+					writer.Write(player.channel.data);
+					EndSend(true, player.channel, null);
+				}
+				else
+				{
+					player.LogError("Tried to set channel data in a locked channel", null);
+					RemovePlayer(player);
+				}
 				break;
 			}
 		}

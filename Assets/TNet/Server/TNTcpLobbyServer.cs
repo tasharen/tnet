@@ -66,7 +66,7 @@ public class TcpLobbyServer : LobbyServer
 #if STANDALONE
 		catch (System.Exception ex)
 		{
-			Tools.Print("ERROR: " + ex.Message);
+			Tools.LogError(ex.Message, ex.StackTrace);
 			return false;
 		}
 		Tools.Print("TCP Lobby Server started on port " + listenPort);
@@ -177,7 +177,7 @@ public class TcpLobbyServer : LobbyServer
 #if STANDALONE
 					catch (System.Exception ex)
 					{
-						Tools.Print("ERROR: " + ex.Message);
+						tc.LogError(ex.Message, ex.StackTrace);
 						tc.Disconnect();
 					}
 #else

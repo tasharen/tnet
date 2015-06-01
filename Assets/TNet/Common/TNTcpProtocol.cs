@@ -755,7 +755,7 @@ public class TcpProtocol : Player
 
 	public void LogError (string error, string stack = null, bool logInFile = true)
 	{
-		Log("ERROR: " + error, stack, logInFile);
+		Tools.LogError(error, stack, logInFile);
 	}
 
 	/// <summary>

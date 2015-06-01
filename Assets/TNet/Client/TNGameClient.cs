@@ -3,6 +3,10 @@
 // Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
+#if UNITY_EDITOR
+using UnityEngine;
+#endif
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -38,6 +42,7 @@ public class GameClient
 	public delegate void OnGetFiles (string path, string[] files);
 	public delegate void OnLoadFile (string filename, byte[] data);
 	public delegate void OnServerData (DataNode data);
+	public delegate void OnLockChannel (bool locked);
 	public delegate void OnSetAdmin (Player p);
 
 	/// <summary>
@@ -145,6 +150,12 @@ public class GameClient
 	public OnServerData onServerOption;
 
 	/// <summary>
+	/// Callback triggered when the channel becomes locked or unlocked.
+	/// </summary>
+
+	public OnLockChannel onLockChannel;
+
+	/// <summary>
 	/// Callback triggered when the player gets verified as an administrator.
 	/// </summary>
 
@@ -201,6 +212,7 @@ public class GameClient
 	int mPing = 0;
 	bool mCanPing = false;
 	bool mIsInChannel = false;
+	bool mIsLocked = false;
 	string mData = "";
 
 	// Each GetFileList() call can specify its own callback
@@ -226,6 +238,12 @@ public class GameClient
 	/// </summary>
 
 	public int channelID { get { return mChannelID; } }
+
+	/// <summary>
+	/// Whether the player is in a locked channel.
+	/// </summary>
+
+	public bool isChannelLocked { get { return mIsLocked && mIsInChannel && mTcp.isConnected; } }
 
 	/// <summary>
 	/// Current time on the server.
@@ -995,6 +1013,7 @@ public class GameClient
 			case Packet.ResponseJoiningChannel:
 			{
 				mIsInChannel = false;
+				mIsLocked = false;
 #if UNITY_EDITOR
 				if (mCanSend) UnityEngine.Debug.LogError("'mCanSend' flag is in the wrong state");
 #endif
@@ -1128,9 +1147,11 @@ public class GameClient
 				mDictionary.Clear();
 				mTcp.Close(false);
 				mLoadFiles.Clear();
+				mGetFiles.Clear();
 				mIsInChannel = false;
 				if (onDisconnect != null) onDisconnect();
 				mCanSend = true;
+				mIsLocked = false;
 				serverOptions = null;
 				break;
 			}
@@ -1142,6 +1163,7 @@ public class GameClient
 
 				if (size > 0)
 				{
+					files = new string[size];
 					for (int i = 0; i < size; ++i)
 						files[i] = reader.ReadString();
 				}
@@ -1179,7 +1201,8 @@ public class GameClient
 			}
 			case Packet.ResponseVerifyAdmin:
 			{
-				Player p = GetPlayer(reader.ReadInt32());
+				int pid = reader.ReadInt32();
+				Player p = GetPlayer(pid);
 				if (onSetAdmin != null) onSetAdmin(p);
 				break;
 			}
@@ -1188,6 +1211,12 @@ public class GameClient
 				if (serverOptions == null) serverOptions = new DataNode("Version", Player.version);
 				DataNode child = serverOptions.ReplaceChild(reader.ReadDataNode());
 				if (onServerOption != null) onServerOption(child);
+				break;
+			}
+			case Packet.ResponseLockChannel:
+			{
+				mIsLocked = reader.ReadBoolean();
+				if (onLockChannel != null) onLockChannel(mIsLocked);
 				break;
 			}
 		}

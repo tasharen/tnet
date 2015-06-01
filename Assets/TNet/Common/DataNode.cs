@@ -841,7 +841,7 @@ public class DataNode
 			else
 			{
 				name = Unescape(line.Substring(offset, divider - offset)).Trim();
-				mValue = line.Substring(divider + 1).Trim();
+				mValue = Unescape(line.Substring(divider + 1)).Trim();
 				mResolved = false;
 			}
 

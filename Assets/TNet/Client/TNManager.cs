@@ -42,6 +42,16 @@ public class TNManager : MonoBehaviour
 	static TNManager mInstance;
 	static int mObjectOwner = -1;
 
+	public delegate void OnLoadGameObject (string path, ref GameObject go);
+
+	/// <summary>
+	/// If you need to replace Resources.Load with your own custom callback, subscribe to this delegate.
+	/// Note that a reference is used to make it possible for multiple subscribers (read: game mods).
+	/// Check the referenced value and exit out early if it has already been set.
+	/// </summary>
+
+	static public OnLoadGameObject onLoadGameObject;
+
 	/// <summary>
 	/// List of objects that can be instantiated by the network.
 	/// </summary>
@@ -202,6 +212,12 @@ public class TNManager : MonoBehaviour
 	static public IPEndPoint tcpEndPoint { get { return (mInstance != null) ? mInstance.mClient.tcpEndPoint : null; } }
 
 	/// <summary>
+	/// Whether the player is in a locked channel.
+	/// </summary>
+
+	static public bool isChannelLocked { get { return mInstance != null && mInstance.mClient != null && mInstance.mClient.isChannelLocked; } }
+
+	/// <summary>
 	/// Custom data associated with the channel.
 	/// </summary>
 
@@ -213,7 +229,7 @@ public class TNManager : MonoBehaviour
 		}
 		set
 		{
-			if (mInstance != null)
+			if (mInstance != null && !isChannelLocked)
 			{
 				mInstance.mClient.channelData = value;
 			}
@@ -703,6 +719,19 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Lock this channel, preventing all changes.
+	/// </summary>
+
+	static public void LockChannel (bool locked)
+	{
+		if (mInstance != null && isAdmin)
+		{
+			BeginSend(Packet.RequestLockChannel).Write(locked);
+			EndSend();
+		}
+	}
+
+	/// <summary>
 	/// Sync the player's data with the server.
 	/// </summary>
 
@@ -765,10 +794,16 @@ public class TNManager : MonoBehaviour
 		{
 			int index = IndexOf(go);
 
-			if (isConnected)
+			if (isConnected && isInChannel)
 			{
 				if (index != -1)
 				{
+					if (mInstance.mClient.isChannelLocked)
+					{
+						Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
+						return;
+					}
+
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 					writer.Write((ushort)index);
 					writer.Write(GetFlag(go, persistent));
@@ -801,10 +836,16 @@ public class TNManager : MonoBehaviour
 
 		if (go != null)
 		{
-			if (isConnected)
+			if (isConnected && isInChannel)
 			{
 				if (mInstance != null && mInstance.mClient.isSwitchingScenes)
 					Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+
+				if (mInstance.mClient.isChannelLocked)
+				{
+					Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
+					return;
+				}
 
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 				byte flag = GetFlag(go, persistent);
@@ -1098,6 +1139,7 @@ public class TNManager : MonoBehaviour
 			mClient.onDestroy			= OnDestroyObject;
 			mClient.onForwardedPacket	= OnForwardedPacket;
 			mClient.onSetAdmin			= OnSetAdmin;
+			mClient.onLockChannel		= OnLockChannel;
 
 #if UNITY_EDITOR
 			List<IPAddress> ips = TNet.Tools.localAddresses;
@@ -1162,7 +1204,10 @@ public class TNManager : MonoBehaviour
 			return null;
 		}
 
-		GameObject go = Resources.Load(path, typeof(GameObject)) as GameObject;
+		GameObject go = null;
+
+		if (onLoadGameObject != null) onLoadGameObject(path, ref go);
+		if (go == null) go = Resources.Load(path, typeof(GameObject)) as GameObject;
 
 #if UNITY_EDITOR
 		if (go == null)
@@ -1448,5 +1493,20 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	void OnRenamePlayer (Player p, string previous) { UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous); }
+
+	/// <summary>
+	/// Notification of the channel being locked or unlocked.
+	/// </summary>
+
+	void OnLockChannel (bool isLocked)
+	{
+#if UNITY_EDITOR
+		Debug.Log("Channel #" + TNManager.channelID + " lock: " + isLocked);
+#endif
+		UnityTools.Broadcast("OnNetworkLockChannel", isLocked);
+	}
+
+	[ContextMenu("Lock channel")]
+	void LockChannel () { LockChannel(true); }
 #endregion
 }

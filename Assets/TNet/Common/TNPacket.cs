@@ -604,8 +604,24 @@ public enum Packet
 
 	ResponseGetFileList,
 
+	/// <summary>
+	/// Lock the current channel, preventing all forms of create, delete or saved RFCs.
+	/// Anyone trying to call create, delete or saved RFCs will be logged and ignored.
+	/// Only administrators can lock channels.
+	/// bool: whether it should be locked.
+	/// </summary>
+
+	RequestLockChannel,
+
+	/// <summary>
+	/// Response coming from the server that sets the local locked channel flag.
+	/// bool: whether it's locked.
+	/// </summary>
+
+	ResponseLockChannel,
+
 	//===================================================================================
 
-	UserPacket,
+	UserPacket = 128,
 }
 }
