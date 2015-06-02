@@ -755,7 +755,19 @@ public class TcpProtocol : Player
 
 	public void LogError (string error, string stack = null, bool logInFile = true)
 	{
-		Tools.LogError(error, stack, logInFile);
+		StringBuilder sb = new StringBuilder();
+		sb.Append(name);
+		sb.Append(" (");
+		sb.Append(address);
+
+		if (aliases != null)
+			for (int i = 0; i < aliases.size; ++i)
+				sb.Append(", " + aliases.buffer[i]);
+
+		sb.Append("): ");
+		sb.Append(error);
+
+		Tools.LogError(sb.ToString(), stack, logInFile);
 	}
 
 	/// <summary>

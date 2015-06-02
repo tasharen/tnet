@@ -1857,19 +1857,19 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestCloseChannel:
 			{
-				if (player.isAdmin)
+				if (player.channel != null)
 				{
-					if (player.channel != null)
+					if (player.isAdmin)
 					{
 						player.Log("Closing channel " + player.channel.id);
 						player.channel.persistent = false;
 						player.channel.closed = true;
 					}
-				}
-				else
-				{
-					player.LogError("Tried to call a close a channel while not authorized", null);
-					RemovePlayer(player);
+					else
+					{
+						player.LogError("Tried to call a close channel " + player.channel.id + " while not authorized", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}

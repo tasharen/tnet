@@ -971,6 +971,7 @@ static public class Tools
 		{
 			try
 			{
+				msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
 				string path = Tools.GetDocumentsPath("Debug/TNetLog.txt");
 				string dir = Path.GetDirectoryName(path);
 				if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);

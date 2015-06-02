@@ -388,6 +388,7 @@ public class DataNode
 	static public DataNode Read (string path, bool allowConfigAccess = false)
 	{
 		if (!Tools.IsAllowedToAccess(path, allowConfigAccess)) return null;
+		if (!File.Exists(path)) return null;
 
 		FileStream stream = File.OpenRead(path);
 		int length = (int)stream.Seek(0, SeekOrigin.End);
