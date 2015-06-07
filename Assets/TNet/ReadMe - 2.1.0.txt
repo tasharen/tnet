@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2015 Tasharen Entertainment
-                  Version 2.0.5
+                  Version 2.1.0
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,19 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.1.0
+- NEW: Users can now authenticate as administrators for additional functionality. Some requests now require admin authentication.
+- NEW: Added Server Options -- a persistent DataNode stored alongside the server save (TNManager.SetServerOption, TNManager.GetServerOption).
+- NEW: It's now possible to lock channels, preventing further modification.
+- NEW: The log is now more robust, and a copy of all errors is now saved separately.
+- NEW: Added aliases to all players. Use them to add identification to players, such as User/Steam IDs.
+- NEW: Added kick and ban functionality for administrators.
+- NEW: Added spam detection for server-wide broadcasts.
+- NEW: Added a way to get a list of files in a remote directory (TNGameClient.GetFiles).
+- NEW: Stand-alone server can now parse DataNode.
+- FIX: Fixed rare data corruption that would sometimes occur with high number of players and large packets.
+- FIX: Stand-alone server should now use a lot less memory.
 
 2.0.6
 - NEW: Added a new integer type that isn't stored as a plain integer in memory (guard against CheatEngine).

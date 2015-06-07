@@ -1508,5 +1508,21 @@ public class TNManager : MonoBehaviour
 
 	[ContextMenu("Lock channel")]
 	void LockChannel () { LockChannel(true); }
+
+	[System.Obsolete("Use TNObject's and TNBehaviour's DestroySelf() instead")]
+	static public void Destroy (GameObject go)
+	{
+		if (go)
+		{
+			TNObject tno = go.GetComponent<TNObject>();
+
+			if (tno)
+			{
+				tno.DestroySelf();
+				return;
+			}
+		}
+		Object.Destroy(go);
+	}
 #endregion
 }

@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright Â© 2012-2014 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -14,7 +14,7 @@ using UnityEngine;
 /// object on all connected clients and will remove all the RFCs associated with this object.
 /// </summary>
 
-public class ExampleDestroy : MonoBehaviour
+public class ExampleDestroy : TNBehaviour
 {
 	float mDestroyTime = 0f;
 
@@ -27,12 +27,12 @@ public class ExampleDestroy : MonoBehaviour
 	{
 		if (mDestroyTime < Time.time)
 		{
-			TNManager.Destroy(gameObject);
+			DestroySelf();
 		}
 	}
 
 	void OnClick ()
 	{
-		TNManager.Destroy(gameObject);
+		DestroySelf();
 	}
 }
