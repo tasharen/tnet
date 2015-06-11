@@ -798,6 +798,9 @@ public class TNManager : MonoBehaviour
 			{
 				if (index != -1)
 				{
+					if (mInstance != null && mInstance.mClient.isSwitchingScenes)
+						Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+
 					if (mInstance.mClient.isChannelLocked)
 					{
 						Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
@@ -819,11 +822,28 @@ public class TNManager : MonoBehaviour
 				}
 			}
 
+			// Offline mode
 			objs = BinaryExtensions.CombineArrays(go, objs);
-			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
+			object retVal;
+			UnityTools.ExecuteFirst(GetRCCs(), (byte)rccID, out retVal, objs);
 			UnityTools.Clear(objs);
+
+			go = retVal as GameObject;
+			
+			if (go != null)
+			{
+				TNObject tno = go.GetComponent<TNObject>();
+				
+				if (tno != null)
+				{
+					if (++mObjID == 0) mObjID = 32768;
+					tno.uid = mObjID;
+				}
+			}
 		}
 	}
+
+	static uint mObjID = 32767;
 
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
@@ -858,9 +878,24 @@ public class TNManager : MonoBehaviour
 				return;
 			}
 
+			// Offline mode
 			objs = BinaryExtensions.CombineArrays(go, objs);
-			UnityTools.ExecuteAll(GetRCCs(), (byte)rccID, objs);
+			object retVal;
+			UnityTools.ExecuteFirst(GetRCCs(), (byte)rccID, out retVal, objs);
 			UnityTools.Clear(objs);
+
+			go = retVal as GameObject;
+
+			if (go != null)
+			{
+				TNObject tno = go.GetComponent<TNObject>();
+
+				if (tno != null)
+				{
+					if (++mObjID == 0) mObjID = 32768;
+					tno.uid = mObjID;
+				}
+			}
 		}
 		else Debug.LogError("Unable to load " + path);
 	}

@@ -18,8 +18,6 @@ using UnityTools = TNet.UnityTools;
 [AddComponentMenu("TNet/Network Object")]
 public sealed class TNObject : MonoBehaviour
 {
-	static int mDummyID = 0;
-
 	// List of network objs to iterate through
 	static List<TNObject> mList = new List<TNObject>();
 
@@ -152,10 +150,6 @@ public sealed class TNObject : MonoBehaviour
 
 	void Awake ()
 	{
-		// Used for offline mode
-		if (id == 0 && !TNManager.isConnected)
-			id = ++mDummyID;
-
 		mOwner = TNManager.objectOwnerID;
 
 		if (TNManager.players.size == 0)
@@ -195,6 +189,20 @@ public sealed class TNObject : MonoBehaviour
 	static uint mLastID = 0;
 
 	/// <summary>
+	/// Get a new unique object identifier.
+	/// </summary>
+
+	static internal uint GetUniqueID ()
+	{
+		for (int i = 0; i < mList.size; ++i)
+		{
+			TNObject ts = mList[i];
+			if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+		}
+		return ++mLastID;
+	}
+
+	/// <summary>
 	/// Helper function that returns the game object's hierarchy in a human-readable format.
 	/// </summary>
 
@@ -211,47 +219,39 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Get a new unique object identifier.
-	/// </summary>
-
-	static uint GetUniqueID ()
-	{
-		TNObject[] tns = (TNObject[])FindObjectsOfType(typeof(TNObject));
-
-		for (int i = 0, imax = tns.Length; i < imax; ++i)
-		{
-			TNObject ts = tns[i];
-			if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
-		}
-		return ++mLastID;
-	}
-
-	/// <summary>
 	/// Make sure that this object's ID is actually unique.
 	/// </summary>
 
 	void UniqueCheck ()
 	{
 		if (id < 0) id = -id;
-		TNObject tobj = Find(uid);
 
-		if (id == 0 || tobj != null)
+		if (id == 0)
 		{
-			if (Application.isPlaying && TNManager.isInChannel)
-			{
-				if (tobj != null)
-				{
-					Debug.LogError("Network ID " + id + " is already in use by " +
-						GetHierarchy(tobj.gameObject) +
-						".\nPlease make sure that the network IDs are unique.", this);
-				}
-				else
-				{
-					Debug.LogError("Network ID of 0 is used by " + GetHierarchy(gameObject) +
-						"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
-				}
-			}
 			uid = GetUniqueID();
+		}
+		else
+		{
+			TNObject tobj = Find(uid);
+
+			if (tobj != null && tobj != this)
+			{
+				if (Application.isPlaying)
+				{
+					if (tobj != null)
+					{
+						Debug.LogError("Network ID " + id + " is already in use by " +
+							GetHierarchy(tobj.gameObject) +
+							".\nPlease make sure that the network IDs are unique.", this);
+					}
+					else
+					{
+						Debug.LogError("Network ID of 0 is used by " + GetHierarchy(gameObject) +
+							"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
+					}
+				}
+				uid = GetUniqueID();
+			}
 		}
 	}
 
@@ -717,18 +717,15 @@ public sealed class TNObject : MonoBehaviour
 		else if (!connected || TNManager.isInChannel)
 		{
 			// We want to echo UDP-based packets locally instead of having them bounce through the server
-			if (!reliable)
+			if (target == Target.All)
 			{
-				if (target == Target.All)
-				{
-					target = Target.Others;
-					executeLocally = true;
-				}
-				else if (target == Target.AllSaved)
-				{
-					target = Target.OthersSaved;
-					executeLocally = true;
-				}
+				target = Target.Others;
+				executeLocally = true;
+			}
+			else if (target == Target.AllSaved)
+			{
+				target = Target.OthersSaved;
+				executeLocally = true;
 			}
 
 			if (connected)
