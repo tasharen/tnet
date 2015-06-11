@@ -714,21 +714,23 @@ public sealed class TNObject : MonoBehaviour
 			// We're the host, and the packet should be going to the host -- just echo it locally
 			executeLocally = true;
 		}
-		else if (!connected || TNManager.isInChannel)
+		else
 		{
-			// We want to echo UDP-based packets locally instead of having them bounce through the server
-			if (target == Target.All)
+			if (!connected || !reliable)
 			{
-				target = Target.Others;
-				executeLocally = true;
-			}
-			else if (target == Target.AllSaved)
-			{
-				target = Target.OthersSaved;
-				executeLocally = true;
+				if (target == Target.All)
+				{
+					target = Target.Others;
+					executeLocally = true;
+				}
+				else if (target == Target.AllSaved)
+				{
+					target = Target.OthersSaved;
+					executeLocally = true;
+				}
 			}
 
-			if (connected)
+			if (connected && TNManager.isInChannel)
 			{
 				byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 				BinaryWriter writer = TNManager.BeginSend(packetID);
@@ -737,11 +739,6 @@ public sealed class TNObject : MonoBehaviour
 				writer.WriteArray(objs);
 				TNManager.EndSend(reliable);
 			}
-		}
-		else if (!TNManager.isConnected && (target == Target.All || target == Target.AllSaved))
-		{
-			// Offline packet
-			executeLocally = true;
 		}
 
 		if (executeLocally)
