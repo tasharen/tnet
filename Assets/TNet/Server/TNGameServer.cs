@@ -189,18 +189,20 @@ public class GameServer : FileServer
 		Tools.LoadList("ServerConfig/admin.txt", mAdmin);
 
 		// Banning by IPs is pointless
-		for (int i = mBan.size; i > 0; )
-		{
-			IPAddress ip;
-			if (IPAddress.TryParse(mBan[--i], out ip))
-				mBan.RemoveAt(i);
-		}
+		//for (int i = mBan.size; i > 0; )
+		//{
+		//    IPAddress ip;
+		//    if (IPAddress.TryParse(mBan[--i], out ip))
+		//        mBan.RemoveAt(i);
+		//}
 
 #if WINDWARD
 		AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
 		AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
 		AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
 		AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
+		AddUnique(mBan, "76561198744124281"); // ALI213
+		AddUnique(mBan, "76561200587781055"); // ALI213
 #endif
 
 		try
@@ -970,6 +972,13 @@ public class GameServer : FileServer
 				bool	persist		= reader.ReadBoolean();
 				ushort	playerLimit = reader.ReadUInt16();
 
+#if STANDALONE && WINDWARD
+				if (player.aliases == null || player.aliases.size == 0)
+				{
+					Ban(player, player);
+					return;
+				}
+#endif
 				// Join a random existing channel or create a new one
 				if (channelID == -2)
 				{
@@ -1502,27 +1511,7 @@ public class GameServer : FileServer
 				{
 					if (other != null)
 					{
-						player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
-							other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
-
-						// Just to show the name of the player
-						string banText = "// [" + other.name + "]";
-
-						if (player != other)
-						{
-							banText += " banned by [" + player.name + "]- " + (other.aliases != null &&
-								player.aliases.size > 0 ? player.aliases[0] : player.address);
-						}
-
-						AddUnique(mBan, banText);
-						AddUnique(mBan, other.tcpEndPoint.Address.ToString());
-
-						if (other.aliases != null)
-							for (int i = 0; i < other.aliases.size; ++i)
-								AddUnique(mBan, other.aliases[i]);
-
-						Tools.SaveList("ServerConfig/ban.txt", mBan);
-						RemovePlayer(other);
+						Ban(player, other);
 					}
 					else if (id == 0)
 					{
@@ -1628,6 +1617,35 @@ public class GameServer : FileServer
 			if (player.aliases == null) player.aliases = new List<string>();
 			AddUnique(player.aliases, s);
 		}
+	}
+
+	/// <summary>
+	/// Ban the specified player.
+	/// </summary>
+
+	void Ban (TcpPlayer player, TcpPlayer other)
+	{
+		player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
+							other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
+
+		// Just to show the name of the player
+		string banText = "// [" + other.name + "]";
+
+		if (player != other)
+		{
+			banText += " banned by [" + player.name + "]- " + (other.aliases != null &&
+				player.aliases.size > 0 ? player.aliases[0] : player.address);
+		}
+
+		AddUnique(mBan, banText);
+		AddUnique(mBan, other.tcpEndPoint.Address.ToString());
+
+		if (other.aliases != null)
+			for (int i = 0; i < other.aliases.size; ++i)
+				AddUnique(mBan, other.aliases[i]);
+
+		Tools.SaveList("ServerConfig/ban.txt", mBan);
+		RemovePlayer(other);
 	}
 
 	/// <summary>
