@@ -203,6 +203,11 @@ public class GameServer : FileServer
 		AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
 		AddUnique(mBan, "76561198744124281"); // ALI213
 		AddUnique(mBan, "76561200587781055"); // ALI213
+		AddUnique(mBan, "76561201119545283"); // Chinese hackers
+		AddUnique(mBan, "76561198311261525"); // Chinese hackers
+		AddUnique(mBan, "76561197960639879"); // Using some old version
+		AddUnique(mBan, "76561202232029992"); // Shared account
+		AddUnique(mBan, "ALI213");
 #endif
 
 		try
@@ -1062,6 +1067,13 @@ public class GameServer : FileServer
 				// Change the player's name
 				player.name = reader.ReadString();
 
+				if (mBan.Contains(player.name))
+				{
+					player.Log("FAILED a ban check: " + player.name);
+					RemovePlayer(player);
+					break;
+				}
+
 				BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
 				writer.Write(player.id);
 				writer.Write(player.name);
@@ -1216,7 +1228,12 @@ public class GameServer : FileServer
 #if UNITY_EDITOR
 				reader.ReadString();
 #else
-				player.Log(reader.ReadString());
+				string s = reader.ReadString();
+				player.Log(s);
+ #if WINDWARD
+				if (s.Contains("has entered region"))
+					Ban(player, player);
+ #endif
 #endif
 				break;
 			}
