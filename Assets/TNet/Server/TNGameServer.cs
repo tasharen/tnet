@@ -197,6 +197,7 @@ public class GameServer : FileServer
 		//}
 
 #if WINDWARD
+		// Check URL: http://steamcommunity.com/profiles/76561199211637591
 		AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
 		AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
 		AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
@@ -207,7 +208,9 @@ public class GameServer : FileServer
 		AddUnique(mBan, "76561198311261525"); // Chinese hackers
 		AddUnique(mBan, "76561197960639879"); // Using some old version
 		AddUnique(mBan, "76561202232029992"); // Shared account
-		AddUnique(mBan, "ALI213");
+		AddUnique(mBan, "76561197996533125"); // Shared account
+		//AddUnique(mBan, "76561199211637591"); // ALI213
+		//AddUnique(mBan, "ALI213");
 #endif
 
 		try
@@ -981,7 +984,7 @@ public class GameServer : FileServer
 				if (player.aliases == null || player.aliases.size == 0)
 				{
 					Ban(player, player);
-					return;
+					return false;
 				}
 #endif
 				// Join a random existing channel or create a new one
@@ -1384,7 +1387,7 @@ public class GameServer : FileServer
 					player.EndSend();
 				}
 #if WINDWARD
-				if (player.aliases.size > 2) RemovePlayer(player);
+				if (player.aliases.size > 3) RemovePlayer(player);
 #endif
 				break;
 			}

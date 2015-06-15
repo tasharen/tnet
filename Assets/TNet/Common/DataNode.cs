@@ -3,7 +3,7 @@
 // Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
-#if WINDWARD
+#if WINDWARD && !STANDALONE
 #define LZMA
 #endif
 
