@@ -1376,7 +1376,7 @@ public class GameServer : FileServer
 			case Packet.RequestSetAlias:
 			{
 				string s = reader.ReadString();
-				SetAlias(player, s);
+				if (!SetAlias(player, s)) break;
 
 				if (mAdmin.Contains(s))
 				{
@@ -1387,7 +1387,7 @@ public class GameServer : FileServer
 					player.EndSend();
 				}
 #if WINDWARD
-				if (player.aliases.size > 3) RemovePlayer(player);
+				if (player.aliases != null && player.aliases.size > 3) RemovePlayer(player);
 #endif
 				break;
 			}
@@ -1624,18 +1624,20 @@ public class GameServer : FileServer
 	/// Set an alias and check it against the ban list.
 	/// </summary>
 
-	void SetAlias (TcpPlayer player, string s)
+	bool SetAlias (TcpPlayer player, string s)
 	{
 		if (mBan.Contains(s))
 		{
 			player.Log("FAILED a ban check: " + s);
 			RemovePlayer(player);
+			return false;
 		}
 		else
 		{
 			player.Log("Passed a ban check: " + s);
 			if (player.aliases == null) player.aliases = new List<string>();
 			AddUnique(player.aliases, s);
+			return true;
 		}
 	}
 
