@@ -836,38 +836,42 @@ public class GameServer : FileServer
 
 	void SendJoinChannel (TcpPlayer player, Channel channel)
 	{
-		if (player.channel == null || player.channel != channel)
+		if (player.channel == channel) return;
+
+		// Ensure the player has left the channel
+		if (player.channel != null)
+		{
+			SendLeaveChannel(player, true);
+		}
+		else if (mData != null)
 		{
 			// Send the server data the first time
-			if (player.channel == null && mData != null)
-			{
-				player.BeginSend(Packet.RequestSetServerOption).Write(mData);
-				player.EndSend();
-			}
-
-			// Set the player's channel
-			player.channel = channel;
-
-			// Everything else gets sent to the player, so it's faster to do it all at once
-			player.FinishJoiningChannel();
-
-			// Inform the channel that a new player is joining
-			BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
-			{
-				writer.Write(player.id);
-				writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
-#if STANDALONE
-				if (player.data == null) writer.Write((byte)0);
-				else writer.Write((byte[])player.data);
-#else
-				writer.WriteObject(player.data);
-#endif
-			}
-			EndSend(true, channel, null);
-
-			// Add this player to the channel now that the joining process is complete
-			channel.players.Add(player);
+			player.BeginSend(Packet.RequestSetServerOption).Write(mData);
+			player.EndSend();
 		}
+
+		// Set the player's channel
+		player.channel = channel;
+
+		// Everything else gets sent to the player, so it's faster to do it all at once
+		player.FinishJoiningChannel();
+
+		// Inform the channel that a new player is joining
+		BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
+		{
+			writer.Write(player.id);
+			writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
+#if STANDALONE
+			if (player.data == null) writer.Write((byte)0);
+			else writer.Write((byte[])player.data);
+#else
+			writer.WriteObject(player.data);
+#endif
+		}
+		EndSend(true, channel, null);
+
+		// Add this player to the channel now that the joining process is complete
+		channel.players.Add(player);
 	}
 
 	/// <summary>
@@ -1047,12 +1051,10 @@ public class GameServer : FileServer
 						channel.level = levelName;
 						channel.playerLimit = playerLimit;
 
-						SendLeaveChannel(player, false);
 						SendJoinChannel(player, channel);
 					}
 					else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
 					{
-						SendLeaveChannel(player, false);
 						SendJoinChannel(player, channel);
 					}
 					else

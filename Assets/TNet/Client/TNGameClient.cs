@@ -323,7 +323,7 @@ public class GameClient
 	{
 		get
 		{
-			return isInChannel ? mData : "";
+			return mData;
 		}
 		set
 		{
@@ -1089,7 +1089,7 @@ public class GameClient
 			}
 			case Packet.ResponseLeaveChannel:
 			{
-				mData = "";
+				mData = null;
 				mChannelID = 0;
 				mIsInChannel = false;
 				mDictionary.Clear();
