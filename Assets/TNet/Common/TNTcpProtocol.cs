@@ -512,40 +512,38 @@ public class TcpProtocol : Player
 				}
 			}
 #endif
+			lock (mOut)
+			{
+				// The buffer has been sent and can now be safely recycled
+				Buffer b = (mOut.Count != 0) ? mOut.Dequeue() : null;
+				if (b != null) b.Recycle();
+
+#if !UNITY_WINRT
+				if (bytes > 0 && mSocket != null && mSocket.Connected)
+				{
+					// Nothing else left -- just exit
+					if (mOut.Count == 0) return;
+
+					try
+					{
+						Buffer next = mOut.Peek();
+						mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
+					}
+					catch (Exception ex)
+					{
+						RespondWithError(ex);
+						CloseNotThreadSafe(false);
+					}
+				}
+				else CloseNotThreadSafe(true);
+#endif
+			}
 		}
 		catch (System.Exception ex)
 		{
 			bytes = 0;
 			Close(true);
 			RespondWithError(ex);
-			return;
-		}
-
-		lock (mOut)
-		{
-			// The buffer has been sent and can now be safely recycled
-			Buffer b = (mOut.Count != 0) ? mOut.Dequeue() : null;
-			if (b != null) b.Recycle();
-
-#if !UNITY_WINRT
-			if (bytes > 0 && mSocket != null && mSocket.Connected)
-			{
-				// Nothing else left -- just exit
-				if (mOut.Count == 0) return;
-
-				try
-				{
-					Buffer next = mOut.Peek();
-					mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
-				}
-				catch (Exception ex)
-				{
-					RespondWithError(ex);
-					CloseNotThreadSafe(false);
-				}
-			}
-			else CloseNotThreadSafe(true);
-#endif
 		}
 	}
 
