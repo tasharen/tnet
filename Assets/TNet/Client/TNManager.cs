@@ -91,6 +91,22 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Set a player alias. Player aliases can be used to store useful player-associated data such as Steam usernames,
+	/// database IDs, or other unique identifiers. Aliases will show up in TNet's log and can also be banned by on
+	/// the server side. When a player is banned, all their aliases are banned as well, so be careful to make sure
+	/// that they are indeed unique. All aliases are visible via TNet.Player.aliases list of each player.
+	/// </summary>
+
+	static public void SetAlias (string alias)
+	{
+		if (mInstance)
+		{
+			BeginSend(Packet.RequestSetAlias).Write(alias);
+			EndSend();
+		}
+	}
+
+	/// <summary>
 	/// TNet Client used for communication.
 	/// </summary>
 
@@ -405,6 +421,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void SetServerOption (DataNode node) { if (mInstance != null) mInstance.mClient.SetServerOption(node); }
+
+	/// <summary>
+	/// Remove this server option.
+	/// </summary>
+
+	static public void RemoveServerOption (string key) { if (mInstance != null) mInstance.mClient.SetServerOption(key, null); }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.

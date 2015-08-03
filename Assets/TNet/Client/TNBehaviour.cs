@@ -10,7 +10,6 @@ using TNet;
 /// If your MonoBehaviour will need to use a TNObject, deriving from this class will make it easier.
 /// </summary>
 
-[RequireComponent(typeof(TNObject))]
 public abstract class TNBehaviour : MonoBehaviour
 {
 	[System.NonSerialized] TNObject mTNO;
@@ -19,22 +18,23 @@ public abstract class TNBehaviour : MonoBehaviour
 	{
 		get
 		{
-			if (mTNO == null) mTNO = GetComponent<TNObject>();
+			if (mTNO == null) mTNO = GetComponentInParent<TNObject>();
 			return mTNO;
 		}
 	}
 
 	protected virtual void OnEnable ()
 	{
+		if (tno == null)
+			mTNO = gameObject.AddComponent<TNObject>();
+
 		if (Application.isPlaying)
-		{
 			tno.rebuildMethodList = true;
-		}
 	}
 
 	/// <summary>
 	/// Destroy this game object.
 	/// </summary>
 
-	public virtual void DestroySelf () { tno.DestroySelf(); }
+	public virtual void DestroySelf () { if (mTNO != null) mTNO.DestroySelf(); }
 }

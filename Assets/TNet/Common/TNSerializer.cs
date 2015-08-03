@@ -21,6 +21,7 @@ using System;
 
 #if REFLECTION_SUPPORT
 using System.Reflection;
+using System.Globalization;
 #endif
 
 #if STANDALONE
@@ -188,14 +189,22 @@ public static class Serialization
 			if (name == "Vector2") type = typeof(Vector2);
 			else if (name == "Vector3") type = typeof(Vector3);
 			else if (name == "Vector4") type = typeof(Vector4);
-			else if (name == "Euler" || name == "Quaternion") type = typeof(Quaternion);
+			else if (name == "Quaternion") type = typeof(Quaternion);
 			else if (name == "Rect") type = typeof(Rect);
 			else if (name == "Color") type = typeof(Color);
 			else if (name == "Color32") type = typeof(Color32);
+			else if (name == "ObsInt") type = typeof(ObsInt);
 			else if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
-			else if (name == "ObsInt") type = typeof(ObsInt);
+			else if (name == "Vector2[]") type = typeof(Vector2[]);
+			else if (name == "Vector3[]") type = typeof(Vector3[]);
+			else if (name == "Vector4[]") type = typeof(Vector4[]);
+			else if (name == "Quaternion[]") type = typeof(Quaternion[]);
+			else if (name == "Rect[]") type = typeof(Rect[]);
+			else if (name == "Color[]") type = typeof(Color[]);
+			else if (name == "Color32[]") type = typeof(Color32[]);
+			else if (name == "ObsInt[]") type = typeof(ObsInt[]);
 			else if (name.StartsWith("IList"))
 			{
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
@@ -219,6 +228,7 @@ public static class Serialization
 				try
 				{
 					type = Type.GetType(name);
+					//Debug.Log(name + " -> " + type);
 				}
 				catch (Exception)
 				{
@@ -256,6 +266,14 @@ public static class Serialization
 			else if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
+			else if (type == typeof(Vector2[])) name = "Vector2[]";
+			else if (type == typeof(Vector3[])) name = "Vector3[]";
+			else if (type == typeof(Vector4[])) name = "Vector4[]";
+			else if (type == typeof(Quaternion[])) name = "Quaternion[]";
+			else if (type == typeof(Rect[])) name = "Rect[]";
+			else if (type == typeof(Color[])) name = "Color[]";
+			else if (type == typeof(Color32[])) name = "Color32[]";
+			else if (type == typeof(ObsInt[])) name = "ObsInt[]";
 			else
 			{
 				if (type.Implements(typeof(IList)))
@@ -384,7 +402,7 @@ public static class Serialization
 			}
 		}
 #endif
-		Tools.LogError("Unable to convert " + valueType + " to " + desiredType);
+		Tools.LogError("Unable to convert " + valueType + " (" + value.ToString() + ") to " + desiredType);
 		return null;
 	}
 
@@ -531,6 +549,357 @@ public static class Serialization
 		writer.Close();
 		return size;
 	}
+
+ #if !STANDALONE
+	/// <summary>
+	/// Serialize this game object into a DataNode.
+	/// Note that the prefab references can only be resolved if serialized from within the Unity Editor.
+	/// You can instantiate this game object directly from DataNode format by using DataNode.Instantiate().
+	/// Ideal usage: save a game object hierarchy into a file. Serializing a game object will also serialize its
+	/// mesh data, making it possible to export entire 3D models. Any references to prefabs or materials located
+	/// in the Resources folder will be kept as references and their hierarchy won't be serialized.
+	/// </summary>
+
+	static public DataNode Serialize (this GameObject go, bool fullHierarchy = true)
+	{
+		DataNode root = new DataNode(go.name, UnityTools.LocateResource(go));
+		Transform trans = go.transform;
+		root.AddChild("position", trans.localPosition);
+		root.AddChild("rotation", trans.localEulerAngles);
+		root.AddChild("scale", trans.localScale);
+
+		int layer = go.layer;
+		if (layer != 0) root.AddChild("layer", go.layer);
+
+		MeshFilter filter = go.GetComponent<MeshFilter>();
+
+		if (filter != null)
+		{
+			Mesh sm = filter.sharedMesh;
+
+			if (sm != null)
+			{
+				string path = UnityTools.LocateResource(sm);
+				if (!string.IsNullOrEmpty(path)) root.AddChild("Mesh", path);
+				else sm.Serialize(root.AddChild("Mesh"));
+			}
+		}
+
+		Renderer ren = go.GetComponent<Renderer>();
+
+		if (ren != null)
+		{
+			Material mat = ren.sharedMaterials[0];
+
+			if (mat != null)
+			{
+				string path = UnityTools.LocateResource(mat);
+				if (!string.IsNullOrEmpty(path)) root.AddChild("Material", path);
+				else Debug.Log("Mat not found");
+			}
+		}
+
+		Collider col = go.GetComponent<Collider>();
+
+		if (col != null)
+		{
+			if (col is BoxCollider)
+			{
+				BoxCollider bc = col as BoxCollider;
+				DataNode child = root.AddChild("Collider", "Box");
+				child.AddChild("center", bc.center);
+				child.AddChild("size", bc.size);
+			}
+			else if (col is SphereCollider)
+			{
+				SphereCollider bc = col as SphereCollider;
+				DataNode child = root.AddChild("Collider", "Sphere");
+				child.AddChild("center", bc.center);
+				child.AddChild("radius", bc.radius);
+			}
+			else if (col is CapsuleCollider)
+			{
+				CapsuleCollider bc = col as CapsuleCollider;
+				DataNode child = root.AddChild("Collider", "Capsule");
+				child.AddChild("center", bc.center);
+				child.AddChild("radius", bc.radius);
+				child.AddChild("height", bc.height);
+				child.AddChild("direction", bc.direction);
+			}
+		}
+
+		Rigidbody rb = go.GetComponent<Rigidbody>();
+
+		if (rb != null)
+		{
+			DataNode child = root.AddChild("Rigidbody");
+			child.AddChild("mass", rb.mass);
+			child.AddChild("drag", rb.drag);
+			child.AddChild("angularDrag", rb.angularDrag);
+			child.AddChild("interpolation", (int)rb.interpolation);
+			child.AddChild("detection", (int)rb.collisionDetectionMode);
+			child.AddChild("kinematic", rb.isKinematic);
+			child.AddChild("gravity", rb.useGravity);
+		}
+
+		MonoBehaviour[] mbs = go.GetComponents<MonoBehaviour>();
+		DataNode mbc = null;
+
+		for (int i = 0, imax = mbs.Length; i < imax; ++i)
+		{
+			MonoBehaviour mb = mbs[i];
+			System.Type type = mb.GetType();
+			List<FieldInfo> fields = type.GetSerializableFields();
+
+			if (fields.size > 0)
+			{
+				if (mbc == null) mbc = root.AddChild("Scripts");
+				DataNode c = mbc.AddChild(type.ToString());
+
+				for (int b = 0; b < fields.size; ++b)
+				{
+					FieldInfo field = fields[b];
+					object val = field.GetValue(mb);
+					if (val is UnityEngine.Object) continue;
+					c.AddChild(field.Name, val);
+				}
+			}
+		}
+
+		if (fullHierarchy && root.value == null && trans.childCount > 0)
+		{
+			DataNode children = root.AddChild("Children");
+
+			for (int i = 0, imax = trans.childCount; i < imax; ++i)
+			{
+				GameObject co = trans.GetChild(i).gameObject;
+				Serialize(co, children, fullHierarchy);
+			}
+		}
+		return root;
+	}
+
+	/// <summary>
+	/// Serialize this game object into the specified DataNode.
+	/// Note that the prefab references can only be resolved if serialized from within the Unity Editor.
+	/// </summary>
+
+	static public void Serialize (this GameObject go, DataNode data, bool fullHierarchy = true)
+	{
+		data.children.Add(go.Serialize(fullHierarchy));
+	}
+
+	/// <summary>
+	/// Deserialize a previously serialized game object.
+	/// </summary>
+
+	static public void Deserialize (this GameObject go, DataNode root, bool fullHierarchy = true, bool removeDuplicates = true)
+	{
+		Transform trans = go.transform;
+		trans.localPosition = root.GetChild<Vector3>("position", trans.localPosition);
+		trans.localEulerAngles = root.GetChild<Vector3>("rotation", trans.localEulerAngles);
+		trans.localScale = root.GetChild<Vector3>("scale", trans.localScale);
+		go.layer = root.GetChild<int>("layer", 0);
+
+		DataNode scriptNode = root.GetChild("Scripts");
+
+		if (scriptNode != null && scriptNode.children.size > 0)
+		{
+			for (int i = 0; i < scriptNode.children.size; ++i)
+			{
+				DataNode node = scriptNode.children[i];
+				System.Type type = UnityTools.ResolveType(node.name);
+
+				if (type != null && type.IsSubclassOf(typeof(Component)))
+				{
+					Component comp = go.GetComponent(type);
+					if (comp == null) comp = go.AddComponent(type);
+
+					for (int b = 0; b < node.children.size; ++b)
+					{
+						DataNode child = node.children[b];
+						if (child.value != null) comp.SetSerializableField(child.name, child.value);
+					}
+				}
+			}
+		}
+
+		DataNode meshNode = root.GetChild("Mesh");
+
+		if (meshNode != null)
+		{
+			MeshFilter filter = go.GetComponent<MeshFilter>();
+			if (filter == null) filter = go.AddComponent<MeshFilter>();
+
+			string s = meshNode.Get<string>();
+
+			if (!string.IsNullOrEmpty(s))
+			{
+				Mesh mesh = Resources.Load<Mesh>(s);
+				if (mesh != null) filter.sharedMesh = mesh;
+			}
+
+			if (filter.sharedMesh == null)
+			{
+				Mesh mesh = new Mesh();
+				mesh.name = go.name;
+				mesh.Deserialize(meshNode);
+				filter.sharedMesh = mesh;
+			}
+		}
+
+		DataNode matNode = root.GetChild("Material");
+
+		if (matNode != null)
+		{
+			string s = matNode.Get<string>();
+
+			if (!string.IsNullOrEmpty(s))
+			{
+				Material mat = Resources.Load<Material>(s);
+
+				if (mat != null)
+				{
+					MeshRenderer ren = go.GetComponent<MeshRenderer>();
+					if (ren == null) ren = go.AddComponent<MeshRenderer>();
+					ren.sharedMaterial = mat;
+				}
+			}
+		}
+
+		DataNode colNode = root.GetChild("Collider");
+
+		if (colNode != null)
+		{
+			string s = colNode.Get<string>();
+
+			if (s == "Box")
+			{
+				BoxCollider col = go.GetComponent<BoxCollider>();
+				if (col == null) col = go.AddComponent<BoxCollider>();
+				col.center = colNode.GetChild<Vector3>("center");
+				col.size = colNode.GetChild<Vector3>("size", Vector3.one);
+			}
+			else if (s == "Sphere")
+			{
+				SphereCollider col = go.GetComponent<SphereCollider>();
+				if (col == null) col = go.AddComponent<SphereCollider>();
+				col.center = colNode.GetChild<Vector3>("center");
+				col.radius = colNode.GetChild<float>("radius", 1f);
+			}
+			else if (s == "Capsule")
+			{
+				CapsuleCollider col = go.GetComponent<CapsuleCollider>();
+				if (col == null) col = go.AddComponent<CapsuleCollider>();
+				col.center = colNode.GetChild<Vector3>("center");
+				col.radius = colNode.GetChild<float>("radius", 1f);
+				col.height = colNode.GetChild<float>("height", 1f);
+				col.direction = colNode.GetChild<int>("direction");
+			}
+		}
+
+		DataNode rbNode = root.GetChild("Rigidbody");
+
+		if (rbNode != null)
+		{
+			Rigidbody rb = go.GetComponent<Rigidbody>();
+			if (rb == null) rb = go.AddComponent<Rigidbody>();
+			rb.mass = rbNode.GetChild<float>("mass", 1f);
+			rb.drag = rbNode.GetChild<float>("drag");
+			rb.angularDrag = rbNode.GetChild<float>("angularDrag");
+			rb.interpolation = (RigidbodyInterpolation)rbNode.GetChild<int>("interpolation");
+			rb.collisionDetectionMode = (CollisionDetectionMode)rbNode.GetChild<int>("detection");
+			rb.isKinematic = rbNode.GetChild<bool>("kinematic");
+			rb.useGravity = rbNode.GetChild<bool>("gravity", true);
+		}
+
+		if (fullHierarchy)
+		{
+			DataNode childNode = root.GetChild("Children");
+
+			if (childNode != null && childNode.children.size > 0)
+			{
+				for (int i = 0; i < childNode.children.size; ++i)
+				{
+					DataNode node = childNode.children[i];
+					GameObject child = removeDuplicates ? go.GetChild(node.name) : null;
+
+					if (child == null)
+					{
+						if (node.value != null)
+						{
+							GameObject prefab = UnityTools.LoadResource(node.Get<string>()) as GameObject;
+							if (prefab != null) child = GameObject.Instantiate(prefab) as GameObject;
+						}
+
+						if (child == null) child = new GameObject();
+						child.name = node.name;
+
+						Transform t = child.transform;
+						t.parent = trans;
+						t.localPosition = Vector3.zero;
+						t.localRotation = Quaternion.identity;
+						t.localScale = Vector3.one;
+					}
+
+					child.Deserialize(node, fullHierarchy);
+				}
+			}
+		}
+	}
+
+	static void Add (DataNode node, string name, System.Array obj)
+	{
+		if (obj != null && obj.Length > 0) node.AddChild(name, obj);
+	}
+
+	/// <summary>
+	/// Serialize the entire mesh into the specified DataNode.
+	/// </summary>
+
+	static public void Serialize (this Mesh mesh, DataNode node)
+	{
+		Add(node, "vertices", mesh.vertices);
+		Add(node, "normals", mesh.normals);
+		Add(node, "uv1", mesh.uv);
+		Add(node, "uv2", mesh.uv2);
+		Add(node, "tangents", mesh.tangents);
+		Add(node, "colors", mesh.colors32);
+		Add(node, "triangles", mesh.triangles);
+	}
+
+	/// <summary>
+	/// Set the mesh from the specified DataNode.
+	/// </summary>
+
+	static public void Deserialize (this Mesh mesh, DataNode node)
+	{
+		mesh.Clear();
+
+		Vector3[] verts = node.GetChild<Vector3[]>("vertices");
+		if (verts != null) mesh.vertices = verts;
+
+		Vector3[] normals = node.GetChild<Vector3[]>("normals");
+		if (normals != null) mesh.normals = normals;
+
+		Vector2[] uv1 = node.GetChild<Vector2[]>("uv1");
+		if (uv1 != null) mesh.uv = uv1;
+
+		Vector2[] uv2 = node.GetChild<Vector2[]>("uv2");
+		if (uv2 != null) mesh.uv2 = uv2;
+
+		Vector4[] tangents = node.GetChild<Vector4[]>("tangents");
+		if (tangents != null) mesh.tangents = tangents;
+
+		Color32[] colors = node.GetChild<Color32[]>("colors");
+		if (colors != null) mesh.colors32 = colors;
+
+		int[] triangles = node.GetChild<int[]>("triangles");
+		if (triangles != null) mesh.triangles = triangles;
+
+		mesh.RecalculateBounds();
+	}
+#endif
 #else
 	/// <summary>
 	/// Set the specified field's value using reflection.
@@ -542,7 +911,7 @@ public static class Serialization
 		return false;
 	}
 #endif
-#region Write
+	#region Write
 	/// <summary>
 	/// Write an integer value using the smallest number of bytes possible.
 	/// </summary>
@@ -784,6 +1153,17 @@ public static class Serialization
 	{
 		bw.Write((byte)prefix);
 		if (prefix > 250) bw.Write(TypeToName(type));
+	}
+
+	/// <summary>
+	/// Write a float using invariant culture, trimming values close to 0 down to 0 for easier readability.
+	/// </summary>
+
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static public void WriteFloat (this StreamWriter writer, float f)
+	{
+		writer.Write(((f > -0.0001f && f < 0.0001f) ? 0f : f).ToString(CultureInfo.InvariantCulture));
 	}
 
 	/// <summary>

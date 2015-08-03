@@ -304,16 +304,17 @@ public class DataNode
 	/// Remove the specified child from the list.
 	/// </summary>
 
-	public void RemoveChild (string name)
+	public bool RemoveChild (string name)
 	{
 		for (int i = 0; i < children.size; ++i)
 		{
 			if (children[i].name == name)
 			{
 				children.RemoveAt(i);
-				return;
+				return true;
 			}
 		}
+		return false;
 	}
 
 	/// <summary>
@@ -612,7 +613,7 @@ public class DataNode
 		else if (type == typeof(float))
 		{
 			if (name != null) writer.Write(" = ");
-			writer.Write(((float)value).ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat((float)value);
 			writer.Write('\n');
 		}
 		else if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
@@ -645,33 +646,33 @@ public class DataNode
 		{
 			Vector2 v = (Vector2)value;
 			writer.Write(name != null ? " = (" : "(");
-			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.x);
 			writer.Write(", ");
-			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.y);
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Vector3))
 		{
 			Vector3 v = (Vector3)value;
 			writer.Write(name != null ? " = (" : "(");
-			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.x);
 			writer.Write(", ");
-			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.y);
 			writer.Write(", ");
-			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.z);
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Color))
 		{
 			Color c = (Color)value;
 			writer.Write(name != null ? " = (" : "(");
-			writer.Write(c.r.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(c.r);
 			writer.Write(", ");
-			writer.Write(c.g.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(c.g);
 			writer.Write(", ");
-			writer.Write(c.b.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(c.b);
 			writer.Write(", ");
-			writer.Write(c.a.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(c.a);
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Color32))
@@ -695,45 +696,42 @@ public class DataNode
 		{
 			Vector4 v = (Vector4)value;
 			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
 			writer.Write('(');
-			writer.Write(v.x.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.x);
 			writer.Write(", ");
-			writer.Write(v.y.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.y);
 			writer.Write(", ");
-			writer.Write(v.z.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.z);
 			writer.Write(", ");
-			writer.Write(v.w.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(v.w);
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Quaternion))
 		{
 			Quaternion q = (Quaternion)value;
 			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
 			writer.Write('(');
-			writer.Write(q.x.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(q.x);
 			writer.Write(", ");
-			writer.Write(q.y.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(q.y);
 			writer.Write(", ");
-			writer.Write(q.z.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(q.z);
 			writer.Write(", ");
-			writer.Write(q.w.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(q.w);
 			writer.Write(")\n");
 		}
 		else if (type == typeof(Rect))
 		{
 			Rect r = (Rect)value;
 			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
 			writer.Write('(');
-			writer.Write(r.x.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(r.x);
 			writer.Write(", ");
-			writer.Write(r.y.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(r.y);
 			writer.Write(", ");
-			writer.Write(r.width.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(r.width);
 			writer.Write(", ");
-			writer.Write(r.height.ToString(CultureInfo.InvariantCulture));
+			writer.WriteFloat(r.height);
 			writer.Write(")\n");
 		}
 		else if (value is TList)
@@ -794,11 +792,8 @@ public class DataNode
 #endif
 		else
 		{
-			if (writeType)
-			{
-				if (name != null) writer.Write(" = ");
-				writer.Write(Serialization.TypeToName(type));
-			}
+			if (name != null) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
 			writer.Write('\n');
 
 #if REFLECTION_SUPPORT
@@ -906,8 +901,8 @@ public class DataNode
 
 				if (parts.Length == 1) return SetValue(line, typeof(float), null);
 				if (parts.Length == 2) return SetValue(line, typeof(Vector2), parts);
-				if (parts.Length == 3) return SetValue(line, typeof(Vector3), parts);
-				if (parts.Length == 4) return SetValue(line, typeof(Color), parts);
+				if (parts.Length == 3) return SetValue(line, type != null ? type : typeof(Vector3), parts);
+				if (parts.Length == 4) return SetValue(line, type != null ? type : typeof(Color), parts);
 
 				mValue = line;
 				return true;
@@ -1342,5 +1337,23 @@ public class DataNode
 		return new Color32(r, g, b, a);
 	}
 #endregion
+
+#if !STANDALONE
+	/// <summary>
+	/// Instantiate a new game object given its previously serialized DataNode.
+	/// You can serialize game objects by using GameObject.Serialize(), but be aware that serializing only
+	/// works fully in the Unity Editor. Prefabs can't be located automatically outside of the Unity Editor.
+	/// </summary>
+
+	public GameObject Instantiate ()
+	{
+		GameObject child;
+		GameObject prefab = UnityTools.LoadResource(Get<string>()) as GameObject;
+		if (prefab != null) child = GameObject.Instantiate(prefab) as GameObject;
+		else child = new GameObject(name);
+		child.Deserialize(this, true, false);
+		return child;
+	}
+#endif
 }
 }

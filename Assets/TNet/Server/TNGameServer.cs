@@ -1479,7 +1479,14 @@ public class GameServer : FileServer
 				{
 					if (mData == null) mData = new DataNode("Version", Player.version);
 
-					DataNode child = mData.ReplaceChild(reader.ReadDataNode());
+					DataNode child = reader.ReadDataNode();
+
+					if (child.value == null && child.children.size == 0)
+					{
+						mData.RemoveChild(child.name);
+						child = mData;
+					}
+					else child = mData.ReplaceChild(child);
 
 					Buffer buff = Buffer.Create();
 					buff.BeginPacket(Packet.ResponseSetServerOption).Write(child);
@@ -1650,7 +1657,7 @@ public class GameServer : FileServer
 	void Ban (TcpPlayer player, TcpPlayer other)
 	{
 		player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
-							other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
+			other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
 
 		// Just to show the name of the player
 		string banText = "// [" + other.name + "]";

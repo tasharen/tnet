@@ -294,5 +294,82 @@ static public class UnityTools
 		}
 		return go;
 	}
+
+	/// <summary>
+	/// Get the game object's child that matches the specified name.
+	/// </summary>
+
+	static public GameObject GetChild (this GameObject go, string name)
+	{
+		Transform trans = go.transform;
+
+		for (int i = 0, imax = trans.childCount; i < imax; ++i)
+		{
+			Transform t = trans.GetChild(i);
+			if (t.name == name) return t.gameObject;
+		}
+		return null;
+	}
+
+	public delegate System.Type GetTypeFunc (string name);
+	static public GetTypeFunc ResolveType = System.Type.GetType;
+
+	public delegate UnityEngine.Object LoadFunc (string path);
+	static public LoadFunc LoadResource = Resources.Load;
+
+	/// <summary>
+	/// Locate the specified object in the Resources folder.
+	/// This function will only work properly in the Unity Editor. It's not possible to locate resources outside of it.
+	/// </summary>
+
+	static public string LocateResource (Object obj)
+	{
+#if UNITY_EDITOR
+		Object prefab = UnityEditor.PrefabUtility.GetPrefabParent(obj) ?? obj;
+
+		if (prefab != null)
+		{
+			string childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
+
+			if (!string.IsNullOrEmpty(childPrefabPath) && childPrefabPath.Contains("/Resources/"))
+			{
+				int index = childPrefabPath.IndexOf("/Resources/");
+
+				if (index != -1)
+				{
+					childPrefabPath = childPrefabPath.Substring(index + "/Resources/".Length);
+					childPrefabPath = Tools.GetFilePathWithoutExtension(childPrefabPath).Replace("\\", "/");
+
+					if (LoadResource(childPrefabPath) != null)
+						return childPrefabPath;
+				}
+			}
+		}
+#endif
+		return null;
+	}
+
+	/// <summary>
+	/// Set the layer of this game object and all of its children.
+	/// </summary>
+
+	static public void SetLayerRecursively (this GameObject go, int layer)
+	{
+		go.layer = layer;
+		Transform t = go.transform;
+		for (int i = 0, imax = t.childCount; i < imax; ++i)
+			t.GetChild(i).SetLayerRecursively(layer);
+	}
+
+	/// <summary>
+	/// Set the layer of this transform and all of its children.
+	/// </summary>
+
+	static public void SetLayerRecursively (this Transform trans, int layer)
+	{
+		trans.gameObject.layer = layer;
+		for (int i = 0, imax = trans.childCount; i < imax; ++i)
+			trans.GetChild(i).SetLayerRecursively(layer);
+	}
 }
 }

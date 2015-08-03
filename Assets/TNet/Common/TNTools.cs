@@ -561,6 +561,22 @@ static public class Tools
 	}*/
 
 	/// <summary>
+	/// Given the full path, extract the path minus the file's extension.
+	/// </summary>
+
+	static public string GetFilePathWithoutExtension (string path)
+	{
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+		try
+		{
+			return Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path));
+		}
+		catch (System.Exception) { }
+#endif
+		return null;
+	}
+
+	/// <summary>
 	/// Retrieve the list of filenames from the specified directory.
 	/// </summary>
 
@@ -617,7 +633,9 @@ static public class Tools
 
 	static public bool IsAllowedToAccess (string path, bool allowConfigAccess = false)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if UNITY_EDITOR
+		return true;
+#elif !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		// Relative paths are not allowed
 		if (path.Contains("..")) return false;
 
@@ -653,8 +671,10 @@ static public class Tools
 		if (fullPath.Contains(docs)) return true;
 
 		// No other paths are allowed
-#endif
 		return false;
+#else
+		return false;
+#endif
 	}
 
 	/// <summary>
