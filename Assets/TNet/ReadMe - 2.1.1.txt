@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2015 Tasharen Entertainment
-                  Version 2.1.0
+                  Version 2.1.1
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,14 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+2.1.1
+- NEW: DataNode now has limited Game Object serialization functionality. All MonoBehaviour script properties can be serialized, as well as common Unity types: collider, rigidbody, mesh, renderer. Optimal use: saving entire game objects into an easy to read/modify text format on disk.
+- NEW: DataNode.Instantiate has been added to create a new game object serialized via DataNode.
+- NEW: TNBehaviours can now be attached anywhere underneath a TNObject in hierarchy.
+- NEW: Added TNManager.SetAlias convenience function.
+- NEW: Added connect/disconnect notifications.
+- FIX: Fix for channel data not being set/cleared properly in some cases.
 
 2.1.0
 - NEW: Users can now authenticate as administrators for additional functionality. Some requests now require admin authentication.
