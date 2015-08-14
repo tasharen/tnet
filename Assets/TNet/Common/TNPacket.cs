@@ -620,6 +620,22 @@ public enum Packet
 
 	ResponseLockChannel,
 
+	/// <summary>
+	/// Notification sent when a new player connects to the server and authenticates successfully.
+	/// int: Player's ID.
+	/// string: Player's name.
+	/// </summary>
+
+	PlayerConnected,
+
+	/// <summary>
+	/// Notification sent when a player disconnects from the server.
+	/// int: Player's ID.
+	/// string: Player's name.
+	/// </summary>
+
+	PlayerDisconnected,
+
 	//===================================================================================
 
 	UserPacket = 128,

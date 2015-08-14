@@ -121,6 +121,16 @@ public class TcpLobbyServer : LobbyServer
 	}
 
 	/// <summary>
+	/// Disconnect the specified protocol.
+	/// </summary>
+
+	void Disconnect (TcpProtocol tc)
+	{
+		tc.Disconnect();
+		RemoveServer(tc);
+	}
+
+	/// <summary>
 	/// Thread that will be processing incoming data.
 	/// </summary>
 
@@ -159,8 +169,7 @@ public class TcpLobbyServer : LobbyServer
 					
 					if (ent != null && ent.recordTime + 30000 < mTime)
 					{
-						tc.Disconnect();
-						RemoveServer(tc);
+						Disconnect(tc);
 						mTcp.RemoveAt(i);
 						Tools.Print("Warning: Time out detected. Removing " + ent.name);
 						continue;
@@ -169,19 +178,15 @@ public class TcpLobbyServer : LobbyServer
 
 				while (tc.ReceivePacket(out buffer))
 				{
-					try
-					{
-						if (!ProcessPacket(buffer, tc))
-							tc.Disconnect();
-					}
+					try { if (!ProcessPacket(buffer, tc)) Disconnect(tc); }
 #if STANDALONE
 					catch (System.Exception ex)
 					{
 						tc.LogError(ex.Message, ex.StackTrace);
-						tc.Disconnect();
+						Disconnect(tc);
 					}
 #else
-					catch (System.Exception) { tc.Disconnect(); }
+					catch (System.Exception) { Disconnect(tc); }
 #endif
 					if (buffer != null)
 					{
@@ -399,10 +404,6 @@ public class TcpLobbyServer : LobbyServer
 	void AddServer (ServerList.Entry ent, TcpProtocol tcp)
 	{
 		ent.recordTime = mTime;
-
-		if (ent.name == "ArenMook's Development Server #2")
-			ent.name = "Unnamed Server";
-
 		bool noChange = false;
 
 		if (tcp.data != null)
