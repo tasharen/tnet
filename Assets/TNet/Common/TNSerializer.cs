@@ -651,18 +651,15 @@ public static class Serialization
 			System.Type type = mb.GetType();
 			List<FieldInfo> fields = type.GetSerializableFields();
 
-			if (fields.size > 0)
-			{
-				if (mbc == null) mbc = root.AddChild("Scripts");
-				DataNode c = mbc.AddChild(type.ToString());
+			if (mbc == null) mbc = root.AddChild("Scripts");
+			DataNode c = mbc.AddChild(type.ToString(), true);
 
-				for (int b = 0; b < fields.size; ++b)
-				{
-					FieldInfo field = fields[b];
-					object val = field.GetValue(mb);
-					if (val is UnityEngine.Object) continue;
-					c.AddChild(field.Name, val);
-				}
+			for (int b = 0; b < fields.size; ++b)
+			{
+				FieldInfo field = fields[b];
+				object val = field.GetValue(mb);
+				if (val is UnityEngine.Object) continue;
+				c.AddChild(field.Name, val);
 			}
 		}
 
@@ -673,7 +670,7 @@ public static class Serialization
 			for (int i = 0, imax = trans.childCount; i < imax; ++i)
 			{
 				GameObject co = trans.GetChild(i).gameObject;
-				Serialize(co, children, fullHierarchy);
+				if (co.activeInHierarchy) Serialize(co, children, fullHierarchy);
 			}
 		}
 		return root;

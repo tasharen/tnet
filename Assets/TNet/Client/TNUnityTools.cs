@@ -138,6 +138,24 @@ static public class UnityTools
 				}
 				catch (System.Exception ex)
 				{
+#if WINDWARD
+					bool changed = false;
+
+					for (int b = 0; b < parameters.Length; ++b)
+					{
+						if (parameters[b] is CodeStage.AntiCheat.ObscuredTypes.ObscuredFloat)
+						{
+							changed = true;
+							parameters[b] = (float)(CodeStage.AntiCheat.ObscuredTypes.ObscuredFloat)parameters[b];
+						}
+					}
+
+					if (changed)
+					{
+						ent.func.Invoke(ent.obj, parameters);
+						return true;
+					}
+#endif
 					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
 				    PrintException(ex, ent, funcID, "", parameters);
 				    return false;
@@ -173,6 +191,24 @@ static public class UnityTools
 				}
 				catch (System.Exception ex)
 				{
+#if WINDWARD
+					bool changed = false;
+
+					for (int b = 0; b < parameters.Length; ++b)
+					{
+						if (parameters[b] is CodeStage.AntiCheat.ObscuredTypes.ObscuredFloat)
+						{
+							changed = true;
+							parameters[b] = (float)(CodeStage.AntiCheat.ObscuredTypes.ObscuredFloat)parameters[b];
+						}
+					}
+
+					if (changed)
+					{
+						ent.func.Invoke(ent.obj, parameters);
+						return true;
+					}
+#endif
 					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
 					PrintException(ex, ent, 0, funcName, parameters);
 				}

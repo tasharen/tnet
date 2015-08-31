@@ -993,11 +993,18 @@ public class GameServer : FileServer
 				string	levelName	= reader.ReadString();
 				bool	persist		= reader.ReadBoolean();
 				ushort	playerLimit = reader.ReadUInt16();
-
-#if STANDALONE && WINDWARD
+#if WINDWARD
 				if (player.aliases == null || player.aliases.size == 0)
 				{
-					Ban(player, player);
+					player.Log("Pirated version");
+					RemovePlayer(player);
+					return false;
+				}
+
+				if (channelID == 10000 && pass != "1508310")
+				{
+					player.Log("Outdated version");
+					RemovePlayer(player);
 					return false;
 				}
 #endif
