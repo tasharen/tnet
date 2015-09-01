@@ -188,13 +188,13 @@ public class GameServer : FileServer
 		Tools.LoadList("ServerConfig/ban.txt", mBan);
 		Tools.LoadList("ServerConfig/admin.txt", mAdmin);
 
-		// Banning by IPs is pointless
-		//for (int i = mBan.size; i > 0; )
-		//{
-		//    IPAddress ip;
-		//    if (IPAddress.TryParse(mBan[--i], out ip))
-		//        mBan.RemoveAt(i);
-		//}
+		// Banning by IPs is only good as a temporary measure
+		for (int i = mBan.size; i > 0; )
+		{
+			IPAddress ip;
+			if (IPAddress.TryParse(mBan[--i], out ip))
+				mBan.RemoveAt(i);
+		}
 
 #if WINDWARD
 		// Check URL: http://steamcommunity.com/profiles/76561199211637591
