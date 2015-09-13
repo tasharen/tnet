@@ -1021,9 +1021,13 @@ static public class Tools
 	{
 		if (list.size > 0)
 		{
-			path = Tools.GetDocumentsPath(path);
+			if (!File.Exists(path) && !string.IsNullOrEmpty(Tools.applicationDirectory))
+				path = Tools.GetDocumentsPath(path);
+
 			string dir = Path.GetDirectoryName(path);
-			if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+			if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+				Directory.CreateDirectory(dir);
+
 			StreamWriter sw = new StreamWriter(path, false);
 			for (int i = 0; i < list.size; ++i) sw.WriteLine(list[i]);
 			sw.Close();
@@ -1037,10 +1041,23 @@ static public class Tools
 
 	static internal void LoadList (string path, List<string> list)
 	{
-		list.Clear();
-		path = Tools.GetDocumentsPath(path);
+		if (path == null) return;
 
-		if (path != null && File.Exists(path))
+		list.Clear();
+
+		bool exists = false;
+		
+		if (File.Exists(path))
+		{
+			exists = true;
+		}
+		else if (!string.IsNullOrEmpty(Tools.applicationDirectory))
+		{
+			path = Tools.GetDocumentsPath(path);
+			if (File.Exists(path)) exists = true;
+		}
+
+		if (exists)
 		{
 			StreamReader reader = new StreamReader(path);
 

@@ -196,6 +196,9 @@ public class GameServer : FileServer
 				mBan.RemoveAt(i);
 		}
 
+		Tools.Log("Admins: " + mAdmin.size);
+		Tools.Log("Bans: " + mBan.size);
+
 #if WINDWARD
 		// Check URL: http://steamcommunity.com/profiles/76561199211637591
 		AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
