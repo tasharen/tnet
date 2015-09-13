@@ -73,7 +73,7 @@ static public class Tools
 		{
 			if (mBasePath == null)
 			{
-#if UNITY_ANDROID || UNITY_IPHONE || UNITY_WEBPLAYER || UNITY_WINRT || UNITY_FLASH
+#if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IPHONE || UNITY_WEBPLAYER || UNITY_WINRT || UNITY_FLASH)
 				mBasePath = UnityEngine.Application.persistentDataPath;
 #else
 				mBasePath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);

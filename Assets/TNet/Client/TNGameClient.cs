@@ -327,7 +327,7 @@ public class GameClient
 		}
 		set
 		{
-			if (isHosting && isInChannel && !mData.Equals(value))
+			if (isHosting && isInChannel && mData != value)
 			{
 				mData = value;
 				BeginSend(Packet.RequestSetChannelData).Write(value);
