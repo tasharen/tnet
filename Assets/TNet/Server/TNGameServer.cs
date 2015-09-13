@@ -1929,7 +1929,12 @@ public class GameServer : FileServer
 			{
 				if (player.channel != null)
 				{
-					if (player.isAdmin)
+					if (!player.channel.persistent && player.channel.host == player)
+					{
+						player.channel.persistent = false;
+						player.channel.closed = true;
+					}
+					else if (player.isAdmin)
 					{
 						player.Log("Closing channel " + player.channel.id);
 						player.channel.persistent = false;
