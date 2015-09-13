@@ -10,11 +10,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Text;
 
-// Unity has an outdated version of Mono that doesn't have the NetworkInformation namespace.
-#if !UNITY_3_4 && !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2 && !UNITY_4_3 && !UNITY_4_5 && !UNITY_4_6
-using System.Net.NetworkInformation;
-#endif
-
 namespace TNet
 {
 /// <summary>

@@ -493,12 +493,14 @@ public enum Packet
 
 	/// <summary>
 	/// Request to add a new admin.
+	/// string: admin keyword to add.
 	/// </summary>
 
 	RequestCreateAdmin,
 
 	/// <summary>
 	/// Remove this admin from the list.
+	/// string: admin keyword to remove.
 	/// </summary>
 
 	RequestRemoveAdmin,
