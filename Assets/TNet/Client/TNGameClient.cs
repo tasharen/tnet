@@ -470,6 +470,20 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Retrieve a player by their name.
+	/// </summary>
+
+	public Player GetPlayer (string name)
+	{
+		for (int i = 0; i < players.size; ++i)
+		{
+			Player p = players[i];
+			if (p.name == name) return p;
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Begin sending a new packet to the server.
 	/// </summary>
 

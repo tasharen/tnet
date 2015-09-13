@@ -440,6 +440,17 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Get the player associated with the specified name.
+	/// </summary>
+
+	static public Player GetPlayer (string name)
+	{
+		if (isConnected) return mInstance.mClient.GetPlayer(name);
+		if (name == playerName) return mPlayer;
+		return null;
+	}
+
+	/// <summary>
 	/// Set the following function to handle this type of packets.
 	/// </summary>
 

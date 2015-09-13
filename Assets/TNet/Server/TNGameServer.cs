@@ -996,7 +996,7 @@ public class GameServer : FileServer
 #if WINDWARD
 				if (player.aliases == null || player.aliases.size == 0)
 				{
-					player.Log("Pirated version");
+					player.Log("Cracked version");
 					RemovePlayer(player);
 					return false;
 				}
@@ -1529,7 +1529,7 @@ public class GameServer : FileServer
 				int id = reader.ReadInt32();
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
-
+#if WINDWARD
 				if (player.isAdmin || other == player)
 				{
 					if (other != null)
@@ -1543,6 +1543,10 @@ public class GameServer : FileServer
 					player.LogError("Tried to kick " + (other != null ? other.name : s) + " without authorization", null);
 					RemovePlayer(player);
 				}
+#else
+				if (player.channel != null && player.channel.host == player)
+					SendLeaveChannel(other, true);
+#endif
 				break;
 			}
 			case Packet.RequestBan:
@@ -1994,7 +1998,8 @@ public class GameServer : FileServer
 					RemovePlayer(player);
 				}
 #else
-				player.channel.playerLimit = reader.ReadUInt16();
+				if (player.channel.host == player)
+					player.channel.playerLimit = reader.ReadUInt16();
 #endif
 				break;
 			}
