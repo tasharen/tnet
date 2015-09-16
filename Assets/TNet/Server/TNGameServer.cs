@@ -32,8 +32,11 @@ public class GameServer : FileServer
 	/// <summary>
 	/// You will want to make this a unique value.
 	/// </summary>
-
+#if WINDWARD
+	public const ushort gameID = 2;
+#else
 	public const ushort gameID = 1;
+#endif
 
 	public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable);
 	public delegate void OnPlayerAction (Player p);
@@ -212,8 +215,9 @@ public class GameServer : FileServer
 		AddUnique(mBan, "76561197960639879"); // Using some old version
 		AddUnique(mBan, "76561202232029992"); // Shared account
 		AddUnique(mBan, "76561197996533125"); // Shared account
-		//AddUnique(mBan, "76561199211637591"); // ALI213
-		//AddUnique(mBan, "ALI213");
+ #if STANDALONE
+		AddUnique(mBan, "ALI213");
+ #endif
 #endif
 
 		try
