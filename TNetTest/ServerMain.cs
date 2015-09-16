@@ -315,6 +315,10 @@ public class Application : IDisposable
 			{
 				service = true;
 			}
+			else if (param == "-id")
+			{
+				if (val0 != null) ushort.TryParse(val0, out GameServer.gameID);
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;

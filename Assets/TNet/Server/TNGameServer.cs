@@ -32,11 +32,8 @@ public class GameServer : FileServer
 	/// <summary>
 	/// You will want to make this a unique value.
 	/// </summary>
-#if WINDWARD
-	public const ushort gameID = 2;
-#else
-	public const ushort gameID = 1;
-#endif
+
+	static public ushort gameID = 1;
 
 	public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable);
 	public delegate void OnPlayerAction (Player p);

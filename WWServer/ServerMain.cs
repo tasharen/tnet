@@ -321,7 +321,7 @@ public class Application : IDisposable
 			else if (param == "-public")
 			{
 				lobbyAddress = "server.tasharen.com";
-				lobbyPort = 5191;
+				lobbyPort = 5193;
 				tcpLobby = true;
 			}
 			else if (param == "-service")
@@ -350,6 +350,7 @@ public class Application : IDisposable
 		else Tools.persistentDataPath = "";
 
 		Application app = new Application();
+		GameServer.gameID = 2;
 		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, worldName);
 		return 0;
 	}
