@@ -151,7 +151,24 @@ public class GameServer : FileServer
 	/// Whether the server is listening for incoming connections.
 	/// </summary>
 
-	public bool isListening { get { return (mListener != null); } }
+	public bool isListening
+	{
+		get
+		{
+			return (mListener != null);
+		}
+		set
+		{
+			lock (mLock)
+			{
+				if (mListener != null)
+				{
+					mListener.Stop();
+					mListener = null;
+				}
+			}
+		}
+	}
 
 	/// <summary>
 	/// Port used for listening to incoming connections. Set when the server is started.
