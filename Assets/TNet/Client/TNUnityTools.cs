@@ -348,14 +348,129 @@ static public class UnityTools
 	}
 
 	public delegate System.Type GetTypeFunc (string name);
-	static public GetTypeFunc ResolveType = System.Type.GetType;
+	public delegate UnityEngine.Object LoadFunc (string path, System.Type type);
+	public delegate UnityEngine.Object LoadExFunc (string path, System.Type type, string name);
+	public delegate byte[] LoadBinaryFunc (string path);
 
-	public delegate UnityEngine.Object LoadFunc (string path);
-	static public LoadFunc LoadResource = Resources.Load;
+	static Assembly[] mCachedAssemblies = null;
+
+	/// <summary>
+	/// Get the cached list of currently loaded assemblies.
+	/// </summary>
+
+	static public Assembly[] GetAssemblies (bool update = false)
+	{
+		if (mCachedAssemblies == null || update)
+		{
+			mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+		}
+		return mCachedAssemblies;
+	}
+
+	static System.Collections.Generic.Dictionary<string, System.Type> mTypeCache =
+		new System.Collections.Generic.Dictionary<string, System.Type>();
+
+	/// <summary>
+	/// Try to resolve a type. Considers all loaded binaries.
+	/// </summary>
+
+	static new public GetTypeFunc GetType = GetTypeEx;
+
+	/// <summary>
+	/// Basic GetType() function, expanded to support type retrieval across all loaded assemblies.
+	/// </summary>
+
+	static public System.Type GetTypeEx (string name)
+	{
+		System.Type t = null;
+		if (mTypeCache.TryGetValue(name, out t) && t != null) return t;
+
+		t = System.Type.GetType(name);
+
+		if (t == null)
+		{
+			t = System.Type.GetType("UnityEngine." + name + ", UnityEngine");
+
+			if (t == null)
+			{
+				Assembly[] asm = GetAssemblies();
+
+				for (int i = 0, imax = asm.Length; i < imax; ++i)
+				{
+					Assembly assembly = asm[i];
+					t = assembly.GetType(name);
+					if (t != null) break;
+				}
+			}
+		}
+
+		if (Application.isPlaying) mTypeCache[name] = t;
+		return t;
+	}
+
+	/// <summary>
+	/// Function used to load binaries. Loads built-in TextAssets first, then tries appending the "bytes" extension.
+	/// </summary>
+
+	static public LoadBinaryFunc LoadBinary = delegate(string path)
+	{
+		TextAsset asset = Resources.Load<TextAsset>(path);
+		if (asset != null) return asset.bytes;
+		return Tools.ReadFile(path + ".bytes");
+	};
+
+	/// <summary>
+	/// Just like Resources.Load, but capable of loading prefabs saved in DataNode format.
+	/// </summary>
+
+	static public LoadFunc LoadResource = delegate(string path, System.Type type)
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+		if (type == typeof(GameObject)) return LoadPrefab(path);
+		return Resources.Load(path, type);
+	};
+
+	/// <summary>
+	/// Extended Load function that's also capable of loading meshes residing inside model files.
+	/// </summary>
+
+	static public LoadExFunc LoadResourceEx = delegate(string path, System.Type type, string name)
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+
+		if (type == typeof(Mesh))
+		{
+			Mesh[] meshes = Resources.LoadAll<Mesh>(path);
+			foreach (Mesh m in meshes)
+				if (m.name == name)
+					return m;
+		}
+		return LoadResource(path, type);
+	};
+
+	/// <summary>
+	/// Just like Resources.Load, but capable of loading prefabs saved in DataNode format.
+	/// </summary>
+
+	static public T Load<T> (string path) where T : Object
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+		return LoadResource(path, typeof(T)) as T;
+	}
+
+	/// <summary>
+	/// Extended Load function that's also capable of loading meshes residing inside model files.
+	/// </summary>
+
+	static public T Load<T> (string path, string name) where T : Object
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+		return LoadResourceEx(path, typeof(T), name) as T;
+	}
 
 	/// <summary>
 	/// Locate the specified object in the Resources folder.
-	/// This function will only work properly in the Unity Editor. It's not possible to locate resources outside of it.
+	/// This function will only work in the Unity Editor.
 	/// </summary>
 
 	static public string LocateResource (Object obj)
@@ -365,6 +480,8 @@ static public class UnityTools
 
 		if (prefab != null)
 		{
+			if (prefab != obj) return null;
+
 			string childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
 
 			if (!string.IsNullOrEmpty(childPrefabPath) && childPrefabPath.Contains("/Resources/"))
@@ -376,7 +493,7 @@ static public class UnityTools
 					childPrefabPath = childPrefabPath.Substring(index + "/Resources/".Length);
 					childPrefabPath = Tools.GetFilePathWithoutExtension(childPrefabPath).Replace("\\", "/");
 
-					if (LoadResource(childPrefabPath) != null)
+					if (Resources.Load(childPrefabPath) != null)
 						return childPrefabPath;
 				}
 			}
@@ -406,6 +523,400 @@ static public class UnityTools
 		trans.gameObject.layer = layer;
 		for (int i = 0, imax = trans.childCount; i < imax; ++i)
 			trans.GetChild(i).SetLayerRecursively(layer);
+	}
+
+	/// <summary>
+	/// Returns the hierarchy of the object in a human-readable format.
+	/// </summary>
+
+	static public string GetHierarchy (this Transform obj)
+	{
+		string path = obj.name;
+
+		while (obj.parent != null)
+		{
+			obj = obj.parent;
+			path = obj.name + "/" + path;
+		}
+		return path;
+	}
+
+	/// <summary>
+	/// Returns the hierarchy of the object in a human-readable format.
+	/// </summary>
+
+	static public string GetHierarchy (this Transform target, Transform source)
+	{
+		List<Transform> sourceList = new List<Transform>();
+		List<Transform> targetList = new List<Transform>();
+
+		sourceList.Add(source);
+		targetList.Add(target);
+
+		while (source.parent != null)
+		{
+			sourceList.Insert(0, source.parent);
+			source = source.parent;
+		}
+
+		while (target.parent != null)
+		{
+			targetList.Insert(0, target.parent);
+			target = target.parent;
+		}
+
+		while (sourceList.size > 0 && targetList.size > 0)
+		{
+			if (sourceList[0] == targetList[0])
+			{
+				sourceList.RemoveAt(0);
+				targetList.RemoveAt(0);
+			}
+			else break;
+		}
+
+		string path = "";
+
+		for (int i = sourceList.size; i > 0; )
+		{
+			path += "../";
+			sourceList.RemoveAt(--i);
+		}
+
+		for (int i = 0; i < targetList.size; ++i)
+		{
+			if (i + 1 == targetList.size) path += targetList[i].name;
+			else path += targetList[i].name + "/";
+		}
+		return path;
+	}
+
+	/// <summary>
+	/// Type.GetType that works with multiple assemblies.
+	/// </summary>
+
+	static public System.Type FindType (string name)
+	{
+		System.Type t = System.Type.GetType(name);
+		if (t != null) return t;
+
+		foreach (System.Reflection.Assembly assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+		{
+			foreach (System.Type type in assembly.GetTypes())
+			{
+				if (type.Name == name)
+					return type;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Convert an object reference to a serializable string format.
+	/// </summary>
+
+	static public string ReferenceToString (this GameObject go, UnityEngine.Object obj)
+	{
+		if (obj == null) return null;
+
+		if (obj is Shader)
+		{
+			return "asset|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + (obj as Shader).name;
+		}
+		else
+		{
+#if UNITY_EDITOR
+			string assetPath = UnityEditor.AssetDatabase.GetAssetPath(obj);
+
+			if (!string.IsNullOrEmpty(assetPath))
+			{
+				int index = assetPath.IndexOf("Resources/");
+				if (index != -1) assetPath = assetPath.Substring(index + "Resources/".Length);
+				assetPath = Tools.GetFilePathWithoutExtension(assetPath).Replace('\\', '/');
+				return "asset|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + assetPath;
+			}
+#endif
+			UnityEngine.GameObject gobj = obj as UnityEngine.GameObject;
+			UnityEngine.Component comp = obj as UnityEngine.Component;
+
+			if (comp != null || gobj != null)
+			{
+				string path = (gobj ?? comp.gameObject).transform.GetHierarchy(go.transform);
+				if (!string.IsNullOrEmpty(path))
+					return "ref|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + path;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Convert a serialized string reference to an actual object reference.
+	/// </summary>
+
+	static public UnityEngine.Object StringToReference (this GameObject go, string path)
+	{
+		if (string.IsNullOrEmpty(path)) return null;
+		string[] split = path.Split(new char[] { '|' }, 3);
+
+		if (split.Length == 3)
+		{
+			System.Type myType = UnityTools.FindType(split[1]);
+
+			if (myType != null)
+			{
+				if (myType == typeof(Shader))
+				{
+					return Shader.Find(split[2]);
+				}
+				else if (split[0] == "asset")
+				{
+					return Resources.Load(split[2], myType);
+				}
+				else if (split[0] == "ref")
+				{
+					Transform t = go.transform;
+
+					string[] splitPath = split[2].Split('/');
+
+					for (int i = 0; i < splitPath.Length; ++i)
+					{
+						string s = splitPath[i];
+
+						if (s == "..")
+						{
+							t = t.parent;
+							if (t == null) break;
+						}
+						else if (!string.IsNullOrEmpty(s))
+						{
+							t = t.FindChild(s);
+							if (t == null) break;
+						}
+					}
+
+					if (t != null)
+					{
+						if (myType == typeof(GameObject)) return t.gameObject;
+						return t.GetComponent(myType);
+					}
+					else Debug.LogWarning("Hierarchy path not found: " + split[2], go);
+				}
+			}
+		}
+		return null;
+	}
+
+	// Cache all loaded assets
+	static System.Collections.Generic.Dictionary<string, GameObject> mPrefabs =
+		new System.Collections.Generic.Dictionary<string, GameObject>();
+	static Transform mPrefabRoot = null;
+
+	/// <summary>
+	/// Load a game object prefab at the specified path. This is equivalent to Resources.Load, but it will
+	/// also consider DataNode-exported binary assets as well, automatically loading them as if they were
+	/// regular prefabs.
+	/// </summary>
+
+	static public GameObject LoadPrefab (string path)
+	{
+		if (string.IsNullOrEmpty(path))
+		{
+#if UNITY_EDITOR
+			Debug.LogError("[TNet] Null path passed to UnityTools.LoadPrefab!");
+#endif
+			return null;
+		}
+
+		if (!Application.isPlaying) return Resources.Load(path, typeof(GameObject)) as GameObject;
+
+		GameObject prefab = null;
+
+		if (mPrefabRoot == null)
+		{
+			GameObject go = new GameObject("Prefabs");
+			Object.DontDestroyOnLoad(go);
+			mPrefabRoot = go.transform;
+			mPrefabs.Clear();
+		}
+
+		// Try to get it from cache
+		if (mPrefabs.TryGetValue(path, out prefab)) return prefab;
+
+		if (prefab == null)
+		{
+			// Load it from resources as a Game Object
+			prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
+
+			if (prefab == null)
+			{
+				// Load it from resources as a binary asset
+				byte[] bytes = UnityTools.LoadBinary(path);
+
+				if (bytes != null)
+				{
+					// Parse the DataNode hierarchy
+					DataNode data = DataNode.Read(bytes);
+
+					if (data != null)
+					{
+						// Instantiate and immediately disable the object
+						prefab = data.Instantiate();
+
+						if (prefab != null)
+						{
+							mPrefabs.Add(path, prefab);
+							Object.DontDestroyOnLoad(prefab);
+							prefab.transform.parent = mPrefabRoot;
+							prefab.SetActive(false);
+							return prefab;
+						}
+					}
+				}
+			}
+		}
+#if UNITY_EDITOR
+		if (prefab == null)
+			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
+#endif
+		mPrefabs.Add(path, prefab);
+		return prefab;
+	}
+
+	/// <summary>
+	/// Add a blank child to the specified game object.
+	/// </summary>
+
+	static public GameObject AddChild (this GameObject go)
+	{
+		GameObject inst = new GameObject();
+		inst.name = inst.GetInstanceID().ToString();
+		Transform t = inst.transform;
+		t.parent = go.transform;
+		t.localPosition = Vector3.zero;
+		t.localRotation = Quaternion.identity;
+		t.localScale = Vector3.one;
+		return inst;
+	}
+
+	/// <summary>
+	/// Load an asset from resources and instantiate it as a child of the game object.
+	/// </summary>
+
+	static public GameObject AddChild (this GameObject go, string resourceName)
+	{
+		GameObject prefab = LoadPrefab(resourceName);
+
+		if (prefab != null)
+		{
+			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			Transform t = inst.transform;
+			t.parent = go.transform;
+			t.localPosition = Vector3.zero;
+			t.localRotation = Quaternion.identity;
+			t.localScale = Vector3.one;
+			inst.SetActive(true);
+			return inst;
+		}
+
+		Debug.LogError("Unable to load prefab '" + resourceName + "'", go);
+		return null;
+	}
+
+	/// <summary>
+	/// Load an asset from resources and instantiate it as a child of the game object.
+	/// </summary>
+
+	static public T AddChild<T> (this GameObject go, string resourceName) where T : Component
+	{
+		GameObject prefab = LoadPrefab(resourceName);
+
+		if (prefab != null)
+		{
+			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			Transform t = inst.transform;
+			t.parent = go.transform;
+			t.localPosition = Vector3.zero;
+			t.localRotation = Quaternion.identity;
+			t.localScale = Vector3.one;
+			inst.SetActive(true);
+			return inst.GetComponent<T>();
+		}
+
+		Debug.LogError("Unable to load prefab '" + resourceName + "'", go);
+		return null;
+	}
+
+	/// <summary>
+	/// Load an asset from resources and instantiate it as a child of the game object.
+	/// </summary>
+
+	static public T[] AddChildren<T> (this GameObject go, string resourceName) where T : Component
+	{
+		GameObject prefab = LoadPrefab(resourceName);
+
+		if (prefab != null)
+		{
+			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			Transform t = inst.transform;
+			t.parent = go.transform;
+			t.localPosition = Vector3.zero;
+			t.localRotation = Quaternion.identity;
+			t.localScale = Vector3.one;
+			inst.SetActive(true);
+			return inst.GetComponentsInChildren<T>();
+		}
+
+		Debug.LogError("Unable to load prefab '" + resourceName + "'", go);
+		return null;
+	}
+
+	/// <summary>
+	/// Destroy the specified object -- works both in the Editor and when playing.
+	/// </summary>
+
+	static public void Destroy (UnityEngine.Object obj)
+	{
+		if (Application.isPlaying) UnityEngine.Object.Destroy(obj);
+		else UnityEngine.Object.DestroyImmediate(obj);
+	}
+
+	/// <summary>
+	/// Read a PNG file from the specified location. Expects a full path with extension.
+	/// </summary>
+
+	static public Texture2D ReadPNG (string path)
+	{
+		Texture2D tex = null;
+		byte[] bytes = Tools.ReadFile(path);
+
+		if (bytes != null)
+		{
+			tex = new Texture2D(2, 2);
+
+			if (tex.LoadImage(bytes))
+			{
+				tex.wrapMode = path.Contains("Repeat") ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+				tex.filterMode = FilterMode.Trilinear;
+				tex.anisoLevel = 4;
+				tex.Apply();
+				return tex;
+			}
+
+			if (Application.isPlaying) Object.Destroy(tex);
+			else Object.DestroyImmediate(tex);
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Get an MD5 checksum hash of the specified byte array.
+	/// </summary>
+
+	static public string GetMD5Hash (byte[] bytes)
+	{
+		System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create();
+		byte[] hash = md5.ComputeHash(bytes);
+		return System.BitConverter.ToString(hash).Replace("-", "").ToLower();
 	}
 }
 }

@@ -1537,6 +1537,8 @@ public class GameServer : FileServer
 						tp.SendTcpPacket(buff);
 					}
 					buff.Recycle();
+
+					SaveData();
 				}
 				else
 				{

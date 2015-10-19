@@ -158,10 +158,6 @@ public sealed class TNObject : MonoBehaviour
 		}
 		else if (TNManager.GetPlayer(mOwner) == null)
 		{
-#if UNITY_EDITOR
-			// This shouldn't happen anymore with the latest server/client version
-			Debug.LogWarning("Object is missing its owner, " + mOwner, this);
-#endif
 			mOwner = TNManager.hostID;
 		}
 	}

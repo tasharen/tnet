@@ -24,6 +24,16 @@ using System.Reflection;
 using System.Globalization;
 #endif
 
+public struct Vector4i
+{
+	public int x;
+	public int y;
+	public int z;
+	public int w;
+
+	public Vector4i (int xx, int yy, int zz, int ww) { x = xx; y = yy; z = zz; w = ww; }
+}
+
 #if STANDALONE
 public struct Vector2
 {
@@ -91,6 +101,50 @@ public struct Color32
 
 	public Color32 (byte rr, byte gg, byte bb, byte aa = 0) { r = rr; g = gg; b = bb; a = aa; }
 }
+
+public struct Matrix4x4
+{
+	public float m00;
+	public float m10;
+	public float m20;
+	public float m30;
+
+	public float m01;
+	public float m11;
+	public float m21;
+	public float m31;
+
+	public float m02;
+	public float m12;
+	public float m22;
+	public float m32;
+
+	public float m03;
+	public float m13;
+	public float m23;
+	public float m33;
+}
+
+public struct BoneWeight
+{
+	public int boneIndex0;
+	public int boneIndex1;
+	public int boneIndex2;
+	public int boneIndex3;
+
+	public float weight0;
+	public float weight1;
+	public float weight2;
+	public float weight3;
+}
+
+public struct Bounds
+{
+	public Vector3 center;
+	public Vector3 size;
+
+	public Bounds (Vector3 c, Vector3 s) { center = c; size = s; }
+}
 #endif
 
 namespace TNet
@@ -128,8 +182,6 @@ public struct ObsInt
 	public ObsInt (int val) { obscured = Obfuscate(val); }
 
 	static public implicit operator int (ObsInt o) { return Restore(o.obscured); }
-	//static public implicit operator ObsInt (int i) { return new ObsInt(i); }
-
 	public override string ToString () { return Restore(obscured).ToString(); }
 
 	const int mask1 = 0x00550055;
@@ -184,33 +236,31 @@ public static class Serialization
 	{
 		Type type = null;
 
-		if (!mNameToType.TryGetValue(name, out type))
+		if (!mNameToType.TryGetValue(name, out type) || type == null)
 		{
-			if (name == "Vector2") type = typeof(Vector2);
-			else if (name == "Vector3") type = typeof(Vector3);
-			else if (name == "Vector4") type = typeof(Vector4);
-			else if (name == "Quaternion") type = typeof(Quaternion);
-			else if (name == "Rect") type = typeof(Rect);
-			else if (name == "Color") type = typeof(Color);
-			else if (name == "Color32") type = typeof(Color32);
-			else if (name == "ObsInt") type = typeof(ObsInt);
-			else if (name == "string[]") type = typeof(string[]);
+			if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
-			else if (name == "Vector2[]") type = typeof(Vector2[]);
-			else if (name == "Vector3[]") type = typeof(Vector3[]);
-			else if (name == "Vector4[]") type = typeof(Vector4[]);
-			else if (name == "Quaternion[]") type = typeof(Quaternion[]);
-			else if (name == "Rect[]") type = typeof(Rect[]);
-			else if (name == "Color[]") type = typeof(Color[]);
-			else if (name == "Color32[]") type = typeof(Color32[]);
-			else if (name == "ObsInt[]") type = typeof(ObsInt[]);
+			else if (name == "byte[]") type = typeof(byte[]);
+			else if (name.EndsWith("[]"))
+			{
+				try
+				{
+#if STANDALONE
+					type = Type.GetType(name.Substring(0, name.Length - 2));
+#else
+					type = UnityTools.FindType(name.Substring(0, name.Length - 2));
+#endif
+					if (type != null) type = type.MakeArrayType();
+				}
+				catch (Exception) { }
+			}
 			else if (name.StartsWith("IList"))
 			{
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
 				{
 					Type elemType = NameToType(name.Substring(6, name.Length - 7));
-					type = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+					if (elemType != null) type = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
 				}
 				else Tools.LogError("Malformed type: " + name);
 			}
@@ -219,7 +269,7 @@ public static class Serialization
 				if (name.Length > 7 && name[5] == '<' && name[name.Length - 1] == '>')
 				{
 					Type elemType = NameToType(name.Substring(6, name.Length - 7));
-					type = typeof(TNet.List<>).MakeGenericType(elemType);
+					if (elemType != null) type = typeof(TNet.List<>).MakeGenericType(elemType);
 				}
 				else Tools.LogError("Malformed type: " + name);
 			}
@@ -227,14 +277,20 @@ public static class Serialization
 			{
 				try
 				{
+#if STANDALONE
 					type = Type.GetType(name);
-					//Debug.Log(name + " -> " + type);
+#else
+					type = UnityTools.FindType(name);
+#endif
 				}
-				catch (Exception)
-				{
-					Tools.LogError("Unable to resolve type: " + name);
-				}
+				catch (Exception) { }
 			}
+
+#if UNITY_EDITOR
+			if (type == null) UnityEngine.Debug.LogError("Unable to resolve type '" + name + "'");
+#else
+			if (type == null) Tools.LogError("Unable to resolve type '" + name + "'");
+#endif
 			mNameToType[name] = type;
 		}
 		return type;
@@ -253,43 +309,36 @@ public static class Serialization
 		}
 		string name;
 
-		if (!mTypeToName.TryGetValue(type, out name))
+		if (!mTypeToName.TryGetValue(type, out name) || name == null)
 		{
-			if (type == typeof(Vector2)) name = "Vector2";
-			else if (type == typeof(Vector3)) name = "Vector3";
-			else if (type == typeof(Vector4)) name = "Vector4";
-			else if (type == typeof(Quaternion)) name = "Euler";
-			else if (type == typeof(Rect)) name = "Rect";
-			else if (type == typeof(Color)) name = "Color";
-			else if (type == typeof(Color32)) name = "Color32";
-			else if (type == typeof(ObsInt)) name = "ObsInt";
-			else if (type == typeof(string[])) name = "string[]";
+			if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
-			else if (type == typeof(Vector2[])) name = "Vector2[]";
-			else if (type == typeof(Vector3[])) name = "Vector3[]";
-			else if (type == typeof(Vector4[])) name = "Vector4[]";
-			else if (type == typeof(Quaternion[])) name = "Quaternion[]";
-			else if (type == typeof(Rect[])) name = "Rect[]";
-			else if (type == typeof(Color[])) name = "Color[]";
-			else if (type == typeof(Color32[])) name = "Color32[]";
-			else if (type == typeof(ObsInt[])) name = "ObsInt[]";
-			else
+			else if (type == typeof(byte[])) name = "byte[]";
+			else if (type.Implements(typeof(IList)))
 			{
-				if (type.Implements(typeof(IList)))
+				Type arg = type.GetGenericArgument();
+
+				if (arg != null)
 				{
-					Type arg = type.GetGenericArgument();
-					if (arg != null) name = "IList<" + arg.ToString() + ">";
-					else name = type.ToString();
+					string sub = arg.ToString().Replace("UnityEngine.", "");
+					name = "IList<" + sub + ">";
 				}
-				else if (type.Implements(typeof(TList)))
-				{
-					Type arg = type.GetGenericArgument();
-					if (arg != null) name = "TList<" + arg.ToString() + ">";
-					else name = type.ToString();
-				}
-				else name = type.ToString();
+				else name = type.ToString().Replace("UnityEngine.", "");
 			}
+			else if (type.Implements(typeof(TList)))
+			{
+				Type arg = type.GetGenericArgument();
+
+				if (arg != null)
+				{
+					string sub = arg.ToString().Replace("UnityEngine.", "");
+					name = "TList<" + sub + ">";
+				}
+				else name = type.ToString().Replace("UnityEngine.", "");
+			}
+			else name = type.ToString().Replace("UnityEngine.", "");
+
 			mTypeToName[type] = name;
 		}
 		return name;
@@ -301,7 +350,11 @@ public static class Serialization
 	/// Helper function to convert the specified value into the provided type.
 	/// </summary>
 
+#if STANDALONE
 	static public object ConvertValue (object value, Type desiredType)
+#else
+	static public object ConvertValue (object value, Type desiredType, GameObject go = null)
+#endif
 	{
 		if (value == null) return null;
 
@@ -317,7 +370,11 @@ public static class Serialization
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
 			if (desiredType == typeof(float)) return (float)(int)value;
 			if (desiredType == typeof(long)) return (long)(int)value;
+			if (desiredType == typeof(UInt32)) return (UInt32)(int)value;
 			if (desiredType == typeof(ObsInt)) return new ObsInt((int)value);
+#if !STANDALONE
+			if (desiredType == typeof(LayerMask)) return (LayerMask)(int)value;
+#endif
 		}
 		else if (valueType == typeof(float))
 		{
@@ -375,6 +432,82 @@ public static class Serialization
 				return new Vector4(c.r, c.g, c.b, c.a);
 			}
 		}
+#if !STANDALONE
+		else if (valueType == typeof(Vector4[]) && desiredType == typeof(AnimationCurve))
+		{
+			Vector4[] vs = (Vector4[])value;
+			AnimationCurve cv = new AnimationCurve();
+			int keyCount = vs.Length;
+			Keyframe[] kfs = new Keyframe[keyCount];
+
+			for (int i = 0; i < keyCount; ++i)
+			{
+				Vector4 v = vs[i];
+				kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
+			}
+
+			cv.keys = kfs;
+			return cv;
+		}
+		else if (valueType == typeof(AnimationCurve) && desiredType == typeof(Vector4[]))
+		{
+			AnimationCurve av = (AnimationCurve)value;
+			Keyframe[] kfs = av.keys;
+			int keyCount = kfs.Length;
+			Vector4[] vs = new Vector4[keyCount];
+
+			for (int i = 0; i < keyCount; ++i)
+			{
+				Keyframe kf = kfs[i];
+				vs[i] = new Vector4(kf.time, kf.value, kf.inTangent, kf.outTangent);
+			}
+			return vs;
+		}
+		else if (valueType == typeof(LayerMask) && desiredType == typeof(int)) return (int)(LayerMask)value;
+		else if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
+		{
+			if (go != null) return go.StringToReference((string)value);
+			else Debug.LogWarning("Game object reference is needed for a path-based reference");
+		}
+ #if REFLECTION_SUPPORT
+		else if (valueType == typeof(string[]) && desiredType.IsArray)
+		{
+			System.Type elemType = desiredType.GetElementType();
+
+			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+			{
+				string[] list = (string[])value;
+				IList newList = desiredType.Create(list.Length) as IList;
+
+				for (int i = 0, imax = list.Length; i < imax; ++i)
+				{
+					object obj = go.StringToReference(list[i]);
+					if (go != null) newList[i] = Convert.ChangeType(obj, elemType);
+					else Debug.LogWarning("Game object reference is needed for a path-based reference");
+				}
+				return newList;
+			}
+		}
+		else if (valueType == typeof(string[]) && desiredType.IsGenericType)
+		{
+			System.Type elemType = desiredType.GetGenericArgument();
+
+			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+			{
+				string[] list = (string[])value;
+				Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+				IList newList = (IList)Activator.CreateInstance(arrType);
+
+				for (int i = 0, imax = list.Length; i < imax; ++i)
+				{
+					if (go != null) newList.Add(go.StringToReference(list[i]));
+					else Debug.LogWarning("Game object reference is needed for a path-based reference");
+				}
+				return newList;
+			}
+		}
+ #endif
+#endif
 
 #if REFLECTION_SUPPORT
 		if (desiredType.IsEnum)
@@ -406,133 +539,119 @@ public static class Serialization
 		return null;
 	}
 
-	/// <summary>
-	/// Retrieve the generic element type from the templated type.
-	/// </summary>
-
-	static public Type GetGenericArgument (this Type type)
-	{
-		Type[] elems = type.GetGenericArguments();
-		return (elems != null && elems.Length == 1) ? elems[0] : null;
-	}
-
-	/// <summary>
-	/// Create a new instance of the specified object.
-	/// </summary>
-
-	static public object Create (this Type type)
-	{
-		try
-		{
-			return Activator.CreateInstance(type);
-		}
-		catch (Exception ex)
-		{
-			Tools.LogError(ex.Message);
-			return null;
-		}
-	}
-
-	/// <summary>
-	/// Create a new instance of the specified object.
-	/// </summary>
-
-	static public object Create (this Type type, int size)
-	{
-		try
-		{
-			return Activator.CreateInstance(type, size);
-		}
-		catch (Exception)
-		{
-			return type.Create();
-		}
-	}
-
-#if REFLECTION_SUPPORT
-	// Cached for speed
-	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
-
-	/// <summary>
-	/// Collect all serializable fields on the class of specified type.
-	/// </summary>
-
-	static public List<FieldInfo> GetSerializableFields (this Type type)
-	{
-		List<FieldInfo> list;
-
-		if (!mFieldDict.TryGetValue(type, out list))
-		{
-			list = new List<FieldInfo>();
-			FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-			bool serializable = type.IsDefined(typeof(System.SerializableAttribute), true);
-
-			for (int i = 0, imax = fields.Length; i < imax; ++i)
-			{
-				FieldInfo field = fields[i];
-
-				// Don't do anything with static fields
-				if ((field.Attributes & FieldAttributes.Static) != 0) continue;
-#if !STANDALONE
-				// Ignore fields that were not marked as serializable
-				if (!field.IsDefined(typeof(SerializeField), true))
-#endif
-				{
-					// Class is not serializable
-					if (!serializable) continue;
-
-					// It's not a public field
-					if ((field.Attributes & FieldAttributes.Public) == 0) continue;
-				}
-
-				// Ignore fields that were marked as non-serializable
-				if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
-
-				// It's a valid serializable field
-				list.Add(field);
-			}
-			mFieldDict[type] = list;
-		}
-		return list;
-	}
-
-	/// <summary>
-	/// Retrieve the specified serializable field from the type. Returns 'null' if the field was not found or if it's not serializable.
-	/// </summary>
-
-	static public FieldInfo GetSerializableField (this Type type, string name)
-	{
-		List<FieldInfo> list = type.GetSerializableFields();
-
-		for (int i = 0, imax = list.size; i < imax; ++i)
-		{
-			FieldInfo field = list[i];
-			if (field.Name == name) return field;
-		}
-		return null;
-	}
-
+#if !REFLECTION_SUPPORT
 	/// <summary>
 	/// Set the specified field's value using reflection.
 	/// </summary>
 
-	static public bool SetSerializableField (this object obj, string name, object value)
+	static public bool SetValue (this object obj, string name, object value)
+	{
+		Debug.LogError("Can't assign " + obj.GetType() + "." + name + " (reflection is not supported on this platform)");
+		return false;
+	}
+#elif STANDALONE
+
+	/// <summary>
+	/// Sets the value of a field or property of specified name.
+	/// </summary>
+
+	static public bool SetValue (this object obj, string name, object value)
 	{
 		if (obj == null) return false;
-		FieldInfo fi = GetSerializableField(obj.GetType(), name);
-		if (fi == null) return false;
+		System.Type type = obj.GetType();
 
-		try
+		PropertyInfo pro = type.GetSerializableProperty(name);
+
+		if (pro != null)
 		{
-			fi.SetValue(obj, ConvertValue(value, fi.FieldType));
+			try
+			{
+				object val = ConvertValue(value, pro.PropertyType);
+				pro.SetValue(obj, val, null);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				Tools.LogError(ex.Message);
+				return false;
+			}
 		}
-		catch (Exception ex)
+
+		FieldInfo fi = type.GetSerializableField(name);
+
+		if (fi != null)
 		{
-			Tools.LogError(ex.Message);
-			return false;
+			try
+			{
+				object val = ConvertValue(value, fi.FieldType);
+				fi.SetValue(obj, val);
+			}
+			catch (Exception ex)
+			{
+				Tools.LogError(ex.Message);
+				return false;
+			}
 		}
-		return true;
+		return false;
 	}
+
+#else // STANDALONE
+
+	/// <summary>
+	/// Sets the value of a field or property of specified name.
+	/// </summary>
+
+	static public bool SetValue (this object obj, string name, object value, GameObject go = null)
+	{
+		if (obj == null) return false;
+		System.Type type = obj.GetType();
+
+		FieldInfo fi = type.GetSerializableField(name);
+
+		if (fi != null)
+		{
+ #if UNITY_EDITOR
+			object val = ConvertValue(value, fi.FieldType, go);
+			fi.SetValue(obj, val);
+ #else
+			try
+			{
+				object val = ConvertValue(value, fi.FieldType, go);
+				fi.SetValue(obj, val);
+			}
+			catch (Exception ex)
+			{
+				Tools.LogError(ex.Message);
+				return false;
+			}
+ #endif // UNITY_EDITOR
+		}
+
+		PropertyInfo pro = type.GetSerializableProperty(name);
+
+		if (pro != null)
+		{
+ #if UNITY_EDITOR
+			object val = ConvertValue(value, pro.PropertyType, go);
+			pro.SetValue(obj, val, null);
+			return true;
+ #else
+			try
+			{
+				object val = ConvertValue(value, pro.PropertyType, go);
+				pro.SetValue(obj, val, null);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				Tools.LogError(ex.Message);
+				return false;
+			}
+ #endif // UNITY_EDITOR
+		}
+		return false;
+	}
+#endif // STANDALONE
 
 	/// <summary>
 	/// Extension function that deserializes the specified object into the chosen file using binary format.
@@ -550,365 +669,8 @@ public static class Serialization
 		return size;
 	}
 
- #if !STANDALONE
-	/// <summary>
-	/// Serialize this game object into a DataNode.
-	/// Note that the prefab references can only be resolved if serialized from within the Unity Editor.
-	/// You can instantiate this game object directly from DataNode format by using DataNode.Instantiate().
-	/// Ideal usage: save a game object hierarchy into a file. Serializing a game object will also serialize its
-	/// mesh data, making it possible to export entire 3D models. Any references to prefabs or materials located
-	/// in the Resources folder will be kept as references and their hierarchy won't be serialized.
-	/// </summary>
+#region Write
 
-	static public DataNode Serialize (this GameObject go, bool fullHierarchy = true)
-	{
-		DataNode root = new DataNode(go.name, UnityTools.LocateResource(go));
-		Transform trans = go.transform;
-		root.AddChild("position", trans.localPosition);
-		root.AddChild("rotation", trans.localEulerAngles);
-		root.AddChild("scale", trans.localScale);
-
-		int layer = go.layer;
-		if (layer != 0) root.AddChild("layer", go.layer);
-
-		MeshFilter filter = go.GetComponent<MeshFilter>();
-
-		if (filter != null)
-		{
-			Mesh sm = filter.sharedMesh;
-
-			if (sm != null)
-			{
-				string path = UnityTools.LocateResource(sm);
-				if (!string.IsNullOrEmpty(path)) root.AddChild("Mesh", path);
-				else sm.Serialize(root.AddChild("Mesh"));
-			}
-		}
-
-		Renderer ren = go.GetComponent<Renderer>();
-
-		if (ren != null)
-		{
-			Material mat = ren.sharedMaterials[0];
-
-			if (mat != null)
-			{
-				string path = UnityTools.LocateResource(mat);
-				if (!string.IsNullOrEmpty(path)) root.AddChild("Material", path);
-				else Debug.Log("Mat not found");
-			}
-		}
-
-		Collider col = go.GetComponent<Collider>();
-
-		if (col != null)
-		{
-			if (col is BoxCollider)
-			{
-				BoxCollider bc = col as BoxCollider;
-				DataNode child = root.AddChild("Collider", "Box");
-				child.AddChild("center", bc.center);
-				child.AddChild("size", bc.size);
-			}
-			else if (col is SphereCollider)
-			{
-				SphereCollider bc = col as SphereCollider;
-				DataNode child = root.AddChild("Collider", "Sphere");
-				child.AddChild("center", bc.center);
-				child.AddChild("radius", bc.radius);
-			}
-			else if (col is CapsuleCollider)
-			{
-				CapsuleCollider bc = col as CapsuleCollider;
-				DataNode child = root.AddChild("Collider", "Capsule");
-				child.AddChild("center", bc.center);
-				child.AddChild("radius", bc.radius);
-				child.AddChild("height", bc.height);
-				child.AddChild("direction", bc.direction);
-			}
-		}
-
-		Rigidbody rb = go.GetComponent<Rigidbody>();
-
-		if (rb != null)
-		{
-			DataNode child = root.AddChild("Rigidbody");
-			child.AddChild("mass", rb.mass);
-			child.AddChild("drag", rb.drag);
-			child.AddChild("angularDrag", rb.angularDrag);
-			child.AddChild("interpolation", (int)rb.interpolation);
-			child.AddChild("detection", (int)rb.collisionDetectionMode);
-			child.AddChild("kinematic", rb.isKinematic);
-			child.AddChild("gravity", rb.useGravity);
-		}
-
-		MonoBehaviour[] mbs = go.GetComponents<MonoBehaviour>();
-		DataNode mbc = null;
-
-		for (int i = 0, imax = mbs.Length; i < imax; ++i)
-		{
-			MonoBehaviour mb = mbs[i];
-			System.Type type = mb.GetType();
-			List<FieldInfo> fields = type.GetSerializableFields();
-
-			if (mbc == null) mbc = root.AddChild("Scripts");
-			DataNode c = mbc.AddChild(type.ToString(), true);
-
-			for (int b = 0; b < fields.size; ++b)
-			{
-				FieldInfo field = fields[b];
-				object val = field.GetValue(mb);
-				if (val is UnityEngine.Object) continue;
-				c.AddChild(field.Name, val);
-			}
-		}
-
-		if (fullHierarchy && root.value == null && trans.childCount > 0)
-		{
-			DataNode children = root.AddChild("Children");
-
-			for (int i = 0, imax = trans.childCount; i < imax; ++i)
-			{
-				GameObject co = trans.GetChild(i).gameObject;
-				if (co.activeInHierarchy) Serialize(co, children, fullHierarchy);
-			}
-		}
-		return root;
-	}
-
-	/// <summary>
-	/// Serialize this game object into the specified DataNode.
-	/// Note that the prefab references can only be resolved if serialized from within the Unity Editor.
-	/// </summary>
-
-	static public void Serialize (this GameObject go, DataNode data, bool fullHierarchy = true)
-	{
-		data.children.Add(go.Serialize(fullHierarchy));
-	}
-
-	/// <summary>
-	/// Deserialize a previously serialized game object.
-	/// </summary>
-
-	static public void Deserialize (this GameObject go, DataNode root, bool fullHierarchy = true, bool removeDuplicates = true)
-	{
-		Transform trans = go.transform;
-		trans.localPosition = root.GetChild<Vector3>("position", trans.localPosition);
-		trans.localEulerAngles = root.GetChild<Vector3>("rotation", trans.localEulerAngles);
-		trans.localScale = root.GetChild<Vector3>("scale", trans.localScale);
-		go.layer = root.GetChild<int>("layer", 0);
-
-		DataNode scriptNode = root.GetChild("Scripts");
-
-		if (scriptNode != null && scriptNode.children.size > 0)
-		{
-			for (int i = 0; i < scriptNode.children.size; ++i)
-			{
-				DataNode node = scriptNode.children[i];
-				System.Type type = UnityTools.ResolveType(node.name);
-
-				if (type != null && type.IsSubclassOf(typeof(Component)))
-				{
-					Component comp = go.GetComponent(type);
-					if (comp == null) comp = go.AddComponent(type);
-
-					for (int b = 0; b < node.children.size; ++b)
-					{
-						DataNode child = node.children[b];
-						if (child.value != null) comp.SetSerializableField(child.name, child.value);
-					}
-				}
-			}
-		}
-
-		DataNode meshNode = root.GetChild("Mesh");
-
-		if (meshNode != null)
-		{
-			MeshFilter filter = go.GetComponent<MeshFilter>();
-			if (filter == null) filter = go.AddComponent<MeshFilter>();
-
-			string s = meshNode.Get<string>();
-
-			if (!string.IsNullOrEmpty(s))
-			{
-				Mesh mesh = Resources.Load<Mesh>(s);
-				if (mesh != null) filter.sharedMesh = mesh;
-			}
-
-			if (filter.sharedMesh == null)
-			{
-				Mesh mesh = new Mesh();
-				mesh.name = go.name;
-				mesh.Deserialize(meshNode);
-				filter.sharedMesh = mesh;
-			}
-		}
-
-		DataNode matNode = root.GetChild("Material");
-
-		if (matNode != null)
-		{
-			string s = matNode.Get<string>();
-
-			if (!string.IsNullOrEmpty(s))
-			{
-				Material mat = Resources.Load<Material>(s);
-
-				if (mat != null)
-				{
-					MeshRenderer ren = go.GetComponent<MeshRenderer>();
-					if (ren == null) ren = go.AddComponent<MeshRenderer>();
-					ren.sharedMaterial = mat;
-				}
-			}
-		}
-
-		DataNode colNode = root.GetChild("Collider");
-
-		if (colNode != null)
-		{
-			string s = colNode.Get<string>();
-
-			if (s == "Box")
-			{
-				BoxCollider col = go.GetComponent<BoxCollider>();
-				if (col == null) col = go.AddComponent<BoxCollider>();
-				col.center = colNode.GetChild<Vector3>("center");
-				col.size = colNode.GetChild<Vector3>("size", Vector3.one);
-			}
-			else if (s == "Sphere")
-			{
-				SphereCollider col = go.GetComponent<SphereCollider>();
-				if (col == null) col = go.AddComponent<SphereCollider>();
-				col.center = colNode.GetChild<Vector3>("center");
-				col.radius = colNode.GetChild<float>("radius", 1f);
-			}
-			else if (s == "Capsule")
-			{
-				CapsuleCollider col = go.GetComponent<CapsuleCollider>();
-				if (col == null) col = go.AddComponent<CapsuleCollider>();
-				col.center = colNode.GetChild<Vector3>("center");
-				col.radius = colNode.GetChild<float>("radius", 1f);
-				col.height = colNode.GetChild<float>("height", 1f);
-				col.direction = colNode.GetChild<int>("direction");
-			}
-		}
-
-		DataNode rbNode = root.GetChild("Rigidbody");
-
-		if (rbNode != null)
-		{
-			Rigidbody rb = go.GetComponent<Rigidbody>();
-			if (rb == null) rb = go.AddComponent<Rigidbody>();
-			rb.mass = rbNode.GetChild<float>("mass", 1f);
-			rb.drag = rbNode.GetChild<float>("drag");
-			rb.angularDrag = rbNode.GetChild<float>("angularDrag");
-			rb.interpolation = (RigidbodyInterpolation)rbNode.GetChild<int>("interpolation");
-			rb.collisionDetectionMode = (CollisionDetectionMode)rbNode.GetChild<int>("detection");
-			rb.isKinematic = rbNode.GetChild<bool>("kinematic");
-			rb.useGravity = rbNode.GetChild<bool>("gravity", true);
-		}
-
-		if (fullHierarchy)
-		{
-			DataNode childNode = root.GetChild("Children");
-
-			if (childNode != null && childNode.children.size > 0)
-			{
-				for (int i = 0; i < childNode.children.size; ++i)
-				{
-					DataNode node = childNode.children[i];
-					GameObject child = removeDuplicates ? go.GetChild(node.name) : null;
-
-					if (child == null)
-					{
-						if (node.value != null)
-						{
-							GameObject prefab = UnityTools.LoadResource(node.Get<string>()) as GameObject;
-							if (prefab != null) child = GameObject.Instantiate(prefab) as GameObject;
-						}
-
-						if (child == null) child = new GameObject();
-						child.name = node.name;
-
-						Transform t = child.transform;
-						t.parent = trans;
-						t.localPosition = Vector3.zero;
-						t.localRotation = Quaternion.identity;
-						t.localScale = Vector3.one;
-					}
-
-					child.Deserialize(node, fullHierarchy);
-				}
-			}
-		}
-	}
-
-	static void Add (DataNode node, string name, System.Array obj)
-	{
-		if (obj != null && obj.Length > 0) node.AddChild(name, obj);
-	}
-
-	/// <summary>
-	/// Serialize the entire mesh into the specified DataNode.
-	/// </summary>
-
-	static public void Serialize (this Mesh mesh, DataNode node)
-	{
-		Add(node, "vertices", mesh.vertices);
-		Add(node, "normals", mesh.normals);
-		Add(node, "uv1", mesh.uv);
-		Add(node, "uv2", mesh.uv2);
-		Add(node, "tangents", mesh.tangents);
-		Add(node, "colors", mesh.colors32);
-		Add(node, "triangles", mesh.triangles);
-	}
-
-	/// <summary>
-	/// Set the mesh from the specified DataNode.
-	/// </summary>
-
-	static public void Deserialize (this Mesh mesh, DataNode node)
-	{
-		mesh.Clear();
-
-		Vector3[] verts = node.GetChild<Vector3[]>("vertices");
-		if (verts != null) mesh.vertices = verts;
-
-		Vector3[] normals = node.GetChild<Vector3[]>("normals");
-		if (normals != null) mesh.normals = normals;
-
-		Vector2[] uv1 = node.GetChild<Vector2[]>("uv1");
-		if (uv1 != null) mesh.uv = uv1;
-
-		Vector2[] uv2 = node.GetChild<Vector2[]>("uv2");
-		if (uv2 != null) mesh.uv2 = uv2;
-
-		Vector4[] tangents = node.GetChild<Vector4[]>("tangents");
-		if (tangents != null) mesh.tangents = tangents;
-
-		Color32[] colors = node.GetChild<Color32[]>("colors");
-		if (colors != null) mesh.colors32 = colors;
-
-		int[] triangles = node.GetChild<int[]>("triangles");
-		if (triangles != null) mesh.triangles = triangles;
-
-		mesh.RecalculateBounds();
-	}
-#endif
-#else
-	/// <summary>
-	/// Set the specified field's value using reflection.
-	/// </summary>
-
-	static public bool SetSerializableField (this object obj, string name, object value)
-	{
-		Debug.LogError("Can't assign " + obj.GetType() + "." + name + " (reflection is not supported on this platform)");
-		return false;
-	}
-#endif
-	#region Write
 	/// <summary>
 	/// Write an integer value using the smallest number of bytes possible.
 	/// </summary>
@@ -1017,6 +779,59 @@ public static class Serialization
 	}
 
 	/// <summary>
+	/// Write a matrix value to the stream.
+	/// </summary>
+
+	static public void Write (this BinaryWriter writer, Matrix4x4 mat)
+	{
+		writer.Write(mat.m00);
+		writer.Write(mat.m10);
+		writer.Write(mat.m20);
+		writer.Write(mat.m30);
+
+		writer.Write(mat.m01);
+		writer.Write(mat.m11);
+		writer.Write(mat.m21);
+		writer.Write(mat.m31);
+
+		writer.Write(mat.m02);
+		writer.Write(mat.m12);
+		writer.Write(mat.m22);
+		writer.Write(mat.m32);
+
+		writer.Write(mat.m03);
+		writer.Write(mat.m13);
+		writer.Write(mat.m23);
+		writer.Write(mat.m33);
+	}
+
+	/// <summary>
+	/// Write a bone weight value to the stream.
+	/// </summary>
+
+	static public void Write (this BinaryWriter writer, BoneWeight w)
+	{
+		writer.Write((byte)w.boneIndex0);
+		writer.Write((byte)w.boneIndex1);
+		writer.Write((byte)w.boneIndex2);
+		writer.Write((byte)w.boneIndex3);
+		writer.Write(w.weight0);
+		writer.Write(w.weight1);
+		writer.Write(w.weight2);
+		writer.Write(w.weight3);
+	}
+
+	/// <summary>
+	/// Write a bone weight value to the stream.
+	/// </summary>
+
+	static public void Write (this BinaryWriter writer, Bounds b)
+	{
+		writer.Write(b.center);
+		writer.Write(b.size);
+	}
+
+	/// <summary>
 	/// Get the identifier prefix for the specified type.
 	/// If this is not one of the common types, the returned value will be 254 if reflection is supported and 255 otherwise.
 	/// </summary>
@@ -1045,6 +860,9 @@ public static class Serialization
 		if (type == typeof(long)) return 18;
 		if (type == typeof(ulong)) return 19;
 		if (type == typeof(ObsInt)) return 20;
+		if (type == typeof(Matrix4x4)) return 21;
+		if (type == typeof(BoneWeight)) return 22;
+		if (type == typeof(Bounds)) return 23;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -1067,6 +885,9 @@ public static class Serialization
 		if (type == typeof(long[])) return 118;
 		if (type == typeof(ulong[])) return 119;
 		if (type == typeof(ObsInt[])) return 120;
+		if (type == typeof(Matrix4x4[])) return 121;
+		if (type == typeof(BoneWeight[])) return 122;
+		if (type == typeof(Bounds[])) return 123;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -1187,6 +1008,10 @@ public static class Serialization
 			return;
 		}
 
+#if !STANDALONE
+		// AnimationCurve should be sent as an array of Vector4 values since it's not serializable on its own
+		if (obj is AnimationCurve) obj = ConvertValue(obj, typeof(Vector4[]));
+#endif
 		// The object implements IBinarySerializable
 		if (obj is IBinarySerializable)
 		{
@@ -1344,6 +1169,9 @@ public static class Serialization
 			case 18: bw.Write((long)obj); break;
 			case 19: bw.Write((ulong)obj); break;
 			case 20: bw.Write(((ObsInt)obj).obscured); break;
+			case 21: bw.Write((Matrix4x4)obj); break;
+			case 22: bw.Write((BoneWeight)obj); break;
+			case 23: bw.Write((Bounds)obj); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -1480,6 +1308,27 @@ public static class Serialization
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i].obscured);
 				break;
 			}
+			case 121:
+			{
+				Matrix4x4[] arr = (Matrix4x4[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 122:
+			{
+				BoneWeight[] arr = (BoneWeight[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 123:
+			{
+				Bounds[] arr = (Bounds[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
 			case 254: // Serialization using Reflection
 			{
 #if REFLECTION_SUPPORT
@@ -1546,16 +1395,6 @@ public static class Serialization
 		}
 	}
 #endif
-
-	/// <summary>
-	/// Helper extension that returns 'true' if the type implements the specified interface.
-	/// </summary>
-
-	static public bool Implements (this Type t, Type interfaceType)
-	{
-		if (interfaceType == null) return false;
-		return interfaceType.IsAssignableFrom(t);
-	}
 
 #endregion
 #region Read
@@ -1689,6 +1528,64 @@ public static class Serialization
 	}
 
 	/// <summary>
+	/// Read a previously serialized matrix from the stream.
+	/// </summary>
+
+	static public Matrix4x4 ReadMatrix (this BinaryReader reader)
+	{
+		Matrix4x4 m = new Matrix4x4();
+		m.m00 = reader.ReadSingle();
+		m.m10 = reader.ReadSingle();
+		m.m20 = reader.ReadSingle();
+		m.m30 = reader.ReadSingle();
+
+		m.m01 = reader.ReadSingle();
+		m.m11 = reader.ReadSingle();
+		m.m21 = reader.ReadSingle();
+		m.m31 = reader.ReadSingle();
+
+		m.m02 = reader.ReadSingle();
+		m.m12 = reader.ReadSingle();
+		m.m22 = reader.ReadSingle();
+		m.m32 = reader.ReadSingle();
+
+		m.m03 = reader.ReadSingle();
+		m.m13 = reader.ReadSingle();
+		m.m23 = reader.ReadSingle();
+		m.m33 = reader.ReadSingle();
+		return m;
+	}
+
+	/// <summary>
+	/// Read a previously serialized bounds struct.
+	/// </summary>
+
+	static public Bounds ReadBounds (this BinaryReader reader)
+	{
+		Vector3 center = reader.ReadVector3();
+		Vector3 size = reader.ReadVector3();
+		return new Bounds(center, size);
+	}
+
+	/// <summary>
+	/// Read a previously serialized bone weight from the stream.
+	/// </summary>
+
+	static public BoneWeight ReadBoneWeight (this BinaryReader reader)
+	{
+		BoneWeight w = new BoneWeight();
+		w.boneIndex0 = reader.ReadByte();
+		w.boneIndex1 = reader.ReadByte();
+		w.boneIndex2 = reader.ReadByte();
+		w.boneIndex3 = reader.ReadByte();
+		w.weight0 = reader.ReadSingle();
+		w.weight1 = reader.ReadSingle();
+		w.weight2 = reader.ReadSingle();
+		w.weight3 = reader.ReadSingle();
+		return w;
+	}
+
+	/// <summary>
 	/// Read a previously encoded type from the reader.
 	/// </summary>
 
@@ -1779,6 +1676,9 @@ public static class Serialization
 				obs.obscured = reader.ReadInt32();
 				return obs;
 			}
+			case 21: return reader.ReadMatrix();
+			case 22: return reader.ReadBoneWeight();
+			case 23: return reader.ReadBounds();
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -2004,6 +1904,27 @@ public static class Serialization
 				for (int b = 0; b < elements; ++b) arr[b].obscured = reader.ReadInt32();
 				return arr;
 			}
+			case 121:
+			{
+				int elements = reader.ReadInt();
+				Matrix4x4[] arr = new Matrix4x4[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadMatrix();
+				return arr;
+			}
+			case 122:
+			{
+				int elements = reader.ReadInt();
+				BoneWeight[] arr = new BoneWeight[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBoneWeight();
+				return arr;
+			}
+			case 123:
+			{
+				int elements = reader.ReadInt();
+				Bounds[] arr = new Bounds[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBounds();
+				return arr;
+			}
 			case 253:
 			{
 				IBinarySerializable ser = (obj != null) ? (IBinarySerializable)obj : (IBinarySerializable)type.Create();
@@ -2036,15 +1957,8 @@ public static class Serialization
 							continue;
 						}
 
-						// Try to find this field
-						FieldInfo fi = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
 						// Read the value
-						object val = reader.ReadObject();
-
-						// Assign the value
-						if (fi != null) fi.SetValue(obj, Serialization.ConvertValue(val, fi.FieldType));
-						else Tools.LogError("Unable to set field " + type + "." + fieldName);
+						obj.SetValue(fieldName, reader.ReadObject());
 					}
 				}
 				return obj;
@@ -2077,7 +1991,6 @@ public static class Serialization
 		return null;
 #endif
 	}
-
 #endregion
 }
 }

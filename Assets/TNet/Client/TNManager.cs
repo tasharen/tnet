@@ -42,16 +42,6 @@ public class TNManager : MonoBehaviour
 	static TNManager mInstance;
 	static int mObjectOwner = -1;
 
-	public delegate void OnLoadGameObject (string path, ref GameObject go);
-
-	/// <summary>
-	/// If you need to replace Resources.Load with your own custom callback, subscribe to this delegate.
-	/// Note that a reference is used to make it possible for multiple subscribers (read: game mods).
-	/// Check the referenced value and exit out early if it has already been set.
-	/// </summary>
-
-	static public OnLoadGameObject onLoadGameObject;
-
 	/// <summary>
 	/// List of objects that can be instantiated by the network.
 	/// </summary>
@@ -865,6 +855,7 @@ public class TNManager : MonoBehaviour
 			
 			if (go != null)
 			{
+				go.SetActive(true);
 				TNObject tno = go.GetComponent<TNObject>();
 				
 				if (tno != null)
@@ -885,7 +876,7 @@ public class TNManager : MonoBehaviour
 
 	static public void CreateEx (int rccID, bool persistent, string path, params object[] objs)
 	{
-		GameObject go = LoadGameObject(path);
+		GameObject go = UnityTools.LoadPrefab(path);
 
 		if (go != null)
 		{
@@ -921,6 +912,7 @@ public class TNManager : MonoBehaviour
 
 			if (go != null)
 			{
+				go.SetActive(true);
 				TNObject tno = go.GetComponent<TNObject>();
 
 				if (tno != null)
@@ -1054,14 +1046,36 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Built-in Remote Creation Calls.
+	/// Built-in Remote Creation Call.
 	/// </summary>
 
-	[RCC(0)] static GameObject OnCreate0 (GameObject go) { return Instantiate(go) as GameObject; }
-	[RCC(1)] static GameObject OnCreate1 (GameObject go, Vector3 pos, Quaternion rot) { return Instantiate(go, pos, rot) as GameObject; }
+	[RCC(0)] static GameObject OnCreate0 (GameObject go)
+	{
+		go = Instantiate(go) as GameObject;
+		go.SetActive(true);
+		return go;
+	}
+
+	/// <summary>
+	/// Built-in Remote Creation Call.
+	/// </summary>
+
+	[RCC(1)] static GameObject OnCreate1 (GameObject go, Vector3 pos, Quaternion rot)
+	{
+		go = Instantiate(go, pos, rot) as GameObject;
+		go.SetActive(true);
+		return go;
+	}
+
+	/// <summary>
+	/// Built-in Remote Creation Call.
+	/// </summary>
+	
 	[RCC(2)] static GameObject OnCreate2 (GameObject go, Vector3 pos, Quaternion rot, Vector3 velocity, Vector3 angularVelocity)
 	{
-		return UnityTools.Instantiate(go, pos, rot, velocity, angularVelocity);
+		go = UnityTools.Instantiate(go, pos, rot, velocity, angularVelocity);
+		go.SetActive(true);
+		return go;
 	}
 
 	/// <summary>
@@ -1175,6 +1189,40 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Write the specified data into a local cache file belonging to connected server.
+	/// </summary>
+
+	static public bool WriteCache (string path, byte[] data, bool inMyDocuments = false)
+	{
+		if (isConnected)
+		{
+			IPEndPoint ip = tcpEndPoint;
+			string addr = ip.Address + ":" + ip.Port;
+			int code = addr.GetHashCode();
+			if (code < 0) code = -code;
+			return Tools.WriteFile("Temp/" + code + "/" + path, data, inMyDocuments, false);
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Read the specified file from the cache belonging to the connected server.
+	/// </summary>
+
+	static public byte[] ReadCache (string path)
+	{
+		if (isConnected)
+		{
+			IPEndPoint ip = tcpEndPoint;
+			string addr = ip.Address + ":" + ip.Port;
+			int code = addr.GetHashCode();
+			if (code < 0) code = -code;
+			return Tools.ReadFile("Temp/" + code + "/" + path);
+		}
+		return null;
+	}
+
 #region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
 	/// <summary>
@@ -1259,32 +1307,6 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Load a game object at the specified path in the Resources folder.
-	/// </summary>
-
-	static GameObject LoadGameObject (string path)
-	{
-		if (string.IsNullOrEmpty(path))
-		{
-#if UNITY_EDITOR
-			Debug.LogError("[TNet] Null path passed to TNManager.LoadGameObject!");
-#endif
-			return null;
-		}
-
-		GameObject go = null;
-
-		if (onLoadGameObject != null) onLoadGameObject(path, ref go);
-		if (go == null) go = Resources.Load(path, typeof(GameObject)) as GameObject;
-
-#if UNITY_EDITOR
-		if (go == null)
-			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
-#endif
-		return go;
-	}
-
-	/// <summary>
 	/// RequestCreate flag.
 	/// 0 = Local-only object. Only echoed to other clients.
 	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
@@ -1328,7 +1350,7 @@ public class TNManager : MonoBehaviour
 		{
 			// Load the object from the resources folder
 			string str = reader.ReadString();
-			go = LoadGameObject(str);
+			go = UnityTools.LoadPrefab(str);
 		}
 		else if (index >= 0 && index < objects.Length)
 		{
@@ -1344,22 +1366,27 @@ public class TNManager : MonoBehaviour
 		// Create the object
 		go = CreateGameObject(go, reader);
 
-		// If an object ID was requested, assign it to the TNObject
-		if (go != null && objectID != 0)
+		if (go != null)
 		{
-			TNObject obj = go.GetComponent<TNObject>();
+			go.SetActive(true);
 
-			if (obj != null)
+			// If an object ID was requested, assign it to the TNObject
+			if (objectID != 0)
 			{
-				obj.uid = objectID;
-				obj.Register();
-			}
-			else
-			{
-				Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
+				TNObject obj = go.GetComponent<TNObject>();
+
+				if (obj != null)
+				{
+					obj.uid = objectID;
+					obj.Register();
+				}
+				else
+				{
+					Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
+				}
 			}
 		}
-		else if (go == null) mOrphaned.Add(objectID);
+		else mOrphaned.Add(objectID);
 		mObjectOwner = -1;
 	}
 
@@ -1377,7 +1404,9 @@ public class TNManager : MonoBehaviour
 			if (type == 0)
 			{
 				// Just a plain game object
-				return Instantiate(prefab) as GameObject;
+				GameObject go = Instantiate(prefab) as GameObject;
+				go.SetActive(true);
+				return go;
 			}
 			else
 			{

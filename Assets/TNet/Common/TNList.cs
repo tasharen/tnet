@@ -141,6 +141,28 @@ public class List<T> : TList
 	}
 
 	/// <summary>
+	/// Add the specified item to the end of the list.
+	/// </summary>
+
+	public void Add (T item, bool unique)
+	{
+		if (unique && Contains(item)) return;
+		if (buffer == null || size == buffer.Length) AllocateMore();
+		buffer[size++] = item;
+	}
+
+	/// <summary>
+	/// Add the specified item to the end of the list.
+	/// </summary>
+
+	public void Add (object item, bool unique)
+	{
+		if (unique && Contains((T)item)) return;
+		if (buffer == null || size == buffer.Length) AllocateMore();
+		buffer[size++] = (T)item;
+	}
+
+	/// <summary>
 	/// Insert an item at the specified index, pushing the entries back.
 	/// </summary>
 
