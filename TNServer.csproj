@@ -70,6 +70,7 @@
     <Compile Include="Assets\TNet\Common\TNTools.cs" />
     <Compile Include="Assets\TNet\Common\TNUdpProtocol.cs" />
     <Compile Include="Assets\TNet\Common\TNUPnP.cs" />
+    <Compile Include="Assets\TNet\Common\TypeExtensions.cs" />
     <Compile Include="Assets\TNet\Server\TNChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNFileServer.cs" />
     <Compile Include="Assets\TNet\Server\TNLobbyLink.cs" />

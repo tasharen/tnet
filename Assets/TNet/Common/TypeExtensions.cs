@@ -160,7 +160,7 @@ static public class TypeExtensions
 				mAssemblyTypes[asm] = tpl;
 			}
 #if STANDALONE
-				catch (Exception ex) {}
+			catch (Exception) {}
 #else
 			catch (Exception ex)
 			{
