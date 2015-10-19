@@ -73,7 +73,7 @@ public class TNAutoSyncInspector : Editor
 
 		for (int i = 0, imax = comps.Length; i < imax; ++i)
 		{
-			if (comps[i] != sync && comps[i].GetType() != typeof(TNObject))
+			if (comps[i] != null && comps[i] != sync && comps[i].GetType() != typeof(TNObject))
 			{
 				list.Add(comps[i]);
 			}

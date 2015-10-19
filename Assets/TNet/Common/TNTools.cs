@@ -685,10 +685,22 @@ static public class Tools
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		string docs = persistentDataPath;
-		if (!string.IsNullOrEmpty(applicationDirectory))
-			docs = Path.Combine(docs, applicationDirectory).Replace("\\", "/");
-		path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
-		path = path.Replace("\\", "/");
+		try
+		{
+			if (!string.IsNullOrEmpty(applicationDirectory))
+				docs = Path.Combine(docs, applicationDirectory).Replace("\\", "/");
+			path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+			path = path.Replace("\\", "/");
+		}
+		catch (System.Exception ex)
+		{
+ #if UNITY_EDITOR
+			UnityEngine.Debug.LogError(ex.Message.Trim() + "\n" + path + "\n" + ex.StackTrace.Replace("\r\n", "\n"));
+ #else
+			LogError(ex.Message + " (" + path + ")", ex.StackTrace.Replace("\r\n", "\n"), false);
+ #endif
+			return null;
+		}
 #endif
 		return path;
 	}

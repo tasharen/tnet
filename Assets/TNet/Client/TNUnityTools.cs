@@ -352,21 +352,6 @@ static public class UnityTools
 	public delegate UnityEngine.Object LoadExFunc (string path, System.Type type, string name);
 	public delegate byte[] LoadBinaryFunc (string path);
 
-	static Assembly[] mCachedAssemblies = null;
-
-	/// <summary>
-	/// Get the cached list of currently loaded assemblies.
-	/// </summary>
-
-	static public Assembly[] GetAssemblies (bool update = false)
-	{
-		if (mCachedAssemblies == null || update)
-		{
-			mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
-		}
-		return mCachedAssemblies;
-	}
-
 	static System.Collections.Generic.Dictionary<string, System.Type> mTypeCache =
 		new System.Collections.Generic.Dictionary<string, System.Type>();
 
@@ -393,7 +378,7 @@ static public class UnityTools
 
 			if (t == null)
 			{
-				Assembly[] asm = GetAssemblies();
+				Assembly[] asm = TypeExtensions.GetAssemblies();
 
 				for (int i = 0, imax = asm.Length; i < imax; ++i)
 				{
@@ -600,13 +585,12 @@ static public class UnityTools
 		System.Type t = System.Type.GetType(name);
 		if (t != null) return t;
 
-		foreach (System.Reflection.Assembly assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+		List<System.Type> types = TypeExtensions.GetTypes();
+
+		foreach (System.Type type in types)
 		{
-			foreach (System.Type type in assembly.GetTypes())
-			{
-				if (type.Name == name)
-					return type;
-			}
+			if (type.Name == name)
+				return type;
 		}
 		return null;
 	}
@@ -884,14 +868,14 @@ static public class UnityTools
 	/// Read a PNG file from the specified location. Expects a full path with extension.
 	/// </summary>
 
-	static public Texture2D ReadPNG (string path)
+	static public Texture2D ReadPNG (string path, Texture2D existing = null)
 	{
 		Texture2D tex = null;
 		byte[] bytes = Tools.ReadFile(path);
 
 		if (bytes != null)
 		{
-			tex = new Texture2D(2, 2);
+			tex = existing ?? new Texture2D(2, 2);
 
 			if (tex.LoadImage(bytes))
 			{
@@ -902,8 +886,11 @@ static public class UnityTools
 				return tex;
 			}
 
-			if (Application.isPlaying) Object.Destroy(tex);
-			else Object.DestroyImmediate(tex);
+			if (existing == null)
+			{
+				if (Application.isPlaying) Object.Destroy(tex);
+				else Object.DestroyImmediate(tex);
+			}
 		}
 		return null;
 	}

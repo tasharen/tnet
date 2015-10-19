@@ -1696,29 +1696,5 @@ public class DataNode
 		return new Color32(r, g, b, a);
 	}
 #endregion
-
-#if !STANDALONE
-
-	/// <summary>
-	/// Deserialize the specified type.
-	/// The "void Deserialize (DataNode)" function or extension will be called on the created object.
-	/// </summary>
-
-	public T Deserialize<T> ()
-	{
-		T obj = typeof(T).Create();
-		obj.Invoke("Deserialize", this);
-		return obj;
-	}
-
-	static Dictionary<int, UnityEngine.Object> mLoadedObjects = new Dictionary<int, UnityEngine.Object>();
-
-	static public UnityEngine.Object GetObject (int id)
-	{
-		UnityEngine.Object obj;
-		if (mLoadedObjects.TryGetValue(id, out obj) && obj) return obj;
-		return null;
-	}
-#endif
 }
 }

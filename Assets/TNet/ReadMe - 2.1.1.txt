@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
     Copyright © 2012-2015 Tasharen Entertainment
-                  Version 2.1.1
+                  Version 3.0.0
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -70,6 +70,23 @@ http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
  Version History
 -----------------------------------------------------
+
+3.0.0
+- NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
+- NEW: TNet now seamlessly supports instantiation of DataNode-exported objects as if they were prefabs both via TNManager.Create as well as manually via DataNode.Instantiate().
+- NEW: TNBehaviour-derived scripts will now try to find the TNObject in Start() if it was not found in OnEnable.
+- NEW: Added TNManager.WriteCache and TNManager.ReadCache for when you want to store server-specific files on the client side, such as downloaded textures.
+- NEW: All of TNet's resource loading and type retrieval functions can now be overwritten via TNet.UnityTools in case you want to expand it / limit it somehow. Example: support loading data from mod folders.
+- NEW: Added UnityTools.LoadPrefab(path) that is able to load both prefabs as well as DataNode-exported data files.
+- NEW: Added a variety of extensions to UnityTools, such as GameObject.AddChild(prefab) and Transform.GetHierarchy(target).
+- NEW: UnityTools.GetMD5Hash() can be used to compute a checksum of data. Example usage: check the local hash against server's before downloading a large file.
+- NEW: DataNode.GetHierarchy("Full/Path/To/Node") and DataNode.SetHierarchy("Full/Path/To/Node", value).
+- NEW: Expanded DataNode serialization of data, making it capable of serializing everything from common types to meshes, materials, textures, references to objects, and much more.
+- NEW: Added System.Type extension methods such as Type.GetMethodOrExtension that's capable of searching all loaded assemblies for a desired extension.
+- NEW: All types can now be made serializable into DataNode without deriving from an interface by simply adding an extension to their class such as "void Serialize (this Type, DataNode)". Look inside TNUnitySerializers for examples. Same with deserialization by adding a Deserialize extension.
+- NEW: Added object.Invoke("method", params) extension for convenience.
+- NEW: Added Unity menu options that can be used to export/import the selected object as a DataNode binary. Look for them in the Assets/DataNode submenu.
+- FIX: Changing server options now immediately saves the server's configuration.
 
 2.1.1
 - NEW: DataNode now has limited Game Object serialization functionality. All MonoBehaviour script properties can be serialized, as well as common Unity types: collider, rigidbody, mesh, renderer. Optimal use: saving entire game objects into an easy to read/modify text format on disk.

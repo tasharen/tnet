@@ -136,6 +136,62 @@ static public class TypeExtensions
 		return ci.method;
 	}
 
+	static Assembly[] mCachedAssemblies = null;
+	static List<Type> mCachedTypes = null;
+	static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
+
+	static void CacheTypes ()
+	{
+		mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+
+		List<Assembly> refined = new List<Assembly>();
+		mAssemblyTypes = new Dictionary<Assembly, Type[]>();
+		mCachedTypes = new List<Type>();
+
+		foreach (Assembly asm in mCachedAssemblies)
+		{
+			if (asm.FullName.StartsWith("Mono.")) continue;
+
+			try
+			{
+				Type[] tpl = asm.GetTypes();
+				foreach (Type t in tpl) mCachedTypes.Add(t);
+				refined.Add(asm);
+				mAssemblyTypes[asm] = tpl;
+			}
+#if STANDALONE
+				catch (Exception ex) {}
+#else
+			catch (Exception ex)
+			{
+				UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
+			}
+#endif
+		}
+
+		mCachedAssemblies = refined.ToArray();
+	}
+
+	/// <summary>
+	/// Get the cached list of currently loaded assemblies.
+	/// </summary>
+
+	static public Assembly[] GetAssemblies (bool update = false)
+	{
+		if (mCachedAssemblies == null || update) CacheTypes();
+		return mCachedAssemblies;
+	}
+
+	/// <summary>
+	/// Get the cached list of currently loaded types.
+	/// </summary>
+
+	static public List<Type> GetTypes (bool update = false)
+	{
+		if (mCachedTypes == null || update) CacheTypes();
+		return mCachedTypes;
+	}
+
 	/// <summary>
 	/// Convenience function that retrieves a public or private non-static method with specified parameters.
 	/// </summary>
@@ -151,38 +207,33 @@ static public class TypeExtensions
 
 	static public MethodInfo GetExtensionMethod (this Type type, string name, params Type[] paramTypes)
 	{
-		Assembly[] assList = System.AppDomain.CurrentDomain.GetAssemblies();
+		if (mCachedTypes == null) CacheTypes();
 
-		foreach (Assembly ass in assList)
+		foreach (Type t in mCachedTypes)
 		{
-			Type[] types = ass.GetTypes();
+			MethodInfo[] methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
-			foreach (Type t in types)
+			foreach (MethodInfo m in methods)
 			{
-				MethodInfo[] methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+				if (m.Name != name) continue;
 
-				foreach (MethodInfo m in methods)
+				ParameterInfo[] pts = m.GetParameters();
+
+				if (pts.Length != paramTypes.Length + 1) continue;
+				if (pts[0].ParameterType != type) continue;
+
+				bool isValid = true;
+
+				for (int i = 0; i < paramTypes.Length; ++i)
 				{
-					if (m.Name != name) continue;
-
-					ParameterInfo[] pts = m.GetParameters();
-
-					if (pts.Length != paramTypes.Length + 1) continue;
-					if (pts[0].ParameterType != type) continue;
-
-					bool isValid = true;
-
-					for (int i = 0; i < paramTypes.Length; ++i)
+					if (pts[i + 1].ParameterType != paramTypes[i])
 					{
-						if (pts[i + 1].ParameterType != paramTypes[i])
-						{
-							isValid = false;
-							break;
-						}
+						isValid = false;
+						break;
 					}
-
-					if (isValid) return m;
 				}
+
+				if (isValid) return m;
 			}
 		}
 		return null;
