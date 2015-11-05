@@ -637,7 +637,7 @@ static public class Tools
 		return true;
 #elif !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		// Relative paths are not allowed
-		if (path.Contains("..")) return false;
+		if (path.Contains("../") || path.Contains("..\\")) return false;
 
 		// Config folder is restricted by default
 		if (!allowConfigAccess && path.IndexOf("ServerConfig", System.StringComparison.CurrentCultureIgnoreCase) != -1)
@@ -655,6 +655,9 @@ static public class Tools
 			LogError("Path: " + path + "\n" + ex.Message, ex.StackTrace);
 			return false;
 		}
+
+		// Steam workshop access
+		if (fullPath.Contains("/workshop/content/")) return true;
 
 		// Path is inside the current folder
 		string current = System.Environment.CurrentDirectory.Replace("\\", "/");

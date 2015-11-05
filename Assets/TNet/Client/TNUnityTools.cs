@@ -586,12 +586,12 @@ static public class UnityTools
 		if (t != null) return t;
 
 		List<System.Type> types = TypeExtensions.GetTypes();
+		List<string> names = TypeExtensions.GetTypeNames();
 
-		foreach (System.Type type in types)
-		{
-			if (type.Name == name)
-				return type;
-		}
+		for (int i = 0; i < names.size; ++i)
+			if (names[i] == name || types[i].Name == name)
+				return types[i];
+
 		return null;
 	}
 

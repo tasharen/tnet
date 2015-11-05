@@ -362,7 +362,11 @@ public static class Serialization
 		if (valueType == desiredType) return value;
 		if (desiredType.IsAssignableFrom(valueType)) return value;
 
-		if (valueType == typeof(int))
+		if (desiredType == typeof(string))
+		{
+			return value.ToString();
+		}
+		else if (valueType == typeof(int))
 		{
 			// Integer conversion
 			if (desiredType == typeof(byte)) return (byte)(int)value;
@@ -370,6 +374,7 @@ public static class Serialization
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
 			if (desiredType == typeof(float)) return (float)(int)value;
 			if (desiredType == typeof(long)) return (long)(int)value;
+			if (desiredType == typeof(ulong)) return (ulong)(int)value;
 			if (desiredType == typeof(UInt32)) return (UInt32)(int)value;
 			if (desiredType == typeof(ObsInt)) return new ObsInt((int)value);
 #if !STANDALONE
@@ -387,6 +392,12 @@ public static class Serialization
 		else if (valueType == typeof(long))
 		{
 			if (desiredType == typeof(int)) return (int)(long)value;
+			if (desiredType == typeof(ulong)) return (ulong)(long)value;
+		}
+		else if (valueType == typeof(ulong))
+		{
+			if (desiredType == typeof(int)) return (int)(ulong)value;
+			if (desiredType == typeof(long)) return (long)(ulong)value;
 		}
 		else if (valueType == typeof(ObsInt))
 		{

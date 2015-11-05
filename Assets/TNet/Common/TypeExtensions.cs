@@ -14,6 +14,13 @@ using System.Reflection;
 namespace TNet
 {
 /// <summary>
+/// Can be used to mark fields as ignored by TNet-based serialization.
+/// </summary>
+
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+public sealed class IgnoredByTNet : Attribute { public IgnoredByTNet () { } }
+
+/// <summary>
 /// Static helper class containing useful extensions for the System.Type class.
 /// </summary>
 
@@ -138,6 +145,7 @@ static public class TypeExtensions
 
 	static Assembly[] mCachedAssemblies = null;
 	static List<Type> mCachedTypes = null;
+	static List<string> mCachedTypeNames = null;
 	static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
 
 	static void CacheTypes ()
@@ -147,6 +155,7 @@ static public class TypeExtensions
 		List<Assembly> refined = new List<Assembly>();
 		mAssemblyTypes = new Dictionary<Assembly, Type[]>();
 		mCachedTypes = new List<Type>();
+		mCachedTypeNames = new List<string>();
 
 		foreach (Assembly asm in mCachedAssemblies)
 		{
@@ -155,7 +164,13 @@ static public class TypeExtensions
 			try
 			{
 				Type[] tpl = asm.GetTypes();
-				foreach (Type t in tpl) mCachedTypes.Add(t);
+
+				foreach (Type t in tpl)
+				{
+					mCachedTypes.Add(t);
+					mCachedTypeNames.Add(t.ToString());
+				}
+
 				refined.Add(asm);
 				mAssemblyTypes[asm] = tpl;
 			}
@@ -193,6 +208,16 @@ static public class TypeExtensions
 	}
 
 	/// <summary>
+	/// Get the cached list of currently loaded types.
+	/// </summary>
+
+	static public List<string> GetTypeNames (bool update = false)
+	{
+		if (mCachedTypeNames == null || update) CacheTypes();
+		return mCachedTypeNames;
+	}
+
+	/// <summary>
 	/// Convenience function that retrieves a public or private non-static method with specified parameters.
 	/// </summary>
 
@@ -209,12 +234,14 @@ static public class TypeExtensions
 	{
 		if (mCachedTypes == null) CacheTypes();
 
-		foreach (Type t in mCachedTypes)
+		for (int b = 0; b < mCachedTypes.size; ++b)
 		{
+			Type t = mCachedTypes[b];
 			MethodInfo[] methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
-			foreach (MethodInfo m in methods)
+			for (int im = 0, imm = methods.Length; im < imm; ++im)
 			{
+				MethodInfo m = methods[im];
 				if (m.Name != name) continue;
 
 				ParameterInfo[] pts = m.GetParameters();
@@ -297,6 +324,7 @@ static public class TypeExtensions
 
 				// Don't do anything with static fields
 				if ((field.Attributes & FieldAttributes.Static) != 0) continue;
+				if (field.IsDefined(typeof(IgnoredByTNet), true)) continue;
 #if !STANDALONE
 				// Ignore fields that were not marked as serializable
 				if (!field.IsDefined(typeof(UnityEngine.SerializeField), true))
@@ -376,8 +404,8 @@ static public class TypeExtensions
 				PropertyInfo prop = props[i];
 				if (!prop.CanRead || !prop.CanWrite) continue;
 
-				if (prop.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
 				if (prop.IsDefined(typeof(System.ObsoleteAttribute), true)) continue;
+				if (prop.IsDefined(typeof(IgnoredByTNet), true)) continue;
 
 				// It's a valid serializable property
 				list.Add(prop);

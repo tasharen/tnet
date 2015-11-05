@@ -300,7 +300,7 @@ public class DataNode
 	/// Set a node's value given its hierarchical path.
 	/// </summary>
 
-	public void SetHierarchy (string path, object obj)
+	public DataNode SetHierarchy (string path, object obj)
 	{
 		path = path.Replace("\\", "/");
 		string[] names = path.Split('/');
@@ -330,6 +330,7 @@ public class DataNode
 		}
 
 		node.value = obj;
+		return node;
 	}
 
 	/// <summary>
@@ -723,11 +724,11 @@ public class DataNode
 			return;
 		}
 
-		if (type == typeof(long))
+		if (type == typeof(long) || type == typeof(ulong))
 		{
 			if (name != null) writer.Write(" = ");
 			writer.Write(value.ToString());
-			writer.Write("L\n");
+			writer.Write("\n");
 			return;
 		}
 
@@ -1074,6 +1075,7 @@ public class DataNode
 		if (string.IsNullOrEmpty(line))
 			return SetValue(line, type, null);
 
+		// Legacy, no longer used
 		if (line.Length > 1 && line[line.Length - 1] == 'L')
 		{
 			long lv;
@@ -1163,13 +1165,32 @@ public class DataNode
 				{
 					int i;
 
-					if (int.TryParse(line, out i))
+					if (line.Length < 12 && int.TryParse(line, out i))
 					{
 						if (type == typeof(byte)) mValue = (byte)i;
 						else if (type == typeof(short)) mValue = (short)i;
 						else if (type == typeof(ushort)) mValue = (ushort)i;
 						else mValue = i;
 						return true;
+					}
+					else
+					{
+						long l;
+						ulong ul;
+
+						if (line[0] == '-')
+						{
+							if (long.TryParse(line, out l))
+							{
+								mValue = l;
+								return true;
+							}
+						}
+						else if (ulong.TryParse(line, out ul))
+						{
+							mValue = ul;
+							return true;
+						}
 					}
 				}
 			}
@@ -1244,6 +1265,16 @@ public class DataNode
 		{
 			UInt32 b;
 			if (UInt32.TryParse(text, out b)) mValue = b;
+		}
+		else if (type == typeof(long))
+		{
+			long b;
+			if (long.TryParse(text, out b)) mValue = b;
+		}
+		else if (type == typeof(ulong))
+		{
+			ulong b;
+			if (ulong.TryParse(text, out b)) mValue = b;
 		}
 		else if (type == typeof(float))
 		{
