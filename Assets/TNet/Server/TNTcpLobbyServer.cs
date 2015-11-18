@@ -86,7 +86,11 @@ public class TcpLobbyServer : LobbyServer
 	{
 		if (mThread != null)
 		{
+#if UNITY_IPHONE
+			mThread.Interrupt();
+#else
 			mThread.Abort();
+#endif
 			mThread = null;
 		}
 

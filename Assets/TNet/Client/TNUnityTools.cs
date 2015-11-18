@@ -458,14 +458,14 @@ static public class UnityTools
 	/// This function will only work in the Unity Editor.
 	/// </summary>
 
-	static public string LocateResource (Object obj)
+	static public string LocateResource (Object obj, bool allowPrefabInstances = false)
 	{
 #if UNITY_EDITOR
 		Object prefab = UnityEditor.PrefabUtility.GetPrefabParent(obj) ?? obj;
 
 		if (prefab != null)
 		{
-			if (prefab != obj) return null;
+			if (!allowPrefabInstances && prefab != obj) return null;
 
 			string childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
 
@@ -478,8 +478,8 @@ static public class UnityTools
 					childPrefabPath = childPrefabPath.Substring(index + "/Resources/".Length);
 					childPrefabPath = Tools.GetFilePathWithoutExtension(childPrefabPath).Replace("\\", "/");
 
-					if (Resources.Load(childPrefabPath) != null)
-						return childPrefabPath;
+					Object loaded = Resources.Load(childPrefabPath);
+					if (loaded != null && loaded.GetType() == obj.GetType()) return childPrefabPath;
 				}
 			}
 		}

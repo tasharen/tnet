@@ -97,7 +97,11 @@ public class UPnP
 			for (int i = mThreads.size; i > 0; )
 			{
 				Thread th = mThreads[--i];
+#if UNITY_IPHONE
+				th.Interrupt();
+#else
 				th.Abort();
+#endif
 				mThreads.RemoveAt(i);
 			}
 		}

@@ -736,6 +736,9 @@ public static class ComponentSerialization
 			Shader s = mat.shader;
 			if (s == null) continue;
 
+			string matPath = UnityTools.LocateResource(mat);
+			if (!string.IsNullOrEmpty(matPath)) continue;
+
 			int props = UnityEditor.ShaderUtil.GetPropertyCount(s);
 
 			for (int b = 0; b < props; ++b)
@@ -782,7 +785,7 @@ public static class ComponentSerialization
 		DataNode root = new DataNode(go.name, go.GetInstanceID());
 
 		// Save a reference to a prefab, if there is one
-		string prefab = UnityTools.LocateResource(go);
+		string prefab = UnityTools.LocateResource(go, !isRootNode);
 		if (!string.IsNullOrEmpty(prefab)) root.AddChild("prefab", prefab);
 
 		// Save the transform and the object's layer

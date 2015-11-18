@@ -298,7 +298,11 @@ public class GameServer : FileServer
 		// Stop the worker thread
 		if (mThread != null)
 		{
+#if UNITY_IPHONE
+			mThread.Interrupt();
+#else
 			mThread.Abort();
+#endif
 			mThread = null;
 		}
 
