@@ -350,14 +350,7 @@ static public class Tools
 		{
 			WebClient web = new WebClient();
 			string text = web.DownloadString(url).Trim();
-			string[] split1 = text.Split(':');
-
-			if (split1.Length >= 2)
-			{
-				string[] split2 = split1[1].Trim().Split('<');
-				mExternalAddress = ResolveAddress(split2[0]);
-			}
-			else mExternalAddress = ResolveAddress(text);
+			mExternalAddress = ResolveAddress(text);
 
 			if (mExternalAddress != null)
 			{

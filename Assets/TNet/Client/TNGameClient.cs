@@ -1185,7 +1185,18 @@ public class GameClient
 				OnGetFiles cb = null;
 				if (mGetFiles.TryGetValue(filename, out cb))
 					mGetFiles.Remove(filename);
-				if (cb != null) cb(filename, files);
+
+				if (cb != null)
+				{
+					try
+					{
+						cb(filename, files);
+					}
+					catch (System.Exception ex)
+					{
+						Debug.LogError(ex.Message + ex.StackTrace);
+					}
+				}
 				break;
 			}
 			case Packet.ResponseLoadFile:
@@ -1194,9 +1205,21 @@ public class GameClient
 				int size = reader.ReadInt32();
 				byte[] data = reader.ReadBytes(size);
 				OnLoadFile cb = null;
+
 				if (mLoadFiles.TryGetValue(filename, out cb))
 					mLoadFiles.Remove(filename);
-				if (cb != null) cb(filename, data);
+
+				if (cb != null)
+				{
+					try
+					{
+						cb(filename, data);
+					}
+					catch (System.Exception ex)
+					{
+						Debug.LogError(ex.Message + ex.StackTrace);
+					}
+				}
 				break;
 			}
 			case Packet.ResponseServerOptions:
