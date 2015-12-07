@@ -713,7 +713,7 @@ static public class Tools
 
 	static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		if (inMyDocuments) path = GetDocumentsPath(path);
 
 		if (data == null || data.Length == 0)
@@ -726,9 +726,9 @@ static public class Tools
 
 			if (!IsAllowedToAccess(path, allowConfigAccess))
 			{
-#if !STANDALONE
+ #if !STANDALONE
 				UnityEngine.Debug.LogWarning("Unable to write to " + path);
-#endif
+ #endif
 				return false;
 			}
 
@@ -762,8 +762,6 @@ static public class Tools
 			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
  #endif
 		}
-#elif !STANDALONE
-		UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 		return false;
 	}
@@ -774,7 +772,7 @@ static public class Tools
 
 	static public bool WriteFile (string path, MemoryStream data, bool inMyDocuments = false, bool allowConfigAccess = false)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		if (inMyDocuments) path = GetDocumentsPath(path);
 
 		if (!IsAllowedToAccess(path, allowConfigAccess))
@@ -816,18 +814,16 @@ static public class Tools
 				data.WriteTo(fs);
 				fs.Close();
 				if (File.Exists(path)) return true;
-#if !STANDALONE
+ #if !STANDALONE
 				UnityEngine.Debug.LogWarning("Unable to write to " + path);
-#endif
+ #endif
 			}
-#if STANDALONE
+ #if STANDALONE
 			catch (System.Exception) { }
-#else
+ #else
 			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
-#endif
+ #endif
 		}
-#elif !STANDALONE
-		UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 		return false;
 	}
@@ -861,7 +857,7 @@ static public class Tools
 
 	static public bool DeleteFile (string path)
 	{
-#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 		try
 		{
 			path = FindFile(path);

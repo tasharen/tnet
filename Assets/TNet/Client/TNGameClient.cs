@@ -1192,10 +1192,14 @@ public class GameClient
 					{
 						cb(filename, files);
 					}
+#if UNITY_EDITOR
 					catch (System.Exception ex)
 					{
 						Debug.LogError(ex.Message + ex.StackTrace);
 					}
+#else
+					catch (System.Exception) {}
+#endif
 				}
 				break;
 			}
@@ -1215,10 +1219,14 @@ public class GameClient
 					{
 						cb(filename, data);
 					}
+#if UNITY_EDITOR
 					catch (System.Exception ex)
 					{
 						Debug.LogError(ex.Message + ex.StackTrace);
 					}
+#else
+					catch (System.Exception) {}
+#endif
 				}
 				break;
 			}
