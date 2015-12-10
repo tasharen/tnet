@@ -86,6 +86,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: All types can now be made serializable into DataNode without deriving from an interface by simply adding an extension to their class such as "void Serialize (this Type, DataNode)". Look inside TNUnitySerializers for examples. Same with deserialization by adding a Deserialize extension.
 - NEW: Added object.Invoke("method", params) extension for convenience.
 - NEW: Added Unity menu options that can be used to export/import the selected object as a DataNode binary. Look for them in the Assets/DataNode submenu.
+- NEW: Added TNManager.onObjectCreated callback that will be called every time any object gets created.
 - FIX: Changing server options now immediately saves the server's configuration.
 
 2.1.1

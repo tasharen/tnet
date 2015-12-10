@@ -23,6 +23,14 @@ public class TNManager : MonoBehaviour
 
 	static public GameClient.OnPlayerSync onPlayerSync;
 
+	public delegate void OnObjectCreatedFunc (GameObject go);
+
+	/// <summary>
+	/// Custom callback that will be called every time any object gets instantiated.
+	/// </summary>
+
+	static public OnObjectCreatedFunc onObjectCreated;
+
 	/// <summary>
 	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
 	/// </summary>
@@ -1388,6 +1396,9 @@ public class TNManager : MonoBehaviour
 		}
 		else mOrphaned.Add(objectID);
 		mObjectOwner = -1;
+
+		if (onObjectCreated != null)
+			onObjectCreated(go);
 	}
 
 	/// <summary>
@@ -1405,6 +1416,7 @@ public class TNManager : MonoBehaviour
 			{
 				// Just a plain game object
 				GameObject go = Instantiate(prefab) as GameObject;
+				go.name = prefab.name;
 				go.SetActive(true);
 				return go;
 			}

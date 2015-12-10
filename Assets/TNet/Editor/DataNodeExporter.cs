@@ -21,10 +21,10 @@ static internal class DataNodeExporter
 	/// Show a file export dialog.
 	/// </summary>
 
-	static public string ShowExportDialog (string name, string info, string fileName)
+	static public string ShowExportDialog (string name, string fileName)
 	{
 		string currentPath = EditorPrefs.GetString("TNet Path", "Assets/");
-		string path = EditorUtility.SaveFilePanelInProject(name, fileName + ".bytes", "bytes", info, currentPath);
+		string path = EditorUtility.SaveFilePanel(name, currentPath, fileName + ".bytes", "bytes");
 
 		if (!string.IsNullOrEmpty(path))
 			EditorPrefs.SetString("TNet Path", System.IO.Path.GetDirectoryName(path));
@@ -88,7 +88,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", "Specify a file to export to", go.name);
+		string path = ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Text);
 	}
 
@@ -100,7 +100,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", "Specify a file to export to", go.name);
+		string path = ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Binary);
 	}
 
@@ -113,7 +113,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", "Specify a file to export to", go.name);
+		string path = ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Compressed);
 	}
 #endif
