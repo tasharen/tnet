@@ -92,6 +92,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added Unity menu options that can be used to export/import the selected object as a DataNode binary. Look for them in the Assets/DataNode submenu.
 - NEW: Added TNManager.onObjectCreated callback that will be called every time any object gets created.
 - FIX: Changing server options now immediately saves the server's configuration.
+- FIX: TNet will no longer store RFCs for objects that have been deleted.
 
 2.1.1
 - NEW: DataNode now has limited Game Object serialization functionality. All MonoBehaviour script properties can be serialized, as well as common Unity types: collider, rigidbody, mesh, renderer. Optimal use: saving entire game objects into an easy to read/modify text format on disk.

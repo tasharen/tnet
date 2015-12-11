@@ -50,6 +50,11 @@ public class Channel
 	public uint objectCounter = 0xFFFFFF;
 	public TcpPlayer host;
 
+	// Key = Object ID. Value is 'true'. This dictionary is used for a quick lookup checking to see
+	// if the object actually exists. It's used to store RFCs. RFCs for objects that don't exist are not stored.
+	[System.NonSerialized] System.Collections.Generic.Dictionary<uint, bool> mCreatedObjectDictionary =
+		new System.Collections.Generic.Dictionary<uint, bool>();
+
 	/// <summary>
 	/// Whether the channel has data that can be saved.
 	/// </summary>
@@ -63,6 +68,16 @@ public class Channel
 	public bool isOpen { get { return !closed && players.size < playerLimit; } }
 
 	/// <summary>
+	/// Add a new created object to the list. This object's ID must always be above 32767.
+	/// </summary>
+
+	public void AddCreatedObject (CreatedObject obj)
+	{
+		created.Add(obj);
+		mCreatedObjectDictionary[obj.objectID] = true;
+	}
+
+	/// <summary>
 	/// Reset the channel to its initial state.
 	/// </summary>
 
@@ -74,6 +89,7 @@ public class Channel
 		rfcs.Clear();
 		created.Clear();
 		destroyed.Clear();
+		mCreatedObjectDictionary.Clear();
 		objectCounter = 0xFFFFFF;
 	}
 
@@ -100,9 +116,11 @@ public class Channel
 					if (obj.type == 2)
 					{
 						if (obj.buffer != null) obj.buffer.Recycle();
+						uint objID = obj.objectID;
 						created.RemoveAt(i);
-						destroyedObjects.Add(obj.objectID);
-						DestroyObjectRFCs(obj.objectID);
+						if (objID < 32768) destroyedObjects.Add(objID);
+						else mCreatedObjectDictionary.Remove(objID);
+						DestroyObjectRFCs(objID);
 					}
 					else if (players.size != 0)
 					{
@@ -131,25 +149,33 @@ public class Channel
 	/// Remove an object with the specified unique identifier.
 	/// </summary>
 
-	public bool DestroyObject (uint objectID)
+	public bool DestroyObject (uint objID)
 	{
-		if (!destroyed.Contains(objectID))
+		if (objID < 32768)
 		{
+			// Static objects have ID below 32768
+			if (!destroyed.Contains(objID))
+			{
+				destroyed.Add(objID);
+				DestroyObjectRFCs(objID);
+				return true;
+			}
+		}
+		else if (mCreatedObjectDictionary.Remove(objID))
+		{
+			// Dynamic objects are always a part of the 'created' array and the lookup table
 			for (int i = 0; i < created.size; ++i)
 			{
 				Channel.CreatedObject obj = created[i];
 
-				if (obj.objectID == objectID)
+				if (obj.objectID == objID)
 				{
 					if (obj.buffer != null) obj.buffer.Recycle();
 					created.RemoveAt(i);
-					DestroyObjectRFCs(objectID);
+					DestroyObjectRFCs(objID);
 					return true;
 				}
 			}
-			destroyed.Add(objectID);
-			DestroyObjectRFCs(objectID);
-			return true;
 		}
 		return false;
 	}
@@ -178,9 +204,15 @@ public class Channel
 	/// Create a new buffered remote function call.
 	/// </summary>
 
-	public void CreateRFC (uint inID, string funcName, Buffer buffer)
+	public void CreateRFC (uint uid, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
+
+		uint objID = (uid >> 8);
+
+		// Ignore objects that don't exist
+		if (objID < 32768) { if (destroyed.Contains(objID)) return; }
+		else if (!mCreatedObjectDictionary.ContainsKey(objID)) return;
 
 		Buffer b = Buffer.Create();
 		b.BeginWriting(false).Write(buffer.buffer, buffer.position, buffer.size);
@@ -190,7 +222,7 @@ public class Channel
 		{
 			RFC r = rfcs[i];
 
-			if (r.uid == inID && r.functionName == funcName)
+			if (r.uid == uid && r.functionName == funcName)
 			{
 				if (r.buffer != null) r.buffer.Recycle();
 				r.buffer = b;
@@ -199,7 +231,7 @@ public class Channel
 		}
 
 		RFC rfc = new RFC();
-		rfc.uid = inID;
+		rfc.uid = uid;
 		rfc.buffer = b;
 		rfc.functionName = funcName;
 		rfcs.Add(rfc);
@@ -224,9 +256,9 @@ public class Channel
 	}
 
 	// Cached to reduce memory allocations
-	List<uint> mCleanedOBJs = new List<uint>();
-	List<CreatedObject> mCreatedOBJs = new List<CreatedObject>();
-	List<RFC> mCreatedRFCs = new List<RFC>();
+	[System.NonSerialized] List<uint> mCleanedOBJs = new List<uint>();
+	[System.NonSerialized] List<CreatedObject> mCreatedOBJs = new List<CreatedObject>();
+	[System.NonSerialized] List<RFC> mCreatedRFCs = new List<RFC>();
 
 	/// <summary>
 	/// Save the channel's data into the specified file.
@@ -341,9 +373,11 @@ public class Channel
 			RFC r = rfcs[i];
 			if (r.buffer != null) r.buffer.Recycle();
 		}
+
 		rfcs.Clear();
 		created.Clear();
 		destroyed.Clear();
+		mCreatedObjectDictionary.Clear();
 
 		level = reader.ReadString();
 		data = reader.ReadString();
@@ -378,11 +412,16 @@ public class Channel
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 			b.BeginReading();
 			co.buffer = b;
-			created.Add(co);
+			AddCreatedObject(co);
 		}
 
 		size = reader.ReadInt32();
-		for (int i = 0; i < size; ++i) destroyed.Add(reader.ReadUInt32());
+
+		for (int i = 0; i < size; ++i)
+		{
+			uint uid = reader.ReadUInt32();
+			if (uid < 32768) destroyed.Add(uid);
+		}
 
 		locked = (version > 12 && reader.ReadBoolean());
 		return true;

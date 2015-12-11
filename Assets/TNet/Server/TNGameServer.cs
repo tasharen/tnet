@@ -1869,7 +1869,7 @@ public class GameServer : FileServer
 							obj.buffer = buffer;
 							buffer.MarkAsUsed();
 						}
-						player.channel.created.Add(obj);
+						player.channel.AddCreatedObject(obj);
 					}
 
 					// Inform the channel
