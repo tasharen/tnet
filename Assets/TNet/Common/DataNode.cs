@@ -3,10 +3,6 @@
 // Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
-#if WINDWARD && !STANDALONE
-#define LZMA
-#endif
-
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
 #endif
@@ -62,7 +58,6 @@ public interface IDataNodeSerializable
 [Serializable]
 public class DataNode
 {
-#if LZMA
 	public enum SaveType
 	{
 		Text,
@@ -72,13 +67,6 @@ public class DataNode
 
 	// Must remain 4 bytes long
 	static byte[] mLZMA = new byte[] { (byte)'C', (byte)'D', (byte)'0', (byte)'1' };
-#else
-	public enum SaveType
-	{
-		Text,
-		Binary,
-	}
-#endif
 
 	// Actual saved value
 	object mValue = null;
@@ -418,7 +406,6 @@ public class DataNode
 			retVal = Tools.WriteFile(path, stream, false, allowConfigAccess);
 			writer.Close();
 		}
-#if LZMA
 		else if (type == SaveType.Compressed)
 		{
 			BinaryWriter writer = new BinaryWriter(stream);
@@ -435,7 +422,6 @@ public class DataNode
 			else retVal = Tools.WriteFile(path, stream, false, allowConfigAccess);
 			writer.Close();
 		}
-#endif
 		else
 		{
 			StreamWriter writer = new StreamWriter(stream);
@@ -470,10 +456,10 @@ public class DataNode
 	{
 		if (data == null || data.Length < 4)
 			return SaveType.Binary;
-#if LZMA
+
 		if (data[0] == mLZMA[0] && data[1] == mLZMA[1] && data[2] == mLZMA[2] && data[3] == mLZMA[3])
 			return SaveType.Compressed;
-#endif
+
 		for (int i = 0; i < 4; ++i)
 		{
 			byte ch = data[i];
@@ -517,7 +503,6 @@ public class DataNode
 			reader.Close();
 			return node;
 		}
-#if LZMA
 		else if (type == SaveType.Compressed)
 		{
 			bool skipPrefix = true;
@@ -533,7 +518,6 @@ public class DataNode
 
 			bytes = LZMA.Decompress(bytes, skipPrefix ? 4 : 0);
 		}
-#endif
 		{
 			MemoryStream stream = new MemoryStream(bytes);
 			BinaryReader reader = new BinaryReader(stream);
@@ -549,7 +533,6 @@ public class DataNode
 
 	public void Write (BinaryWriter writer, bool compressed = false)
 	{
-#if LZMA
 		if (compressed)
 		{
 			LZMA lzma = new LZMA();
@@ -557,9 +540,7 @@ public class DataNode
 			for (int i = 0; i < 4; ++i) writer.Write(mLZMA[i]);
 			writer.Write(lzma.Compress());
 		}
-		else
-#endif
-			writer.WriteObject(this);
+		else writer.WriteObject(this);
 	}
 
 	/// <summary>

@@ -12,6 +12,9 @@ drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php
 
 Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 
+TNet version 3.0.0 and newer now includes 7-Zip's LZMA library distributed under the public domain license.
+http://www.7-zip.org/sdk.html
+
 -----------------------------------------------------
   Basic Usage
 -----------------------------------------------------
@@ -74,6 +77,7 @@ http://www.tasharen.com/?page_id=4518
 3.0.0
 - NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
 - NEW: TNet now seamlessly supports instantiation of DataNode-exported objects as if they were prefabs both via TNManager.Create as well as manually via DataNode.Instantiate().
+- NEW: Added the LZMA library to TNet in order to support LZMA-compressed serialization for maximum bandwidth reduction when desired.
 - NEW: TNBehaviour-derived scripts will now try to find the TNObject in Start() if it was not found in OnEnable.
 - NEW: Added TNManager.WriteCache and TNManager.ReadCache for when you want to store server-specific files on the client side, such as downloaded textures.
 - NEW: All of TNet's resource loading and type retrieval functions can now be overwritten via TNet.UnityTools in case you want to expand it / limit it somehow. Example: support loading data from mod folders.

@@ -83,6 +83,19 @@
     <Compile Include="Assets\TNet\Server\TNTcpPlayer.cs" />
     <Compile Include="Assets\TNet\Server\TNUdpLobbyLink.cs" />
     <Compile Include="Assets\TNet\Server\TNUdpLobbyServer.cs" />
+	<Compile Include="Assets\TNet\LZMA\CRC.cs" />
+	<Compile Include="Assets\TNet\LZMA\ICoder.cs" />
+	<Compile Include="Assets\TNet\LZMA\IMatchFinder.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzBinTree.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzInWindow.cs" />
+	<Compile Include="Assets\TNet\LZMA\LZMA.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzmaBase.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzmaDecoder.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzmaEncoder.cs" />
+	<Compile Include="Assets\TNet\LZMA\LzOutWindow.cs" />
+	<Compile Include="Assets\TNet\LZMA\RangeCoder.cs" />
+	<Compile Include="Assets\TNet\LZMA\RangeCoderBit.cs" />
+	<Compile Include="Assets\TNet\LZMA\RangeCoderBitTree.cs" />
     <Compile Include="TNetTest\ServerMain.cs" />
   </ItemGroup>
   <ItemGroup>

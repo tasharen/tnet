@@ -3,10 +3,6 @@
 // Copyright © 2012-2015 Tasharen Entertainment
 //---------------------------------------------
 
-#if WINDWARD && !STANDALONE
-#define LZMA
-#endif
-
 using UnityEngine;
 using UnityEditor;
 using TNet;
@@ -104,7 +100,6 @@ static internal class DataNodeExporter
 		Save(node, path, DataNode.SaveType.Binary);
 	}
 
-#if LZMA
 	[MenuItem("Assets/DataNode/Export Selected/as Compressed", true)]
 	static internal bool ExportC0 () { return (Selection.activeGameObject != null); }
 
@@ -116,7 +111,6 @@ static internal class DataNodeExporter
 		string path = ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Compressed);
 	}
-#endif
 
 	[MenuItem("Assets/DataNode/Convert/to Text", false, 30)]
 	static internal void ConvertA ()
@@ -144,7 +138,6 @@ static internal class DataNodeExporter
 		}
 	}
 
-#if LZMA
 	[MenuItem("Assets/DataNode/Convert/to Compressed", false, 30)]
 	static internal void ConvertC ()
 	{
@@ -157,7 +150,6 @@ static internal class DataNodeExporter
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
 		}
 	}
-#endif
 
 	[MenuItem("Assets/DataNode/Import", false, 60)]
 	static internal void ImportSelected ()
