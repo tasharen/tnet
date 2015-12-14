@@ -1000,6 +1000,7 @@ public class GameServer : FileServer
 			if (channel == null || !channel.isOpen)
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(channelID);
 				writer.Write(false);
 				writer.Write("The requested channel is closed");
 				EndSend(true, player);
@@ -1020,6 +1021,7 @@ public class GameServer : FileServer
 			else
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(channelID);
 				writer.Write(false);
 				writer.Write("Wrong password");
 				EndSend(true, player);
