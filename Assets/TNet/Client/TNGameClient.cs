@@ -707,12 +707,41 @@ public class GameClient
 	/// Leave the current channel.
 	/// </summary>
 
-	public void LeaveChannel (int channelID)
+	public bool LeaveChannel (int channelID)
 	{
-		if (isConnected && isInChannel)
+		if (isConnected)
 		{
-			BeginSend(Packet.RequestLeaveChannel).Write(channelID);
-			EndSend();
+			for (int i = 0; i < mChannels.size; ++i)
+			{
+				Channel ch = mChannels[i];
+				
+				if (ch.id == channelID)
+				{
+					mChannels.RemoveAt(i);
+					BeginSend(Packet.RequestLeaveChannel).Write(channelID);
+					EndSend();
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Leave all channels.
+	/// </summary>
+
+	public void LeaveAllChannels ()
+	{
+		if (isConnected)
+		{
+			for (int i = mChannels.size; i > 0; )
+			{
+				Channel ch = mChannels[--i];
+				BeginSend(Packet.RequestLeaveChannel).Write(ch.id);
+				EndSend();
+				mChannels.RemoveAt(i);
+			}
 		}
 	}
 

@@ -114,7 +114,7 @@ public class GameServer : FileServer
 	UdpProtocol mUdp = new UdpProtocol();
 	bool mAllowUdp = false;
 	object mLock = 0;
-	DataNode mData = null;
+	DataNode mServerData = null;
 	string mFilename = "world.dat";
 
 	// List of admin keywords
@@ -948,7 +948,7 @@ public class GameServer : FileServer
 	/// Handles joining the specified channel.
 	/// </summary>
 
-	void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit, bool exclusive)
+	void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit)
 	{
 		// Join a random existing channel or create a new one
 		if (channelID == -2)
@@ -972,6 +972,7 @@ public class GameServer : FileServer
 			if (randomLevel && channelID == -1)
 			{
 				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(channelID);
 				writer.Write(false);
 				writer.Write("No suitable channels found");
 				EndSend(true, player);
@@ -993,7 +994,6 @@ public class GameServer : FileServer
 
 		if (player.channels.size == 0 || !player.IsInChannel(channelID))
 		{
-			if (exclusive) LeaveAllChannels(player);
 			bool isNew;
 			Channel channel = CreateChannel(channelID, out isNew);
 
@@ -1035,19 +1035,11 @@ public class GameServer : FileServer
 	{
 		if (player.IsInChannel(channel.id)) return;
 
-		if (mData != null)
-		{
-			// Send the server data the first time
-			// TODO: Wouldn't it be better to send this after connecting?
-			player.BeginSend(Packet.RequestSetServerOption).Write(mData);
-			player.EndSend();
-		}
-
 		// Set the player's channel
 		player.channels.Add(channel);
 
 		// Everything else gets sent to the player, so it's faster to do it all at once
-		player.FinishJoiningChannel(channel);
+		player.FinishJoiningChannel(channel, mServerData);
 
 		// Inform the channel that a new player is joining
 		BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
@@ -1092,9 +1084,9 @@ public class GameServer : FileServer
 				{
 					mDictionaryID.Add(player.id, player);
 
-					if (mData != null)
+					if (mServerData != null)
 					{
-						player.BeginSend(Packet.ResponseServerOptions).Write(mData);
+						player.BeginSend(Packet.ResponseServerOptions).Write(mServerData);
 						player.EndSend();
 					}
 
@@ -1197,7 +1189,7 @@ public class GameServer : FileServer
 					return false;
 				}
 #endif
-				SendJoinChannel(player, channelID, pass, levelName, persist, playerLimit, true);
+				SendJoinChannel(player, channelID, pass, levelName, persist, playerLimit);
 				break;
 			}
 			case Packet.RequestSetName:
@@ -1550,10 +1542,10 @@ public class GameServer : FileServer
 					Tools.LoadList("ServerConfig/admin.txt", mAdmin);
 					LoadData();
 
-					if (mData == null) mData = new DataNode("Version", Player.version);
+					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
 					Buffer buff = Buffer.Create();
-					buff.BeginPacket(Packet.ResponseServerOptions).Write(mData);
+					buff.BeginPacket(Packet.ResponseServerOptions).Write(mServerData);
 					buff.EndPacket();
 
 					// Forward the packet to everyone connected to the server
@@ -1575,16 +1567,16 @@ public class GameServer : FileServer
 			{
 				if (player.isAdmin)
 				{
-					if (mData == null) mData = new DataNode("Version", Player.version);
+					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
 					DataNode child = reader.ReadDataNode();
 
 					if (child.value == null && child.children.size == 0)
 					{
-						mData.RemoveChild(child.name);
-						child = mData;
+						mServerData.RemoveChild(child.name);
+						child = mServerData;
 					}
-					else child = mData.ReplaceChild(child);
+					else child = mServerData.ReplaceChild(child);
 
 					Buffer buff = Buffer.Create();
 					buff.BeginPacket(Packet.ResponseSetServerOption).Write(child);
@@ -1637,7 +1629,7 @@ public class GameServer : FileServer
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
 
-				bool playerBan = (other == player && mData != null && mData.GetChild<bool>("playersCanBan"));
+				bool playerBan = (other == player && mServerData != null && mServerData.GetChild<bool>("playersCanBan"));
 
 				if (player.isAdmin || playerBan)
 				{
@@ -2244,7 +2236,7 @@ public class GameServer : FileServer
 		{
 			try
 			{
-				mData.Write(mFilename + ".config", DataNode.SaveType.Text, true);
+				mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true);
 			}
 			catch (Exception) { }
 		}
@@ -2261,9 +2253,9 @@ public class GameServer : FileServer
 			try
 			{
 				byte[] data = File.ReadAllBytes(mFilename + ".config");
-				mData = DataNode.Read(data, DataNode.SaveType.Text);
+				mServerData = DataNode.Read(data, DataNode.SaveType.Text);
 			}
-			catch (Exception) { mData = null; }
+			catch (Exception) { mServerData = null; }
 		}
 	}
 

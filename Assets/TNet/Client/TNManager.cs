@@ -64,7 +64,7 @@ public class TNManager : MonoBehaviour
 	// Network client
 	[System.NonSerialized] GameClient mClient = new GameClient();
 	[System.NonSerialized] bool mAsyncLoad = false;
-	[System.NonSerialized] bool mJoining = false;
+	[System.NonSerialized] List<int> mJoining = new List<int>();
 
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
@@ -115,7 +115,7 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return (mInstance != null && (mInstance.mJoining || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes));
+			return (mInstance != null && (mInstance.mJoining.size != 0 || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes));
 		}
 	}
 
@@ -634,13 +634,14 @@ public class TNManager : MonoBehaviour
 	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 	/// <param name="levelName">Level that will be loaded first.</param>
 
-	static public void JoinChannel (int channelID, string levelName)
+	static public void JoinChannel (int channelID, string levelName, bool leaveCurrentChannel = true)
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining)
+			if (!mInstance.mJoining.Contains(channelID))
 			{
-				mInstance.mJoining = true;
+				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
+				mInstance.mJoining.Add(channelID);
 				mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 			}
 			else Debug.LogWarning("Already joining, ignored");
@@ -661,13 +662,14 @@ public class TNManager : MonoBehaviour
 	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
+	static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining)
+			if (!mInstance.mJoining.Contains(channelID))
 			{
-				mInstance.mJoining = true;
+				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
+				mInstance.mJoining.Add(channelID);
 				mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
 			}
 			else Debug.LogWarning("Already joining, ignored");
@@ -687,16 +689,13 @@ public class TNManager : MonoBehaviour
 	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password)
+	static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining)
-			{
-				mInstance.mJoining = true;
-				mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
-			}
-			else Debug.LogWarning("Already joining, ignored");
+			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
+			mInstance.mJoining.Add(-2);
+			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
 		}
 	}
 
@@ -708,16 +707,13 @@ public class TNManager : MonoBehaviour
 	/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 	/// <param name="password">Password for the channel. First player sets the password.</param>
 
-	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password)
+	static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining)
-			{
-				mInstance.mJoining = true;
-				mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
-			}
-			else Debug.LogWarning("Already joining, ignored");
+			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
+			mInstance.mJoining.Add(-1);
+			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
 	}
@@ -1729,7 +1725,7 @@ public class TNManager : MonoBehaviour
 	void OnDisconnect ()
 	{
 		mAsyncLoad = false;
-		mJoining = false;
+		mJoining.Clear();
 		UnityTools.Broadcast("OnNetworkDisconnect");
 	}
 
@@ -1740,7 +1736,20 @@ public class TNManager : MonoBehaviour
 	void OnJoinChannel (int channelID, bool success, string message)
 	{
 		mAsyncLoad = false;
-		mJoining = false;
+
+		if (!mJoining.Remove(channelID))
+		{
+			for (int i = 0; i < mJoining.size; ++i)
+			{
+				int id = mJoining[i];
+
+				if (id < 0)
+				{
+					mJoining.RemoveAt(i);
+					break;
+				}
+			}
+		}
 		UnityTools.Broadcast("OnNetworkJoinChannel", channelID, success, message);
 	}
 

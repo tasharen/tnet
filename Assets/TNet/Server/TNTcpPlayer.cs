@@ -90,7 +90,7 @@ public class TcpPlayer : TcpProtocol
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
-	public void FinishJoiningChannel (Channel channel)
+	public void FinishJoiningChannel (Channel channel, DataNode serverData)
 	{
 		Buffer buffer = Buffer.Create();
 
@@ -117,14 +117,22 @@ public class TcpPlayer : TcpProtocol
 		// End the first packet, but remember where it ended
 		int offset = buffer.EndPacket();
 
-		// Step 3: Inform the player of who is hosting
+		// Inform the player of who is hosting
 		if (channel.host == null) channel.host = this;
 		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.id);
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
-		// Step 4: Send the channel's data
+		// Send the server's data
+		if (serverData != null)
+		{
+			writer = buffer.BeginPacket(Packet.RequestSetServerOption);
+			writer.Write(serverData);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Send the channel's data
 		if (channel.data != null)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
@@ -133,7 +141,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Step 5: Inform the player of what level we're on
+		// Inform the player of what level we're on
 		if (!string.IsNullOrEmpty(channel.level))
 		{
 			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
@@ -142,7 +150,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Step 6: Send the list of objects that have been created
+		// Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
 		{
 			Channel.CreatedObject obj = channel.created.buffer[i];
@@ -170,7 +178,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Step 7: Send the list of objects that have been destroyed
+		// Send the list of objects that have been destroyed
 		if (channel.destroyed.size != 0)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseDestroy, offset);
@@ -181,7 +189,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Step 8: Send all buffered RFCs to the new player
+		// Send all buffered RFCs to the new player
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
 			Channel.RFC rfc = channel.rfcs[i];
@@ -190,7 +198,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndWriting();
 		}
 
-		// Step 9: Inform the player that the channel is now locked
+		// Inform the player that the channel is now locked
 		if (channel.locked)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
@@ -199,7 +207,7 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Step 10: The join process is now complete
+		// The join process is now complete
 		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(channel.id);
 		writer.Write(true);
