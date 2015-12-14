@@ -1230,10 +1230,7 @@ public class GameServer : FileServer
 				if (!string.IsNullOrEmpty(fileName))
 				{
 					if (DeleteFile(fileName))
-					{
 						player.Log("Deleted " + fileName);
-					}
-					else player.LogError("Unable to delete " + fileName);
 				}
 				break;
 			}
@@ -1546,7 +1543,7 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					player.LogError("Tried to set the ban server data without authorization", null);
+					player.LogError("Tried to set the server data without authorization", null);
 					RemovePlayer(player);
 				}
 				break;

@@ -215,10 +215,18 @@ public class DataNode
 
 	public DataNode ReplaceChild (DataNode child)
 	{
+		if (child == null) return null;
+
 		for (int i = 0; i < children.size; ++i)
 		{
 			if (children[i].name == child.name)
 			{
+				if (child.value == null && child.children.size == 0)
+				{
+					children.RemoveAt(i);
+					return child;
+				}
+
 				children[i] = child;
 				return children[i];
 			}

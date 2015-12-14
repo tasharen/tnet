@@ -1254,8 +1254,17 @@ public class GameClient
 			case Packet.ResponseSetServerOption:
 			{
 				if (serverOptions == null) serverOptions = new DataNode("Version", Player.version);
-				DataNode child = serverOptions.ReplaceChild(reader.ReadDataNode());
-				if (onServerOption != null) onServerOption(child);
+				DataNode node = reader.ReadDataNode();
+
+				if (node.value == null && node.children.size == 0)
+				{
+					serverOptions.RemoveChild(node.name);
+				}
+				else
+				{
+					DataNode child = serverOptions.ReplaceChild(node);
+					if (onServerOption != null) onServerOption(child);
+				}
 				break;
 			}
 			case Packet.ResponseLockChannel:
