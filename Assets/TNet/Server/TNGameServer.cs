@@ -1603,26 +1603,23 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestKick:
 			{
+				int channelID = reader.ReadInt32();
 				int id = reader.ReadInt32();
 				string s = (id != 0) ? null : reader.ReadString();
 				TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
-#if WINDWARD
-				if (player.isAdmin || other == player)
+
+				if (player.isAdmin)
 				{
-					if (other != null)
-					{
-						player.Log("Kicked " + other.name + " (" + other.address + ")");
-						RemovePlayer(other);
-					}
+					player.Log(player.name + " kicked " + other.name + " (" + other.address + ")");
+					LeaveAllChannels(other);
 				}
 				else
 				{
-					player.LogError("Tried to kick " + (other != null ? other.name : s) + " without authorization", null);
-					RemovePlayer(player);
+					player.Log(player.name + " kicked " + other.name + " (" + other.address + ") from channel " + channelID);
+					Channel ch = GetChannel(channelID);
+					if (ch != null && ch.host == player)
+						SendLeaveChannel(other, ch, true);
 				}
-#else
-				LeaveAllChannels(other);
-#endif
 				break;
 			}
 			case Packet.RequestBan:
