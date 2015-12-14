@@ -19,11 +19,36 @@ namespace TNet
 
 public class TcpPlayer : TcpProtocol
 {
+	[System.Obsolete("Players can now subscribe to multiple channels at once, making the singular 'channel' obsolete.")]
+	public Channel channel { get { return (channels.size != 0) ? channels[0] : null; } }
+
 	/// <summary>
 	/// Channel that the player is currently in.
 	/// </summary>
 
-	public Channel channel;
+	public List<Channel> channels = new List<Channel>();
+
+	/// <summary>
+	/// Whether the player is in the specified channel.
+	/// </summary>
+
+	public bool IsInChannel (int id)
+	{
+		for (int i = 0; i < channels.size; ++i)
+			if (channels[i].id == id) return true;
+		return false;
+	}
+
+	/// <summary>
+	/// Return the specified channel if the player is currently within it, null otherwise.
+	/// </summary>
+
+	public Channel GetChannel (int id)
+	{
+		for (int i = 0; i < channels.size; ++i)
+			if (channels[i].id == id) return channels[i];
+		return null;
+	}
 
 	/// <summary>
 	/// UDP end point if the player has one open.
@@ -65,7 +90,7 @@ public class TcpPlayer : TcpProtocol
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
-	public void FinishJoiningChannel ()
+	public void FinishJoiningChannel (Channel channel)
 	{
 		Buffer buffer = Buffer.Create();
 
@@ -77,7 +102,7 @@ public class TcpPlayer : TcpProtocol
 
 			for (int i = 0; i < channel.players.size; ++i)
 			{
-				TcpPlayer tp = channel.players[i];
+				Player tp = channel.players[i];
 				writer.Write(tp.id);
 				writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
 #if STANDALONE
@@ -95,21 +120,27 @@ public class TcpPlayer : TcpProtocol
 		// Step 3: Inform the player of who is hosting
 		if (channel.host == null) channel.host = this;
 		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
+		writer.Write(channel.id);
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Step 4: Send the channel's data
-		if (!string.IsNullOrEmpty(channel.data))
+		if (channel.data != null)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
+			writer.Write(channel.id);
 			writer.Write(channel.data);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Step 5: Inform the player of what level we're on
-		writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
-		writer.Write(string.IsNullOrEmpty(channel.level) ? "" : channel.level);
-		offset = buffer.EndTcpPacketStartingAt(offset);
+		if (!string.IsNullOrEmpty(channel.level))
+		{
+			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
+			writer.Write(channel.id);
+			writer.Write(channel.level);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
 
 		// Step 6: Send the list of objects that have been created
 		for (int i = 0; i < channel.created.size; ++i)
@@ -131,6 +162,7 @@ public class TcpPlayer : TcpProtocol
 			if (!isPresent) obj.playerID = channel.host.id;
 
 			writer = buffer.BeginPacket(Packet.ResponseCreate, offset);
+			writer.Write(channel.id);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
@@ -142,6 +174,7 @@ public class TcpPlayer : TcpProtocol
 		if (channel.destroyed.size != 0)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseDestroy, offset);
+			writer.Write(channel.id);
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
@@ -161,12 +194,14 @@ public class TcpPlayer : TcpProtocol
 		if (channel.locked)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
+			writer.Write(channel.id);
 			writer.Write(true);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Step 10: The join process is now complete
 		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
+		writer.Write(channel.id);
 		writer.Write(true);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 

@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using TNet;
+using System.Collections.Generic;
 using UnityTools = TNet.UnityTools;
 
 /// <summary>
@@ -19,11 +20,12 @@ using UnityTools = TNet.UnityTools;
 public sealed class TNObject : MonoBehaviour
 {
 	// List of network objs to iterate through
-	static List<TNObject> mList = new List<TNObject>();
+	static Dictionary<int, TNet.List<TNObject>> mList =
+		new Dictionary<int, TNet.List<TNObject>>();
 
 	// List of network objs to quickly look up
-	static System.Collections.Generic.Dictionary<uint, TNObject> mDictionary =
-		new System.Collections.Generic.Dictionary<uint, TNObject>();
+	static Dictionary<int, Dictionary<uint, TNObject>> mDictionary =
+		new Dictionary<int, Dictionary<uint, TNObject>>();
 
 	/// <summary>
 	/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
@@ -31,6 +33,12 @@ public sealed class TNObject : MonoBehaviour
 	/// </summary>
 
 	[SerializeField] int id = 0;
+
+	/// <summary>
+	/// ID of the channel this TNObject belongs to.
+	/// </summary>
+
+	[System.NonSerialized][HideInInspector] public int channelID = 0;
 
 	/// <summary>
 	/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32768 to 2^24-1).
@@ -62,13 +70,13 @@ public sealed class TNObject : MonoBehaviour
 	[System.NonSerialized][HideInInspector] public bool rebuildMethodList = true;
 
 	// Cached RFC functions
-	[System.NonSerialized] List<CachedFunc> mRFCs = new List<CachedFunc>();
+	[System.NonSerialized] TNet.List<CachedFunc> mRFCs = new TNet.List<CachedFunc>();
 
 	// Whether the object has been registered with the lists
 	[System.NonSerialized] bool mIsRegistered = false;
 
 	// ID of the object's owner
-	[System.NonSerialized] int mOwner = -1;
+	[System.NonSerialized] Player mOwner = null;
 
 	// Child objects don't get their own unique IDs, so if we have a parent TNObject, that's the object that will be getting all events.
 	[System.NonSerialized] TNObject mParent = null;
@@ -94,13 +102,19 @@ public sealed class TNObject : MonoBehaviour
 	/// Whether this object belongs to the player.
 	/// </summary>
 
-	public bool isMine { get { return (mOwner == -1) ? TNManager.isThisMyObject : mOwner == TNManager.playerID; } }
+	public bool isMine { get { return mOwner == TNManager.player; } }
 
 	/// <summary>
 	/// ID of the player that owns this object.
 	/// </summary>
 
-	public int ownerID { get { return (mParent != null) ? mParent.ownerID : mOwner; } }
+	public int ownerID { get { return (mParent != null) ? mParent.ownerID : (mOwner ?? TNManager.player).id; } }
+
+	/// <summary>
+	/// ID of the player that owns this object.
+	/// </summary>
+
+	public Player owner { get { return (mParent != null) ? mParent.owner : (mOwner ?? TNManager.player); } }
 
 	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
@@ -115,14 +129,16 @@ public sealed class TNObject : MonoBehaviour
 
 			if (TNManager.isConnected && TNManager.isInChannel)
 			{
-				if (TNManager.client.isChannelLocked)
+				if (TNManager.IsChannelLocked(channelID))
 				{
 					Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
 				}
 				else
 				{
 					Invoke("EnsureDestroy", 5f);
-					TNManager.BeginSend(Packet.RequestDestroy).Write(uid);
+					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroy);
+					bw.Write(channelID);
+					bw.Write(uid);
 					TNManager.EndSend();
 				}
 			}
@@ -150,33 +166,49 @@ public sealed class TNObject : MonoBehaviour
 
 	void Awake ()
 	{
-		mOwner = TNManager.objectOwnerID;
-
-		if (TNManager.players.size == 0)
-		{
-			mOwner = TNManager.playerID;
-		}
-		else if (TNManager.GetPlayer(mOwner) == null)
-		{
-			mOwner = TNManager.hostID;
-		}
+		mOwner = TNManager.currentObjectOwner;
+		channelID = TNManager.lastChannelID;
 	}
 
 	/// <summary>
 	/// Automatically transfer the ownership. The same action happens on the server.
 	/// </summary>
 
-	void OnNetworkPlayerLeave (Player p) { if (p != null && mOwner == p.id) mOwner = TNManager.hostID; }
+	void OnNetworkPlayerLeave (int channelID, Player p)
+	{
+		if (channelID == this.channelID && p != null && mOwner == p)
+			mOwner = TNManager.GetHost(channelID);
+	}
 
 	/// <summary>
 	/// Retrieve the Tasharen Network Object by ID.
 	/// </summary>
 
-	static public TNObject Find (uint tnID)
+	static public TNObject Find (int channelID, uint tnID)
 	{
 		if (mDictionary == null) return null;
 		TNObject tno = null;
-		mDictionary.TryGetValue(tnID, out tno);
+
+		if (channelID == 0)
+		{
+			// Broadcasts are sent with the channel ID of '0'
+			foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
+			{
+				TNet.List<TNObject> list = pair.Value;
+
+				for (int i = 0; i < list.size; ++i)
+				{
+					TNObject ts = list[i];
+					if (ts.id == tnID) return ts;
+				}
+			}
+		}
+		else
+		{
+			Dictionary<uint, TNObject> dict;
+			if (!mDictionary.TryGetValue(channelID, out dict)) return null;
+			if (!dict.TryGetValue(tnID, out tno)) return null;
+		}
 		return tno;
 	}
 
@@ -190,10 +222,15 @@ public sealed class TNObject : MonoBehaviour
 
 	static internal uint GetUniqueID ()
 	{
-		for (int i = 0; i < mList.size; ++i)
+		foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
 		{
-			TNObject ts = mList[i];
-			if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+			TNet.List<TNObject> list = pair.Value;
+
+			for (int i = 0; i < list.size; ++i)
+			{
+				TNObject ts = list[i];
+				if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+			}
 		}
 		return ++mLastID;
 	}
@@ -228,7 +265,7 @@ public sealed class TNObject : MonoBehaviour
 		}
 		else
 		{
-			TNObject tobj = Find(uid);
+			TNObject tobj = Find(channelID, uid);
 
 			if (tobj != null && tobj != this)
 			{
@@ -318,10 +355,26 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 			UniqueCheck();
 #endif
-			mDictionary[uid] = this;
-			mList.Add(this);
+			Dictionary<uint, TNObject> dict;
+
+			if (!mDictionary.TryGetValue(channelID, out dict) || dict == null)
+			{
+				dict = new Dictionary<uint, TNObject>();
+				mDictionary[channelID] = dict;
+			}
+
+			dict[uid] = this;
+
+			TNet.List<TNObject> list;
+			
+			if (!mList.TryGetValue(channelID, out list) || list == null)
+			{
+				list = new TNet.List<TNObject>();
+				mList[channelID] = list;
+			}
+
+			list.Add(this);
 			mIsRegistered = true;
-			mDelete.Remove(uid);
 		}
 	}
 
@@ -333,9 +386,28 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (mIsRegistered)
 		{
-			if (mDictionary != null) mDictionary.Remove(uid);
-			if (mList != null) mList.Remove(this);
-			mDelete.Remove(uid);
+			if (mDictionary != null)
+			{
+				Dictionary<uint, TNObject> dict = mDictionary[channelID];
+
+				if (dict != null)
+				{
+					dict.Remove(uid);
+					if (dict.Count == 0) mDictionary.Remove(channelID);
+				}
+			}
+
+			if (mList != null)
+			{
+				TNet.List<TNObject> list = mList[channelID];
+
+				if (list != null)
+				{
+					list.Remove(this);
+					if (list.size == 0) mList.Remove(channelID);
+				}
+			}
+
 			mIsRegistered = false;
 		}
 	}
@@ -374,48 +446,14 @@ public sealed class TNObject : MonoBehaviour
 		return false;
 	}
 
-	// Delete objects that had orphaned RFC calls due to improper sends
-	static List<uint> mDelete = new List<uint>();
-
-#if UNITY_EDITOR
-	/// <summary>
-	/// Clean up orphaned RFCs.
-	/// </summary>
-
-	[ContextMenu("Cleanup")]
-	void Cleanup () { CleanupOrphanedRFCs(); }
-#endif
-
-	/// <summary>
-	/// Clean up orphaned RFCs.
-	/// </summary>
-
-	static void CleanupOrphanedRFCs ()
-	{
-		for (int i = 0; i < mDelete.size; ++i)
-		{
-			if (Find(mDelete[i]) == null)
-			{
-#if UNITY_EDITOR
-				Debug.Log("Destroying " + mDelete[i]);
-#endif
-				TNManager.BeginSend(Packet.RequestDestroy).Write(mDelete[i]);
-				TNManager.EndSend();
-			}
-#if UNITY_EDITOR
-			else Debug.Log(mDelete[i] + " is fine");
-#endif
-		}
-		mDelete.Clear();
-	}
 
 	/// <summary>
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 	/// </summary>
 
-	static public void FindAndExecute (uint objID, byte funcID, params object[] parameters)
+	static public void FindAndExecute (int channelID, uint objID, byte funcID, params object[] parameters)
 	{
-		TNObject obj = TNObject.Find(objID);
+		TNObject obj = TNObject.Find(channelID, objID);
 
 		if (obj != null)
 		{
@@ -436,15 +474,11 @@ public sealed class TNObject : MonoBehaviour
 		else if (TNManager.isJoiningChannel)
 		{
 			Debug.Log("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
-			mDelete.Add(objID);
 		}
 		else
 		{
 			Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
-			mDelete.Add(objID);
 		}
-#else
-		else mDelete.Add(objID);
 #endif
 	}
 
@@ -452,9 +486,9 @@ public sealed class TNObject : MonoBehaviour
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 	/// </summary>
 
-	static public void FindAndExecute (uint objID, string funcName, params object[] parameters)
+	static public void FindAndExecute (int channelID, uint objID, string funcName, params object[] parameters)
 	{
-		TNObject obj = TNObject.Find(objID);
+		TNObject obj = TNObject.Find(channelID, objID);
 
 		if (obj != null)
 		{
@@ -476,13 +510,11 @@ public sealed class TNObject : MonoBehaviour
 		{
 			Debug.Log("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
 				" before it has been created.");
-			mDelete.Add(objID);
 		}
 		else
 		{
 			Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
 				" before it has been created.");
-			mDelete.Add(objID);
 		}
 #endif
 	}
@@ -627,13 +659,13 @@ public sealed class TNObject : MonoBehaviour
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (string rfcName) { RemoveSavedRFC(uid, 0, rfcName); }
+	public void Remove (string rfcName) { RemoveSavedRFC(channelID, uid, 0, rfcName); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	public void Remove (byte rfcID) { RemoveSavedRFC(uid, rfcID, null); }
+	public void Remove (byte rfcID) { RemoveSavedRFC(channelID, uid, rfcID, null); }
 
 	/// <summary>
 	/// Convert object and RFC IDs into a single UINT.
@@ -665,7 +697,7 @@ public sealed class TNObject : MonoBehaviour
 #endif
 		if (hasBeenDestroyed) return;
 
-		if (TNManager.isChannelLocked && (target == Target.AllSaved || target == Target.Others))
+		if ((target == Target.AllSaved || target == Target.Others) && TNManager.IsChannelLocked(channelID))
 		{
 #if UNITY_EDITOR
 			Debug.LogError("Can't send persistent RFCs while in a locked channel");
@@ -686,6 +718,7 @@ public sealed class TNObject : MonoBehaviour
 			if (connected)
 			{
 				BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
+				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
@@ -698,6 +731,7 @@ public sealed class TNObject : MonoBehaviour
 			if (connected)
 			{
 				BinaryWriter writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
@@ -730,6 +764,7 @@ public sealed class TNObject : MonoBehaviour
 			{
 				byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 				BinaryWriter writer = TNManager.BeginSend(packetID);
+				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
@@ -764,6 +799,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardByName);
 			writer.Write(targetName);
+			writer.Write(channelID);
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
@@ -783,6 +819,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
 			writer.Write(target);
+			writer.Write(channelID);
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
@@ -803,6 +840,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (hasBeenDestroyed) return;
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+		writer.Write(channelID);
 		writer.Write(GetUID(uid, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);
 		writer.WriteArray(objs);
@@ -813,11 +851,12 @@ public sealed class TNObject : MonoBehaviour
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
-	static void RemoveSavedRFC (uint objID, byte rfcID, string funcName)
+	static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, string funcName)
 	{
 		if (TNManager.isInChannel)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
+			writer.Write(channelID);
 			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(funcName);
 			TNManager.EndSend();

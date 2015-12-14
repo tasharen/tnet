@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -239,7 +239,7 @@ public class ExampleMenu : MonoBehaviour
 	/// This message is also sent out when we get disconnected.
 	/// </summary>
 
-	void OnNetworkLeaveChannel ()
+	void OnNetworkLeaveChannel (int channelID)
 	{
 		Application.LoadLevel(mainMenu);
 	}

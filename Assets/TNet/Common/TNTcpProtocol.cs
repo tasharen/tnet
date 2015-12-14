@@ -471,13 +471,7 @@ public class TcpProtocol : Player
 				}
 			}
 		}
-		else
-		{
-#if UNITY_EDITOR
-			UnityEngine.Debug.LogWarning("No valid socket");
-#endif
-			buffer.Recycle();
-		}
+		else buffer.Recycle();
 	}
 
 	/// <summary>

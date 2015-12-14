@@ -187,7 +187,7 @@ public class TNAutoSync : TNBehaviour
 	/// If this values are not saved on the server, at least send them to the newly joined player.
 	/// </summary>
 
-	void OnNetworkPlayerJoin (Player p)
+	void OnNetworkPlayerJoin (int channelID, Player p)
 	{
 		if (mList.size != 0 && !isSavedOnServer && TNManager.isHosting)
 		{

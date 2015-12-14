@@ -96,7 +96,7 @@ public class TNAutoJoin : MonoBehaviour
 	/// Joined a channel (or failed to).
 	/// </summary>
 
-	void OnNetworkJoinChannel (bool result, string message)
+	void OnNetworkJoinChannel (int channelID, bool result, string message)
 	{
 		if (result)
 		{

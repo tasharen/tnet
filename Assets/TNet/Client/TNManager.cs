@@ -48,7 +48,12 @@ public class TNManager : MonoBehaviour
 
 	// Instance pointer
 	static TNManager mInstance;
-	static int mObjectOwner = -1;
+
+	/// <summary>
+	/// Object owner is only valid during object creation. In most cases you will want to use tno.owner.
+	/// </summary>
+
+	static internal Player currentObjectOwner = null;
 
 	/// <summary>
 	/// List of objects that can be instantiated by the network.
@@ -60,33 +65,18 @@ public class TNManager : MonoBehaviour
 	[System.NonSerialized] GameClient mClient = new GameClient();
 	[System.NonSerialized] bool mAsyncLoad = false;
 	[System.NonSerialized] bool mJoining = false;
-	[System.NonSerialized] bool mIsAdmin = false;
 
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
 	/// </summary>
 
-	static public bool isAdmin
-	{
-		get
-		{
-			return (mInstance != null && mInstance.mIsAdmin);
-		}
-	}
+	static public bool isAdmin { get { return (mInstance != null && mInstance.mClient.isAdmin); } }
 
 	/// <summary>
 	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
 	/// </summary>
 
-	static public void SetAdmin (string pass)
-	{
-		if (mInstance)
-		{
-			mInstance.mIsAdmin = true;
-			BeginSend(Packet.RequestVerifyAdmin).Write(pass);
-			EndSend();
-		}
-	}
+	static public void SetAdmin (string pass) { if (mInstance) mInstance.mClient.SetAdmin(pass); }
 
 	/// <summary>
 	/// Set a player alias. Player aliases can be used to store useful player-associated data such as Steam usernames,
@@ -139,7 +129,7 @@ public class TNManager : MonoBehaviour
 	/// Whether we're currently hosting.
 	/// </summary>
 
-	static public bool isHosting { get { return mInstance == null || mInstance.mClient.isHosting; } }
+	static public bool isHosting { get { return GetHost(lastChannelID) == player; } }
 
 	/// <summary>
 	/// Whether the player is currently in a channel.
@@ -191,21 +181,6 @@ public class TNManager : MonoBehaviour
 	static public int listeningPort { get { return mInstance != null ? mInstance.mClient.listeningPort : 0; } }
 
 	/// <summary>
-	/// ID of the player that wanted an object to be created.
-	/// Check this in a script's Awake() attached to an network-instantiated object.
-	/// </summary>
-
-	static public int objectOwnerID { get { return mObjectOwner == -1 ? hostID : mObjectOwner; } }
-
-	/// <summary>
-	/// Call this function in the script's Awake() to determine if this object
-	/// was created as a result of the player's TNManager.Create() call.
-	/// In most cases you should check tno.isMine instead.
-	/// </summary>
-
-	static public bool isThisMyObject { get { return objectOwnerID == playerID; } }
-
-	/// <summary>
 	/// Current time on the server in milliseconds.
 	/// </summary>
 
@@ -229,38 +204,68 @@ public class TNManager : MonoBehaviour
 	/// Whether the player is in a locked channel.
 	/// </summary>
 
-	static public bool isChannelLocked { get { return mInstance != null && mInstance.mClient != null && mInstance.mClient.isChannelLocked; } }
+	[System.Obsolete("It's now possible to be in more than one channel at once. Use TNManager.IsChannelLocked(channelID) instead.")]
+	static public bool isChannelLocked { get { return IsChannelLocked(lastChannelID); } }
+
+	/// <summary>
+	/// Whether the specified channel is currently locked.
+	/// </summary>
+
+	static public bool IsChannelLocked (int channelID)
+	{
+		if (mInstance != null && mInstance.mClient != null)
+		{
+			Channel ch = mInstance.mClient.GetChannel(channelID);
+			return (ch != null && ch.locked);
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Custom data associated with the channel.
 	/// </summary>
 
+	[System.Obsolete("Use TNManager.GetChannelOption and TNManager.SetChannelOption instead")]
 	static public string channelData
 	{
 		get
 		{
-			return (mInstance != null) ? mInstance.mClient.channelData : "";
+			return GetChannelOption<string>("channelData");
 		}
 		set
 		{
-			if (mInstance != null && !isChannelLocked)
-			{
-				mInstance.mClient.channelData = value;
-			}
+			SetChannelOption("channelData", value);
 		}
 	}
 
 	/// <summary>
 	/// ID of the channel the player is in.
+	/// Note that if used while the player is in more than one channel, a warning will be shown.
 	/// </summary>
 
-	static public int channelID { get { return isConnected ? mInstance.mClient.channelID : 0; } }
+	static public int lastChannelID = 0;
+
+	[System.Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
+	static public int channelID { get { return lastChannelID; } }
+
+	/// <summary>
+	/// List of channels the player is currently in.
+	/// </summary>
+
+	static public List<Channel> channels { get { return isConnected ? mInstance.mClient.channels : null; } }
 
 	/// <summary>
 	/// ID of the host.
 	/// </summary>
 
-	static public int hostID { get { return isConnected ? mInstance.mClient.hostID : mPlayer.id; } }
+	[System.Obsolete("It's now possible to be in more than one channel at once. Use TNManager.GetHost(channelID) instead.")]
+	static public int hostID { get { return GetHost(lastChannelID).id; } }
+
+	/// <summary>
+	/// Get the player hosting the specified channel. Only works for the channels the player is in.
+	/// </summary>
+
+	static public Player GetHost (int channelID) { return mInstance.mClient.GetHost(channelID) ?? mPlayer; }
 
 	/// <summary>
 	/// The player's unique identifier.
@@ -329,14 +334,22 @@ public class TNManager : MonoBehaviour
 	/// List of players in the same channel as the client.
 	/// </summary>
 
-	static public List<Player> players
+	static public List<Player> players { get { return GetPlayers(lastChannelID); } }
+
+	/// <summary>
+	/// Get a list of players under the specified channel. This will only work for channels the player has joined.
+	/// </summary>
+
+	static public List<Player> GetPlayers (int channelID)
 	{
-		get
+		if (isConnected)
 		{
-			if (isConnected) return mInstance.mClient.players;
-			if (mPlayers == null) mPlayers = new List<Player>();
-			return mPlayers;
+			Channel ch = mInstance.mClient.GetChannel(channelID);
+			if (ch != null) return ch.players;
 		}
+
+		if (mPlayers == null) mPlayers = new List<Player>();
+		return mPlayers;
 	}
 
 	/// <summary>
@@ -425,6 +438,78 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void RemoveServerOption (string key) { if (mInstance != null) mInstance.mClient.SetServerOption(key, null); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public DataNode GetChannelOption (string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption(lastChannelID, key) : null; }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetChannelOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key) : default(T); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetChannelOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key, def) : def; }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetChannelOption (string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, key, val); }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetChannelOption (DataNode node) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, node); }
+
+	/// <summary>
+	/// Remove this server option.
+	/// </summary>
+
+	static public void RemoveChannelOption (string key) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, key, null); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public DataNode GetChannelOption (int channelID, string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption(channelID, key) : null; }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetChannelOption<T> (int channelID, string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(channelID, key) : default(T); }
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	static public T GetChannelOption<T> (int channelID, string key, T def) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(channelID, key, def) : def; }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetChannelOption (int channelID, string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, key, val); }
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetChannelOption (int channelID, DataNode node) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, node); }
+
+	/// <summary>
+	/// Remove this server option.
+	/// </summary>
+
+	static public void RemoveChannelOption (int channelID, string key) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, key, null); }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.
@@ -560,7 +645,11 @@ public class TNManager : MonoBehaviour
 			}
 			else Debug.LogWarning("Already joining, ignored");
 		}
-		else Application.LoadLevel(levelName);
+		else
+		{
+			TNManager.lastChannelID = channelID;
+			Application.LoadLevel(levelName);
+		}
 	}
 
 	/// <summary>
@@ -583,7 +672,11 @@ public class TNManager : MonoBehaviour
 			}
 			else Debug.LogWarning("Already joining, ignored");
 		}
-		else Application.LoadLevel(levelName);
+		else
+		{
+			TNManager.lastChannelID = channelID;
+			Application.LoadLevel(levelName);
+		}
 	}
 
 	/// <summary>
@@ -630,17 +723,45 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// TNet 3.0 onwards makes it possible to join more than one channel at once.
+	/// When the player is in more than one channel, commands need to specify which channel they are directed towards.
+	/// </summary>
+	
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static void ChannelCheck ()
+	{
+		if (channels.size > 1)
+		{
+			Debug.LogWarning("Currently in more than one channel! Specify which channel you want to work with.");
+		}
+	}
+
+	/// <summary>
 	/// Close the channel the player is in. New players will be prevented from joining.
 	/// Once a channel has been closed, it cannot be re-opened.
 	/// </summary>
 
-	static public void CloseChannel () { if (mInstance != null) mInstance.mClient.CloseChannel(); }
+	static public void CloseChannel () { CloseChannel(lastChannelID); }
+
+	/// <summary>
+	/// Close the channel the player is in. New players will be prevented from joining.
+	/// Once a channel has been closed, it cannot be re-opened.
+	/// </summary>
+
+	static public void CloseChannel (int channelID) { if (mInstance != null) mInstance.mClient.CloseChannel(channelID); }
 
 	/// <summary>
 	/// Leave the channel we're in.
 	/// </summary>
 
-	static public void LeaveChannel () { if (mInstance != null) mInstance.mClient.LeaveChannel(); }
+	static public void LeaveChannel () { LeaveChannel(lastChannelID); }
+
+	/// <summary>
+	/// Leave the channel we're in.
+	/// </summary>
+
+	static public void LeaveChannel (int channelID) { if (mInstance != null) mInstance.mClient.LeaveChannel(channelID); }
 
 	/// <summary>
 	/// Delete the specified channel.
@@ -652,17 +773,29 @@ public class TNManager : MonoBehaviour
 	/// Change the maximum number of players that can join the channel the player is currently in.
 	/// </summary>
 
-	static public void SetPlayerLimit (int max) { if (mInstance != null) mInstance.mClient.SetPlayerLimit(max); }
+	static public void SetPlayerLimit (int max) { SetPlayerLimit(lastChannelID, max); }
+
+	/// <summary>
+	/// Change the maximum number of players that can join the channel the player is currently in.
+	/// </summary>
+
+	static public void SetPlayerLimit (int channelID, int max) { if (mInstance != null) mInstance.mClient.SetPlayerLimit(channelID, max); }
 
 	/// <summary>
 	/// Load the specified level.
 	/// </summary>
 
-	static public void LoadLevel (string levelName)
+	static public void LoadLevel (string levelName) { LoadLevel(lastChannelID, levelName); }
+
+	/// <summary>
+	/// Load the specified level.
+	/// </summary>
+
+	static public void LoadLevel (int channelID, string levelName)
 	{
 		if (isConnected)
 		{
-			mInstance.mClient.LoadLevel(levelName);
+			mInstance.mClient.LoadLevel(channelID, levelName);
 		}
 		else Application.LoadLevel(levelName);
 	}
@@ -733,9 +866,15 @@ public class TNManager : MonoBehaviour
 	/// Change the hosting player.
 	/// </summary>
 
-	static public void SetHost (Player player)
+	static public void SetHost (Player player) { SetHost(lastChannelID, player); }
+
+	/// <summary>
+	/// Change the hosting player.
+	/// </summary>
+
+	static public void SetHost (int channelID, Player player)
 	{
-		if (mInstance != null) mInstance.mClient.SetHost(player);
+		if (mInstance != null) mInstance.mClient.SetHost(channelID, player);
 	}
 
 	/// <summary>
@@ -750,14 +889,22 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Lock this channel, preventing all changes.
+	/// Lock the channel the player is currently in.
 	/// </summary>
 
-	static public void LockChannel (bool locked)
+	static public void LockChannel (bool locked) { LockChannel(lastChannelID, locked); }
+
+	/// <summary>
+	/// Lock the specified channel, preventing all future persistent RFCs from being saved.
+	/// </summary>
+
+	static public void LockChannel (int channelID, bool locked)
 	{
 		if (mInstance != null && isAdmin)
 		{
-			BeginSend(Packet.RequestLockChannel).Write(locked);
+			BinaryWriter writer = BeginSend(Packet.RequestLockChannel);
+			writer.Write(channelID);
+			writer.Write(locked);
 			EndSend();
 		}
 	}
@@ -776,25 +923,49 @@ public class TNManager : MonoBehaviour
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go, bool persistent = true) { CreateEx(0, persistent, go); }
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (string path, bool persistent = true) { CreateEx(0, persistent, path); }
+	static public void Create (GameObject go, bool persistent = true) { CreateEx(lastChannelID, 0, persistent, go); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
 	/// </summary>
 
-	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, persistent, go, pos, rot); }
+	static public void Create (int channelID, GameObject go, bool persistent = true) { CreateEx(channelID, 0, persistent, go); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
 	/// </summary>
 
-	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(1, persistent, path, pos, rot); }
+	static public void Create (string path, bool persistent = true) { CreateEx(lastChannelID, 0, persistent, path); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (int channelID, string path, bool persistent = true) { CreateEx(channelID, 0, persistent, path); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(lastChannelID, 1, persistent, go, pos, rot); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (int channelID, GameObject go, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(channelID, 1, persistent, go, pos, rot); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(lastChannelID, 1, persistent, path, pos, rot); }
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (int channelID, string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(channelID, 1, persistent, path, pos, rot); }
 
 	/// <summary>
 	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
@@ -802,7 +973,16 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(2, persistent, go, pos, rot, vel, angVel);
+		CreateEx(lastChannelID, 2, persistent, go, pos, rot, vel, angVel);
+	}
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be present in the TNManager's list of objects.
+	/// </summary>
+
+	static public void Create (int channelID, GameObject go, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
+	{
+		CreateEx(channelID, 2, persistent, go, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
@@ -811,7 +991,16 @@ public class TNManager : MonoBehaviour
 
 	static public void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
 	{
-		CreateEx(2, persistent, path, pos, rot, vel, angVel);
+		CreateEx(lastChannelID, 2, persistent, path, pos, rot, vel, angVel);
+	}
+
+	/// <summary>
+	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// </summary>
+
+	static public void Create (int channelID, string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
+	{
+		CreateEx(channelID, 2, persistent, path, pos, rot, vel, angVel);
 	}
 
 	/// <summary>
@@ -820,6 +1009,16 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void CreateEx (int rccID, bool persistent, GameObject go, params object[] objs)
+	{
+		CreateEx(lastChannelID, rccID, persistent, go, objs);
+	}
+
+	/// <summary>
+	/// Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// </summary>
+
+	static public void CreateEx (int channelID, int rccID, bool persistent, GameObject go, params object[] objs)
 	{
 		if (go != null)
 		{
@@ -832,13 +1031,14 @@ public class TNManager : MonoBehaviour
 					if (mInstance != null && mInstance.mClient.isSwitchingScenes)
 						Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
 
-					if (mInstance.mClient.isChannelLocked)
+					if (IsChannelLocked(channelID))
 					{
 						Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
 						return;
 					}
 
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+					writer.Write(channelID);
 					writer.Write((ushort)index);
 					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)rccID);
@@ -884,6 +1084,16 @@ public class TNManager : MonoBehaviour
 
 	static public void CreateEx (int rccID, bool persistent, string path, params object[] objs)
 	{
+		CreateEx(lastChannelID, rccID, persistent, path, objs);
+	}
+
+	/// <summary>
+	/// Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// </summary>
+
+	static public void CreateEx (int channelID, int rccID, bool persistent, string path, params object[] objs)
+	{
 		GameObject go = UnityTools.LoadPrefab(path);
 
 		if (go != null)
@@ -893,7 +1103,7 @@ public class TNManager : MonoBehaviour
 				if (mInstance != null && mInstance.mClient.isSwitchingScenes)
 					Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
 
-				if (mInstance.mClient.isChannelLocked)
+				if (TNManager.IsChannelLocked(channelID))
 				{
 					Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
 					return;
@@ -901,6 +1111,7 @@ public class TNManager : MonoBehaviour
 
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
 				byte flag = GetFlag(go, persistent);
+				writer.Write(channelID);
 				writer.Write((ushort)65535);
 				writer.Write(flag);
 				writer.Write(path);
@@ -1152,12 +1363,14 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
+#if UNITY_EDITOR
 	[ContextMenu("Close channel")]
 	void ForceCloseChannel ()
 	{
-		mInstance.mClient.BeginSend(Packet.RequestCloseChannel);
+		mInstance.mClient.BeginSend(Packet.RequestCloseChannel).Write(lastChannelID);
 		mInstance.mClient.EndSendForced();
 	}
+#endif
 
 	/// <summary>
 	/// Broadcast the packet to everyone on the LAN.
@@ -1262,7 +1475,6 @@ public class TNManager : MonoBehaviour
 			mClient.onCreate			= OnCreateObject;
 			mClient.onDestroy			= OnDestroyObject;
 			mClient.onForwardedPacket	= OnForwardedPacket;
-			mClient.onSetAdmin			= OnSetAdmin;
 			mClient.onLockChannel		= OnLockChannel;
 
 #if UNITY_EDITOR
@@ -1349,9 +1561,10 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new object being created.
 	/// </summary>
 
-	void OnCreateObject (int creator, int index, uint objectID, BinaryReader reader)
+	void OnCreateObject (int channelID, int creator, int index, uint objectID, BinaryReader reader)
 	{
-		mObjectOwner = creator;
+		currentObjectOwner = GetPlayer(creator) ?? player;
+		TNManager.lastChannelID = channelID;
 		GameObject go = null;
 
 		if (index == 65535)
@@ -1385,6 +1598,7 @@ public class TNManager : MonoBehaviour
 
 				if (obj != null)
 				{
+					obj.channelID = channelID;
 					obj.uid = objectID;
 					obj.Register();
 				}
@@ -1395,7 +1609,7 @@ public class TNManager : MonoBehaviour
 			}
 		}
 		else mOrphaned.Add(objectID);
-		mObjectOwner = -1;
+		currentObjectOwner = null;
 
 		if (onObjectCreated != null)
 			onObjectCreated(go);
@@ -1449,9 +1663,9 @@ public class TNManager : MonoBehaviour
 	/// Notification of a network object being destroyed.
 	/// </summary>
 
-	void OnDestroyObject (uint objID)
+	void OnDestroyObject (int channelID, uint objID)
 	{
-		TNObject obj = TNObject.Find(objID);
+		TNObject obj = TNObject.Find(channelID, objID);
 
 		if (obj)
 		{
@@ -1464,7 +1678,7 @@ public class TNManager : MonoBehaviour
 	/// If custom functionality is needed, all unrecognized packets will arrive here.
 	/// </summary>
 
-	void OnForwardedPacket (BinaryReader reader)
+	void OnForwardedPacket (int channelID, BinaryReader reader)
 	{
 		uint objID;
 		byte funcID;
@@ -1477,21 +1691,15 @@ public class TNManager : MonoBehaviour
 			try
 			{
 				funcName = reader.ReadString();
-				TNObject.FindAndExecute(objID, funcName, reader.ReadArray());
+				TNObject.FindAndExecute(channelID, objID, funcName, reader.ReadArray());
 			}
 			catch (System.Exception ex)
 			{
 				Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
 			}
 		}
-		else TNObject.FindAndExecute(objID, funcID, reader.ReadArray());
+		else TNObject.FindAndExecute(channelID, objID, funcID, reader.ReadArray());
 	}
-
-	/// <summary>
-	/// Set the administrator.
-	/// </summary>
-
-	void OnSetAdmin (Player p) { if (p == player) mIsAdmin = true; }
 
 	/// <summary>
 	/// Process incoming packets in the update function.
@@ -1522,7 +1730,6 @@ public class TNManager : MonoBehaviour
 	{
 		mAsyncLoad = false;
 		mJoining = false;
-		mIsAdmin = false;
 		UnityTools.Broadcast("OnNetworkDisconnect");
 	}
 
@@ -1530,11 +1737,11 @@ public class TNManager : MonoBehaviour
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	void OnJoinChannel (bool success, string message)
+	void OnJoinChannel (int channelID, bool success, string message)
 	{
 		mAsyncLoad = false;
 		mJoining = false;
-		UnityTools.Broadcast("OnNetworkJoinChannel", success, message);
+		UnityTools.Broadcast("OnNetworkJoinChannel", channelID, success, message);
 	}
 
 	/// <summary>
@@ -1542,14 +1749,24 @@ public class TNManager : MonoBehaviour
 	/// Also sent just before a disconnect (if inside a channel when it happens).
 	/// </summary>
 
-	void OnLeftChannel () { UnityTools.Broadcast("OnNetworkLeaveChannel"); }
+	void OnLeftChannel (int channelID)
+	{
+		if (TNManager.lastChannelID == channelID)
+		{
+			List<Channel> chs = channels;
+			TNManager.lastChannelID = (chs.size > 0) ? chs[0].id : 0;
+		}
+		UnityTools.Broadcast("OnNetworkLeaveChannel", channelID);
+	}
 
 	/// <summary>
 	/// Notification sent when a level is changing.
 	/// </summary>
 
-	void OnLoadLevel (string levelName)
+	void OnLoadLevel (int channelID, string levelName)
 	{
+		TNManager.lastChannelID = channelID;
+
 		if (!string.IsNullOrEmpty(levelName))
 		{
 			mAsyncLoad = true;
@@ -1583,13 +1800,13 @@ public class TNManager : MonoBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnPlayerJoined (Player p) { UnityTools.Broadcast("OnNetworkPlayerJoin", p); }
+	void OnPlayerJoined (int channelID, Player p) { UnityTools.Broadcast("OnNetworkPlayerJoin", channelID, p); }
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnPlayerLeft (Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", p); }
+	void OnPlayerLeft (int channelID, Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", channelID, p); }
 
 	/// <summary>
 	/// Notification of player's data changing.
@@ -1607,16 +1824,16 @@ public class TNManager : MonoBehaviour
 	/// Notification of the channel being locked or unlocked.
 	/// </summary>
 
-	void OnLockChannel (bool isLocked)
+	void OnLockChannel (int channelID, bool isLocked)
 	{
 #if UNITY_EDITOR
-		Debug.Log("Channel #" + TNManager.channelID + " lock: " + isLocked);
+		Debug.Log("Channel #" + channelID + " lock: " + isLocked);
 #endif
-		UnityTools.Broadcast("OnNetworkLockChannel", isLocked);
+		UnityTools.Broadcast("OnNetworkLockChannel", channelID, isLocked);
 	}
 
 	[ContextMenu("Lock channel")]
-	void LockChannel () { LockChannel(true); }
+	void LockChannel () { LockChannel(TNManager.lastChannelID, true); }
 
 	[System.Obsolete("Use TNObject's and TNBehaviour's DestroySelf() instead")]
 	static public void Destroy (GameObject go)

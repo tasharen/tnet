@@ -26,23 +26,23 @@ public class GameClient
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
 	public delegate void OnDisconnect ();
-	public delegate void OnJoinChannel (bool success, string message);
-	public delegate void OnLeftChannel ();
-	public delegate void OnLoadLevel (string levelName);
-	public delegate void OnPlayerJoined (Player p);
-	public delegate void OnPlayerLeft (Player p);
+	public delegate void OnJoinChannel (int channelID, bool success, string message);
+	public delegate void OnLeftChannel (int channelID);
+	public delegate void OnLoadLevel (int channelID, string levelName);
+	public delegate void OnPlayerJoined (int channelID, Player p);
+	public delegate void OnPlayerLeft (int channelID, Player p);
 	public delegate void OnPlayerSync (Player p);
 	public delegate void OnRenamePlayer (Player p, string previous);
-	public delegate void OnSetHost (bool hosting);
-	public delegate void OnSetChannelData (string data);
-	public delegate void OnCreate (int creator, int index, uint objID, BinaryReader reader);
-	public delegate void OnDestroy (uint objID);
-	public delegate void OnForwardedPacket (BinaryReader reader);
+	public delegate void OnSetHost (int channelID, bool hosting);
+	public delegate void OnSetChannelData (int channelID, DataNode data);
+	public delegate void OnCreate (int channelID, int creator, int index, uint objID, BinaryReader reader);
+	public delegate void OnDestroy (int channelID, uint objID);
+	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 	public delegate void OnGetFiles (string path, string[] files);
 	public delegate void OnLoadFile (string filename, byte[] data);
 	public delegate void OnServerData (DataNode data);
-	public delegate void OnLockChannel (bool locked);
+	public delegate void OnLockChannel (int channelID, bool locked);
 	public delegate void OnSetAdmin (Player p);
 
 	/// <summary>
@@ -174,18 +174,12 @@ public class GameClient
 	public OnForwardedPacket onForwardedPacket;
 
 	/// <summary>
-	/// List of players in the same channel as the client.
-	/// </summary>
-
-	public List<Player> players = new List<Player>();
-
-	/// <summary>
 	/// Whether the game client should be actively processing messages or not.
 	/// </summary>
 
 	public bool isActive = true;
 
-	// Same list of players, but in a dictionary format for quick lookup
+	// List of players in a dictionary format for quick lookup
 	Dictionary<int, Player> mDictionary = new Dictionary<int, Player>();
 
 	// TCP connection is the primary method of communication with the server.
@@ -199,10 +193,6 @@ public class GameClient
 	bool mUdpIsUsable = false;
 #endif
 
-	// ID of the host
-	int mHost = 0;
-	int mChannelID = 0;
-
 	// Current time, time when the last ping was sent out, and time when connection was started
 	long mTimeDifference = 0;
 	long mMyTime = 0;
@@ -211,9 +201,9 @@ public class GameClient
 	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
-	bool mIsInChannel = false;
-	bool mIsLocked = false;
-	string mData = "";
+
+	// List of channels we're in
+	TNet.List<Channel> mChannels = new TNet.List<Channel>();
 
 	// Each GetFileList() call can specify its own callback
 	Dictionary<string, OnGetFiles> mGetFiles = new Dictionary<string, OnGetFiles>();
@@ -232,30 +222,36 @@ public class GameClient
 
 	// Packets should not be sent in between of level-switching operations.
 	bool mCanSend = true;
+	bool mIsAdmin = false;
 
 	/// <summary>
-	/// ID of the channel we're in.
+	/// Whether the player has verified himself as an administrator.
 	/// </summary>
 
-	public int channelID { get { return mChannelID; } }
+	public bool isAdmin { get { return mIsAdmin; } }
 
 	/// <summary>
-	/// Whether the player is in a locked channel.
+	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
 	/// </summary>
 
-	public bool isChannelLocked { get { return mIsLocked && mIsInChannel && mTcp.isConnected; } }
+	public void SetAdmin (string pass)
+	{
+		mIsAdmin = true;
+		BeginSend(Packet.RequestVerifyAdmin).Write(pass);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Channels the player belongs to. Don't modify this list.
+	/// </summary>
+
+	public TNet.List<Channel> channels { get { return mChannels; } }
 
 	/// <summary>
 	/// Current time on the server.
 	/// </summary>
 
 	public long serverTime { get { return mTimeDifference + (System.DateTime.UtcNow.Ticks / 10000); } }
-
-	/// <summary>
-	/// ID of the host.
-	/// </summary>
-
-	public int hostID { get { return mTcp.isConnected ? mHost : mTcp.id; } }
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -276,16 +272,10 @@ public class GameClient
 	public bool isSwitchingScenes { get { return !mCanSend; } }
 
 	/// <summary>
-	/// Whether this player is hosting the game.
-	/// </summary>
-
-	public bool isHosting { get { return !mIsInChannel || !mTcp.isConnected || mHost == mTcp.id; } }
-
-	/// <summary>
 	/// Whether the client is currently in a channel.
 	/// </summary>
 
-	public bool isInChannel { get { return mIsInChannel && mTcp.isConnected; } }
+	public bool isInChannel { get { return mChannels.size != 0; } }
 
 	/// <summary>
 	/// TCP end point, available only if we're actually connected to a server.
@@ -314,27 +304,6 @@ public class GameClient
 	/// </summary>
 
 	public IPEndPoint packetSource { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
-
-	/// <summary>
-	/// Set the custom data associated with the channel we're in.
-	/// </summary>
-
-	public string channelData
-	{
-		get
-		{
-			return mData;
-		}
-		set
-		{
-			if (isHosting && isInChannel && mData != value)
-			{
-				mData = value;
-				BeginSend(Packet.RequestSetChannelData).Write(value);
-				EndSend();
-			}
-		}
-	}
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -453,6 +422,23 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Get the player hosting the specified channel. Only works for the channels the player is in.
+	/// </summary>
+
+	public Player GetHost (int channelID)
+	{
+		if (isConnected)
+		{
+			for (int i = 0; i < mChannels.size; ++i)
+			{
+				Channel ch = mChannels[i];
+				if (ch.id == channelID) return ch.host;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Retrieve a player by their ID.
 	/// </summary>
 
@@ -475,10 +461,29 @@ public class GameClient
 
 	public Player GetPlayer (string name)
 	{
-		for (int i = 0; i < players.size; ++i)
+		for (int i = 0; i < mChannels.size; ++i)
 		{
-			Player p = players[i];
-			if (p.name == name) return p;
+			Channel ch = mChannels[i];
+
+			for (int b = 0; b < ch.players.size; ++b)
+			{
+				Player p = ch.players[b];
+				if (p.name == name) return p;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Return a channel with the specified ID.
+	/// </summary>
+
+	public Channel GetChannel (int channelID)
+	{
+		for (int i = 0; i < mChannels.size; ++i)
+		{
+			Channel ch = mChannels[i];
+			if (ch.id == channelID) return ch;
 		}
 		return null;
 	}
@@ -613,15 +618,7 @@ public class GameClient
 	/// Disconnect from the server.
 	/// </summary>
 
-	public void Disconnect ()
-	{
-		if (isTryingToConnect)
-		{
-			mCanSend = true;
-			mIsInChannel = false;
-		}
-		mTcp.Disconnect();
-	}
+	public void Disconnect () { mTcp.Disconnect(); }
 
 	/// <summary>
 	/// Start listening to incoming UDP packets on the specified port.
@@ -697,11 +694,11 @@ public class GameClient
 	/// Once a channel has been closed, it cannot be re-opened.
 	/// </summary>
 
-	public void CloseChannel ()
+	public void CloseChannel (int channelID)
 	{
 		if (isConnected && isInChannel)
 		{
-			BeginSend(Packet.RequestCloseChannel);
+			BeginSend(Packet.RequestCloseChannel).Write(channelID);
 			EndSend();
 		}
 	}
@@ -710,11 +707,11 @@ public class GameClient
 	/// Leave the current channel.
 	/// </summary>
 
-	public void LeaveChannel ()
+	public void LeaveChannel (int channelID)
 	{
 		if (isConnected && isInChannel)
 		{
-			BeginSend(Packet.RequestLeaveChannel);
+			BeginSend(Packet.RequestLeaveChannel).Write(channelID);
 			EndSend();
 		}
 	}
@@ -738,11 +735,13 @@ public class GameClient
 	/// Change the maximum number of players that can join the channel the player is currently in.
 	/// </summary>
 
-	public void SetPlayerLimit (int max)
+	public void SetPlayerLimit (int channelID, int max)
 	{
 		if (isConnected && isInChannel)
 		{
-			BeginSend(Packet.RequestSetPlayerLimit).Write((ushort)max);
+			BinaryWriter writer = BeginSend(Packet.RequestSetPlayerLimit);
+			writer.Write(channelID);
+			writer.Write((ushort)max);
 			EndSend();
 		}
 	}
@@ -751,11 +750,13 @@ public class GameClient
 	/// Switch the current level.
 	/// </summary>
 
-	public void LoadLevel (string levelName)
+	public void LoadLevel (int channelID, string levelName)
 	{
 		if (isConnected && isInChannel)
 		{
-			BeginSend(Packet.RequestLoadLevel).Write(levelName);
+			BinaryWriter writer = BeginSend(Packet.RequestLoadLevel);
+			writer.Write(channelID);
+			writer.Write(levelName);
 			EndSend();
 			mCanSend = false;
 		}
@@ -765,11 +766,12 @@ public class GameClient
 	/// Change the hosting player.
 	/// </summary>
 
-	public void SetHost (Player player)
+	public void SetHost (int channelID, Player player)
 	{
-		if (isConnected && isInChannel && isHosting)
+		if (isConnected && isInChannel && GetHost(channelID) == mTcp)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestSetHost);
+			writer.Write(channelID);
 			writer.Write(player.id);
 			EndSend();
 		}
@@ -955,21 +957,22 @@ public class GameClient
 			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
-				if (onForwardedPacket != null) onForwardedPacket(reader);
+				int channelID = reader.ReadInt32();
+				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
 			case Packet.ForwardToPlayer:
 			{
-				// Skip the player ID
-				reader.ReadInt32();
-				if (onForwardedPacket != null) onForwardedPacket(reader);
+				int channelID = reader.ReadInt32();
+				reader.ReadInt32(); // Skip the player ID
+				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
 			case Packet.ForwardByName:
 			{
-				// Skip the player name
-				reader.ReadString();
-				if (onForwardedPacket != null) onForwardedPacket(reader);
+				int channelID = reader.ReadInt32();
+				reader.ReadString(); // Skip the player name
+				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
 			case Packet.SyncPlayerData:
@@ -1026,16 +1029,14 @@ public class GameClient
 			}
 			case Packet.ResponseJoiningChannel:
 			{
-				mIsInChannel = false;
-				mIsLocked = false;
 #if UNITY_EDITOR
 				if (mCanSend) UnityEngine.Debug.LogError("'mCanSend' flag is in the wrong state");
 #endif
-				mDictionary.Clear();
-				players.Clear();
-
-				mChannelID = reader.ReadInt32();
+				int channelID = reader.ReadInt32();
 				int count = reader.ReadInt16();
+
+				Channel ch = new Channel();
+				ch.id = channelID;
 
 				for (int i = 0; i < count; ++i)
 				{
@@ -1043,72 +1044,118 @@ public class GameClient
 					p.id = reader.ReadInt32();
 					p.name = reader.ReadString();
 					p.data = reader.ReadObject();
-					mDictionary.Add(p.id, p);
-					players.Add(p);
+					mDictionary[p.id] = p;
+					ch.players.Add(p);
 				}
 				break;
 			}
 			case Packet.ResponseLoadLevel:
 			{
 				// Purposely return after loading a level, ensuring that all future callbacks happen after loading
-				if (onLoadLevel != null) onLoadLevel(reader.ReadString());
-				mCanSend = mIsInChannel;
+				int channelID = reader.ReadInt32();
+				string scene = reader.ReadString();
+				if (onLoadLevel != null) onLoadLevel(channelID, scene);
+				mCanSend = false;
 				return false;
-			}
-			case Packet.ResponsePlayerLeft:
-			{
-				Player p = GetPlayer(reader.ReadInt32());
-
-				if (p != null)
-				{
-					mDictionary.Remove(p.id);
-					players.Remove(p);
-					if (onPlayerLeft != null) onPlayerLeft(p);
-				}
-				break;
 			}
 			case Packet.ResponsePlayerJoined:
 			{
-				Player p = new Player();
-				p.id = reader.ReadInt32();
-				p.name = reader.ReadString();
-				p.data = reader.ReadObject();
-				mDictionary.Add(p.id, p);
-				players.Add(p);
-				if (onPlayerJoined != null) onPlayerJoined(p);
+				int channelID = reader.ReadInt32();
+
+				Channel ch = GetChannel(channelID);
+
+				if (ch != null)
+				{
+					Player p = new Player();
+					p.id = reader.ReadInt32();
+					p.name = reader.ReadString();
+					p.data = reader.ReadObject();
+					ch.players.Add(p);
+					mDictionary[p.id] = p;
+					if (onPlayerJoined != null) onPlayerJoined(channelID, p);
+				}
+				break;
+			}
+			case Packet.ResponsePlayerLeft:
+			{
+				int channelID = reader.ReadInt32();
+				int playerID = reader.ReadInt32();
+
+				Channel ch = GetChannel(channelID);
+
+				if (ch != null)
+				{
+					Player p = ch.GetPlayer(playerID);
+					ch.players.Remove(p);
+					RebuildPlayerDictionary();
+					if (onPlayerLeft != null) onPlayerLeft(channelID, p);
+				}
 				break;
 			}
 			case Packet.ResponseSetHost:
 			{
-				mHost = reader.ReadInt32();
-				if (onSetHost != null) onSetHost(isHosting);
+				int channelID = reader.ReadInt32();
+				int hostID = reader.ReadInt32();
+
+				for (int i = 0; i < mChannels.size; ++i)
+				{
+					Channel ch = mChannels[i];
+
+					if (ch.id == channelID)
+					{
+						ch.host = GetPlayer(hostID);
+						break;
+					}
+				}
+
+				if (onSetHost != null) onSetHost(channelID, hostID == playerID);
 				break;
 			}
 			case Packet.ResponseSetChannelData:
 			{
-				mData = reader.ReadString();
-				if (onSetChannelData != null) onSetChannelData(mData);
+				int channelID = reader.ReadInt32();
+				DataNode data = reader.ReadDataNode();
+				Channel ch = GetChannel(channelID);
+				if (ch != null) ch.data = data;
+				if (onSetChannelData != null) onSetChannelData(channelID, data);
 				break;
 			}
 			case Packet.ResponseJoinChannel:
 			{
 				mCanSend = true;
-				mIsInChannel = reader.ReadBoolean();
-				string msg = mIsInChannel ? null : reader.ReadString();
+				int channelID = reader.ReadInt32();
+				bool success = reader.ReadBoolean();
+				string msg = success ? null : reader.ReadString();
 #if UNITY_EDITOR
-				if (!mIsInChannel) UnityEngine.Debug.LogError("ResponseJoinChannel: " + mIsInChannel + ", " + msg);
+				if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
 #endif
-				if (onJoinChannel != null) onJoinChannel(mIsInChannel, msg);
+				if (success)
+				{
+					Channel ch = new Channel();
+					ch.id = channelID;
+					mChannels.Add(ch);
+				}
+
+				if (onJoinChannel != null) onJoinChannel(channelID, success, msg);
 				break;
 			}
 			case Packet.ResponseLeaveChannel:
 			{
-				mData = null;
-				mChannelID = 0;
-				mIsInChannel = false;
-				mDictionary.Clear();
-				players.Clear();
-				if (onLeftChannel != null) onLeftChannel();
+				int channelID = reader.ReadInt32();
+
+				for (int i = 0; i < mChannels.size; ++i)
+				{
+					Channel ch = mChannels[i];
+
+					if (ch.id == channelID)
+					{
+						mChannels.RemoveAt(i);
+						break;
+					}
+				}
+
+				RebuildPlayerDictionary();
+				if (onLeftChannel != null) onLeftChannel(channelID);
 
 				// Purposely exit after receiving a "left channel" notification so that other packets get handled in the next frame.
 				return false;
@@ -1125,10 +1172,11 @@ public class GameClient
 			{
 				if (onCreate != null)
 				{
+					int channelID = reader.ReadInt32();
 					int playerID = reader.ReadInt32();
 					ushort index = reader.ReadUInt16();
 					uint objID = reader.ReadUInt32();
-					onCreate(playerID, index, objID, reader);
+					onCreate(channelID, playerID, index, objID, reader);
 				}
 				break;
 			}
@@ -1136,8 +1184,14 @@ public class GameClient
 			{
 				if (onDestroy != null)
 				{
+					int channelID = reader.ReadInt32();
 					int count = reader.ReadUInt16();
-					for (int i = 0; i < count; ++i) onDestroy(reader.ReadUInt32());
+
+					for (int i = 0; i < count; ++i)
+					{
+						uint val = reader.ReadUInt32();
+						onDestroy(channelID, val);
+					}
 				}
 				break;
 			}
@@ -1155,17 +1209,25 @@ public class GameClient
 			}
 			case Packet.Disconnect:
 			{
-				mData = "";
-				if (mIsInChannel && onLeftChannel != null) onLeftChannel();
-				players.Clear();
+				if (onLeftChannel != null)
+				{
+					while (mChannels.size > 0)
+					{
+						int index = mChannels.size - 1;
+						Channel ch = mChannels[index];
+						mChannels.RemoveAt(index);
+						onLeftChannel(ch.id);
+					}
+				}
+
+				mChannels.Clear();
 				mDictionary.Clear();
 				mTcp.Close(false);
 				mLoadFiles.Clear();
 				mGetFiles.Clear();
-				mIsInChannel = false;
+				mIsAdmin = false;
 				if (onDisconnect != null) onDisconnect();
 				mCanSend = true;
-				mIsLocked = false;
 				serverOptions = null;
 				break;
 			}
@@ -1248,6 +1310,7 @@ public class GameClient
 			{
 				int pid = reader.ReadInt32();
 				Player p = GetPlayer(pid);
+				if (p == player) mIsAdmin = true;
 				if (onSetAdmin != null) onSetAdmin(p);
 				break;
 			}
@@ -1269,12 +1332,35 @@ public class GameClient
 			}
 			case Packet.ResponseLockChannel:
 			{
-				mIsLocked = reader.ReadBoolean();
-				if (onLockChannel != null) onLockChannel(mIsLocked);
+				int chID = reader.ReadInt32();
+				bool isLocked = reader.ReadBoolean();
+				Channel ch = GetChannel(chID);
+				if (ch != null) ch.locked = isLocked;
+				if (onLockChannel != null) onLockChannel(chID, isLocked);
 				break;
 			}
 		}
 		return true;
+	}
+
+	/// <summary>
+	/// Rebuild the player dictionary from the list of players in all of the channels we're currently in.
+	/// </summary>
+
+	void RebuildPlayerDictionary ()
+	{
+		mDictionary.Clear();
+
+		for (int i = 0; i < mChannels.size; ++i)
+		{
+			Channel ch = mChannels[i];
+
+			for (int b = 0; b < ch.players.size; ++b)
+			{
+				Player p = ch.players[b];
+				mDictionary[p.id] = p;
+			}
+		}
 	}
 
 	/// <summary>
@@ -1314,6 +1400,114 @@ public class GameClient
 	{
 		BeginSend(Packet.RequestSetServerOption).Write(node);
 		EndSend();
+	}
+
+	/// <summary>
+	/// Return the channel data for the specified channel. This only works for channels that the player is currently in.
+	/// After modifying don't forget to call SyncChannelData().
+	/// </summary>
+
+	public DataNode GetChannelData (int channelID)
+	{
+		Channel ch = GetChannel(channelID);
+		return (ch != null) ? ch.data : null;
+	}
+
+	/// <summary>
+	/// Set the channel data for the specified channel. Use this to set data for channels other than the ones where the player resides.
+	/// </summary>
+
+	public void SetChannelData (int channelID, DataNode val)
+	{
+		BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
+		bw.Write(channelID);
+		bw.Write(val);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public DataNode GetChannelOption (int channelID, string key)
+	{
+		DataNode data = GetChannelData(channelID);
+		return (data != null) ? data.GetChild(key) : null;
+	}
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public T GetChannelOption<T> (int channelID, string key)
+	{
+		DataNode data = GetChannelData(channelID);
+		return (data != null) ? data.GetChild<T>(key) : default(T);
+	}
+
+	/// <summary>
+	/// Retrieve the specified server option.
+	/// </summary>
+
+	public T GetChannelOption<T> (int channelID, string key, T def)
+	{
+		DataNode data = GetChannelData(channelID);
+		return (data != null) ? data.GetChild<T>(key, def) : def;
+	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	public void SetChannelOption (int channelID, string key, object val)
+	{
+		Channel ch = GetChannel(channelID);
+
+		if (ch != null)
+		{
+			if (!ch.locked || isAdmin)
+			{
+				if (ch.data == null) ch.data = new DataNode("Version", Player.version);
+				ch.data.SetChild(key, val);
+				BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
+				bw.Write(channelID);
+				bw.Write(ch.data);
+				EndSend();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	public void SetChannelOption (int channelID, DataNode node)
+	{
+		DataNode data = GetChannelData(channelID);
+		if (data == null) data = new DataNode("Version", Player.version);
+		data.ReplaceChild(node);
+		BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
+		bw.Write(channelID);
+		bw.Write(data);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	public void RemoveChannelOption (int channelID, string key)
+	{
+		DataNode data = GetChannelData(channelID);
+
+		if (data != null)
+		{
+			data.RemoveChild(key);
+			BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
+			bw.Write(channelID);
+			bw.Write(data);
+			EndSend();
+		}
 	}
 }
 }

@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -41,7 +41,7 @@ public class ExampleChat : TNBehaviour
 	/// The list of players in the channel is immediately available upon joining a room.
 	/// </summary>
 
-	void OnNetworkJoinChannel (bool success, string error)
+	void OnNetworkJoinChannel (int channelID, bool success, string error)
 	{
 		mName = TNManager.playerName;
 
@@ -61,18 +61,18 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnNetworkPlayerJoin (Player p)
+	void OnNetworkPlayerJoin (int channelID, Player p)
 	{
-		AddToChat(p.name + " has joined the channel.", Color.black);
+		AddToChat(p.name + " has joined channel " + channelID, Color.black);
 	}
 
 	/// <summary>
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnNetworkPlayerLeave (Player p)
+	void OnNetworkPlayerLeave (int channelID, Player p)
 	{
-		AddToChat(p.name + " has left the channel.", Color.black);
+		AddToChat(p.name + " has left channel " + channelID, Color.black);
 	}
 
 	/// <summary>

@@ -534,7 +534,7 @@ public class GameServer : FileServer
 #if STANDALONE
 			if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
-			SendLeaveChannel(p, false);
+			LeaveAllChannels(p);
 
 			p.Release();
 			mPlayers.Remove(p);
@@ -630,6 +630,27 @@ public class GameServer : FileServer
 	}
 
 	/// <summary>
+	/// Retrieve the specified channel.
+	/// </summary>
+
+	Channel GetChannel (int channelID)
+	{
+		Channel channel;
+
+		for (int i = 0; i < mChannels.size; ++i)
+		{
+			channel = mChannels[i];
+
+			if (channel.id == channelID)
+			{
+				if (channel.closed) return null;
+				return channel;
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Create a new channel (or return an existing one).
 	/// </summary>
 
@@ -712,14 +733,14 @@ public class GameServer : FileServer
 	/// Send the outgoing buffer to all players in the specified channel.
 	/// </summary>
 
-	void EndSend (bool reliable, Channel channel, TcpPlayer exclude)
+	void EndSend (Channel channel, TcpPlayer exclude, bool reliable)
 	{
 		mBuffer.EndPacket();
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
-			TcpPlayer player = channel.players[i];
+			TcpPlayer player = (TcpPlayer)channel.players[i];
 			
 			if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 			{
@@ -733,6 +754,53 @@ public class GameServer : FileServer
 
 		mBuffer.Recycle();
 		mBuffer = null;
+	}
+
+	List<TcpPlayer> mSentList = new List<TcpPlayer>();
+
+	/// <summary>
+	/// Send the outgoing buffer to all players in the same channels as the source player.
+	/// </summary>
+
+	void EndSendToOthers (TcpPlayer source, TcpPlayer exclude, bool reliable)
+	{
+		mBuffer.EndPacket();
+		if (mBuffer.size > 1024) reliable = true;
+		SendToOthers(mBuffer, source, exclude, reliable);
+		mSentList.Clear();
+		mBuffer.Recycle();
+		mBuffer = null;
+	}
+
+	/// <summary>
+	/// Send the specified buffer to all players in the same channel as the source.
+	/// </summary>
+
+	void SendToOthers (Buffer buffer, TcpPlayer source, TcpPlayer exclude, bool reliable)
+	{
+		for (int b = 0; b < source.channels.size; ++b)
+		{
+			Channel ch = source.channels[b];
+
+			for (int i = 0; i < ch.players.size; ++i)
+			{
+				TcpPlayer p = (TcpPlayer)ch.players[i];
+
+				if (p != exclude && !mSentList.Contains(p))
+				{
+					mSentList.Add(p);
+
+					if (p.stage == TcpProtocol.Stage.Connected)
+					{
+						if (reliable || !p.udpIsUsable || p.udpEndPoint == null || !mAllowUdp)
+						{
+							p.SendTcpPacket(buffer);
+						}
+						else mUdp.Send(buffer, p.udpEndPoint);
+					}
+				}
+			}
+		}
 	}
 
 	/// <summary>
@@ -750,7 +818,7 @@ public class GameServer : FileServer
 
 			for (int b = 0; b < channel.players.size; ++b)
 			{
-				TcpPlayer player = channel.players[b];
+				TcpPlayer player = (TcpPlayer)channel.players[b];
 				
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
@@ -777,7 +845,7 @@ public class GameServer : FileServer
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
-			TcpPlayer player = channel.players[i];
+			TcpPlayer player = (TcpPlayer)channel.players[i];
 			
 			if (player.stage == TcpProtocol.Stage.Connected)
 			{
@@ -795,14 +863,15 @@ public class GameServer : FileServer
 	/// Have the specified player assume control of the channel.
 	/// </summary>
 
-	void SendSetHost (TcpPlayer player)
+	void SendSetHost (Channel ch, TcpPlayer player)
 	{
-		if (player.channel != null && player.channel.host != player)
+		if (ch != null && ch.host != player)
 		{
-			player.channel.host = player;
+			ch.host = player;
 			BinaryWriter writer = BeginSend(Packet.ResponseSetHost);
+			writer.Write(ch.id);
 			writer.Write(player.id);
-			EndSend(true, player.channel, null);
+			EndSend(ch, null, true);
 		}
 	}
 
@@ -810,19 +879,32 @@ public class GameServer : FileServer
 	List<uint> mTemp = new List<uint>();
 
 	/// <summary>
+	/// Leave all of the channels the player is in.
+	/// </summary>
+
+	void LeaveAllChannels (TcpPlayer player)
+	{
+		while (player.channels.size > 0)
+		{
+			Channel ch = player.channels[0];
+			if (ch != null) SendLeaveChannel(player, ch, true);
+			else player.channels.RemoveAt(0);
+		}
+	}
+
+	/// <summary>
 	/// Leave the channel the player is in.
 	/// </summary>
 
-	void SendLeaveChannel (TcpPlayer player, bool notify)
+	void SendLeaveChannel (TcpPlayer player, Channel ch, bool notify)
 	{
-		Channel ch = player.channel;
+		if (ch == null) return;
 
-		if (ch != null)
+		// Remove this player from the channel
+		ch.RemovePlayer(player, mTemp);
+
+		if (player.channels.Remove(ch))
 		{
-			// Remove this player from the channel
-			ch.RemovePlayer(player, mTemp);
-			player.channel = null;
-
 			// Are there other players left?
 			if (ch.players.size > 0)
 			{
@@ -832,18 +914,20 @@ public class GameServer : FileServer
 				if (mTemp.size > 0)
 				{
 					writer = BeginSend(Packet.ResponseDestroy);
+					writer.Write(ch.id);
 					writer.Write((ushort)mTemp.size);
 					for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
-					EndSend(true, ch, null);
+					EndSend(ch, null, true);
 				}
 
 				// If this player was the host, choose a new host
-				if (ch.host == null) SendSetHost(ch.players[0]);
+				if (ch.host == null) SendSetHost(ch, (TcpPlayer)ch.players[0]);
 
 				// Inform everyone of this player leaving the channel
 				writer = BeginSend(Packet.ResponsePlayerLeft);
+				writer.Write(ch.id);
 				writer.Write(player.id);
-				EndSend(true, ch, null);
+				EndSend(ch, null, true);
 			}
 			else if (!ch.persistent)
 			{
@@ -854,7 +938,90 @@ public class GameServer : FileServer
 			// Notify the player that they have left the channel
 			if (notify && player.isConnected)
 			{
-				BeginSend(Packet.ResponseLeaveChannel);
+				BeginSend(Packet.ResponseLeaveChannel).Write(ch.id);
+				EndSend(true, player);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Handles joining the specified channel.
+	/// </summary>
+
+	void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit, bool exclusive)
+	{
+		// Join a random existing channel or create a new one
+		if (channelID == -2)
+		{
+			bool randomLevel = string.IsNullOrEmpty(levelName);
+			channelID = -1;
+
+			for (int i = 0; i < mChannels.size; ++i)
+			{
+				Channel ch = mChannels[i];
+
+				if (ch.isOpen && (randomLevel || levelName.Equals(ch.level)) &&
+					(string.IsNullOrEmpty(ch.password) || (ch.password == pass)))
+				{
+					channelID = ch.id;
+					break;
+				}
+			}
+
+			// If no level name has been specified and no channels were found, we're done
+			if (randomLevel && channelID == -1)
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(false);
+				writer.Write("No suitable channels found");
+				EndSend(true, player);
+				return;
+			}
+		}
+
+		// Join a random new channel
+		if (channelID == -1)
+		{
+			channelID = 10001 + mRandom.Next(100000000);
+
+			for (int i = 0; i < 1000; ++i)
+			{
+				if (!ChannelExists(channelID)) break;
+				channelID = 10001 + mRandom.Next(100000000);
+			}
+		}
+
+		if (player.channels.size == 0 || !player.IsInChannel(channelID))
+		{
+			if (exclusive) LeaveAllChannels(player);
+			bool isNew;
+			Channel channel = CreateChannel(channelID, out isNew);
+
+			if (channel == null || !channel.isOpen)
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(false);
+				writer.Write("The requested channel is closed");
+				EndSend(true, player);
+			}
+			else if (isNew)
+			{
+				channel.password = pass;
+				channel.persistent = persist;
+				channel.level = levelName;
+				channel.playerLimit = playerLimit;
+
+				SendJoinChannel(player, channel);
+			}
+			else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
+			{
+				SendJoinChannel(player, channel);
+			}
+			else
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
+				writer.Write(false);
+				writer.Write("Wrong password");
 				EndSend(true, player);
 			}
 		}
@@ -866,29 +1033,26 @@ public class GameServer : FileServer
 
 	void SendJoinChannel (TcpPlayer player, Channel channel)
 	{
-		if (player.channel == channel) return;
+		if (player.IsInChannel(channel.id)) return;
 
-		// Ensure the player has left the channel
-		if (player.channel != null)
-		{
-			SendLeaveChannel(player, true);
-		}
-		else if (mData != null)
+		if (mData != null)
 		{
 			// Send the server data the first time
+			// TODO: Wouldn't it be better to send this after connecting?
 			player.BeginSend(Packet.RequestSetServerOption).Write(mData);
 			player.EndSend();
 		}
 
 		// Set the player's channel
-		player.channel = channel;
+		player.channels.Add(channel);
 
 		// Everything else gets sent to the player, so it's faster to do it all at once
-		player.FinishJoiningChannel();
+		player.FinishJoiningChannel(channel);
 
 		// Inform the channel that a new player is joining
 		BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
 		{
+			writer.Write(channel.id);
 			writer.Write(player.id);
 			writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
 #if STANDALONE
@@ -898,7 +1062,7 @@ public class GameServer : FileServer
 			writer.WriteObject(player.data);
 #endif
 		}
-		EndSend(true, channel, null);
+		EndSend(channel, null, true);
 
 		// Add this player to the channel now that the joining process is complete
 		channel.players.Add(player);
@@ -1033,80 +1197,7 @@ public class GameServer : FileServer
 					return false;
 				}
 #endif
-				// Join a random existing channel or create a new one
-				if (channelID == -2)
-				{
-					bool randomLevel = string.IsNullOrEmpty(levelName);
-					channelID = -1;
-
-					for (int i = 0; i < mChannels.size; ++i)
-					{
-						Channel ch = mChannels[i];
-
-						if (ch.isOpen && (randomLevel || levelName.Equals(ch.level)) &&
-							(string.IsNullOrEmpty(ch.password) || (ch.password == pass)))
-						{
-							channelID = ch.id;
-							break;
-						}
-					}
-
-					// If no level name has been specified and no channels were found, we're done
-					if (randomLevel && channelID == -1)
-					{
-						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
-						writer.Write(false);
-						writer.Write("No suitable channels found");
-						EndSend(true, player);
-						break;
-					}
-				}
-
-				// Join a random new channel
-				if (channelID == -1)
-				{
-					channelID = 10001 + mRandom.Next(100000000);
-
-					for (int i = 0; i < 1000; ++i)
-					{
-						if (!ChannelExists(channelID)) break;
-						channelID = 10001 + mRandom.Next(100000000);
-					}
-				}
-
-				if (player.channel == null || player.channel.id != channelID)
-				{
-					bool isNew;
-					Channel channel = CreateChannel(channelID, out isNew);
-
-					if (channel == null || !channel.isOpen)
-					{
-						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
-						writer.Write(false);
-						writer.Write("The requested channel is closed");
-						EndSend(true, player);
-					}
-					else if (isNew)
-					{
-						channel.password = pass;
-						channel.persistent = persist;
-						channel.level = levelName;
-						channel.playerLimit = playerLimit;
-
-						SendJoinChannel(player, channel);
-					}
-					else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
-					{
-						SendJoinChannel(player, channel);
-					}
-					else
-					{
-						BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
-						writer.Write(false);
-						writer.Write("Wrong password");
-						EndSend(true, player);
-					}
-				}
+				SendJoinChannel(player, channelID, pass, levelName, persist, playerLimit, true);
 				break;
 			}
 			case Packet.RequestSetName:
@@ -1124,15 +1215,7 @@ public class GameServer : FileServer
 				BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
 				writer.Write(player.id);
 				writer.Write(player.name);
-
-				if (player.channel != null)
-				{
-					EndSend(true, player.channel, null);
-				}
-				else
-				{
-					EndSend(true, player);
-				}
+				EndSendToOthers(player, null, true);
 				break;
 			}
 			case Packet.SyncPlayerData:
@@ -1155,25 +1238,11 @@ public class GameServer : FileServer
 				}
 				else target.data = null;
 
-				if (target.channel != null)
+				if (target.channels.size != 0)
 				{
 					// We want to forward the packet as-is
 					buffer.position = origin;
-
-					// Forward the packet to everyone except the sender
-					for (int i = 0; i < target.channel.players.size; ++i)
-					{
-						TcpPlayer tp = target.channel.players[i];
-
-						if (tp != player)
-						{
-							if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
-							{
-								tp.SendTcpPacket(buffer);
-							}
-							else mUdp.Send(buffer, tp.udpEndPoint);
-						}
-					}
+					SendToOthers(buffer, target, player, reliable);
 				}
 				else if (target != player)
 				{
@@ -1290,12 +1359,12 @@ public class GameServer : FileServer
 			case Packet.ForwardToPlayer:
 			{
 				// Forward this packet to the specified player
+				int start = buffer.position - 5;
 				TcpPlayer target = GetPlayer(reader.ReadInt32());
 
 				if (target != null && target.isConnected)
 				{
-					// Reset the position back to the beginning (4 bytes for size, 1 byte for ID, 4 bytes for player)
-					buffer.position = buffer.position - 9;
+					buffer.position = start;
 					target.SendTcpPacket(buffer);
 				}
 				break;
@@ -1323,20 +1392,23 @@ public class GameServer : FileServer
 			{
 				//Tools.Print("Broadcast: " + player.name + ", " + player.address);
 
-				if (player.nextBroadcast < mTime)
+				if (!player.isAdmin)
 				{
-					player.nextBroadcast = mTime + 500;
-					player.broadcastCount = 0;
-				}
-				else if (++player.broadcastCount > 5)
-				{
-					player.Log("SPAM filter trigger! " + (player.channel != null ? player.channel.id : -1));
-					RemovePlayer(player);
-					break;
-				}
-				else if (player.broadcastCount > 2)
-				{
-					player.Log("Possible spam! " + (player.channel != null ? player.channel.id : -1));
+					if (player.nextBroadcast < mTime)
+					{
+						player.nextBroadcast = mTime + 500;
+						player.broadcastCount = 0;
+					}
+					else if (++player.broadcastCount > 5)
+					{
+						player.Log("SPAM filter trigger!");
+						RemovePlayer(player);
+						break;
+					}
+					else if (player.broadcastCount > 2)
+					{
+						player.Log("Possible spam!");
+					}
 				}
 
 				// 4 bytes for size, 1 byte for ID
@@ -1449,19 +1521,6 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestLogPlayers:
-			{
-				if (player.isAdmin)
-				{
-					for (int i = 0; i < mPlayers.size; ++i)
-					{
-						TcpPlayer p = mPlayers[i];
-						if (p.isAdmin) p.Log(p.channel.id + " ADMIN");
-						p.Log(p.channel.id.ToString());
-					}
-				}
-				break;
-			}
 			case Packet.RequestSetBanList:
 			{
 				string s = reader.ReadString();
@@ -1568,8 +1627,7 @@ public class GameServer : FileServer
 					RemovePlayer(player);
 				}
 #else
-				if (player.channel != null && player.channel.host == player)
-					SendLeaveChannel(other, true);
+				LeaveAllChannels(other);
 #endif
 				break;
 			}
@@ -1632,27 +1690,30 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestLockChannel:
 			{
+				Channel ch = player.GetChannel(reader.ReadInt32());
 				bool locked = reader.ReadBoolean();
 
-				if (player.isAdmin)
+				if (ch != null)
 				{
-					if (player.channel != null)
+					if (player.isAdmin)
 					{
-						player.channel.locked = locked;
-						BeginSend(Packet.ResponseLockChannel).Write(locked);
+						ch.locked = locked;
+						BinaryWriter writer = BeginSend(Packet.ResponseLockChannel);
+						writer.Write(ch.id);
+						writer.Write(locked);
 						EndSend(true);
 					}
-				}
-				else
-				{
-					player.LogError("RequestLockChannel(" + locked + ") without authorization", null);
-					RemovePlayer(player);
+					else
+					{
+						player.LogError("RequestLockChannel(" + ch.id + ", " + locked + ") without authorization", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}
 			default:
 			{
-				if (player.channel != null && (int)request < (int)Packet.UserPacket)
+				if (player.channels.size != 0 && (int)request < (int)Packet.UserPacket)
 				{
 					// Other packets can only be processed while in a channel
 					if (request >= Packet.ForwardToAll && request <= Packet.ForwardToPlayerSaved)
@@ -1730,6 +1791,10 @@ public class GameServer : FileServer
 
 	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 	{
+		int start = buffer.position - 5;
+		int channelID = reader.ReadInt32();
+		Channel ch = player.GetChannel(channelID);
+
 		// We can't send unreliable packets if UDP is not active
 		if (!mUdp.isActive || buffer.size > 1024) reliable = true;
 
@@ -1737,28 +1802,29 @@ public class GameServer : FileServer
 		{
 			case Packet.ForwardToHost:
 			{
+				if (ch == null) return;
+
 				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-				buffer.position = buffer.position - 5;
+				buffer.position = start;
+
+				TcpPlayer host = (TcpPlayer)ch.host;
 
 				// Forward the packet to the channel's host
-				if (reliable || !player.udpIsUsable || player.channel.host.udpEndPoint == null || !mAllowUdp)
+				if (reliable || !player.udpIsUsable || host.udpEndPoint == null || !mAllowUdp)
 				{
-					player.channel.host.SendTcpPacket(buffer);
+					host.SendTcpPacket(buffer);
 				}
-				else mUdp.Send(buffer, player.channel.host.udpEndPoint);
+				else mUdp.Send(buffer, host.udpEndPoint);
 				break;
 			}
 			case Packet.ForwardToPlayerSaved:
 			{
-				if (player.channel.locked && !player.isAdmin)
+				if (ch != null && ch.locked && !player.isAdmin)
 				{
 					player.LogError("Tried to call a persistent RFC while the channel is locked", null);
 					RemovePlayer(player);
 					break;
 				}
-
-				// 4 bytes for size, 1 byte for ID
-				int origin = buffer.position - 5;
 
 				// Figure out who the intended recipient is
 				TcpPlayer targetPlayer = GetPlayer(reader.ReadInt32());
@@ -1766,8 +1832,8 @@ public class GameServer : FileServer
 				// Save this function call
 				uint target = reader.ReadUInt32();
 				string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-				buffer.position = origin;
-				player.channel.CreateRFC(target, funcName, buffer);
+				buffer.position = start;
+				if (ch != null) ch.CreateRFC(target, funcName, buffer);
 
 				// Forward the packet to the target player
 				if (targetPlayer != null && targetPlayer.isConnected)
@@ -1782,18 +1848,17 @@ public class GameServer : FileServer
 			}
 			default:
 			{
+				if (ch == null) return;
+
 				// We want to exclude the player if the request was to forward to others
 				TcpPlayer exclude = (
 					request == Packet.ForwardToOthers ||
 					request == Packet.ForwardToOthersSaved) ? player : null;
 
-				// 4 bytes for size, 1 byte for ID
-				int origin = buffer.position - 5;
-
 				// If the request should be saved, let's do so
 				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 				{
-					if (player.channel.locked && !player.isAdmin)
+					if (ch.locked && !player.isAdmin)
 					{
 						player.LogError("Tried to call a persistent RFC while the channel is locked", null);
 						RemovePlayer(player);
@@ -1802,15 +1867,15 @@ public class GameServer : FileServer
 
 					uint target = reader.ReadUInt32();
 					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-					buffer.position = origin;
-					player.channel.CreateRFC(target, funcName, buffer);
+					buffer.position = start;
+					ch.CreateRFC(target, funcName, buffer);
 				}
-				else buffer.position = origin;
+				else buffer.position = start;
 
 				// Forward the packet to everyone except the sender
-				for (int i = 0; i < player.channel.players.size; ++i)
+				for (int i = 0; i < ch.players.size; ++i)
 				{
-					TcpPlayer tp = player.channel.players[i];
+					TcpPlayer tp = (TcpPlayer)ch.players[i];
 					
 					if (tp != exclude)
 					{
@@ -1836,137 +1901,161 @@ public class GameServer : FileServer
 		{
 			case Packet.RequestCreate:
 			{
-				if (!player.channel.locked)
-				{
-					// Create a new object
-					ushort objectIndex = reader.ReadUInt16();
-					byte type = reader.ReadByte();
-					uint uniqueID = 0;
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				ushort objectIndex = reader.ReadUInt16();
+				byte type = reader.ReadByte();
 
-					if (type != 0)
+				if (ch != null)
+				{
+					if (!ch.locked)
 					{
-						uniqueID = --player.channel.objectCounter;
+						// Create a new object
+						uint uniqueID = 0;
 
-						// 1-32767 is reserved for existing scene objects.
-						// 32768 - 16777215 is for dynamically created objects.
-						if (uniqueID < 32768)
+						if (type != 0)
 						{
-							player.channel.objectCounter = 0xFFFFFF;
-							uniqueID = 0xFFFFFF;
+							uniqueID = --ch.objectCounter;
+
+							// 1-32767 is reserved for existing scene objects.
+							// 32768 - 16777215 is for dynamically created objects.
+							if (uniqueID < 32768)
+							{
+								ch.objectCounter = 0xFFFFFF;
+								uniqueID = 0xFFFFFF;
+							}
+
+							Channel.CreatedObject obj = new Channel.CreatedObject();
+							obj.playerID = player.id;
+							obj.objectIndex = objectIndex;
+							obj.objectID = uniqueID;
+							obj.type = type;
+
+							if (buffer.size > 0)
+							{
+								obj.buffer = buffer;
+								buffer.MarkAsUsed();
+							}
+							ch.AddCreatedObject(obj);
 						}
 
-						Channel.CreatedObject obj = new Channel.CreatedObject();
-						obj.playerID = player.id;
-						obj.objectIndex = objectIndex;
-						obj.objectID = uniqueID;
-						obj.type = type;
-
-						if (buffer.size > 0)
-						{
-							obj.buffer = buffer;
-							buffer.MarkAsUsed();
-						}
-						player.channel.AddCreatedObject(obj);
+						// Inform the channel
+						BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+						writer.Write(ch.id);
+						writer.Write(player.id);
+						writer.Write(objectIndex);
+						writer.Write(uniqueID);
+						if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
+						EndSend(ch, null, true);
 					}
-
-					// Inform the channel
-					BinaryWriter writer = BeginSend(Packet.ResponseCreate);
-					writer.Write(player.id);
-					writer.Write(objectIndex);
-					writer.Write(uniqueID);
-					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
-					EndSend(true, player.channel, null);
-				}
-				else
-				{
-					player.LogError("Tried to create an object in a locked channel", null);
-					RemovePlayer(player);
+					else
+					{
+						player.LogError("Tried to create an object in a locked channel", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}
 			case Packet.RequestDestroy:
 			{
-				if (!player.channel.locked)
-				{
-					// Destroy the specified network object
-					uint uniqueID = reader.ReadUInt32();
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				uint uniqueID = reader.ReadUInt32();
 
-					// Remove this object
-					if (player.channel.DestroyObject(uniqueID))
-					{
-						// Inform all players in the channel that the object should be destroyed
-						BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
-						writer.Write((ushort)1);
-						writer.Write(uniqueID);
-						EndSend(true, player.channel, null);
-					}
-				}
-				else
+				if (ch != null)
 				{
-					player.LogError("Tried to destroy an object in a locked channel", null);
-					RemovePlayer(player);
+					if (!ch.locked)
+					{
+						// Remove this object
+						if (ch.DestroyObject(uniqueID))
+						{
+							// Inform all players in the channel that the object should be destroyed
+							BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+							writer.Write(ch.id);
+							writer.Write((ushort)1);
+							writer.Write(uniqueID);
+							EndSend(ch, null, true);
+						}
+					}
+					else
+					{
+						player.LogError("Tried to destroy an object in a locked channel", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}
 			case Packet.RequestLoadLevel:
 			{
-#if WINDWARD
-				if (player.isAdmin)
-#else
-				if (!player.channel.locked)
-#endif
-				{
-					// Change the currently loaded level
-					if (player.channel.host == player)
-					{
-						player.channel.Reset();
-						player.channel.level = reader.ReadString();
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				string lvl = reader.ReadString();
 
-						BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
-						writer.Write(string.IsNullOrEmpty(player.channel.level) ? "" : player.channel.level);
-						EndSend(true, player.channel, null);
-					}
-				}
-				else
+				if (ch != null)
 				{
-					player.LogError("Tried to load a new level while not authorized", null);
-					RemovePlayer(player);
+#if WINDWARD
+					if (player.isAdmin)
+#else
+					if (!ch.locked)
+#endif
+					{
+						// Change the currently loaded level
+						if (ch.host == player)
+						{
+							ch.Reset();
+							ch.level = lvl;
+
+							BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
+							writer.Write(ch.id);
+							writer.Write(string.IsNullOrEmpty(ch.level) ? "" : ch.level);
+							EndSend(ch, null, true);
+						}
+					}
+					else
+					{
+						player.LogError("Tried to load a new level while not authorized", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}
 			case Packet.RequestSetHost:
 			{
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				int pid = reader.ReadInt32();
+
 				// Transfer the host state from one player to another
-				if (player.channel.host == player)
+				if (ch != null && ch.host == player)
 				{
-					TcpPlayer newHost = GetPlayer(reader.ReadInt32());
-					if (newHost != null && newHost.channel == player.channel) SendSetHost(newHost);
+					TcpPlayer newHost = GetPlayer(pid);
+					if (newHost != null && newHost.IsInChannel(ch.id))
+						SendSetHost(ch, newHost);
 				}
 				break;
 			}
 			case Packet.RequestLeaveChannel:
 			{
-				SendLeaveChannel(player, true);
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				if (ch != null) SendLeaveChannel(player, ch, true);
 				break;
 			}
 			case Packet.RequestCloseChannel:
 			{
-				if (player.channel != null)
+				Channel ch = player.GetChannel(reader.ReadInt32());
+
+				if (ch != null)
 				{
-					if (!player.channel.persistent && player.channel.host == player)
+					if (!ch.persistent && ch.host == player)
 					{
-						player.channel.persistent = false;
-						player.channel.closed = true;
+						ch.persistent = false;
+						ch.closed = true;
 					}
 					else if (player.isAdmin)
 					{
-						player.Log("Closing channel " + player.channel.id);
-						player.channel.persistent = false;
-						player.channel.closed = true;
+						player.Log("Closing channel " + ch.id);
+						ch.persistent = false;
+						ch.closed = true;
 					}
 					else
 					{
-						player.LogError("Tried to call a close channel " + player.channel.id + " while not authorized", null);
+						player.LogError("Tried to call a close channel " + ch.id + " while not authorized", null);
 						RemovePlayer(player);
 					}
 				}
@@ -1974,11 +2063,11 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestDeleteChannel:
 			{
+				int id = reader.ReadInt32();
+				bool dc = reader.ReadBoolean();
+
 				if (player.isAdmin)
 				{
-					int id = reader.ReadInt32();
-					bool dc = reader.ReadBoolean();
-
 					player.Log("Deleting channel " + id);
 
 					for (int i = 0; i < mChannels.size; ++i)
@@ -1989,12 +2078,12 @@ public class GameServer : FileServer
 						{
 							for (int b = ch.players.size; b > 0; )
 							{
-								TcpPlayer p = ch.players[--b];
+								TcpPlayer p = (TcpPlayer)ch.players[--b];
 
 								if (p != null)
 								{
 									if (dc) RemovePlayer(p);
-									else SendLeaveChannel(p, true);
+									else SendLeaveChannel(p, ch, true);
 								}
 							}
 
@@ -2009,57 +2098,76 @@ public class GameServer : FileServer
 				}
 				else
 				{
-					player.LogError("Tried to call a delete a channel while not authorized", null);
+					player.LogError("Tried to call a delete a channel #" + id + " while not authorized", null);
 					RemovePlayer(player);
 				}
 				break;
 			}
 			case Packet.RequestSetPlayerLimit:
 			{
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				ushort limit = reader.ReadUInt16();
+
+				if (ch != null)
+				{
 #if WINDWARD
-				if (player.isAdmin)
-				{
-					player.channel.playerLimit = reader.ReadUInt16();
-				}
-				else
-				{
-					player.LogError("Tried to set a player limit while not authorized", null);
-					RemovePlayer(player);
-				}
+					if (player.isAdmin)
+					{
+						ch.playerLimit = limit;
+					}
+					else
+					{
+						player.LogError("Tried to set a player limit while not authorized", null);
+						RemovePlayer(player);
+					}
 #else
-				if (player.channel.host == player)
-					player.channel.playerLimit = reader.ReadUInt16();
+					if (ch.host == player)
+						ch.playerLimit = limit;
 #endif
+				}
 				break;
 			}
 			case Packet.RequestRemoveRFC:
 			{
-				if (player.isAdmin || !player.channel.locked)
+				Channel ch = player.GetChannel(reader.ReadInt32());
+				uint id = reader.ReadUInt32();
+				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
+
+				if (ch != null)
 				{
-					uint id = reader.ReadUInt32();
-					string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
-					player.channel.DeleteRFC(id, funcName);
-				}
-				else
-				{
-					player.LogError("Tried to remove an RFC while not authorized", null);
-					RemovePlayer(player);
+					if (player.isAdmin || !ch.locked)
+					{
+						ch.DeleteRFC(id, funcName);
+					}
+					else
+					{
+						player.LogError("Tried to remove an RFC while not authorized", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}
 			case Packet.RequestSetChannelData:
 			{
-				if (player.isAdmin || !player.channel.locked)
+				bool isNew;
+				Channel ch = CreateChannel(reader.ReadInt32(), out isNew);
+
+				if (ch != null)
 				{
-					player.channel.data = reader.ReadString();
-					BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
-					writer.Write(player.channel.data);
-					EndSend(true, player.channel, null);
-				}
-				else
-				{
-					player.LogError("Tried to set channel data in a locked channel", null);
-					RemovePlayer(player);
+					if (player.isAdmin || !ch.locked)
+					{
+						ch.persistent = true;
+						ch.data = reader.ReadDataNode();
+						BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
+						writer.Write(ch.id);
+						writer.Write(ch.data);
+						EndSend(ch, null, true);
+					}
+					else
+					{
+						player.LogError("Tried to set channel data in a locked channel", null);
+						RemovePlayer(player);
+					}
 				}
 				break;
 			}

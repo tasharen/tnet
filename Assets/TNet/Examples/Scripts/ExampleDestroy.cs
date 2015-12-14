@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -18,21 +18,7 @@ public class ExampleDestroy : TNBehaviour
 {
 	float mDestroyTime = 0f;
 
-	void Awake ()
-	{
-		mDestroyTime = Time.time + 5f;
-	}
-
-	void Update ()
-	{
-		if (mDestroyTime < Time.time)
-		{
-			DestroySelf();
-		}
-	}
-
-	void OnClick ()
-	{
-		DestroySelf();
-	}
+	void Awake () { mDestroyTime = Time.time + 5f; }
+	void Update () { if (mDestroyTime < Time.time) DestroySelf(); }
+	void OnClick () { DestroySelf(); }
 }

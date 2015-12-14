@@ -1,6 +1,6 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -27,7 +27,7 @@ public class ImproveLatency : MonoBehaviour
 
 	public Target target = Target.OnlyOnMobiles;
 
-	void OnNetworkJoinChannel (bool success, string error)
+	void OnNetworkJoinChannel (int channelID, bool success, string error)
 	{
 		if (enabled && success && !TNManager.canUseUDP)
 		{
@@ -40,7 +40,7 @@ public class ImproveLatency : MonoBehaviour
 		}
 	}
 
-	void OnNetworkLeaveChannel ()
+	void OnNetworkLeaveChannel (int channelID)
 	{
 		TNManager.noDelay = false;
 	}

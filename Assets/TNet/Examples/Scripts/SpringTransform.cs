@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright ï¿½ 2012-2015 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
@@ -54,7 +54,7 @@ public class SpringTransform : MonoBehaviour
 
 	void OnEnable () { if (mStarted) Reset(); }
 	void Start () { Reset(); }
-	void OnNetworkJoinChannel (bool success, string error) { Reset(); }
+	void OnNetworkJoinChannel (int channelID, bool success, string error) { Reset(); }
 
 	/// <summary>
 	/// Update the position and rotation, smoothly interpolating it to the target destination using spring logic.

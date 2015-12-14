@@ -16,7 +16,7 @@ public class ExampleStressTest : TNBehaviour
 
 	void OnNetworkError (string err) { Debug.LogError(err); }
 
-	void OnNetworkJoinChannel (bool success, string msg)
+	void OnNetworkJoinChannel (int channelID, bool success, string msg)
 	{
 		if (success) Debug.Log("Joined the channel");
 		else Debug.LogError(msg);

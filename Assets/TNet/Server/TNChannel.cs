@@ -38,17 +38,17 @@ public class Channel
 	public int id;
 	public string password = "";
 	public string level = "";
-	public string data = "";
+	public DataNode data = new DataNode("Version", Player.version);
 	public bool persistent = false;
 	public bool closed = false;
 	public bool locked = false;
 	public ushort playerLimit = 65535;
-	public List<TcpPlayer> players = new List<TcpPlayer>();
+	public List<Player> players = new List<Player>();
 	public List<RFC> rfcs = new List<RFC>();
 	public List<CreatedObject> created = new List<CreatedObject>();
 	public List<uint> destroyed = new List<uint>();
 	public uint objectCounter = 0xFFFFFF;
-	public TcpPlayer host;
+	public Player host;
 
 	// Key = Object ID. Value is 'true'. This dictionary is used for a quick lookup checking to see
 	// if the object actually exists. It's used to store RFCs. RFCs for objects that don't exist are not stored.
@@ -75,6 +75,38 @@ public class Channel
 	{
 		created.Add(obj);
 		mCreatedObjectDictionary[obj.objectID] = true;
+	}
+
+	/// <summary>
+	/// Return a player with the specified ID.
+	/// </summary>
+
+	public Player GetPlayer (int pid)
+	{
+		for (int i = 0; i < players.size; ++i)
+		{
+			Player p = players[i];
+			if (p.id == pid) return p;
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Remove the player with the specified ID.
+	/// </summary>
+
+	public bool RemovePlayer (int pid)
+	{
+		for (int i = 0; i < players.size; ++i)
+		{
+			Player p = players[i];
+			if (p.id == pid)
+			{
+				players.RemoveAt(i);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/// <summary>
@@ -380,7 +412,7 @@ public class Channel
 		mCreatedObjectDictionary.Clear();
 
 		level = reader.ReadString();
-		data = reader.ReadString();
+		data = reader.ReadDataNode();
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();

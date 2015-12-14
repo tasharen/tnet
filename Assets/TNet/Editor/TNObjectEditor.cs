@@ -19,7 +19,9 @@ public class TNObjectEditor : Editor
 			EditorGUI.BeginDisabledGroup(true);
 			EditorGUILayout.LabelField("ID", obj.uid.ToString());
 			EditorGUILayout.LabelField("Owner", obj.isMine ? "Me" : obj.ownerID.ToString());
-			EditorGUILayout.LabelField("Host", TNManager.isHosting ? "Me" : TNManager.hostID.ToString());
+
+			TNet.Player host = TNManager.GetHost(TNManager.lastChannelID);
+			EditorGUILayout.LabelField("Host", (host != null) ? host.name : "<none>");
 			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
 			EditorGUI.EndDisabledGroup();
 		}

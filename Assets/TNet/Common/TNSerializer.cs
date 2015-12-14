@@ -1175,7 +1175,13 @@ public static class Serialization
 			case 15: bw.Write((double)obj); break;
 			case 16: bw.Write((short)obj); break;
 #if !STANDALONE
-			case 17: bw.Write((uint)(obj as TNObject).uid); break;
+			case 17:
+			{
+				TNObject tno = (obj as TNObject);
+				bw.Write(tno.channelID);
+				bw.Write(tno.uid);
+				break;
+			}
 #endif
 			case 18: bw.Write((long)obj); break;
 			case 19: bw.Write((ulong)obj); break;
@@ -1293,8 +1299,13 @@ public static class Serialization
 			{
 				TNObject[] arr = (TNObject[])obj;
 				bw.WriteInt(arr.Length);
+
 				for (int i = 0, imax = arr.Length; i < imax; ++i)
-					bw.Write((uint)arr[i].uid);
+				{
+					TNObject tno = arr[i];
+					bw.Write(tno.channelID);
+					bw.Write(tno.uid);
+				}
 				break;
 			}
 #endif
@@ -1677,7 +1688,12 @@ public static class Serialization
 			case 15: return reader.ReadDouble();
 			case 16: return reader.ReadInt16();
 #if !STANDALONE
-			case 17: return TNObject.Find(reader.ReadUInt32());
+			case 17:
+			{
+				int channelID = reader.ReadInt32();
+				uint id = reader.ReadUInt32();
+				return TNObject.Find(channelID, id);
+			}
 #endif
 			case 18: return reader.ReadInt64();
 			case 19: return reader.ReadUInt64();
@@ -1890,7 +1906,8 @@ public static class Serialization
 			{
 				int elements = reader.ReadInt();
 				TNObject[] arr = new TNObject[elements];
-				for (int b = 0; b < elements; ++b) arr[b] = TNObject.Find(reader.ReadUInt32());
+				for (int b = 0; b < elements; ++b)
+					arr[b] = TNObject.Find(reader.ReadInt32(), reader.ReadUInt32());
 				return arr;
 			}
 #endif
