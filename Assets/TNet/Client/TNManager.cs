@@ -255,6 +255,25 @@ public class TNManager : MonoBehaviour
 	static public List<Channel> channels { get { return isConnected ? mInstance.mClient.channels : null; } }
 
 	/// <summary>
+	/// Check to see if we are currently in the specified channel.
+	/// </summary>
+
+	static public bool IsInChannel (int channelID)
+	{
+		List<Channel> list = channels;
+
+		if (list != null)
+		{
+			for (int i = 0; i < list.size; ++i)
+			{
+				Channel ch = list[i];
+				if (ch != null && ch.id == channelID) return true;
+			}
+		}
+		return false;
+	}
+
+	/// <summary>
 	/// ID of the host.
 	/// </summary>
 
@@ -265,7 +284,11 @@ public class TNManager : MonoBehaviour
 	/// Get the player hosting the specified channel. Only works for the channels the player is in.
 	/// </summary>
 
-	static public Player GetHost (int channelID) { return mInstance.mClient.GetHost(channelID) ?? mPlayer; }
+	static public Player GetHost (int channelID)
+	{
+		if (mInstance == null) return mPlayer;
+		return mInstance.mClient.GetHost(channelID) ?? mPlayer;
+	}
 
 	/// <summary>
 	/// The player's unique identifier.
@@ -628,6 +651,17 @@ public class TNManager : MonoBehaviour
 	static public void Disconnect () { if (mInstance != null) mInstance.mClient.Disconnect(); }
 
 	/// <summary>
+	/// Join the specified channel.
+	/// </summary>
+	/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
+	/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
+
+	static public void JoinChannel (int channelID, bool persistent = false, bool leaveCurrentChannel = false)
+	{
+		JoinChannel(channelID, null, persistent, int.MaxValue, null, leaveCurrentChannel);
+	}
+
+	/// <summary>
 	/// Join the specified channel. This channel will be marked as persistent, meaning it will
 	/// stay open even when the last player leaves, unless explicitly closed first.
 	/// </summary>
@@ -746,6 +780,12 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void CloseChannel (int channelID) { if (mInstance != null) mInstance.mClient.CloseChannel(channelID); }
+
+	/// <summary>
+	/// Leave all of the channels we're currently in.
+	/// </summary>
+
+	static public void LeaveAllChannels () { if (mInstance != null) mInstance.mClient.LeaveAllChannels(); }
 
 	/// <summary>
 	/// Leave the channel we're in.
@@ -1450,7 +1490,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			GameObject.Destroy(gameObject);
+			Object.Destroy(gameObject);
 		}
 		else
 		{
@@ -1488,7 +1528,6 @@ public class TNManager : MonoBehaviour
 				}
 				Debug.Log(text);
 			}
-			else Debug.LogError("[TNet] IP address cannot be determined!", this);
 #endif
 		}
 	}
@@ -1754,6 +1793,8 @@ public class TNManager : MonoBehaviour
 
 	void OnJoinChannel (int channelID, bool success, string message)
 	{
+		TNManager.lastChannelID = channelID;
+
 		mAsyncLoad = false;
 
 		if (!mJoining.Remove(channelID))
@@ -1862,21 +1903,5 @@ public class TNManager : MonoBehaviour
 
 	[ContextMenu("Lock channel")]
 	void LockChannel () { LockChannel(TNManager.lastChannelID, true); }
-
-	[System.Obsolete("Use TNObject's and TNBehaviour's DestroySelf() instead")]
-	static public void Destroy (GameObject go)
-	{
-		if (go)
-		{
-			TNObject tno = go.GetComponent<TNObject>();
-
-			if (tno)
-			{
-				tno.DestroySelf();
-				return;
-			}
-		}
-		Object.Destroy(go);
-	}
 #endregion
 }

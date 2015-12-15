@@ -981,11 +981,18 @@ public class GameServer : FileServer
 				channel.level = levelName;
 				channel.playerLimit = playerLimit;
 
-				SendJoinChannel(player, channel);
+				SendJoinChannel(player, channel, levelName);
 			}
 			else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
 			{
-				SendJoinChannel(player, channel);
+				if (string.IsNullOrEmpty(channel.level))
+				{
+					channel.persistent = persist;
+					channel.level = levelName;
+					channel.playerLimit = playerLimit;
+				}
+
+				SendJoinChannel(player, channel, levelName);
 			}
 			else
 			{
@@ -1002,7 +1009,7 @@ public class GameServer : FileServer
 	/// Join the specified channel.
 	/// </summary>
 
-	void SendJoinChannel (TcpPlayer player, Channel channel)
+	void SendJoinChannel (TcpPlayer player, Channel channel, string requestedLevelName)
 	{
 		if (player.IsInChannel(channel.id)) return;
 
@@ -1010,7 +1017,7 @@ public class GameServer : FileServer
 		player.channels.Add(channel);
 
 		// Everything else gets sent to the player, so it's faster to do it all at once
-		player.FinishJoiningChannel(channel, mServerData);
+		player.FinishJoiningChannel(channel, mServerData, requestedLevelName);
 
 		// Inform the channel that a new player is joining
 		BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
@@ -1868,7 +1875,8 @@ public class GameServer : FileServer
 		{
 			case Packet.RequestCreateObject:
 			{
-				Channel ch = player.GetChannel(reader.ReadInt32());
+				int channelID = reader.ReadInt32();
+				Channel ch = player.GetChannel(channelID);
 				ushort objectIndex = reader.ReadUInt16();
 				byte type = reader.ReadByte();
 
@@ -1903,6 +1911,7 @@ public class GameServer : FileServer
 					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
 					EndSend(ch, null, true);
 				}
+				else UnityEngine.Debug.Log(channelID);
 				break;
 			}
 			case Packet.RequestDestroyObject:

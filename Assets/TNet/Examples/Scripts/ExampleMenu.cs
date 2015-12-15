@@ -24,7 +24,9 @@ using UnityTools = TNet.UnityTools;
 [ExecuteInEditMode]
 public class ExampleMenu : MonoBehaviour
 {
-	const float buttonWidth = 150f;
+	static ExampleMenu mInst = null;
+
+	const float buttonWidth = 200f;
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
@@ -38,6 +40,20 @@ public class ExampleMenu : MonoBehaviour
 	string mAddress = "127.0.0.1";
 	string mMessage = "";
 	float mAlpha = 0f;
+
+	/// <summary>
+	/// Keep only one instance of this object.
+	/// </summary>
+
+	void Awake ()
+	{
+		if (mInst == null)
+		{
+			mInst = this;
+			DontDestroyOnLoad(gameObject);
+		}
+		else Destroy(gameObject);
+	}
 
 	/// <summary>
 	/// Start listening for incoming UDP packets right away.
@@ -186,8 +202,8 @@ public class ExampleMenu : MonoBehaviour
 
 	void OnNetworkConnect (bool success, string message)
 	{
+		Debug.Log("OnNetworkConnect: " + success);
 		mMessage = message;
-		if (success) Debug.Log("Connected!");
 	}
 
 	/// <summary>
@@ -230,18 +246,30 @@ public class ExampleMenu : MonoBehaviour
 		if (GUI.Button(rect, "Main Menu", button))
 		{
 			// Leaving the channel will cause the "OnNetworkLeaveChannel" to be sent out.
-			TNManager.LeaveChannel();
+			TNManager.LeaveAllChannels();
 		}
 	}
 
 	/// <summary>
-	/// We want to return to the menu when we leave the channel.
-	/// This message is also sent out when we get disconnected.
+	/// OnNetworkJoinChannel notification is broadcast whenever we join a channel, successfully or not.
+	/// </summary>
+
+	void OnNetworkJoinChannel (int channelID, bool success, string msg)
+	{
+		Debug.Log("OnNetworkJoinChannel #" + channelID + " " + success);
+	}
+
+	/// <summary>
+	/// OnNetworkLeaveChannel notification is broadcast whenever we leave a channel.
+	/// It's also sent prior to OnNetworkDisconnect() when the player gets disconnected
 	/// </summary>
 
 	void OnNetworkLeaveChannel (int channelID)
 	{
-		Application.LoadLevel(mainMenu);
+		Debug.Log("OnNetworkLeaveChannel #" + channelID);
+
+		if (TNManager.channels.size == 0)
+			Application.LoadLevel(mainMenu);
 	}
 
 	/// <summary>
@@ -250,7 +278,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void OnNetworkDisconnect ()
 	{
-		Debug.Log("Disconnected!");
+		Debug.Log("OnNetworkDisconnect");
 	}
 
 	/// <summary>

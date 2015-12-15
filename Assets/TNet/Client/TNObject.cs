@@ -41,7 +41,7 @@ public sealed class TNObject : MonoBehaviour
 	[System.NonSerialized][HideInInspector] public int channelID = 0;
 
 	/// <summary>
-	/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32768 to 2^24-1).
+	/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32,768 to 16,777,215).
 	/// </summary>
 
 	public uint uid
@@ -145,6 +145,7 @@ public sealed class TNObject : MonoBehaviour
 			else
 			{
 				if (onDestroy != null) onDestroy();
+				Debug.Log("DestroySelf " + channelID + " " + uid);
 				Object.Destroy(gameObject);
 			}
 		}
@@ -157,6 +158,7 @@ public sealed class TNObject : MonoBehaviour
 	void EnsureDestroy ()
 	{
 		if (onDestroy != null) onDestroy();
+		Debug.Log("EnsureDestroy " + channelID + " " + uid);
 		Object.Destroy(gameObject);
 	}
 
@@ -166,7 +168,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void Awake ()
 	{
-		mOwner = TNManager.currentObjectOwner;
+		mOwner = TNManager.isConnected ? TNManager.currentObjectOwner : TNManager.player;
 		channelID = TNManager.lastChannelID;
 	}
 
@@ -867,7 +869,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Transfer this object to another channel. Only the object's owner can perform this action.
 	/// </summary>
 
-	public void TransferToChannel (uint newChannelID)
+	public void TransferToChannel (int newChannelID)
 	{
 		if (isMine && channelID != newChannelID)
 		{
@@ -881,5 +883,15 @@ public sealed class TNObject : MonoBehaviour
 			}
 			else DestroySelf();
 		}
+	}
+
+	/// <summary>
+	/// Destroy this object when leaving the scene it belongs to, but only if this is a dynamic object.
+	/// </summary>
+
+	void OnNetworkLeaveChannel (int channelID)
+	{
+		if (this.channelID == channelID && uid > 32767)
+			Object.Destroy(gameObject);
 	}
 }

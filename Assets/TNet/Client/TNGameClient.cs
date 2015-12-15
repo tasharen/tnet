@@ -1380,11 +1380,11 @@ public class GameClient
 			}
 			case Packet.ResponseLockChannel:
 			{
-				int chID = reader.ReadInt32();
+				int channelID = reader.ReadInt32();
 				bool isLocked = reader.ReadBoolean();
-				Channel ch = GetChannel(chID);
+				Channel ch = GetChannel(channelID);
 				if (ch != null) ch.locked = isLocked;
-				if (onLockChannel != null) onLockChannel(chID, isLocked);
+				if (onLockChannel != null) onLockChannel(channelID, isLocked);
 				break;
 			}
 		}

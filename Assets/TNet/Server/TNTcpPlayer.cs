@@ -90,11 +90,11 @@ public class TcpPlayer : TcpProtocol
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
-	public void FinishJoiningChannel (Channel channel, DataNode serverData)
+	public void FinishJoiningChannel (Channel channel, DataNode serverData, string requestedLevelName)
 	{
 		Buffer buffer = Buffer.Create();
 
-		// Step 2: Tell the player who else is in the channel
+		// Tell the player who else is in the channel
 		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
 		{
 			writer.Write(channel.id);
@@ -124,14 +124,6 @@ public class TcpPlayer : TcpProtocol
 		writer.Write(channel.host.id);
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
-		// Send the server's data
-		if (serverData != null)
-		{
-			writer = buffer.BeginPacket(Packet.RequestSetServerOption);
-			writer.Write(serverData);
-			offset = buffer.EndTcpPacketStartingAt(offset);
-		}
-
 		// Send the channel's data
 		if (channel.data != null)
 		{
@@ -141,8 +133,8 @@ public class TcpPlayer : TcpProtocol
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
-		// Inform the player of what level we're on
-		if (!string.IsNullOrEmpty(channel.level))
+		// Send the LoadLevel packet, but only if some level name was specified in the original LoadLevel request.
+		if (!string.IsNullOrEmpty(requestedLevelName) && !string.IsNullOrEmpty(channel.level))
 		{
 			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 			writer.Write(channel.id);

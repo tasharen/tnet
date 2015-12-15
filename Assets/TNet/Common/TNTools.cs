@@ -142,6 +142,7 @@ static public class Tools
 
 						IPInterfaceProperties props = ni.GetIPProperties();
 						if (props == null) continue;
+
 						//if (ni.NetworkInterfaceType == NetworkInterfaceType.Unknown) continue;
 
 						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;

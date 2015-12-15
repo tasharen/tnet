@@ -13,8 +13,6 @@ using UnityEngine;
 
 public class ExampleCreate : MonoBehaviour
 {
-	public GameObject objectToCreate;
-
 	/// <summary>
 	/// Create a new object above the clicked position
 	/// </summary>
@@ -24,6 +22,6 @@ public class ExampleCreate : MonoBehaviour
 		Vector3 pos = TouchHandler.worldPos;
 		pos.y += 3f;
 		Quaternion rot = Quaternion.Euler(Random.value * 180f, Random.value * 180f, Random.value * 180f);
-		TNManager.Create(objectToCreate, pos, rot);
+		TNManager.Create("Created Cube", pos, rot);
 	}
 }

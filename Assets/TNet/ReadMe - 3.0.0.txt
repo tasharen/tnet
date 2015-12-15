@@ -77,6 +77,9 @@ http://www.tasharen.com/?page_id=4518
 3.0.0
 - NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
 - NEW: TNet now seamlessly supports instantiation of DataNode-exported objects as if they were prefabs both via TNManager.Create as well as manually via DataNode.Instantiate().
+- NEW: Added support for multiple simultaneous channel subscriptions.
+- NEW: Added the ability to seamlessly transfer instantiated objects from one channel to another.
+- NEW: Added a new example showing multiple channel support and the ability to transfer objects.
 - NEW: Added the LZMA library to TNet in order to support LZMA-compressed serialization for maximum bandwidth reduction when desired.
 - NEW: TNBehaviour-derived scripts will now try to find the TNObject in Start() if it was not found in OnEnable.
 - NEW: Added TNManager.WriteCache and TNManager.ReadCache for when you want to store server-specific files on the client side, such as downloaded textures.
