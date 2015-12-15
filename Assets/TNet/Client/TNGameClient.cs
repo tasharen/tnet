@@ -1321,7 +1321,7 @@ public class GameClient
 				}
 				break;
 			}
-			case Packet.ResponseServerOptions:
+			case Packet.ResponseReloadServerOptions:
 			{
 				serverOptions = reader.ReadDataNode();
 

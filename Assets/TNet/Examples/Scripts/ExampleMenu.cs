@@ -212,7 +212,7 @@ public class ExampleMenu : MonoBehaviour
 				// When a button is clicked, join the specified channel.
 				// Whoever creates the channel also sets the scene that will be loaded by everyone who joins.
 				// In this case, we are specifying the name of the scene we've just clicked on.
-				TNManager.JoinChannel(i + 1, sceneName);
+				TNManager.JoinChannel(i + 1, sceneName, true, 255, null);
 			}
 			rect.y += buttonHeight;
 		}

@@ -30,379 +30,6 @@ public enum Packet
 
 	Disconnect,
 
-	//===================================================================================
-
-	/// <summary>
-	/// This should be the very first packet sent by the client.
-	/// int32: Protocol version.
-	/// string: Player Name.
-	/// object: Player data.
-	/// string: Admin key. (used to flag administrators)
-	/// </summary>
-
-	RequestID,
-
-	/// <summary>
-	/// Clients should send a ping request periodically.
-	/// </summary>
-
-	RequestPing,
-
-	/// <summary>
-	/// Set the remote UDP port for unreliable packets.
-	/// ushort: port.
-	/// </summary>
-
-	RequestSetUDP,
-
-	/// <summary>
-	/// Join the specified channel.
-	/// int32: Channel ID (-1 = new random, -2 = existing random)
-	/// string: Channel password.
-	/// bool: Whether the channel should be persistent (left open even when the last player leaves).
-	/// ushort: Player limit.
-	/// </summary>
-
-	RequestJoinChannel,
-
-	/// <summary>
-	/// Leave the channel the player is in.
-	/// int32: Channel ID.
-	/// </summary>
-
-	RequestLeaveChannel,
-
-	/// <summary>
-	/// Mark the channel as closed. No further players will be able to join and saved data will be deleted.
-	/// int32: Channel ID.
-	/// </summary>
-
-	RequestCloseChannel,
-
-	/// <summary>
-	/// Change the number of players that can be in this channel at the same time.
-	/// int32: Channel ID;
-	/// ushort: Player limit.
-	/// </summary>
-
-	RequestSetPlayerLimit,
-
-	/// <summary>
-	/// Load the specified level.
-	/// int32: Channel ID;
-	/// string: Level Name.
-	/// </summary>
-
-	RequestLoadLevel,
-
-	/// <summary>
-	/// Player name change.
-	/// string: Player name.
-	/// </summary>
-
-	RequestSetName,
-
-	/// <summary>
-	/// Transfer the host status to the specified player. Only works if the sender is currently hosting.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// </summary>
-
-	RequestSetHost,
-
-	/// <summary>
-	/// Delete the specified buffered function.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// string: Function Name (only if RFC ID is 0).
-	/// </summary>
-
-	RequestRemoveRFC,
-
-	/// <summary>
-	/// Instantiate a new object with the specified identifier.
-	/// int32: Channel ID.
-	/// ushort: Index of the object being created (within a static list of prefabs on the client).
-	/// byte:
-	/// 0 = Local-only object. Only echoed to other clients.
-	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
-	/// 2 = Saved on the server, destroyed when the owner leaves.
-	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
-	/// </summary>
-
-	RequestCreate,
-
-	/// <summary>
-	/// Delete the specified Network Object.
-	/// int32: Channel ID.
-	/// uint32: Object ID.
-	/// </summary>
-
-	RequestDestroy,
-
-	/// <summary>
-	/// Save the specified data.
-	/// string: Filename.
-	/// int32: Size of the data in bytes.
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	RequestSaveFile,
-
-	/// <summary>
-	/// Load the requested data that was saved previously.
-	/// string: Filename.
-	/// </summary>
-
-	RequestLoadFile,
-
-	/// <summary>
-	/// Delete the specified file.
-	/// string: Filename.
-	/// </summary>
-
-	RequestDeleteFile,
-
-	/// <summary>
-	/// Improve latency of the established connection at the expense of network traffic.
-	/// bool: Whether to improve it (enable NO_DELAY)
-	/// </summary>
-
-	RequestNoDelay,
-
-	/// <summary>
-	/// Set the channel's data field.
-	/// int32: Channel ID.
-	/// string: Custom data
-	/// </summary>
-
-	RequestSetChannelData,
-
-	/// <summary>
-	/// Request the list of open channels from the server.
-	/// </summary>
-	
-	RequestChannelList,
-
-	//===================================================================================
-
-	/// <summary>
-	/// Always the first packet to arrive from the server.
-	/// If the protocol version didn't match the client, a disconnect may follow.
-	/// int32: Protocol ID.
-	/// int32: Player ID (only if the protocol ID matched).
-	/// int64: Server time in milliseconds (only if the protocol ID matched).
-	/// </summary>
-
-	ResponseID,
-
-	/// <summary>
-	/// Response to a ping request.
-	/// </summary>
-
-	ResponsePing,
-
-	/// <summary>
-	/// Set a UDP port used for communication.
-	/// ushort: port. (0 means disabled)
-	/// </summary>
-
-	ResponseSetUDP,
-
-	/// <summary>
-	/// Inform everyone of this player leaving the channel.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// </summary>
-
-	ResponsePlayerLeft,
-
-	/// <summary>
-	/// Inform the channel that a new player has joined.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// string: Player name.
-	/// object: Player data.
-	/// </summary>
-
-	ResponsePlayerJoined,
-
-	/// <summary>
-	/// Start of the channel joining process. Sent to the player who is joining the channel.
-	/// 
-	/// Parameters:
-	/// int32: Channel ID.
-	/// int16: Number of players.
-	/// 
-	/// Then for each player:
-	/// int32: Player ID.
-	/// string: Player Name.
-	/// object: Player data.
-	/// </summary>
-
-	ResponseJoiningChannel,
-
-	/// <summary>
-	/// Inform the player that they have successfully joined a channel.
-	/// int32: Channel ID.
-	/// bool: Success or failure.
-	/// string: Error string (if failed).
-	/// </summary>
-
-	ResponseJoinChannel,
-
-	/// <summary>
-	/// Inform the player that they have left the channel they were in.
-	/// int: Channel ID.
-	/// </summary>
-
-	ResponseLeaveChannel,
-
-	/// <summary>
-	/// Change the specified player's name.
-	/// int32: Player ID,
-	/// string: Player name.
-	/// </summary>
-
-	ResponseRenamePlayer,
-
-	/// <summary>
-	/// Inform the player of who is hosting.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// </summary>
-
-	ResponseSetHost,
-
-	/// <summary>
-	/// Load the specified level. Should happen before all buffered calls.
-	/// int32: Channel ID.
-	/// string: Name of the level.
-	/// </summary>
-
-	ResponseLoadLevel,
-
-	/// <summary>
-	/// Create a new persistent entry.
-	/// int32: Channel ID.
-	/// int32: ID of the player that requested this object to be created.
-	/// ushort: Index of the object being created (within a static list of prefabs on the client).
-	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise. 0-16777215 range.
-	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
-	/// </summary>
-
-	ResponseCreate,
-
-	/// <summary>
-	/// Delete the specified Unique Identifier and its associated entry.
-	/// int32: Channel ID.
-	/// ushort: Number of objects that will follow.
-	/// uint32[] Unique Identifiers (aka Object IDs).
-	/// </summary>
-
-	ResponseDestroy,
-
-	/// <summary>
-	/// Loaded file response.
-	/// string: Filename.
-	/// int32: Number of bytes to follow.
-	/// byte[]: Data.
-	/// </summary>
-
-	ResponseLoadFile,
-
-	/// <summary>
-	/// The channel's data has been changed.
-	/// int32: Channel ID.
-	/// DataNode: Custom data
-	/// </summary>
-
-	ResponseSetChannelData,
-
-	/// <summary>
-	/// List open channels on the server.
-	/// int32: number of channels to follow
-	/// For each channel:
-	///   int32: ID
-	///   ushort: Number of players
-	///   ushort: Player limit
-	///   bool: Has a password
-	///   bool: Is persistent
-	///   string: Level
-	///   string: Custom data
-	/// </summary>
-
-	ResponseChannelList,
-
-	//===================================================================================
-
-	/// <summary>
-	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToAll, // 38, 0x26
-
-	/// <summary>
-	/// Echo the packet to everyone in the room and everyone who joins later.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToAllSaved, // 39, 0x27
-
-	/// <summary>
-	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToOthers, // 40, 0x28
-
-	/// <summary>
-	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToOthersSaved, // 41, 0x29
-
-	/// <summary>
-	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToHost, // 42, 0x2A
-
-	/// <summary>
-	/// Echo the packet to the specified player.
-	/// int32: Player ID.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToPlayer, // 43, 0x2B
-
-	/// <summary>
-	/// Echo the packet to the specified player and everyone who joins later.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToPlayerSaved, // 44, 0x2C
-
-	//===================================================================================
-
 	/// <summary>
 	/// Add a new entry to the list of known servers. Used by the Lobby Server.
 	/// ushort: Game ID.
@@ -443,24 +70,73 @@ public enum Packet
 	ResponseServerList,
 
 	/// <summary>
-	/// By default, the player gets disconnected after 10 seconds of inactivity. You can change this on a per-player basis.
-	/// Setting this value to '0' will turn off this functionality altogether -- however it's a good idea to keep it at some
-	/// valid non-zero value. If you know the player is going to be loading a level for up to a minute, set it to 2 minutes (120).
-	/// int32: timeout delay in seconds
+	/// Print a message on the server. Used to make verbose output possible.
+	/// string: text to log.
 	/// </summary>
 
-	RequestSetTimeout,
-
-	//===================================================================================
+	ServerLog,
 
 	/// <summary>
-	/// Echo this message to everyone connected to the server.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
+	/// This should be the very first packet sent by the client.
+	/// int32: Protocol version.
+	/// string: Player Name.
+	/// object: Player data.
+	/// string: Admin key. (used to flag administrators)
 	/// </summary>
 
-	Broadcast,
+	RequestID,
+
+	/// <summary>
+	/// Always the first packet to arrive from the server.
+	/// If the protocol version didn't match the client, a disconnect may follow.
+	/// int32: Protocol ID.
+	/// int32: Player ID (only if the protocol ID matched).
+	/// int64: Server time in milliseconds (only if the protocol ID matched).
+	/// </summary>
+
+	ResponseID,
+
+	/// <summary>
+	/// Notification sent when a new player connects to the server and authenticates successfully.
+	/// int32: Player's ID.
+	/// string: Player's name.
+	/// </summary>
+
+	PlayerConnected,
+
+	/// <summary>
+	/// Notification sent when a player disconnects from the server.
+	/// int32: Player's ID.
+	/// string: Player's name.
+	/// </summary>
+
+	PlayerDisconnected,
+
+	/// <summary>
+	/// Clients should send a ping request periodically.
+	/// </summary>
+
+	RequestPing,
+
+	/// <summary>
+	/// Response to a ping request.
+	/// </summary>
+
+	ResponsePing,
+
+	/// <summary>
+	/// Set the remote UDP port for unreliable packets.
+	/// ushort: port.
+	/// </summary>
+
+	RequestSetUDP,
+
+	/// <summary>
+	/// Set a UDP port used for communication.
+	/// ushort: port. (0 means disabled)
+	/// </summary>
+
+	ResponseSetUDP,
 
 	/// <summary>
 	/// Activate UDP functionality on the server for this client. This must be sent via UDP and it has no response.
@@ -470,12 +146,339 @@ public enum Packet
 	RequestActivateUDP,
 
 	/// <summary>
-	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
-	/// int32: Player ID who's data should be synchronized.
-	/// object: Player's data.
+	/// Join the specified channel.
+	/// int32: Channel ID (-1 = new random, -2 = existing random)
+	/// string: Channel password.
+	/// bool: Whether the channel should be persistent (left open even when the last player leaves).
+	/// ushort: Player limit.
 	/// </summary>
 
-	SyncPlayerData,
+	RequestJoinChannel,
+
+	/// <summary>
+	/// Start of the channel joining process. Sent to the player who is joining the channel.
+	/// 
+	/// Parameters:
+	/// int32: Channel ID.
+	/// int16: Number of players.
+	/// 
+	/// Then for each player:
+	/// int32: Player ID.
+	/// string: Player Name.
+	/// object: Player data.
+	/// </summary>
+
+	ResponseJoiningChannel,
+
+	/// <summary>
+	/// Inform the player that they have successfully joined a channel.
+	/// int32: Channel ID.
+	/// bool: Success or failure.
+	/// string: Error string (if failed).
+	/// </summary>
+
+	ResponseJoinChannel,
+
+	/// <summary>
+	/// Inform the channel that a new player has joined.
+	/// int32: Channel ID.
+	/// int32: Player ID.
+	/// string: Player name.
+	/// object: Player data.
+	/// </summary>
+
+	ResponsePlayerJoined,
+
+	/// <summary>
+	/// Leave the channel the player is in.
+	/// int32: Channel ID.
+	/// </summary>
+
+	RequestLeaveChannel,
+
+	/// <summary>
+	/// Inform the player that they have left the channel they were in.
+	/// int: Channel ID.
+	/// </summary>
+
+	ResponseLeaveChannel,
+
+	/// <summary>
+	/// Inform everyone of this player leaving the channel.
+	/// int32: Channel ID.
+	/// int32: Player ID.
+	/// </summary>
+
+	ResponsePlayerLeft,
+
+	/// <summary>
+	/// Mark the channel as closed. No further players will be able to join and saved data will be deleted.
+	/// int32: Channel ID.
+	/// </summary>
+
+	RequestCloseChannel,
+
+	/// <summary>
+	/// Change the number of players that can be in this channel at the same time.
+	/// int32: Channel ID;
+	/// ushort: Player limit.
+	/// </summary>
+
+	RequestSetPlayerLimit,
+
+	/// <summary>
+	/// Load the specified level.
+	/// int32: Channel ID;
+	/// string: Level Name.
+	/// </summary>
+
+	RequestLoadLevel,
+
+	/// <summary>
+	/// Load the specified level. Should happen before all buffered calls.
+	/// int32: Channel ID.
+	/// string: Name of the level.
+	/// </summary>
+
+	ResponseLoadLevel,
+
+	/// <summary>
+	/// Player name change.
+	/// string: Player name.
+	/// </summary>
+
+	RequestSetName,
+
+	/// <summary>
+	/// Change the specified player's name.
+	/// int32: Player ID,
+	/// string: Player name.
+	/// </summary>
+
+	ResponseRenamePlayer,
+
+	/// <summary>
+	/// Transfer the host status to the specified player. Only works if the sender is currently hosting.
+	/// int32: Channel ID.
+	/// int32: Player ID.
+	/// </summary>
+
+	RequestSetHost,
+
+	/// <summary>
+	/// Inform the player of who is hosting.
+	/// int32: Channel ID.
+	/// int32: Player ID.
+	/// </summary>
+
+	ResponseSetHost,
+
+	/// <summary>
+	/// Delete the specified buffered function.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function Name (only if RFC ID is 0).
+	/// </summary>
+
+	RequestRemoveRFC,
+
+	/// <summary>
+	/// Instantiate a new object with the specified identifier.
+	/// int32: Channel ID.
+	/// ushort: Index of the object being created (within a static list of prefabs on the client).
+	/// byte:
+	/// 0 = Local-only object. Only echoed to other clients.
+	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
+	/// 2 = Saved on the server, destroyed when the owner leaves.
+	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
+	/// </summary>
+
+	RequestCreate,
+
+	/// <summary>
+	/// Create a new persistent entry.
+	/// int32: Channel ID.
+	/// int32: ID of the player that requested this object to be created.
+	/// ushort: Index of the object being created (within a static list of prefabs on the client).
+	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise. 0-16777215 range.
+	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
+	/// </summary>
+
+	ResponseCreate,
+
+	/// <summary>
+	/// Delete the specified Network Object.
+	/// int32: Channel ID.
+	/// uint32: Object ID.
+	/// </summary>
+
+	RequestDestroy,
+
+	/// <summary>
+	/// Delete the specified Unique Identifier and its associated entry.
+	/// int32: Channel ID.
+	/// ushort: Number of objects that will follow.
+	/// uint32[] Unique Identifiers (aka Object IDs).
+	/// </summary>
+
+	ResponseDestroy,
+
+	/// <summary>
+	/// Get the list of files in the specified folder.
+	/// string: Path.
+	/// </summary>
+
+	RequestGetFileList,
+
+	/// <summary>
+	/// Server returning a list of files from RequestGetFileList.
+	/// string: Path.
+	/// int32: Number of filenames that follow.
+	/// string[] files.
+	/// </summary>
+
+	ResponseGetFileList,
+
+	/// <summary>
+	/// Save the specified data.
+	/// string: Filename.
+	/// int32: Size of the data in bytes.
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	RequestSaveFile,
+
+	/// <summary>
+	/// Load the requested data that was saved previously.
+	/// string: Filename.
+	/// </summary>
+
+	RequestLoadFile,
+
+	/// <summary>
+	/// Loaded file response.
+	/// string: Filename.
+	/// int32: Number of bytes to follow.
+	/// byte[]: Data.
+	/// </summary>
+
+	ResponseLoadFile,
+
+	/// <summary>
+	/// Delete the specified file.
+	/// string: Filename.
+	/// </summary>
+
+	RequestDeleteFile,
+
+	/// <summary>
+	/// Improve latency of the established connection at the expense of network traffic.
+	/// bool: Whether to improve it (enable NO_DELAY)
+	/// </summary>
+
+	RequestNoDelay,
+
+	/// <summary>
+	/// Set the channel's data field.
+	/// int32: Channel ID.
+	/// string: Custom data
+	/// </summary>
+
+	RequestSetChannelData,
+
+	/// <summary>
+	/// The channel's data has been changed.
+	/// int32: Channel ID.
+	/// DataNode: Custom data
+	/// </summary>
+
+	ResponseSetChannelData,
+
+	/// <summary>
+	/// Request the list of open channels from the server.
+	/// </summary>
+	
+	RequestChannelList,
+
+	/// <summary>
+	/// List open channels on the server.
+	/// int32: number of channels to follow
+	/// For each channel:
+	///   int32: ID
+	///   ushort: Number of players
+	///   ushort: Player limit
+	///   bool: Has a password
+	///   bool: Is persistent
+	///   string: Level
+	///   string: Custom data
+	/// </summary>
+
+	ResponseChannelList,
+
+	/// <summary>
+	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToAll,
+
+	/// <summary>
+	/// Echo the packet to everyone in the room and everyone who joins later.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToAllSaved,
+
+	/// <summary>
+	/// Echo the packet to everyone in the room except the sender. Interpreting the packet is up to the client.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToOthers,
+
+	/// <summary>
+	/// Echo the packet to everyone in the room (except the sender) and everyone who joins later.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToOthersSaved,
+
+	/// <summary>
+	/// Echo the packet to the room's host. Interpreting the packet is up to the client.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToHost,
+
+	/// <summary>
+	/// Echo the packet to the specified player.
+	/// int32: Player ID.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToPlayer,
+
+	/// <summary>
+	/// Echo the packet to the specified player and everyone who joins later.
+	/// int32: Channel ID.
+	/// int32: Player ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	ForwardToPlayerSaved,
 
 	/// <summary>
 	/// Echo the packet to the specified player.
@@ -495,11 +498,39 @@ public enum Packet
 	ForwardTargetNotFound,
 
 	/// <summary>
-	/// Print a message on the server. Used to make verbose output possible.
-	/// string: text to log.
+	/// Echo this message to everyone connected to the server.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
 	/// </summary>
 
-	ServerLog,
+	Broadcast,
+
+	/// <summary>
+	/// Echo this message to administrators connected to the server. Same as Broadcast, but only goes to admins.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	BroadcastAdmin,
+
+	/// <summary>
+	/// By default, the player gets disconnected after 10 seconds of inactivity. You can change this on a per-player basis.
+	/// Setting this value to '0' will turn off this functionality altogether -- however it's a good idea to keep it at some
+	/// valid non-zero value. If you know the player is going to be loading a level for up to a minute, set it to 2 minutes (120).
+	/// int32: timeout delay in seconds
+	/// </summary>
+
+	RequestSetTimeout,
+
+	/// <summary>
+	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
+	/// int32: Player ID who's data should be synchronized.
+	/// object: Player's data.
+	/// </summary>
+
+	SyncPlayerData,
 
 	/// <summary>
 	/// Mark the channel as closed and kick out all the players.
@@ -532,6 +563,7 @@ public enum Packet
 
 	/// <summary>
 	/// Kick the specified player.
+	/// int32: Channel ID.
 	/// int32: Player ID.
 	/// string: player name or address
 	/// </summary>
@@ -574,11 +606,17 @@ public enum Packet
 	RequestSetBanList,
 
 	/// <summary>
+	/// Reload configuration, admin and ban list data. Only administrators can use this command.
+	/// </summary>
+
+	RequestReloadServerOptions,
+
+	/// <summary>
 	/// The entire server data root node sent back from the server when the player connects or it gets reloaded.
 	/// DataNode: data.
 	/// </summary>
 
-	ResponseServerOptions,
+	ResponseReloadServerOptions,
 
 	/// <summary>
 	/// Sets a server option. Only administrators can do this.
@@ -595,42 +633,11 @@ public enum Packet
 	ResponseSetServerOption,
 
 	/// <summary>
-	/// Reload configuration, admin and ban list data. Only administrators can use this command.
-	/// </summary>
-
-	RequestReloadServerData,
-
-	/// <summary>
-	/// Echo this message to administrators connected to the server. Same as Broadcast, but only goes to admins.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	BroadcastAdmin,
-
-	/// <summary>
 	/// Response coming from the server for authenticated administrators.
 	/// int32: ID of the player.
 	/// </summary>
 
 	ResponseVerifyAdmin,
-
-	/// <summary>
-	/// Get the list of files in the specified folder.
-	/// string: Path.
-	/// </summary>
-
-	RequestGetFileList,
-
-	/// <summary>
-	/// Server returning a list of files from RequestGetFileList.
-	/// string: Path.
-	/// int32: Number of filenames that follow.
-	/// string[] files.
-	/// </summary>
-
-	ResponseGetFileList,
 
 	/// <summary>
 	/// Lock the current channel, preventing all forms of create, delete or saved RFCs.
@@ -651,22 +658,8 @@ public enum Packet
 	ResponseLockChannel,
 
 	/// <summary>
-	/// Notification sent when a new player connects to the server and authenticates successfully.
-	/// int32: Player's ID.
-	/// string: Player's name.
+	/// Begin custom packets here.
 	/// </summary>
-
-	PlayerConnected,
-
-	/// <summary>
-	/// Notification sent when a player disconnects from the server.
-	/// int32: Player's ID.
-	/// string: Player's name.
-	/// </summary>
-
-	PlayerDisconnected,
-
-	//===================================================================================
 
 	UserPacket = 128,
 }
