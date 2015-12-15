@@ -1033,7 +1033,7 @@ public class TNManager : MonoBehaviour
 						return;
 					}
 
-					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
 					writer.Write(channelID);
 					writer.Write((ushort)index);
 					writer.Write(GetFlag(go, persistent));
@@ -1105,7 +1105,7 @@ public class TNManager : MonoBehaviour
 					return;
 				}
 
-				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreate);
+				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
 				byte flag = GetFlag(go, persistent);
 				writer.Write(channelID);
 				writer.Write((ushort)65535);
@@ -1470,6 +1470,7 @@ public class TNManager : MonoBehaviour
 			mClient.onRenamePlayer		= OnRenamePlayer;
 			mClient.onCreate			= OnCreateObject;
 			mClient.onDestroy			= OnDestroyObject;
+			mClient.onTransfer			= OnTransferObject;
 			mClient.onForwardedPacket	= OnForwardedPacket;
 			mClient.onLockChannel		= OnLockChannel;
 
@@ -1547,7 +1548,7 @@ public class TNManager : MonoBehaviour
 #if UNITY_EDITOR
 			Debug.Log("Deleting " + id);
 #endif
-			TNManager.BeginSend(Packet.RequestDestroy).Write(id);
+			TNManager.BeginSend(Packet.RequestDestroyObject).Write(id);
 			TNManager.EndSend();
 		}
 		mOrphaned.Clear();
@@ -1668,6 +1669,24 @@ public class TNManager : MonoBehaviour
 			if (obj.onDestroy != null) obj.onDestroy();
 			Object.Destroy(obj.gameObject);
 		}
+	}
+
+	/// <summary>
+	/// Notification of a network object being transferred to another channel.
+	/// </summary>
+
+	void OnTransferObject (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID)
+	{
+		TNObject obj = TNObject.Find(oldChannelID, oldObjectID);
+
+		if (obj)
+		{
+			obj.channelID = newChannelID;
+			obj.uid = newObjectID;
+		}
+#if UNITY_EDITOR
+		else Debug.LogWarning("Unable to find TNO #" + oldObjectID + " in channel " + oldChannelID);
+#endif
 	}
 
 	/// <summary>

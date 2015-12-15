@@ -169,7 +169,7 @@ public class TcpPlayer : TcpProtocol
 			// If the previous owner is not present, transfer ownership to the host
 			if (!isPresent) obj.playerID = channel.host.id;
 
-			writer = buffer.BeginPacket(Packet.ResponseCreate, offset);
+			writer = buffer.BeginPacket(Packet.ResponseCreateObject, offset);
 			writer.Write(channel.id);
 			writer.Write(obj.playerID);
 			writer.Write(obj.objectIndex);
@@ -181,7 +181,7 @@ public class TcpPlayer : TcpProtocol
 		// Send the list of objects that have been destroyed
 		if (channel.destroyed.size != 0)
 		{
-			writer = buffer.BeginPacket(Packet.ResponseDestroy, offset);
+			writer = buffer.BeginPacket(Packet.ResponseDestroyObject, offset);
 			writer.Write(channel.id);
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)

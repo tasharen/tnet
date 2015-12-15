@@ -37,6 +37,7 @@ public class GameClient
 	public delegate void OnSetChannelData (int channelID, DataNode data);
 	public delegate void OnCreate (int channelID, int creator, int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (int channelID, uint objID);
+	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
 	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
 	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 	public delegate void OnGetFiles (string path, string[] files);
@@ -141,6 +142,12 @@ public class GameClient
 	/// </summary>
 
 	public OnDestroy onDestroy;
+
+	/// <summary>
+	/// Notification of the specified object being transferred to another channel.
+	/// </summary>
+
+	public OnTransfer onTransfer;
 
 	/// <summary>
 	/// Server data is stored separately from the game data and can be changed only by admins.
@@ -1197,7 +1204,7 @@ public class GameClient
 				if (onRenamePlayer != null) onRenamePlayer(p, oldName);
 				break;
 			}
-			case Packet.ResponseCreate:
+			case Packet.ResponseCreateObject:
 			{
 				if (onCreate != null)
 				{
@@ -1209,7 +1216,7 @@ public class GameClient
 				}
 				break;
 			}
-			case Packet.ResponseDestroy:
+			case Packet.ResponseDestroyObject:
 			{
 				if (onDestroy != null)
 				{
@@ -1221,6 +1228,18 @@ public class GameClient
 						uint val = reader.ReadUInt32();
 						onDestroy(channelID, val);
 					}
+				}
+				break;
+			}
+			case Packet.ResponseTransferObject:
+			{
+				if (onTransfer != null)
+				{
+					int from = reader.ReadInt32();
+					int to = reader.ReadInt32();
+					uint id0 = reader.ReadUInt32();
+					uint id1 = reader.ReadUInt32();
+					onTransfer(from, to, id0, id1);
 				}
 				break;
 			}

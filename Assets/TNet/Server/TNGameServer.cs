@@ -881,7 +881,7 @@ public class GameServer : FileServer
 				// Inform the other players that the player's objects should be destroyed
 				if (mTemp.size > 0)
 				{
-					writer = BeginSend(Packet.ResponseDestroy);
+					writer = BeginSend(Packet.ResponseDestroyObject);
 					writer.Write(ch.id);
 					writer.Write((ushort)mTemp.size);
 					for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
@@ -1866,7 +1866,7 @@ public class GameServer : FileServer
 	{
 		switch (request)
 		{
-			case Packet.RequestCreate:
+			case Packet.RequestCreateObject:
 			{
 				Channel ch = player.GetChannel(reader.ReadInt32());
 				ushort objectIndex = reader.ReadUInt16();
@@ -1878,15 +1878,7 @@ public class GameServer : FileServer
 
 					if (type != 0)
 					{
-						uniqueID = --ch.objectCounter;
-
-						// 1-32767 is reserved for existing scene objects.
-						// 32768 - 16777215 is for dynamically created objects.
-						if (uniqueID < 32768)
-						{
-							ch.objectCounter = 0xFFFFFF;
-							uniqueID = 0xFFFFFF;
-						}
+						uniqueID = ch.GetUniqueID();
 
 						Channel.CreatedObject obj = new Channel.CreatedObject();
 						obj.playerID = player.id;
@@ -1903,7 +1895,7 @@ public class GameServer : FileServer
 					}
 
 					// Inform the channel
-					BinaryWriter writer = BeginSend(Packet.ResponseCreate);
+					BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
 					writer.Write(ch.id);
 					writer.Write(player.id);
 					writer.Write(objectIndex);
@@ -1913,19 +1905,78 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestDestroy:
+			case Packet.RequestDestroyObject:
 			{
 				Channel ch = player.GetChannel(reader.ReadInt32());
-				uint uniqueID = reader.ReadUInt32();
+				uint objectID = reader.ReadUInt32();
 
-				if (ch != null && !ch.locked && ch.DestroyObject(uniqueID))
+				if (ch != null && !ch.locked && ch.DestroyObject(objectID))
 				{
 					// Inform all players in the channel that the object should be destroyed
-					BinaryWriter writer = BeginSend(Packet.ResponseDestroy);
+					BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
 					writer.Write(ch.id);
 					writer.Write((ushort)1);
-					writer.Write(uniqueID);
+					writer.Write(objectID);
 					EndSend(ch, null, true);
+				}
+				break;
+			}
+			case Packet.RequestTransferObject:
+			{
+				bool isNew;
+				Channel from = player.GetChannel(reader.ReadInt32());
+				Channel to = CreateChannel(reader.ReadInt32(), out isNew);
+				uint objectID = reader.ReadUInt32();
+
+				if (from != null && to != null && from != to)
+				{
+					Channel.CreatedObject obj = from.TransferObject(objectID, to);
+
+					if (obj != null)
+					{
+						// Notify players in the old channel
+						for (int i = 0; i < from.players.size; ++i)
+						{
+							Player p = from.players[i];
+
+							if (to.players.Contains(p))
+							{
+								// The player is also present in the other channel -- inform them of the transfer
+								BinaryWriter writer = BeginSend(Packet.ResponseTransferObject);
+								writer.Write(from.id);
+								writer.Write(to.id);
+								writer.Write(objectID);
+								writer.Write(obj.objectID);
+								EndSend(true, (TcpPlayer)p);
+							}
+							else
+							{
+								// The player is not present in the other channel -- delete this object
+								BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
+								writer.Write(from.id);
+								writer.Write((ushort)1);
+								writer.Write(objectID);
+								EndSend(true, (TcpPlayer)p);
+							}
+						}
+
+						// Notify players in the new channel
+						for (int i = 0; i < to.players.size; ++i)
+						{
+							Player p = to.players[i];
+
+							if (!from.players.Contains(p))
+							{
+								BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
+								writer.Write(to.id);
+								writer.Write(obj.playerID);
+								writer.Write(obj.objectIndex);
+								writer.Write(obj.objectID);
+								writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
+								EndSend(true, (TcpPlayer)p);
+							}
+						}
+					}
 				}
 				break;
 			}

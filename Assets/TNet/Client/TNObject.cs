@@ -136,7 +136,7 @@ public sealed class TNObject : MonoBehaviour
 				else
 				{
 					Invoke("EnsureDestroy", 5f);
-					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroy);
+					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
 					bw.Write(channelID);
 					bw.Write(uid);
 					TNManager.EndSend();

@@ -293,7 +293,7 @@ public enum Packet
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
 
-	RequestCreate,
+	RequestCreateObject,
 
 	/// <summary>
 	/// Create a new persistent entry.
@@ -304,7 +304,29 @@ public enum Packet
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
-	ResponseCreate,
+	ResponseCreateObject,
+
+	/// <summary>
+	/// Transfer the specified object (and all of is RFCs) to another channel.
+	/// The player must be present in the 'from' channel in order for this to work.
+	/// This command will only work on objects that have been created dynamically via TNManager.Create.
+	/// int32: Channel ID where the object resides.
+	/// int32: Channel ID where to transfer the object.
+	/// uint32: Object ID.
+	/// </summary>
+
+	RequestTransferObject,
+
+	/// <summary>
+	/// Notification that the specified object has been transferred to another channel.
+	/// This notification is only sent to players that are in both channels.
+	/// int32: Old channel ID.
+	/// int32: New channel ID.
+	/// uint32: Old object ID.
+	/// uint32: New object ID.
+	/// </summary>
+
+	ResponseTransferObject,
 
 	/// <summary>
 	/// Delete the specified Network Object.
@@ -312,7 +334,7 @@ public enum Packet
 	/// uint32: Object ID.
 	/// </summary>
 
-	RequestDestroy,
+	RequestDestroyObject,
 
 	/// <summary>
 	/// Delete the specified Unique Identifier and its associated entry.
@@ -321,7 +343,7 @@ public enum Packet
 	/// uint32[] Unique Identifiers (aka Object IDs).
 	/// </summary>
 
-	ResponseDestroy,
+	ResponseDestroyObject,
 
 	/// <summary>
 	/// Get the list of files in the specified folder.

@@ -68,6 +68,30 @@ public class Channel
 	public bool isOpen { get { return !closed && players.size < playerLimit; } }
 
 	/// <summary>
+	/// Helper function that returns a new unique ID that's not currently used by any object.
+	/// </summary>
+
+	public uint GetUniqueID ()
+	{
+		for (; ; )
+		{
+			uint uniqueID = --objectCounter;
+
+			// 1-32767 is reserved for existing scene objects.
+			// 32768 - 16777215 is for dynamically created objects.
+			if (uniqueID < 32768)
+			{
+				objectCounter = 0xFFFFFF;
+				uniqueID = 0xFFFFFF;
+			}
+
+			// Ensure that this object ID is not already in use
+			if (!mCreatedObjectDictionary.ContainsKey(uniqueID))
+				return uniqueID;
+		}
+	}
+
+	/// <summary>
 	/// Add a new created object to the list. This object's ID must always be above 32767.
 	/// </summary>
 
@@ -230,6 +254,49 @@ public class Channel
 			}
 			++i;
 		}
+	}
+
+	/// <summary>
+	/// Transfer the specified object to another channel, changing its Object ID in the process.
+	/// </summary>
+
+	public CreatedObject TransferObject (uint objectID, Channel other)
+	{
+		if (objectID < 32768)
+		{
+			Tools.LogError("Transferring objects only works with objects that were instantiated at run-time.");
+		}
+		else if (mCreatedObjectDictionary.Remove(objectID))
+		{
+			for (int i = 0; i < created.size; ++i)
+			{
+				CreatedObject obj = created[i];
+
+				if (obj.objectID == objectID)
+				{
+					// Move the created object over to the other channel
+					obj.objectID = other.GetUniqueID();
+					obj.playerID = (other.host != null) ? other.host.id : 0;
+					created.RemoveAt(i);
+					other.created.Add(obj);
+
+					// Move RFCs over to the other channel
+					for (int b = 0; b < rfcs.size; )
+					{
+						RFC r = rfcs[b];
+
+						if (r.objectID == objectID)
+						{
+							rfcs.RemoveAt(i);
+							other.rfcs.Add(r);
+						}
+						else ++b;
+					}
+					return obj;
+				}
+			}
+		}
+		return null;
 	}
 
 	/// <summary>
