@@ -1937,7 +1937,7 @@ public class GameServer : FileServer
 						// Notify players in the old channel
 						for (int i = 0; i < from.players.size; ++i)
 						{
-							Player p = from.players[i];
+							TcpPlayer p = (TcpPlayer)from.players[i];
 
 							if (to.players.Contains(p))
 							{
@@ -1947,7 +1947,7 @@ public class GameServer : FileServer
 								writer.Write(to.id);
 								writer.Write(objectID);
 								writer.Write(obj.objectID);
-								EndSend(true, (TcpPlayer)p);
+								EndSend(true, p);
 							}
 							else
 							{
@@ -1956,24 +1956,43 @@ public class GameServer : FileServer
 								writer.Write(from.id);
 								writer.Write((ushort)1);
 								writer.Write(objectID);
-								EndSend(true, (TcpPlayer)p);
+								EndSend(true, p);
 							}
 						}
 
 						// Notify players in the new channel
 						for (int i = 0; i < to.players.size; ++i)
 						{
-							Player p = to.players[i];
+							TcpPlayer p = (TcpPlayer)to.players[i];
 
 							if (!from.players.Contains(p))
 							{
-								BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
+								Buffer temp = Buffer.Create();
+
+								// Object creation notification
+								BinaryWriter writer = temp.BeginPacket(Packet.ResponseCreateObject);
 								writer.Write(to.id);
 								writer.Write(obj.playerID);
 								writer.Write(obj.objectIndex);
 								writer.Write(obj.objectID);
 								writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
-								EndSend(true, (TcpPlayer)p);
+								int offset = temp.EndPacket();
+
+								// Send all buffered RFCs associated with this object
+								for (int b = 0; b < to.rfcs.size; ++b)
+								{
+									Channel.RFC rfc = to.rfcs[b];
+									
+									if (rfc.objectID == obj.objectID)
+									{
+										writer = temp.BeginWriting(offset);
+										writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
+										offset = temp.EndWriting();
+									}
+								}
+
+								p.SendTcpPacket(buffer);
+								buffer.Recycle();
 							}
 						}
 					}
