@@ -21,7 +21,7 @@ http://www.7-zip.org/sdk.html
 
 Q: How to start and stop a server from in-game?
 
-TNServerInstance.Start(tcpPort, udpPort, [fileToLoad]);
+TNServerInstance.Start(tcpPort, [udpPort], [fileToLoad]);
 TNServerInstance.Stop([fileToSave]]);
 
 Q: How to connect/disconnect?
@@ -32,28 +32,41 @@ TNManager.Disconnect();
 Q: How to join/leave a channel?
 
 TNManager.JoinChannel(id, levelToLoad);
-TNManager.LeaveChannel();
+TNManager.LeaveChannel(id);
 
-Q: How to instantiate new objects and then destroy them?
+Q: How to instantiate a new object?
 
 TNManager.Create(gameObject, position, rotation);
-TNManager.Destroy(gameObject);
+
+Q: How to destroy an object?
+
+TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
+tno.DestroySelf();
 
 Q: How to send a remote function call?
 
 TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
 tno.Send("FunctionName", target, <parameters>);
 
+Q: How does a simple remote function call (RFC) look like?
+
+[RFC]
+protected void FunctionName (<parameters>) {}
+
 Q: What built-in notifications are there?
 
 OnNetworkConnect (success, error);
 OnNetworkDisconnect()
-OnNetworkJoinChannel (success, error)
-OnNetworkLeaveChannel()
-OnNetworkPlayerJoin (player)
-OnNetworkPlayerLeave (player)
+OnNetworkJoinChannel (channelID, success, error)
+OnNetworkLeaveChannel(channelID)
+OnNetworkPlayerJoin (channelID, player)
+OnNetworkPlayerLeave (channelID, player)
 OnNetworkPlayerRenamed (player, previousName)
+OnNetworkLockChannel(channelID, isLocked)
 OnNetworkError (error)
+
+TNManager.onPlayerSync(Player)
+TNManager.onObjectCreated(GameObject)
 
 -----------------------------------------------------
   Stand-Alone Server

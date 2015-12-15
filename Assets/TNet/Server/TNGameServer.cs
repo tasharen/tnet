@@ -1911,7 +1911,6 @@ public class GameServer : FileServer
 					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
 					EndSend(ch, null, true);
 				}
-				else UnityEngine.Debug.Log(channelID);
 				break;
 			}
 			case Packet.RequestDestroyObject:
