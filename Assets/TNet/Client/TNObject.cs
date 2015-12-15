@@ -862,4 +862,24 @@ public sealed class TNObject : MonoBehaviour
 			TNManager.EndSend();
 		}
 	}
+
+	/// <summary>
+	/// Transfer this object to another channel. Only the object's owner can perform this action.
+	/// </summary>
+
+	public void TransferToChannel (uint newChannelID)
+	{
+		if (isMine && channelID != newChannelID)
+		{
+			if (TNManager.isInChannel)
+			{
+				BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
+				writer.Write(channelID);
+				writer.Write(newChannelID);
+				writer.Write(uid);
+				TNManager.EndSend();
+			}
+			else DestroySelf();
+		}
+	}
 }
