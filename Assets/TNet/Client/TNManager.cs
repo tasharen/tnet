@@ -254,11 +254,21 @@ public class TNManager : MonoBehaviour
 	[System.Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
 	static public int channelID { get { return lastChannelID; } }
 
+	static List<Channel> mDummyCL = new List<Channel>();
+
 	/// <summary>
 	/// List of channels the player is currently in.
 	/// </summary>
 
-	static public List<Channel> channels { get { return isConnected ? mInstance.mClient.channels : null; } }
+	static public List<Channel> channels
+	{
+		get
+		{
+			if (isConnected) return mInstance.mClient.channels;
+			mDummyCL.Clear();
+			return mDummyCL;
+		}
+	}
 
 	/// <summary>
 	/// Check to see if we are currently in the specified channel.
@@ -1829,7 +1839,7 @@ public class TNManager : MonoBehaviour
 		if (TNManager.lastChannelID == channelID)
 		{
 			List<Channel> chs = channels;
-			TNManager.lastChannelID = (chs.size > 0) ? chs[0].id : 0;
+			TNManager.lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
 		}
 		UnityTools.Broadcast("OnNetworkLeaveChannel", channelID);
 	}

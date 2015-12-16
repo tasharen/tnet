@@ -107,6 +107,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added object.Invoke("method", params) extension for convenience.
 - NEW: Added Unity menu options that can be used to export/import the selected object as a DataNode binary. Look for them in the Assets/DataNode submenu.
 - NEW: Added TNManager.onObjectCreated callback that will be called every time any object gets created.
+- NEW: TNet is now able to respond to a simple HTTP browser GET request. Simply connect to your server via http://127.0.0.1:5127/
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.

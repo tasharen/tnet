@@ -174,6 +174,7 @@ public class TcpLobbyServer : LobbyServer
 					if (se != null) Tools.Print("Warning: Orphaned connection detected. Removing " + se.name);
 					continue;
 				}
+#if STANDALONE
 				else if (tc.data is ServerList.Entry)
 				{
 					ServerList.Entry ent = tc.data as ServerList.Entry;
@@ -186,7 +187,7 @@ public class TcpLobbyServer : LobbyServer
 						continue;
 					}
 				}
-
+#endif
 				while (tc.ReceivePacket(out buffer))
 				{
 					try { if (!ProcessPacket(buffer, tc)) Disconnect(tc); }

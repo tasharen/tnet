@@ -680,6 +680,13 @@ public enum Packet
 	ResponseLockChannel,
 
 	/// <summary>
+	/// Special message indicates that the connected player was actually a web browser.
+	/// string: Path of the HTTP GET request.
+	/// </summary>
+
+	RequestHTTPGet,
+
+	/// <summary>
 	/// Begin custom packets here.
 	/// </summary>
 

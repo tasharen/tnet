@@ -182,7 +182,7 @@ public class GameServer : FileServer
 	/// How many players are currently connected to the server.
 	/// </summary>
 
-	public int playerCount { get { return isActive ? mPlayerList.size : 0; } }
+	public int playerCount { get { return isActive ? mPlayerDict.Count : 0; } }
 
 	/// <summary>
 	/// Start listening to incoming connections on the specified port.
@@ -1100,7 +1100,7 @@ public class GameServer : FileServer
 		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
-//		if (request != Packet.RequestPing) Tools.Print("Server: " + request + " " + buffer.position + " " + buffer.size);
+		//if (request != Packet.RequestPing) Tools.Print("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
 
 		switch (request)
 		{
@@ -1687,6 +1687,59 @@ public class GameServer : FileServer
 						player.LogError("RequestLockChannel(" + ch.id + ", " + locked + ") without authorization", null);
 						RemovePlayer(player);
 					}
+				}
+				break;
+			}
+			case Packet.RequestHTTPGet:
+			{
+				if (player.stage == TcpProtocol.Stage.WebBrowser)
+				{
+					// string requestText = reader.ReadString();
+					// Example of an HTTP request:
+					// GET / HTTP/1.1
+					// Host: 127.0.0.1:5127
+					// Connection: keep-alive
+					// User-Agent: Chrome/47.0.2526.80
+
+					StringBuilder sb = new StringBuilder();
+
+					// Server name
+					sb.Append("Name: ");
+					sb.AppendLine(name);
+
+					// Number of connected clients
+					sb.Append("Clients: ");
+					sb.AppendLine(playerCount.ToString());
+
+					// Detailed list of clients
+					for (int i = 0, count = 0; i < mPlayerList.size; ++i)
+					{
+						TcpPlayer p = (TcpPlayer)mPlayerList[i];
+
+						if (p.stage == TcpProtocol.Stage.Connected)
+						{
+							sb.Append(++count);
+							sb.Append(" ");
+							sb.AppendLine(p.name);
+						}
+					}
+
+					// Create the header indicating that the connection should be severed after receiving the data
+					string text = sb.ToString();
+					sb = new StringBuilder();
+					sb.AppendLine("HTTP/1.1 200 OK");
+					sb.AppendLine("Server: TNet 3");
+					sb.AppendLine("Content-Length: " + text.Length);
+					sb.AppendLine("Content-Type: text/plain");
+					sb.AppendLine("Connection: Closed\n");
+					sb.Append(text);
+
+					// Send the response
+					mBuffer = Buffer.Create(false);
+					BinaryWriter bw = mBuffer.BeginWriting(false);
+					bw.Write(Encoding.ASCII.GetBytes(sb.ToString()));
+					player.SendTcpPacket(mBuffer);
+					mBuffer = null;
 				}
 				break;
 			}

@@ -25,6 +25,7 @@ public class TcpProtocol : Player
 		Connecting,
 		Verifying,
 		Connected,
+		WebBrowser,
 	}
 
 	/// <summary>
@@ -679,7 +680,24 @@ public class TcpProtocol : Player
 			{
 				mExpected = mReceiveBuffer.PeekInt(mOffset);
 
-				if (mExpected < 0 || mExpected > 16777216)
+				// "GET " -- HTTP GET request sent by a web browser
+				if (mExpected == 542393671)
+				{
+					if (stage == Stage.Verifying || stage == Stage.WebBrowser)
+					{
+						stage = Stage.WebBrowser;
+						string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, available);
+						mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
+						mReceiveBuffer.EndPacket();
+						mReceiveBuffer.BeginReading(4);
+						lock (mIn) mIn.Enqueue(mReceiveBuffer);
+						mReceiveBuffer = null;
+						mExpected = 0;
+						mOffset = 0;
+					}
+					return true;
+				}
+				else if (mExpected < 0 || mExpected > 16777216)
 				{
 #if UNITY_EDITOR
 					UnityEngine.Debug.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
@@ -826,7 +844,9 @@ public class TcpProtocol : Player
 
 		if (request == Packet.RequestID)
 		{
-			if (reader.ReadInt32() == version)
+			int theirVer = reader.ReadInt32();
+
+			if (theirVer == version)
 			{
 				lock (mLock)
 				{

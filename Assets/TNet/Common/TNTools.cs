@@ -1075,5 +1075,40 @@ static public class Tools
 			reader.Close();
 		}
 	}
+
+	/// <summary>
+	/// Format the version number like 1122334 into 2011-22-33.4
+	/// </summary>
+
+	static public string FormatVersion (int version)
+	{
+		string stringVersion = version.ToString();
+		int len = stringVersion.Length;
+
+		if (len == 7)
+		{
+			string text = "20" + stringVersion.Substring(0, 2);
+			text += "-" + stringVersion.Substring(2, 2);
+			text += "-" + stringVersion.Substring(4, 2);
+			text += "." + stringVersion[6];
+			return text;
+		}
+		else if (len == 8)
+		{
+			string text = stringVersion.Substring(0, 4);
+			text += "-" + stringVersion.Substring(4, 2);
+			text += "-" + stringVersion.Substring(6, 2);
+			return text;
+		}
+		else if (len == 9)
+		{
+			string text = stringVersion.Substring(0, 4);
+			text += "-" + stringVersion.Substring(4, 2);
+			text += "-" + stringVersion.Substring(6, 2);
+			text += "." + stringVersion[8];
+			return text;
+		}
+		return version.ToString();
+	}
 }
 }
