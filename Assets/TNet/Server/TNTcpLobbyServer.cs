@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Threading;
 using System.Net;
+using System.Text;
 
 namespace TNet
 {
@@ -375,6 +376,78 @@ public class TcpLobbyServer : LobbyServer
 			case Packet.RequestDeleteFile:
 			{
 				DeleteFile(reader.ReadString());
+				break;
+			}
+			case Packet.RequestHTTPGet:
+			{
+				if (tc.stage == TcpProtocol.Stage.WebBrowser)
+				{
+					// string requestText = reader.ReadString();
+					// Example of an HTTP request:
+					// GET / HTTP/1.1
+					// Host: 127.0.0.1:5127
+					// Connection: keep-alive
+					// User-Agent: Chrome/47.0.2526.80
+					int serverCount = 0, playerCount = 0;
+
+					// Detailed list of clients
+					for (int i = 0; i < mTcp.size; ++i)
+					{
+						TcpProtocol p = mTcp[i];
+
+						if (p.stage == TcpProtocol.Stage.Connected)
+						{
+							ServerList.Entry ent = p.data as ServerList.Entry;
+
+							if (ent != null)
+							{
+								++serverCount;
+								playerCount += ent.playerCount;
+							}
+						}
+					}
+
+					// Number of connected clients
+					StringBuilder sb = new StringBuilder();
+					sb.Append("Servers: ");
+					sb.Append("Players: ");
+					sb.AppendLine(serverCount.ToString());
+
+					// Detailed list of clients
+					for (int i = 0; i < mTcp.size; ++i)
+					{
+						TcpProtocol p = mTcp[i];
+
+						if (p.stage == TcpProtocol.Stage.Connected)
+						{
+							ServerList.Entry ent = p.data as ServerList.Entry;
+
+							if (ent != null)
+							{
+								sb.Append(ent.playerCount);
+								sb.Append(" ");
+								sb.AppendLine(ent.name);
+							}
+						}
+					}
+
+					// Create the header indicating that the connection should be severed after receiving the data
+					string text = sb.ToString();
+					sb = new StringBuilder();
+					sb.AppendLine("HTTP/1.1 200 OK");
+					sb.AppendLine("Server: TNet 3");
+					sb.AppendLine("Content-Length: " + text.Length);
+					sb.AppendLine("Content-Type: text/plain");
+					sb.AppendLine("Connection: Closed\n");
+					sb.Append(text);
+
+					// Send the response
+					mBuffer = Buffer.Create(false);
+					BinaryWriter bw = mBuffer.BeginWriting(false);
+					bw.Write(Encoding.ASCII.GetBytes(sb.ToString()));
+					tc.SendTcpPacket(mBuffer);
+					mBuffer = null;
+				}
 				break;
 			}
 			case Packet.Error:
