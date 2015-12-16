@@ -410,8 +410,9 @@ public class TcpLobbyServer : LobbyServer
 					// Number of connected clients
 					StringBuilder sb = new StringBuilder();
 					sb.Append("Servers: ");
-					sb.Append("Players: ");
 					sb.AppendLine(serverCount.ToString());
+					sb.Append("Players: ");
+					sb.AppendLine(playerCount.ToString());
 
 					// Detailed list of clients
 					for (int i = 0; i < mTcp.size; ++i)
