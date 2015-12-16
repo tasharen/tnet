@@ -98,6 +98,13 @@ public class LobbyServerLink
 		{
 			while (!mShutdown)
 			{
+#if !STANDALONE
+				if (TNManager.isPaused)
+				{
+					Thread.Sleep(500);
+					continue;
+				}
+#endif
 				long time = DateTime.UtcNow.Ticks / 10000;
 
 				if (mNextSend < time && mGameServer != null)

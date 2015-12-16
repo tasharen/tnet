@@ -88,6 +88,13 @@ public class UdpLobbyServer : LobbyServer
 	{
 		for (; ; )
 		{
+#if !STANDALONE
+			if (TNManager.isPaused)
+			{
+				Thread.Sleep(500);
+				continue;
+			}
+#endif
 			mTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Cleanup a list of servers by removing expired entries

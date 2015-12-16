@@ -101,6 +101,13 @@ public class TcpLobbyServerLink : LobbyServerLink
 				break;
 			}
 
+#if !STANDALONE
+			if (TNManager.isPaused)
+			{
+				Thread.Sleep(500);
+				continue;
+			}
+#endif
 			Buffer buffer;
 
 			// Try to establish a connection

@@ -91,6 +91,13 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 		for (; ; )
 		{
+#if !STANDALONE
+			if (TNManager.isPaused)
+			{
+				Thread.Sleep(500);
+				continue;
+			}
+#endif
 			long time = DateTime.UtcNow.Ticks / 10000;
 
 			if (mShutdown)

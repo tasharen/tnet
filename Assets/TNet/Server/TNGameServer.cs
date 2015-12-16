@@ -335,6 +335,13 @@ public class GameServer : FileServer
 		for (; ; )
 #endif
 		{
+#if MULTI_THREADED && !STANDALONE
+			if (TNManager.isPaused)
+			{
+				Thread.Sleep(500);
+				continue;
+			}
+#endif
 			bool received = false;
 
 			lock (mLock)

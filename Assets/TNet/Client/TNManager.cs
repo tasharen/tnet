@@ -18,6 +18,12 @@ using UnityTools = TNet.UnityTools;
 public class TNManager : MonoBehaviour
 {
 	/// <summary>
+	/// Whether the application is currently paused.
+	/// </summary>
+
+	static public bool isPaused = false;
+
+	/// <summary>
 	/// Notification that will be called when SyncPlayerData() gets called, even in offline mode (for consistency).
 	/// </summary>
 
@@ -1904,4 +1910,6 @@ public class TNManager : MonoBehaviour
 	[ContextMenu("Lock channel")]
 	void LockChannel () { LockChannel(TNManager.lastChannelID, true); }
 #endregion
+
+	void OnApplicationPause (bool paused) { isPaused = paused; }
 }

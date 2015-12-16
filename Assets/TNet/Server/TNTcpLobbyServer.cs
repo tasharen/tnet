@@ -142,6 +142,13 @@ public class TcpLobbyServer : LobbyServer
 	{
 		for (; ; )
 		{
+#if !STANDALONE
+			if (TNManager.isPaused)
+			{
+				Thread.Sleep(500);
+				continue;
+			}
+#endif
 			mTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Accept incoming connections
