@@ -618,6 +618,29 @@ public class DataNode
 		stream.Close();
 		return text;
 	}
+
+	/// <summary>
+	/// Convert the DataNode into a binary array of specified type.
+	/// </summary>
+
+	public byte[] ToArray (SaveType type = SaveType.Binary)
+	{
+		MemoryStream stream = new MemoryStream();
+
+		if (type == SaveType.Text)
+		{
+			StreamWriter writer = new StreamWriter(stream);
+			Write(writer);
+		}
+		else
+		{
+			BinaryWriter writer = new BinaryWriter(stream);
+			Write(writer, type == SaveType.Compressed);
+		}
+
+		byte[] data = stream.ToArray();
+		return data;
+	}
 #endregion
 #region Private Functions
 

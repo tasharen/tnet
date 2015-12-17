@@ -202,7 +202,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void OnNetworkConnect (bool success, string message)
 	{
-		Debug.Log("OnNetworkConnect: " + success);
+		Debug.Log("OnNetworkConnect: " + success + " " + message);
 		mMessage = message;
 	}
 
@@ -256,7 +256,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void OnNetworkJoinChannel (int channelID, bool success, string msg)
 	{
-		Debug.Log("OnNetworkJoinChannel #" + channelID + " " + success);
+		Debug.Log("OnNetworkJoinChannel #" + channelID + " " + success + " " + msg);
 	}
 
 	/// <summary>
