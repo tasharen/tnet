@@ -145,7 +145,6 @@ public sealed class TNObject : MonoBehaviour
 			else
 			{
 				if (onDestroy != null) onDestroy();
-				Debug.Log("DestroySelf " + channelID + " " + uid);
 				Object.Destroy(gameObject);
 			}
 		}
@@ -158,7 +157,6 @@ public sealed class TNObject : MonoBehaviour
 	void EnsureDestroy ()
 	{
 		if (onDestroy != null) onDestroy();
-		Debug.Log("EnsureDestroy " + channelID + " " + uid);
 		Object.Destroy(gameObject);
 	}
 

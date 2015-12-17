@@ -293,6 +293,7 @@ public class Channel
 					obj.playerID = (other.host != null) ? other.host.id : 0;
 					created.RemoveAt(i);
 					other.created.Add(obj);
+					other.mCreatedObjectDictionary[obj.objectID] = true;
 
 					// Move RFCs over to the other channel
 					for (int b = 0; b < rfcs.size; )
@@ -320,7 +321,6 @@ public class Channel
 	public void AddRFC (uint uid, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
-
 		uint objID = (uid >> 8);
 
 		// Ignore objects that don't exist
