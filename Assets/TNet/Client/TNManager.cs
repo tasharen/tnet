@@ -69,8 +69,7 @@ public class TNManager : MonoBehaviour
 
 	// Network client
 	[System.NonSerialized] GameClient mClient = new GameClient();
-	[System.NonSerialized] bool mAsyncLoad = false;
-	[System.NonSerialized] List<int> mJoining = new List<int>();
+	[System.NonSerialized] List<int> mLoadingLevel = new List<int>();
 
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
@@ -113,16 +112,26 @@ public class TNManager : MonoBehaviour
 	static public bool isConnected { get { return mInstance != null && mInstance.mClient.isConnected; } }
 
 	/// <summary>
-	/// Whether TNet is currently joining a channel. This gets set to 'true' in JoinChannel,
-	/// then 'false' just before OnNetworkJoinChannel was gets out.
+	/// Whether we are currently in the process of joining a channel.
+	/// To find out whether we are joining a specific channel, use the "IsSwitchingScenes(id)" function.
 	/// </summary>
 
 	static public bool isJoiningChannel
 	{
 		get
 		{
-			return (mInstance != null && (mInstance.mJoining.size != 0 || mInstance.mAsyncLoad || mInstance.mClient.isSwitchingScenes));
+			return (mInstance != null && (mInstance.mLoadingLevel.size != 0 || mInstance.mClient.isJoiningChannel));
 		}
+	}
+
+	/// <summary>
+	/// Whether we are currently trying to join the specified channel.
+	/// </summary>
+
+	static public bool IsJoiningChannel (int channelID)
+	{
+		if (mInstance == null) return false;
+		return mInstance.mLoadingLevel.Contains(channelID) || mInstance.mClient.IsJoiningChannel(channelID);
 	}
 
 	/// <summary>
@@ -146,6 +155,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// You can pause TNManager's message processing if you like.
+	/// This happens automatically when a scene is being loaded.
 	/// </summary>
 
 	static public bool isActive
@@ -688,13 +698,12 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining.Contains(channelID))
+			if (!IsInChannel(channelID))
 			{
 				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				mInstance.mJoining.Add(channelID);
+				if (!string.IsNullOrEmpty(levelName)) mInstance.mLoadingLevel.Add(channelID, true);
 				mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 			}
-			else Debug.LogWarning("Already joining, ignored");
 		}
 		else
 		{
@@ -716,13 +725,8 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null && TNManager.isConnected)
 		{
-			if (!mInstance.mJoining.Contains(channelID))
-			{
-				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				mInstance.mJoining.Add(channelID);
-				mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
-			}
-			else Debug.LogWarning("Already joining, ignored");
+			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
+			mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
 		}
 		else
 		{
@@ -744,7 +748,6 @@ public class TNManager : MonoBehaviour
 		if (mInstance != null && TNManager.isConnected)
 		{
 			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-			mInstance.mJoining.Add(-2);
 			mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
 		}
 	}
@@ -762,7 +765,6 @@ public class TNManager : MonoBehaviour
 		if (mInstance != null && TNManager.isConnected)
 		{
 			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-			mInstance.mJoining.Add(-1);
 			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
 		else Application.LoadLevel(levelName);
@@ -957,7 +959,7 @@ public class TNManager : MonoBehaviour
 			BinaryWriter writer = BeginSend(Packet.RequestLockChannel);
 			writer.Write(channelID);
 			writer.Write(locked);
-			EndSend();
+			EndSend(channelID, true);
 		}
 	}
 
@@ -1080,8 +1082,11 @@ public class TNManager : MonoBehaviour
 			{
 				if (index != -1)
 				{
-					if (mInstance != null && mInstance.mClient.isSwitchingScenes)
+					if (IsJoiningChannel(channelID))
+					{
 						Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+						return;
+					}
 
 					if (IsChannelLocked(channelID))
 					{
@@ -1095,7 +1100,7 @@ public class TNManager : MonoBehaviour
 					writer.Write(GetFlag(go, persistent));
 					writer.Write((byte)rccID);
 					writer.WriteArray(objs);
-					EndSend();
+					EndSend(channelID, true);
 					return;
 				}
 				else
@@ -1152,8 +1157,11 @@ public class TNManager : MonoBehaviour
 		{
 			if (isConnected && isInChannel)
 			{
-				if (mInstance != null && mInstance.mClient.isSwitchingScenes)
+				if (IsJoiningChannel(channelID))
+				{
 					Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+					return;
+				}
 
 				if (TNManager.IsChannelLocked(channelID))
 				{
@@ -1169,7 +1177,7 @@ public class TNManager : MonoBehaviour
 				writer.Write(path);
 				writer.Write((byte)rccID);
 				writer.WriteArray(objs);
-				EndSend();
+				EndSend(channelID, true);
 				return;
 			}
 
@@ -1378,14 +1386,15 @@ public class TNManager : MonoBehaviour
 	static public BinaryWriter BeginSend (byte packetID) { return instance.mClient.BeginSend(packetID); }
 
 	/// <summary>
-	/// Send the outgoing buffer.
+	/// Send the outgoing buffer. This should only be used for generic packets going straight to the server.
+	/// Packets that are going to a channel should use EndSend(channelID, reliable) function instead.
 	/// </summary>
 
 	static public void EndSend ()
 	{
 		if (!isJoiningChannel)
 		{
-			mInstance.mClient.EndSend(true);
+			mInstance.mClient.EndSend();
 		}
 		else
 		{
@@ -1400,11 +1409,33 @@ public class TNManager : MonoBehaviour
 	/// Send the outgoing buffer.
 	/// </summary>
 
+	[System.Obsolete("You need to specify a channel ID to send the packet to: TNManager.EndSend(channelID, reliable);")]
 	static public void EndSend (bool reliable)
 	{
-		if (!isJoiningChannel)
+		if (!IsJoiningChannel(lastChannelID))
 		{
-			mInstance.mClient.EndSend(reliable);
+			if (channels.size > 1)
+				Debug.LogWarning("You need to specify which channel this packet should be going to");
+			mInstance.mClient.EndSend(lastChannelID, reliable);
+		}
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
+		}
+	}
+
+	/// <summary>
+	/// Send the outgoing buffer.
+	/// </summary>
+
+	static public void EndSend (int channelID, bool reliable = true)
+	{
+		if (!IsJoiningChannel(channelID))
+		{
+			mInstance.mClient.EndSend(channelID, reliable);
 		}
 		else
 		{
@@ -1420,7 +1451,7 @@ public class TNManager : MonoBehaviour
 	void ForceCloseChannel ()
 	{
 		mInstance.mClient.BeginSend(Packet.RequestCloseChannel).Write(lastChannelID);
-		mInstance.mClient.EndSendForced();
+		mInstance.mClient.EndSend(true);
 	}
 #endif
 
@@ -1428,39 +1459,13 @@ public class TNManager : MonoBehaviour
 	/// Broadcast the packet to everyone on the LAN.
 	/// </summary>
 
-	static public void EndSend (int port)
-	{
-		if (!isJoiningChannel)
-		{
-			mInstance.mClient.EndSend(port);
-		}
-		else
-		{
-			mInstance.mClient.CancelSend();
-#if UNITY_EDITOR
-			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
-#endif
-		}
-	}
+	static public void EndSendToLAN (int port) { mInstance.mClient.EndSend(port); }
 
 	/// <summary>
 	/// Broadcast the packet to the specified endpoint via UDP.
 	/// </summary>
 
-	static public void EndSend (IPEndPoint target)
-	{
-		if (!isJoiningChannel)
-		{
-			mInstance.mClient.EndSend(target);
-		}
-		else
-		{
-			mInstance.mClient.CancelSend();
-#if UNITY_EDITOR
-			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
-#endif
-		}
-	}
+	static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
 
 	/// <summary>
 	/// Write the specified data into a local cache file belonging to connected server.
@@ -1592,23 +1597,6 @@ public class TNManager : MonoBehaviour
 		return persistent ? (byte)1 : (byte)2;
 	}
 
-	List<uint> mOrphaned = new List<uint>();
-
-	[ContextMenu("Cleanup")]
-	void Cleanup ()
-	{
-		for (int i = 0; i < mOrphaned.size; ++i)
-		{
-			uint id = mOrphaned[i];
-#if UNITY_EDITOR
-			Debug.Log("Deleting " + id);
-#endif
-			TNManager.BeginSend(Packet.RequestDestroyObject).Write(id);
-			TNManager.EndSend();
-		}
-		mOrphaned.Clear();
-	}
-
 	/// <summary>
 	/// Notification of a new object being created.
 	/// </summary>
@@ -1660,7 +1648,6 @@ public class TNManager : MonoBehaviour
 				}
 			}
 		}
-		else mOrphaned.Add(objectID);
 		currentObjectOwner = null;
 
 		if (onObjectCreated != null)
@@ -1775,7 +1762,7 @@ public class TNManager : MonoBehaviour
 	/// Process incoming packets in the update function.
 	/// </summary>
 
-	void Update () { if (!mAsyncLoad) mClient.ProcessPackets(); }
+	void Update () { if (mLoadingLevel.size == 0) mClient.ProcessPackets(); }
 
 #endregion
 #region Callbacks -- Modify these if you don't like the broadcast approach
@@ -1798,8 +1785,7 @@ public class TNManager : MonoBehaviour
 
 	void OnDisconnect ()
 	{
-		mAsyncLoad = false;
-		mJoining.Clear();
+		mLoadingLevel.Clear();
 		UnityTools.Broadcast("OnNetworkDisconnect");
 	}
 
@@ -1810,22 +1796,6 @@ public class TNManager : MonoBehaviour
 	void OnJoinChannel (int channelID, bool success, string message)
 	{
 		TNManager.lastChannelID = channelID;
-
-		mAsyncLoad = false;
-
-		if (!mJoining.Remove(channelID))
-		{
-			for (int i = 0; i < mJoining.size; ++i)
-			{
-				int id = mJoining[i];
-
-				if (id < 0)
-				{
-					mJoining.RemoveAt(i);
-					break;
-				}
-			}
-		}
 		UnityTools.Broadcast("OnNetworkJoinChannel", channelID, success, message);
 	}
 
@@ -1854,15 +1824,15 @@ public class TNManager : MonoBehaviour
 
 		if (!string.IsNullOrEmpty(levelName))
 		{
-			mAsyncLoad = true;
-			StartCoroutine("LoadLevelCoroutine", levelName);
+			mLoadingLevel.Add(channelID, true);
+			StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
 		}
 	}
 
-	System.Collections.IEnumerator LoadLevelCoroutine (string levelName)
+	System.Collections.IEnumerator LoadLevelCoroutine (System.Collections.Generic.KeyValuePair<int, string> pair)
 	{
 		yield return null;
-		loadLevelOperation = Application.LoadLevelAsync(levelName);
+		loadLevelOperation = Application.LoadLevelAsync(pair.Value);
 		loadLevelOperation.allowSceneActivation = false;
 
 		while (loadLevelOperation.progress < 0.9f)
@@ -1872,7 +1842,7 @@ public class TNManager : MonoBehaviour
 		yield return loadLevelOperation;
 
 		loadLevelOperation = null;
-		mAsyncLoad = false;
+		mLoadingLevel.Remove(pair.Key);
 	}
 
 	/// <summary>

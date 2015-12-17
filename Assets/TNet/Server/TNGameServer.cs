@@ -1237,9 +1237,14 @@ public class GameServer : FileServer
 					
 					if (!string.IsNullOrEmpty(fileName))
 					{
-						if (SaveFile(fileName, data))
+						if (data == null || data.Length == 0)
 						{
-							player.Log("Saved " + fileName);
+							if (DeleteFile(fileName))
+								player.Log("Deleted " + fileName);
+						}
+						else if (SaveFile(fileName, data))
+						{
+							player.Log("Saved " + fileName + " (" + (data != null ? data.Length.ToString("N0") : "0") + " bytes)");
 						}
 						else player.LogError("Unable to save " + fileName);
 					}
@@ -1748,7 +1753,7 @@ public class GameServer : FileServer
 				if (player.channels.size != 0 && (int)request < (int)Packet.UserPacket)
 				{
 					// Other packets can only be processed while in a channel
-					if (request >= Packet.ForwardToAll && request <= Packet.ForwardToPlayerSaved)
+					if (request >= Packet.ForwardToAll && request < Packet.ForwardToPlayer)
 					{
 						ProcessForwardPacket(player, buffer, reader, request, reliable);
 					}
@@ -1823,104 +1828,68 @@ public class GameServer : FileServer
 
 	void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 	{
+		// 4 bytes for packet size, 1 byte for packet ID
 		int start = buffer.position - 5;
 		int channelID = reader.ReadInt32();
 
+		// The channel must exist
 		Channel ch;
 		mChannelDict.TryGetValue(channelID, out ch);
+		if (ch == null) return;
 
 		// We can't send unreliable packets if UDP is not active
 		if (!mUdp.isActive || buffer.size > 1024) reliable = true;
 
-		switch (request)
+		if (request == Packet.ForwardToHost)
 		{
-			case Packet.ForwardToHost:
+			TcpPlayer host = (TcpPlayer)ch.host;
+			if (host == null) return;
+			buffer.position = start;
+
+			// Forward the packet to the channel's host
+			if (reliable || !player.udpIsUsable || host.udpEndPoint == null || !mAllowUdp)
 			{
-				if (ch == null) return;
-
-				// Reset the position back to the beginning (4 bytes for size, 1 byte for ID)
-				buffer.position = start;
-
-				TcpPlayer host = (TcpPlayer)ch.host;
-
-				// Forward the packet to the channel's host
-				if (reliable || !player.udpIsUsable || host.udpEndPoint == null || !mAllowUdp)
-				{
-					host.SendTcpPacket(buffer);
-				}
-				else mUdp.Send(buffer, host.udpEndPoint);
-				break;
+				host.SendTcpPacket(buffer);
 			}
-			case Packet.ForwardToPlayerSaved:
+			else mUdp.Send(buffer, host.udpEndPoint);
+		}
+		else
+		{
+			// We want to exclude the player if the request was to forward to others
+			TcpPlayer exclude = (
+				request == Packet.ForwardToOthers ||
+				request == Packet.ForwardToOthersSaved) ? player : null;
+
+			// If the request should be saved, let's do so
+			if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 			{
-				if (ch != null && ch.locked && !player.isAdmin)
+				if (ch.locked && !player.isAdmin)
 				{
 					player.LogError("Tried to call a persistent RFC while the channel is locked", null);
 					RemovePlayer(player);
-					break;
+					return;
 				}
 
-				// Figure out who the intended recipient is
-				TcpPlayer targetPlayer = GetPlayer(reader.ReadInt32());
-
-				// Save this function call
 				uint target = reader.ReadUInt32();
 				string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-				buffer.position = start;
-				if (ch != null) ch.CreateRFC(target, funcName, buffer);
-
-				// Forward the packet to the target player
-				if (targetPlayer != null && targetPlayer.isConnected)
-				{
-					if (reliable || !targetPlayer.udpIsUsable || targetPlayer.udpEndPoint == null || !mAllowUdp)
-					{
-						targetPlayer.SendTcpPacket(buffer);
-					}
-					else mUdp.Send(buffer, targetPlayer.udpEndPoint);
-				}
-				break;
+				ch.AddRFC(target, funcName, buffer);
 			}
-			default:
+
+			buffer.position = start;
+
+			// Forward the packet to everyone except the sender
+			for (int i = 0; i < ch.players.size; ++i)
 			{
-				if (ch == null) return;
-
-				// We want to exclude the player if the request was to forward to others
-				TcpPlayer exclude = (
-					request == Packet.ForwardToOthers ||
-					request == Packet.ForwardToOthersSaved) ? player : null;
-
-				// If the request should be saved, let's do so
-				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
-				{
-					if (ch.locked && !player.isAdmin)
-					{
-						player.LogError("Tried to call a persistent RFC while the channel is locked", null);
-						RemovePlayer(player);
-						break;
-					}
-
-					uint target = reader.ReadUInt32();
-					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-					buffer.position = start;
-					ch.CreateRFC(target, funcName, buffer);
-				}
-				else buffer.position = start;
-
-				// Forward the packet to everyone except the sender
-				for (int i = 0; i < ch.players.size; ++i)
-				{
-					TcpPlayer tp = (TcpPlayer)ch.players[i];
+				TcpPlayer tp = (TcpPlayer)ch.players[i];
 					
-					if (tp != exclude)
+				if (tp != exclude)
+				{
+					if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
 					{
-						if (reliable || !tp.udpIsUsable || tp.udpEndPoint == null || !mAllowUdp)
-						{
-							tp.SendTcpPacket(buffer);
-						}
-						else mUdp.Send(buffer, tp.udpEndPoint);
+						tp.SendTcpPacket(buffer);
 					}
+					else mUdp.Send(buffer, tp.udpEndPoint);
 				}
-				break;
 			}
 		}
 	}
@@ -1964,7 +1933,7 @@ public class GameServer : FileServer
 
 					// Inform the channel
 					BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
-					writer.Write(ch.id);
+					writer.Write(channelID);
 					writer.Write(player.id);
 					writer.Write(objectIndex);
 					writer.Write(uniqueID);
@@ -2050,13 +2019,8 @@ public class GameServer : FileServer
 								for (int b = 0; b < to.rfcs.size; ++b)
 								{
 									Channel.RFC rfc = to.rfcs[b];
-									
 									if (rfc.objectID == obj.objectID)
-									{
-										writer = temp.BeginWriting(offset);
-										writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
-										offset = temp.EndWriting();
-									}
+										offset = rfc.WritePacket(to.id, buffer, offset);
 								}
 
 								p.SendTcpPacket(buffer);

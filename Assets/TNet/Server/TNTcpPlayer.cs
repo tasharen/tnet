@@ -122,7 +122,7 @@ public class TcpPlayer : TcpProtocol
 		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.id);
 		writer.Write(channel.host.id);
-		offset = buffer.EndTcpPacketStartingAt(offset);
+		offset = buffer.EndPacket(offset);
 
 		// Send the channel's data
 		if (channel.data != null)
@@ -130,7 +130,7 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
 			writer.Write(channel.id);
 			writer.Write(channel.data);
-			offset = buffer.EndTcpPacketStartingAt(offset);
+			offset = buffer.EndPacket(offset);
 		}
 
 		// Send the LoadLevel packet, but only if some level name was specified in the original LoadLevel request.
@@ -139,7 +139,7 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 			writer.Write(channel.id);
 			writer.Write(channel.level);
-			offset = buffer.EndTcpPacketStartingAt(offset);
+			offset = buffer.EndPacket(offset);
 		}
 
 		// Send the list of objects that have been created
@@ -167,7 +167,7 @@ public class TcpPlayer : TcpProtocol
 			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
-			offset = buffer.EndTcpPacketStartingAt(offset);
+			offset = buffer.EndPacket(offset);
 		}
 
 		// Send the list of objects that have been destroyed
@@ -178,16 +178,14 @@ public class TcpPlayer : TcpProtocol
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
-			offset = buffer.EndTcpPacketStartingAt(offset);
+			offset = buffer.EndPacket(offset);
 		}
 
 		// Send all buffered RFCs to the new player
 		for (int i = 0; i < channel.rfcs.size; ++i)
 		{
 			Channel.RFC rfc = channel.rfcs[i];
-			writer = buffer.BeginWriting(offset);
-			writer.Write(rfc.buffer.buffer, 0, rfc.buffer.size);
-			offset = buffer.EndWriting();
+			offset = rfc.WritePacket(channel.id, buffer, offset);
 		}
 
 		// Inform the player that the channel is now locked
@@ -196,14 +194,14 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
 			writer.Write(channel.id);
 			writer.Write(true);
-			offset = buffer.EndTcpPacketStartingAt(offset);
+			offset = buffer.EndPacket(offset);
 		}
 
 		// The join process is now complete
 		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(channel.id);
 		writer.Write(true);
-		offset = buffer.EndTcpPacketStartingAt(offset);
+		offset = buffer.EndPacket(offset);
 
 		// Send the entire buffer
 		SendTcpPacket(buffer);

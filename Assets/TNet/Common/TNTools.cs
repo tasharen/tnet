@@ -719,7 +719,8 @@ static public class Tools
 
 		if (data == null || data.Length == 0)
 		{
-			return DeleteFile(path);
+			DeleteFile(path);
+			return true;
 		}
 		else
 		{

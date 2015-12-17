@@ -139,7 +139,7 @@ public sealed class TNObject : MonoBehaviour
 					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
 					bw.Write(channelID);
 					bw.Write(uid);
-					TNManager.EndSend();
+					TNManager.EndSend(channelID, true);
 				}
 			}
 			else
@@ -724,7 +724,7 @@ public sealed class TNObject : MonoBehaviour
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
-				TNManager.EndSend(reliable);
+				TNManager.EndSend(channelID, reliable);
 			}
 			else executeLocally = true;
 		}
@@ -737,7 +737,7 @@ public sealed class TNObject : MonoBehaviour
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
-				TNManager.EndSend(reliable);
+				TNManager.EndSend(channelID, reliable);
 			}
 			else executeLocally = true;
 		}
@@ -770,7 +770,7 @@ public sealed class TNObject : MonoBehaviour
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
-				TNManager.EndSend(reliable);
+				TNManager.EndSend(channelID, reliable);
 			}
 		}
 
@@ -805,7 +805,7 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
-			TNManager.EndSend(reliable);
+			TNManager.EndSend(channelID, reliable);
 		}
 	}
 
@@ -825,7 +825,7 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(GetUID(uid, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
-			TNManager.EndSend(reliable);
+			TNManager.EndSend(channelID, reliable);
 		}
 		else if (target == TNManager.playerID)
 		{
@@ -846,7 +846,7 @@ public sealed class TNObject : MonoBehaviour
 		writer.Write(GetUID(uid, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);
 		writer.WriteArray(objs);
-		TNManager.EndSend(port);
+		TNManager.EndSendToLAN(port);
 	}
 
 	/// <summary>
@@ -861,7 +861,7 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(channelID);
 			writer.Write(GetUID(objID, rfcID));
 			if (rfcID == 0) writer.Write(funcName);
-			TNManager.EndSend();
+			TNManager.EndSend(channelID, true);
 		}
 	}
 
@@ -879,7 +879,7 @@ public sealed class TNObject : MonoBehaviour
 				writer.Write(channelID);
 				writer.Write(newChannelID);
 				writer.Write(uid);
-				TNManager.EndSend();
+				TNManager.EndSend(channelID, true);
 			}
 			else DestroySelf();
 		}

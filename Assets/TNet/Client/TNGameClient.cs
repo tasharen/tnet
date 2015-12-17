@@ -226,10 +226,10 @@ public class GameClient
 
 	// Temporary, not important
 	Buffer mBuffer;
-
-	// Packets should not be sent in between of level-switching operations.
-	bool mCanSend = true;
 	bool mIsAdmin = false;
+
+	// List of channels we are currently in the process of joining
+	List<int> mJoining = new List<int>();
 
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
@@ -273,10 +273,11 @@ public class GameClient
 	public bool isTryingToConnect { get { return mTcp.isTryingToConnect; } }
 
 	/// <summary>
-	/// Whether we are currently in the process of switching scenes.
+	/// Whether we are currently in the process of joining a channel.
+	/// To find out whether we are joining a specific channel, use the "IsSwitchingScenes(id)" function.
 	/// </summary>
 
-	public bool isSwitchingScenes { get { return !mCanSend; } }
+	public bool isJoiningChannel { get { return mJoining.size != 0; } }
 
 	/// <summary>
 	/// Whether the client is currently in a channel.
@@ -429,6 +430,12 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Whether the client is currently trying to join the specified channel.
+	/// </summary>
+
+	public bool IsJoiningChannel (int id) { return mJoining.Contains(id); }
+
+	/// <summary>
 	/// Get the player hosting the specified channel. Only works for the channels the player is in.
 	/// </summary>
 
@@ -533,12 +540,12 @@ public class GameClient
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	public void EndSend ()
+	public void EndSend (bool forced = false)
 	{
 		if (mBuffer != null)
 		{
 			mBuffer.EndPacket();
-			if (mCanSend) mTcp.SendTcpPacket(mBuffer);
+			if (isActive || forced) mTcp.SendTcpPacket(mBuffer);
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -548,26 +555,11 @@ public class GameClient
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	public void EndSendForced ()
-	{
-		if (mBuffer != null)
-		{
-			mBuffer.EndPacket();
-			mTcp.SendTcpPacket(mBuffer);
-			mBuffer.Recycle();
-			mBuffer = null;
-		}
-	}
-
-	/// <summary>
-	/// Send the outgoing buffer.
-	/// </summary>
-
-	public void EndSend (bool reliable)
+	public void EndSend (int channelID, bool reliable)
 	{
 		mBuffer.EndPacket();
 
-		if (mCanSend)
+		if (isActive)
 		{
 #if UNITY_WEBPLAYER
 			mTcp.SendTcpPacket(mBuffer);
@@ -579,6 +571,7 @@ public class GameClient
 			else mUdp.Send(mBuffer, mServerUdpEndPoint);
 #endif
 		}
+
 		mBuffer.Recycle();
 		mBuffer = null;
 	}
@@ -591,7 +584,7 @@ public class GameClient
 	{
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
-		if (mCanSend) mUdp.Broadcast(mBuffer, port);
+		if (isActive) mUdp.Broadcast(mBuffer, port);
 #endif
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -605,7 +598,7 @@ public class GameClient
 	{
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
-		if (mCanSend) mUdp.Send(mBuffer, target);
+		if (isActive) mUdp.Send(mBuffer, target);
 #endif
 		mBuffer.Recycle();
 		mBuffer = null;
@@ -678,7 +671,7 @@ public class GameClient
 
 	public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (isConnected)
+		if (isConnected && !mJoining.Contains(channelID))
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
@@ -692,7 +685,7 @@ public class GameClient
 			// This prevents the situation where packets are sent out between LoadLevel / JoinChannel
 			// requests and the arrival of the OnJoinChannel/OnLoadLevel responses, which cause RFCs
 			// from the previous scene to be executed in the new one.
-			mCanSend = false;
+			mJoining.Add(channelID);
 		}
 	}
 
@@ -742,6 +735,8 @@ public class GameClient
 	{
 		if (isConnected)
 		{
+			mJoining.Clear();
+
 			for (int i = mChannels.size; i > 0; )
 			{
 				Channel ch = mChannels[--i];
@@ -794,7 +789,6 @@ public class GameClient
 			writer.Write(channelID);
 			writer.Write(levelName);
 			EndSend();
-			mCanSend = false;
 		}
 	}
 
@@ -905,7 +899,7 @@ public class GameClient
 		mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (mTcp.isConnected && mCanPing && mCanSend && mPingTime + 4000 < mMyTime)
+		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
 		{
 			mCanPing = false;
 			mPingTime = mMyTime;
@@ -1065,9 +1059,6 @@ public class GameClient
 			}
 			case Packet.ResponseJoiningChannel:
 			{
-#if UNITY_EDITOR
-				if (mCanSend) UnityEngine.Debug.LogError("'mCanSend' flag is in the wrong state");
-#endif
 				int channelID = reader.ReadInt32();
 				int count = reader.ReadInt16();
 
@@ -1091,7 +1082,6 @@ public class GameClient
 				int channelID = reader.ReadInt32();
 				string scene = reader.ReadString();
 				if (onLoadLevel != null) onLoadLevel(channelID, scene);
-				mCanSend = false;
 				return false;
 			}
 			case Packet.ResponsePlayerJoined:
@@ -1158,10 +1148,24 @@ public class GameClient
 			}
 			case Packet.ResponseJoinChannel:
 			{
-				mCanSend = true;
 				int channelID = reader.ReadInt32();
 				bool success = reader.ReadBoolean();
 				string msg = success ? null : reader.ReadString();
+
+				// mJoining can contain -2 and -1 when joining random channels
+				if (!mJoining.Remove(channelID))
+				{
+					for (int i = 0; i < mJoining.size; ++i)
+					{
+						int id = mJoining[i];
+
+						if (id < 0)
+						{
+							mJoining.RemoveAt(i);
+							break;
+						}
+					}
+				}
 #if UNITY_EDITOR
 				if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
 #endif
@@ -1273,9 +1277,9 @@ public class GameClient
 				mTcp.Close(false);
 				mLoadFiles.Clear();
 				mGetFiles.Clear();
+				mJoining.Clear();
 				mIsAdmin = false;
 				if (onDisconnect != null) onDisconnect();
-				mCanSend = true;
 				serverOptions = null;
 				break;
 			}

@@ -493,16 +493,6 @@ public enum Packet
 	ForwardToPlayer,
 
 	/// <summary>
-	/// Echo the packet to the specified player and everyone who joins later.
-	/// int32: Channel ID.
-	/// int32: Player ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	ForwardToPlayerSaved,
-
-	/// <summary>
 	/// Echo the packet to the specified player.
 	/// string: Player name.
 	/// int32: Channel ID.

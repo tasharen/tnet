@@ -306,7 +306,7 @@ public class Buffer
 	/// Begin the writing process.
 	/// </summary>
 
-	public BinaryWriter BeginWriting (bool append)
+	public BinaryWriter BeginWriting (bool append = false)
 	{
 		if (!append || !mWriting)
 		{
@@ -348,9 +348,9 @@ public class Buffer
 	{
 		if (mWriting)
 		{
-			mSize = position;
-			mStream.Seek(0, SeekOrigin.Begin);
 			mWriting = false;
+			mSize = (int)mStream.Position;
+			mStream.Seek(0, SeekOrigin.Begin);
 		}
 		return mSize;
 	}
@@ -487,7 +487,7 @@ public class Buffer
 	/// Finish writing of the packet, updating (and returning) its size.
 	/// </summary>
 
-	public int EndTcpPacketStartingAt (int startOffset)
+	public int EndPacket (int startOffset)
 	{
 		if (mWriting)
 		{

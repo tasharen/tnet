@@ -20,10 +20,24 @@ public class Channel
 		// Object ID (24 bytes), RFC ID (8 bytes)
 		public uint uid;
 		public string functionName;
-		public Buffer buffer;
+		public Buffer data;
 
 		public uint objectID { get { return (uid >> 8); } }
 		public uint functionID { get { return (uid & 0xFF); } }
+
+		/// <summary>
+		/// Write a complete ForwardToOthers packet to the specified buffer.
+		/// </summary>
+
+		public int WritePacket (int channelID, Buffer buffer, int offset)
+		{
+			BinaryWriter writer = buffer.BeginPacket(Packet.ForwardToOthers, offset);
+			writer.Write(channelID);
+			writer.Write(uid);
+			if (functionID == 0) writer.Write(functionName);
+			writer.Write(data.buffer, 0, data.size);
+			return buffer.EndPacket(offset);
+		}
 	}
 
 	public class CreatedObject
@@ -139,7 +153,7 @@ public class Channel
 
 	public void Reset ()
 	{
-		for (int i = 0; i < rfcs.size; ++i) rfcs[i].buffer.Recycle();
+		for (int i = 0; i < rfcs.size; ++i) rfcs[i].data.Recycle();
 		for (int i = 0; i < created.size; ++i) created[i].buffer.Recycle();
 
 		rfcs.Clear();
@@ -194,7 +208,7 @@ public class Channel
 				for (int i = 0; i < rfcs.size; ++i)
 				{
 					RFC r = rfcs[i];
-					if (r.buffer != null) r.buffer.Recycle();
+					if (r.data != null) r.data.Recycle();
 				}
 				rfcs.Clear();
 			}
@@ -249,7 +263,7 @@ public class Channel
 			if (r.objectID == objectID)
 			{
 				rfcs.RemoveAt(i);
-				r.buffer.Recycle();
+				r.data.Recycle();
 				continue;
 			}
 			++i;
@@ -300,10 +314,10 @@ public class Channel
 	}
 
 	/// <summary>
-	/// Create a new buffered remote function call.
+	/// Add a new saved remote function call.
 	/// </summary>
 
-	public void CreateRFC (uint uid, string funcName, Buffer buffer)
+	public void AddRFC (uint uid, string funcName, Buffer buffer)
 	{
 		if (closed || buffer == null) return;
 
@@ -315,7 +329,7 @@ public class Channel
 
 		Buffer b = Buffer.Create();
 		b.BeginWriting(false).Write(buffer.buffer, buffer.position, buffer.size);
-		b.BeginReading();
+		b.EndWriting();
 
 		for (int i = 0; i < rfcs.size; ++i)
 		{
@@ -323,15 +337,15 @@ public class Channel
 
 			if (r.uid == uid && r.functionName == funcName)
 			{
-				if (r.buffer != null) r.buffer.Recycle();
-				r.buffer = b;
+				if (r.data != null) r.data.Recycle();
+				r.data = b;
 				return;
 			}
 		}
 
 		RFC rfc = new RFC();
 		rfc.uid = uid;
-		rfc.buffer = b;
+		rfc.data = b;
 		rfc.functionName = funcName;
 		rfcs.Add(rfc);
 	}
@@ -349,7 +363,7 @@ public class Channel
 			if (r.uid == inID && r.functionName == funcName)
 			{
 				rfcs.RemoveAt(i);
-				r.buffer.Recycle();
+				r.data.Recycle();
 			}
 		}
 	}
@@ -415,13 +429,8 @@ public class Channel
 			RFC rfc = mCreatedRFCs[i];
 			writer.Write(rfc.uid);
 			if (rfc.functionID == 0) writer.Write(rfc.functionName);
-			writer.Write(rfc.buffer.size);
-
-			if (rfc.buffer.size > 0)
-			{
-				rfc.buffer.BeginReading();
-				writer.Write(rfc.buffer.buffer, rfc.buffer.position, rfc.buffer.size);
-			}
+			writer.Write(rfc.data.size);
+			if (rfc.data.size > 0) writer.Write(rfc.data.buffer, rfc.data.position, rfc.data.size);
 		}
 
 		writer.Write(mCreatedOBJs.size);
@@ -433,12 +442,7 @@ public class Channel
 			writer.Write(co.objectID);
 			writer.Write(co.objectIndex);
 			writer.Write(co.buffer.size);
-
-			if (co.buffer.size > 0)
-			{
-				co.buffer.BeginReading();
-				writer.Write(co.buffer.buffer, co.buffer.position, co.buffer.size);
-			}
+			if (co.buffer.size > 0) writer.Write(co.buffer.buffer, co.buffer.position, co.buffer.size);
 		}
 
 		writer.Write(destroyed.size);
@@ -470,7 +474,7 @@ public class Channel
 		for (int i = 0; i < rfcs.size; ++i)
 		{
 			RFC r = rfcs[i];
-			if (r.buffer != null) r.buffer.Recycle();
+			if (r.data != null) r.data.Recycle();
 		}
 
 		rfcs.Clear();
@@ -494,7 +498,8 @@ public class Channel
 			if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
-			rfc.buffer = b;
+			b.EndWriting();
+			rfc.data = b;
 			rfcs.Add(rfc);
 		}
 
@@ -509,7 +514,7 @@ public class Channel
 			co.type = 1;
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
-			b.BeginReading();
+			b.EndWriting();
 			co.buffer = b;
 			AddCreatedObject(co);
 		}
