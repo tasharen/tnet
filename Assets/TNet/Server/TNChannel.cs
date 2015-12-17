@@ -22,7 +22,7 @@ public class Channel
 		public string functionName;
 		public Buffer data;
 
-		public uint objectID { get { return (uid >> 8); } }
+		public uint objectID { get { return (uid >> 8); } set { uid = ((value << 8) | (uid & 0xFF)); } }
 		public uint functionID { get { return (uid & 0xFF); } }
 
 		/// <summary>
@@ -302,6 +302,7 @@ public class Channel
 
 						if (r.objectID == objectID)
 						{
+							r.objectID = obj.objectID;
 							rfcs.RemoveAt(i);
 							other.rfcs.Add(r);
 						}

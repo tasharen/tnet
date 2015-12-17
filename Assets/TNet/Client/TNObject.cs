@@ -86,7 +86,7 @@ public sealed class TNObject : MonoBehaviour
 	/// and the response coming back from the server.
 	/// </summary>
 	
-	[System.NonSerialized] public bool hasBeenDestroyed = false;
+	[System.NonSerialized] bool mDestroyed = false;
 
 	public delegate void OnDestroyCallback ();
 
@@ -123,9 +123,9 @@ public sealed class TNObject : MonoBehaviour
 	[ContextMenu("Destroy")]
 	public void DestroySelf ()
 	{
-		if (!hasBeenDestroyed)
+		if (!mDestroyed)
 		{
-			hasBeenDestroyed = true;
+			mDestroyed = true;
 
 			if (TNManager.isConnected && TNManager.isInChannel)
 			{
@@ -382,7 +382,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Unregister the network object.
 	/// </summary>
 
-	void Unregister ()
+	internal void Unregister ()
 	{
 		if (mIsRegistered)
 		{
@@ -695,7 +695,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (hasBeenDestroyed) return;
+		if (mDestroyed) return;
 
 		if ((target == Target.AllSaved || target == Target.Others) && TNManager.IsChannelLocked(channelID))
 		{
@@ -788,7 +788,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (hasBeenDestroyed || string.IsNullOrEmpty(targetName)) return;
+		if (mDestroyed || string.IsNullOrEmpty(targetName)) return;
 
 		if (targetName == TNManager.playerName)
 		{
@@ -813,7 +813,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)
 	{
-		if (hasBeenDestroyed) return;
+		if (mDestroyed) return;
 
 		if (TNManager.isConnected)
 		{
@@ -838,7 +838,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void BroadcastToLAN (int port, byte rfcID, string rfcName, params object[] objs)
 	{
-		if (hasBeenDestroyed) return;
+		if (mDestroyed) return;
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write(channelID);
 		writer.Write(GetUID(uid, rfcID));
@@ -869,17 +869,14 @@ public sealed class TNObject : MonoBehaviour
 
 	public void TransferToChannel (int newChannelID)
 	{
-		if (isMine && channelID != newChannelID)
+		if (!mDestroyed && isMine && channelID != newChannelID && TNManager.IsInChannel(channelID))
 		{
-			if (TNManager.isInChannel)
-			{
-				BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
-				writer.Write(channelID);
-				writer.Write(newChannelID);
-				writer.Write(uid);
-				TNManager.EndSend(channelID, true);
-			}
-			else DestroySelf();
+			mDestroyed = true;
+			BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
+			writer.Write(channelID);
+			writer.Write(newChannelID);
+			writer.Write(uid);
+			TNManager.EndSend(channelID, true);
 		}
 	}
 
@@ -891,5 +888,20 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (this.channelID == channelID && uid > 32767)
 			Object.Destroy(gameObject);
+	}
+
+	/// <summary>
+	/// This function is called when the object's IDs change. This happens after the object was transferred to another channel.
+	/// </summary>
+
+	internal void FinalizeTransfer (int newChannel, uint newObjectID)
+	{
+		Unregister();
+		channelID = newChannel;
+		uid = newObjectID;
+		if (mParent != null) mParent.mOwner = TNManager.GetHost(newChannel);
+		else mOwner = TNManager.GetHost(newChannel);
+		Register();
+		mDestroyed = false;
 	}
 }

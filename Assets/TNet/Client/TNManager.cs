@@ -1719,16 +1719,14 @@ public class TNManager : MonoBehaviour
 
 	void OnTransferObject (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID)
 	{
-		TNObject obj = TNObject.Find(oldChannelID, oldObjectID);
-
-		if (obj)
+		if (IsInChannel(oldChannelID))
 		{
-			obj.channelID = newChannelID;
-			obj.uid = newObjectID;
-		}
+			TNObject obj = TNObject.Find(oldChannelID, oldObjectID);
+			if (obj) obj.FinalizeTransfer(newChannelID, newObjectID);
 #if UNITY_EDITOR
-		else Debug.LogWarning("Unable to find TNO #" + oldObjectID + " in channel " + oldChannelID);
+			else Debug.LogWarning("Unable to find TNO #" + oldObjectID + " in channel " + oldChannelID);
 #endif
+		}
 	}
 
 	/// <summary>
