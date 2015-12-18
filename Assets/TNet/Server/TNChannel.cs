@@ -188,8 +188,8 @@ public class Channel
 						if (obj.buffer != null) obj.buffer.Recycle();
 						uint objID = obj.objectID;
 						created.RemoveAt(i);
-						if (objID < 32768) destroyedObjects.Add(objID);
-						else mCreatedObjectDictionary.Remove(objID);
+						destroyedObjects.Add(objID);
+						if (objID >= 32768) mCreatedObjectDictionary.Remove(objID);
 						DestroyObjectRFCs(objID);
 					}
 					else if (players.size != 0)
