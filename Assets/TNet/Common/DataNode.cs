@@ -639,6 +639,7 @@ public class DataNode
 		}
 
 		byte[] data = stream.ToArray();
+		stream.Close();
 		return data;
 	}
 #endregion
