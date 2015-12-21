@@ -545,10 +545,16 @@ public class DataNode
 		{
 			LZMA lzma = new LZMA();
 			lzma.BeginWriting().WriteObject(this);
-			for (int i = 0; i < 4; ++i) writer.Write(mLZMA[i]);
-			writer.Write(lzma.Compress());
+			byte[] data = lzma.Compress();
+
+			if (data != null)
+			{
+				for (int i = 0; i < 4; ++i) writer.Write(mLZMA[i]);
+				writer.Write(data);
+				return;
+			}
 		}
-		else writer.WriteObject(this);
+		writer.WriteObject(this);
 	}
 
 	/// <summary>

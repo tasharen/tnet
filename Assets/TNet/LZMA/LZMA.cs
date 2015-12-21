@@ -63,26 +63,42 @@ public class LZMA
 
 	static public MemoryStream Compress (Stream input, byte[] prefix = null)
 	{
-		MemoryStream output = new MemoryStream();
-		long length = input.Length - input.Position;
-		Encoder enc = new Encoder();
+		try
+		{
+			MemoryStream output = new MemoryStream();
+			long length = input.Length - input.Position;
+			Encoder enc = new Encoder();
 
-		// Write the prefix
-		if (prefix != null) output.Write(prefix, 0, prefix.Length);
+			// Write the prefix
+			if (prefix != null) output.Write(prefix, 0, prefix.Length);
 
-		// Write the header
-		enc.WriteCoderProperties(output);
+			// Write the header
+			enc.WriteCoderProperties(output);
 
-		// Write the buffer length
-		output.Write(System.BitConverter.GetBytes(length), 0, 8);
+			// Write the buffer length
+			output.Write(System.BitConverter.GetBytes(length), 0, 8);
 
-		// Write the buffer
-		enc.Code(input, output, length, -1, null);
-		enc = null;
+			// Write the buffer
+			enc.Code(input, output, length, -1, null);
+			enc = null;
 
-		output.Flush();
-		output.Position = 0;
-		return output;
+			output.Flush();
+			output.Position = 0;
+			return output;
+		}
+#if STANDALONE
+		catch (System.Exception ex)
+		{
+			TNet.Tools.LogError(ex.Message, ex.StackTrace);
+			return null;
+		}
+#else
+		catch (System.Exception ex)
+		{
+			Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+			return null;
+		}
+#endif
 	}
 
 	/// <summary>
@@ -107,28 +123,44 @@ public class LZMA
 
 	static public MemoryStream Decompress (Stream input)
 	{
-		byte[] properties = new byte[5];
-		if (5 != input.Read(properties, 0, 5)) return null;
+		try
+		{
+			byte[] properties = new byte[5];
+			if (5 != input.Read(properties, 0, 5)) return null;
 
-		MemoryStream output = new MemoryStream();
-		Decoder dec = new Decoder();
+			MemoryStream output = new MemoryStream();
+			Decoder dec = new Decoder();
 
-		// Read the coder properties
-		dec.SetDecoderProperties(properties);
+			// Read the coder properties
+			dec.SetDecoderProperties(properties);
 
-		// Read the buffer length
-		byte[] lengthBytes = new byte[8];
-		input.Read(lengthBytes, 0, 8);
-		long length = System.BitConverter.ToInt64(lengthBytes, 0);
+			// Read the buffer length
+			byte[] lengthBytes = new byte[8];
+			input.Read(lengthBytes, 0, 8);
+			long length = System.BitConverter.ToInt64(lengthBytes, 0);
 
-		// Read the data
-		dec.Code(input, output, input.Length - input.Position, length, null);
-		dec = null;
+			// Read the data
+			dec.Code(input, output, input.Length - input.Position, length, null);
+			dec = null;
 
-		// Reset the position to the beginning of the stream
-		output.Flush();
-		output.Position = 0;
-		return output;
+			// Reset the position to the beginning of the stream
+			output.Flush();
+			output.Position = 0;
+			return output;
+		}
+#if STANDALONE
+		catch (System.Exception ex)
+		{
+			TNet.Tools.LogError(ex.Message, ex.StackTrace);
+			return null;
+		}
+#else
+		catch (System.Exception ex)
+		{
+			Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+			return null;
+		}
+#endif
 	}
 
 	/// <summary>
