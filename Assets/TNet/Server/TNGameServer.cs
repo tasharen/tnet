@@ -212,24 +212,21 @@ public class GameServer : FileServer
 		Tools.Log("Admins: " + mAdmin.size);
 		Tools.Log("Bans: " + mBan.size);
 
-#if WINDWARD
 		// Check URL: http://steamcommunity.com/profiles/76561199211637591
-		AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
-		AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
-		AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
-		AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
-		AddUnique(mBan, "76561198744124281"); // ALI213
-		AddUnique(mBan, "76561200587781055"); // ALI213
-		AddUnique(mBan, "76561201119545283"); // Chinese hackers
-		AddUnique(mBan, "76561198311261525"); // Chinese hackers
-		AddUnique(mBan, "76561197960639879"); // Using some old version
-		AddUnique(mBan, "76561202232029992"); // Shared account
-		AddUnique(mBan, "76561197996533125"); // Shared account
- #if STANDALONE
+		//AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
+		//AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
+		//AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
+		//AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
+		//AddUnique(mBan, "76561198744124281"); // ALI213
+		//AddUnique(mBan, "76561200587781055"); // ALI213
+		//AddUnique(mBan, "76561201119545283"); // Chinese hackers
+		//AddUnique(mBan, "76561198311261525"); // Chinese hackers
+		//AddUnique(mBan, "76561197960639879"); // Using some old version
+		//AddUnique(mBan, "76561202232029992"); // Shared account
+		//AddUnique(mBan, "76561197996533125"); // Shared account
+#if STANDALONE
 		AddUnique(mBan, "ALI213");
- #endif
 #endif
-
 		try
 		{
 			mListenerPort = tcpPort;
@@ -1159,21 +1156,20 @@ public class GameServer : FileServer
 				string	levelName	= reader.ReadString();
 				bool	persist		= reader.ReadBoolean();
 				ushort	playerLimit = reader.ReadUInt16();
-#if WINDWARD
-				if (player.aliases == null || player.aliases.size == 0)
+
+				if (mServerData != null)
 				{
-					player.Log("Cracked version");
-					RemovePlayer(player);
-					return false;
+					int min = mServerData.GetChild<int>("minAlias", 0);
+					int aliasCount = (player.aliases == null ? 0 : player.aliases.size);
+
+					if (aliasCount < min)
+					{
+						player.Log("Player has " + aliasCount + " aliases, expected at least " + min);
+						RemovePlayer(player);
+						return false;
+					}
 				}
 
-				if (channelID == 10000 && pass != "1508310")
-				{
-					player.Log("Outdated version");
-					RemovePlayer(player);
-					return false;
-				}
-#endif
 				SendJoinChannel(player, channelID, pass, levelName, persist, playerLimit);
 				break;
 			}
@@ -1325,10 +1321,6 @@ public class GameServer : FileServer
 #else
 				string s = reader.ReadString();
 				player.Log(s);
- #if WINDWARD
-				if (s.Contains("has entered region"))
-					Ban(player, player);
- #endif
 #endif
 				break;
 			}
@@ -1481,9 +1473,19 @@ public class GameServer : FileServer
 					player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
 					player.EndSend();
 				}
-#if WINDWARD
-				if (player.aliases != null && player.aliases.size > 3) RemovePlayer(player);
-#endif
+
+				if (mServerData != null)
+				{
+					int max = mServerData.GetChild<int>("maxAlias", int.MaxValue);
+					int aliasCount = (player.aliases == null ? 0 : player.aliases.size);
+
+					if (aliasCount > max)
+					{
+						player.Log("Player has " + aliasCount + "/" + max + " aliases");
+						RemovePlayer(player);
+						return false;
+					}
+				}
 				break;
 			}
 			case Packet.RequestUnban:
@@ -1746,6 +1748,11 @@ public class GameServer : FileServer
 					player.SendTcpPacket(mBuffer);
 					mBuffer = null;
 				}
+				break;
+			}
+			case Packet.RequestRenameServer:
+			{
+				name = reader.ReadString();
 				break;
 			}
 			default:
@@ -2037,22 +2044,15 @@ public class GameServer : FileServer
 				string lvl = reader.ReadString();
 
 				// Change the currently loaded level
-				if (ch.host == player && ch != null)
+				if (ch.host == player && ch != null && !ch.locked)
 				{
-#if WINDWARD
-					if (player.isAdmin)
-#else
-					if (!ch.locked)
-#endif
-					{
-						ch.Reset();
-						ch.level = lvl;
+					ch.Reset();
+					ch.level = lvl;
 
-						BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
-						writer.Write(ch.id);
-						writer.Write(string.IsNullOrEmpty(ch.level) ? "" : ch.level);
-						EndSend(ch, null, true);
-					}
+					BinaryWriter writer = BeginSend(Packet.ResponseLoadLevel);
+					writer.Write(ch.id);
+					writer.Write(string.IsNullOrEmpty(ch.level) ? "" : ch.level);
+					EndSend(ch, null, true);
 				}
 				break;
 			}
@@ -2148,13 +2148,11 @@ public class GameServer : FileServer
 
 				if (ch != null)
 				{
-#if WINDWARD
-					if (player.isAdmin)
+					if (player.isAdmin || mServerData == null ||
+						(ch.host == player && mServerData.GetChild<bool>("hostCanSetPlayerLimit", true)))
+					{
 						ch.playerLimit = limit;
-#else
-					if (player.isAdmin || ch.host == player)
-						ch.playerLimit = limit;
-#endif
+					}
 				}
 				break;
 			}
@@ -2260,7 +2258,7 @@ public class GameServer : FileServer
 
 	void SaveData ()
 	{
-		if (!string.IsNullOrEmpty(mFilename))
+		if (mServerData != null && !string.IsNullOrEmpty(mFilename))
 		{
 			try
 			{

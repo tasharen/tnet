@@ -677,6 +677,13 @@ public enum Packet
 	RequestHTTPGet,
 
 	/// <summary>
+	/// Change the server's name without restarting it. Admin-only.
+	/// string: Server's new name.
+	/// </summary>
+
+	RequestRenameServer,
+
+	/// <summary>
 	/// Begin custom packets here.
 	/// </summary>
 
