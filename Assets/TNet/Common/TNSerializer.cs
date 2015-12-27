@@ -774,13 +774,13 @@ public static class Serialization
 
 	static public void Write (this BinaryWriter writer, DataNode node)
 	{
-		if (node == null || string.IsNullOrEmpty(node.name))
+		if (node == null)
 		{
 			writer.Write("");
 		}
 		else
 		{
-			writer.Write(node.name);
+			writer.Write(string.IsNullOrEmpty(node.name) ? "DataNode" : node.name);
 			writer.WriteObject(node.value);
 			writer.WriteInt(node.children.size);
 

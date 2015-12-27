@@ -567,7 +567,7 @@ public class DataNode
 		if (isSerializable)
 		{
 			// Write down its own data
-			Write(writer, tab, name, value, true);
+			Write(writer, tab, string.IsNullOrEmpty(name) ? "DataNode" : name, value, true);
 
 			// Iterate through children
 			for (int i = 0; i < children.size; ++i)
