@@ -113,6 +113,7 @@ http://www.tasharen.com/?page_id=4518
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.
 - FIX: DataNode with no name set should now be correctly text-serializable.
+- FIX: Prefabs no longer need to be brought into the scene to export them as DataNode.
 
 2.1.1
 - NEW: DataNode now has limited Game Object serialization functionality. All MonoBehaviour script properties can be serialized, as well as common Unity types: collider, rigidbody, mesh, renderer. Optimal use: saving entire game objects into an easy to read/modify text format on disk.

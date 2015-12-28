@@ -689,13 +689,13 @@ public static class ComponentSerialization
 	/// Collect all meshes, materials and textures underneath the specified object and serialize them into the DataNode.
 	/// </summary>
 
-	static public void SerializeSharedResources (this GameObject go, DataNode node)
+	static public void SerializeSharedResources (this GameObject go, DataNode node, bool includeInactive = false)
 	{
 		mFullSerialization = true;
 
-		MeshFilter[] filters = go.GetComponentsInChildren<MeshFilter>();
-		MeshRenderer[] rens = go.GetComponentsInChildren<MeshRenderer>();
-		SkinnedMeshRenderer[] sks = go.GetComponentsInChildren<SkinnedMeshRenderer>();
+		MeshFilter[] filters = go.GetComponentsInChildren<MeshFilter>(includeInactive);
+		MeshRenderer[] rens = go.GetComponentsInChildren<MeshRenderer>(includeInactive);
+		SkinnedMeshRenderer[] sks = go.GetComponentsInChildren<SkinnedMeshRenderer>(includeInactive);
 
 		List<Material> materials = new List<Material>();
 		List<Mesh> meshes = new List<Mesh>();
@@ -804,7 +804,11 @@ public static class ComponentSerialization
 		if (isRootNode)
 		{
 			DataNode child = new DataNode("Resources");
+#if UNITY_EDITOR
+			go.SerializeSharedResources(child, UnityEditor.PrefabUtility.GetPrefabType(go) == UnityEditor.PrefabType.Prefab);
+#else
 			go.SerializeSharedResources(child);
+#endif
 			if (child.children.size != 0) root.children.Add(child);
 			mFullSerialization = false;
 		}
