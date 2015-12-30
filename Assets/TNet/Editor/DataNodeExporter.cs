@@ -112,6 +112,34 @@ static internal class DataNodeExporter
 		Save(node, path, DataNode.SaveType.Compressed);
 	}
 
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+	[MenuItem("Assets/DataNode/Export Selected/as AssetBundle", true)]
+	static internal bool ExportD0 () { return (Selection.activeGameObject != null); }
+
+	[MenuItem("Assets/DataNode/Export Selected/as AssetBundle", false, 0)]
+	static internal void ExportD ()
+	{
+		GameObject go = Selection.activeGameObject;
+		DataNode node = new DataNode(go.name, go.GetInstanceID());
+		string path = ShowExportDialog("Export AssetBundle", go.name);
+
+		if (!string.IsNullOrEmpty(path))
+		{
+			Object[] selection = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
+
+			if (BuildPipeline.BuildAssetBundle(Selection.activeObject, selection, path,
+				BuildAssetBundleOptions.CollectDependencies |
+				BuildAssetBundleOptions.CompleteAssets,
+				BuildTarget.StandaloneWindows))
+			{
+				node.AddChild("assetBundle", System.IO.File.ReadAllBytes(path));
+			}
+		}
+
+		Save(node, path, DataNode.SaveType.Binary);
+	}
+#endif
+
 	[MenuItem("Assets/DataNode/Convert/to Text", false, 30)]
 	static internal void ConvertA ()
 	{

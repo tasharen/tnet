@@ -981,6 +981,8 @@ public static class ComponentSerialization
 		}
 	}
 
+	static Dictionary<byte[], GameObject> mCachedBundles = new Dictionary<byte[], GameObject>();
+
 	/// <summary>
 	/// Instantiate a new game object given its previously serialized DataNode.
 	/// You can serialize game objects by using GameObject.Serialize(), but be aware that serializing only
@@ -989,24 +991,44 @@ public static class ComponentSerialization
 
 	static public GameObject Instantiate (this DataNode data)
 	{
-		GameObject child;
-		string path = data.GetChild<string>("prefab");
+		GameObject child = null;
+		byte[] assetBytes = data.GetChild<byte[]>("assetBundle");
 
-		if (!string.IsNullOrEmpty(path))
+		if (assetBytes != null)
 		{
-			GameObject prefab = UnityTools.LoadPrefab(path);
+			GameObject prefab;
 
-			if (prefab != null)
+			if (!mCachedBundles.TryGetValue(assetBytes, out prefab))
 			{
-				child = GameObject.Instantiate(prefab) as GameObject;
-				child.name = data.name;
-				child.SetActive(true);
+				AssetBundle qr = AssetBundle.CreateFromMemoryImmediate(assetBytes);
+				if (qr != null) prefab = qr.mainAsset as GameObject;
+				if (prefab == null) prefab = new GameObject(data.name);
+				mCachedBundles[assetBytes] = prefab;
+			}
+
+			child = GameObject.Instantiate(prefab) as GameObject;
+			child.name = data.name;
+		}
+		else
+		{
+			string path = data.GetChild<string>("prefab");
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				GameObject prefab = UnityTools.LoadPrefab(path);
+
+				if (prefab != null)
+				{
+					child = GameObject.Instantiate(prefab) as GameObject;
+					child.name = data.name;
+					child.SetActive(true);
+				}
+				else child = new GameObject(data.name);
 			}
 			else child = new GameObject(data.name);
-		}
-		else child = new GameObject(data.name);
 
-		child.Deserialize(data, true);
+			child.Deserialize(data, true);
+		}
 		return child;
 	}
 }
