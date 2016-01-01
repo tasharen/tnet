@@ -1,4 +1,4 @@
-//------------------------------------------
+﻿//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
@@ -21,7 +21,7 @@ public class TouchHandler : MonoBehaviour
 	Camera mCam;
 	GameObject mGo;
 
-	void Awake () { mCam = camera; }
+	void Awake () { mCam = GetComponent<Camera>(); }
 
 	/// <summary>
 	/// Update the touch and mouse position and send out appropriate events.

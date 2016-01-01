@@ -112,7 +112,7 @@ static internal class DataNodeExporter
 		Save(node, path, DataNode.SaveType.Compressed);
 	}
 
-#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7 || ASSET_BUNDLE_EXPORT
 	[MenuItem("Assets/DataNode/Export Selected/as AssetBundle", true)]
 	static internal bool ExportD0 () { return (Selection.activeGameObject != null); }
 

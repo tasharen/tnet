@@ -255,6 +255,20 @@ public static class ComponentSerialization
 
 	static void SerializeRenderer (Renderer ren, DataNode root)
 	{
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+		root.AddChild("castShadows", ren.castShadows);
+		if (ren.lightProbeAnchor != null) root.AddChild("probeAnchor", ren.gameObject.ReferenceToString(ren.lightProbeAnchor));
+#else
+		var sm = ren.shadowCastingMode;
+		if (sm == UnityEngine.Rendering.ShadowCastingMode.Off) root.AddChild("castShadows", false);
+		else if (sm == UnityEngine.Rendering.ShadowCastingMode.On) root.AddChild("castShadows", true);
+		else root.AddChild("shadowCasting", ren.shadowCastingMode);
+		root.AddChild("reflectionProbes", ren.reflectionProbeUsage);
+		if (ren.probeAnchor != null) root.AddChild("probeAnchor", ren.gameObject.ReferenceToString(ren.probeAnchor));
+#endif
+		root.AddChild("receiveShadows", ren.receiveShadows);
+		root.AddChild("useLightProbes", ren.useLightProbes);
+
 		Material[] mats = ren.sharedMaterials;
 		if (mats == null || mats.Length == 0) return;
 
@@ -341,8 +355,23 @@ public static class ComponentSerialization
 
 	static public void Deserialize (this Renderer ren, DataNode data)
 	{
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
 		ren.castShadows = data.GetChild<bool>("castShadows", ren.castShadows);
+#else
+		DataNode cs = data.GetChild("castShadows");
+
+		if (cs != null)
+		{
+			ren.shadowCastingMode = cs.Get<bool>() ?
+				UnityEngine.Rendering.ShadowCastingMode.On :
+				UnityEngine.Rendering.ShadowCastingMode.Off;
+		}
+		else ren.shadowCastingMode = data.GetChild<UnityEngine.Rendering.ShadowCastingMode>("shadowCastingMode", ren.shadowCastingMode);
+
+		ren.reflectionProbeUsage = data.GetChild<UnityEngine.Rendering.ReflectionProbeUsage>("reflectionProbes", ren.reflectionProbeUsage);
+#endif
 		ren.receiveShadows = data.GetChild<bool>("receiveShadows", ren.receiveShadows);
+		ren.useLightProbes = data.GetChild<bool>("useLightProbes", ren.useLightProbes);
 
 		DataNode matRoot = data.GetChild("Materials");
 

@@ -26,7 +26,11 @@ public class ExampleStressTest : TNBehaviour
 
 	void Awake ()
 	{
-		Application.RegisterLogCallback(MyCallback);
+#if UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+		if (Application.isPlaying) Application.RegisterLogCallback(MyCallback);
+#else
+		if (Application.isPlaying) Application.logMessageReceived += MyCallback;
+#endif
 	}
 
 	void MyCallback (string condition, string stacktrace, UnityEngine.LogType type)

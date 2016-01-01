@@ -1,4 +1,4 @@
-//------------------------------------------
+﻿//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012-2015 Tasharen Entertainment
 //------------------------------------------
@@ -12,16 +12,18 @@ using TNet;
 /// </summary>
 
 [RequireComponent(typeof(TNObject))]
+[RequireComponent(typeof(Renderer))]
 public class ColoredObject : MonoBehaviour
 {
+	Material mMat;
+
+	void Awake () { mMat = GetComponent<Renderer>().material; }
+
 	/// <summary>
 	/// This function is called by the server when one of the players sends an RFC call.
 	/// </summary>
 
-	[RFC] void OnColor (Color c)
-	{
-		renderer.material.color = c;
-	}
+	[RFC] void OnColor (Color c) { mMat.color = c; }
 
 	/// <summary>
 	/// Clicking on the object should change its color.
@@ -31,8 +33,8 @@ public class ColoredObject : MonoBehaviour
 	{
 		Color color = Color.red;
 
-		if		(renderer.material.color == Color.red)	 color = Color.green;
-		else if (renderer.material.color == Color.green) color = Color.blue;
+		if (mMat.color == Color.red) color = Color.green;
+		else if (mMat.color == Color.green) color = Color.blue;
 
 		TNObject tno = GetComponent<TNObject>();
 		tno.Send("OnColor", Target.AllSaved, color);
