@@ -13,7 +13,7 @@ using TNet;
 
 [RequireComponent(typeof(TNObject))]
 [RequireComponent(typeof(Renderer))]
-public class ColoredObject : MonoBehaviour
+public class ColoredObject : TNBehaviour
 {
 	Material mMat;
 
@@ -36,7 +36,6 @@ public class ColoredObject : MonoBehaviour
 		if (mMat.color == Color.red) color = Color.green;
 		else if (mMat.color == Color.green) color = Color.blue;
 
-		TNObject tno = GetComponent<TNObject>();
 		tno.Send("OnColor", Target.AllSaved, color);
 	}
 }
