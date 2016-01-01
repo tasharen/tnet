@@ -1,6 +1,6 @@
 //---------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2015 Tasharen Entertainment
+// Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
 
 #if !STANDALONE && (UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1))

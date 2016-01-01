@@ -1,6 +1,6 @@
 //------------------------------------------
 //            Tasharen Network
-// Copyright � 2012-2015 Tasharen Entertainment
+// Copyright � 2012-2016 Tasharen Entertainment
 //------------------------------------------
 
 using UnityEngine;
