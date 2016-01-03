@@ -15,45 +15,77 @@ Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 TNet version 3.0.0 and newer now includes 7-Zip's LZMA library distributed under the public domain license.
 http://www.7-zip.org/sdk.html
 
------------------------------------------------------
-  Basic Usage
------------------------------------------------------
-
+--------------------------------------------------------------------------------------------------------------------
 Q: How to start and stop a server from in-game?
+--------------------------------------------------------------------------------------------------------------------
 
 TNServerInstance.Start(tcpPort, [udpPort], [fileToLoad]);
 TNServerInstance.Stop([fileToSave]]);
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How to connect/disconnect?
+--------------------------------------------------------------------------------------------------------------------
 
 TNManager.Connect(address);
 TNManager.Disconnect();
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How to join/leave a channel?
+--------------------------------------------------------------------------------------------------------------------
 
 TNManager.JoinChannel(id, levelToLoad);
 TNManager.LeaveChannel(id);
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How to instantiate a new object?
+--------------------------------------------------------------------------------------------------------------------
 
 TNManager.Create(gameObject, position, rotation);
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How to destroy an object?
+--------------------------------------------------------------------------------------------------------------------
 
 TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
 tno.DestroySelf();
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How to send a remote function call?
+--------------------------------------------------------------------------------------------------------------------
 
 TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
 tno.Send("FunctionName", target, <parameters>);
 
+--------------------------------------------------------------------------------------------------------------------
 Q: How does a simple remote function call (RFC) look like?
+--------------------------------------------------------------------------------------------------------------------
 
 [RFC]
 protected void FunctionName (<parameters>) {}
 
+--------------------------------------------------------------------------------------------------------------------
+Q: TNManager.Create call doesn't return anything! How to set values on the instantiated object?
+--------------------------------------------------------------------------------------------------------------------
+
+Add a custom creation function to the class that will be used:
+
+[RCC(#)]
+static GameObject CustomCreate (GameObject go, <parameters>)
+{
+	go = Instantiate(go) as GameObject;
+	go.SetActive(true);
+	// Do something with your parameters, such as GetComponent<type>() and set its values.
+	return go;
+}
+
+Make sure "#" is replaced with a unique ID between 3 to 254. Call TNManager.AddRCCs<ClassType>(); in an Awake()
+function of a script that will be present at startup in order to register your custom creation function.
+
+To create your object, call TNManager.CreateEx(#, isPersistent, <prefab>, <parameters>);
+
+--------------------------------------------------------------------------------------------------------------------
 Q: What built-in notifications are there?
+--------------------------------------------------------------------------------------------------------------------
 
 OnNetworkConnect (success, error);
 OnNetworkDisconnect()
@@ -68,24 +100,24 @@ OnNetworkError (error)
 TNManager.onPlayerSync(Player)
 TNManager.onObjectCreated(GameObject)
 
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
   Stand-Alone Server
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
 
 You can build a stand-alone server by extracting the contents of the "TNetServer.zip" file
 into the project's root folder (outside the Assets folder), then opening up the TNServer
 solution or csproj file. A pre-compiled stand-alone windows executable is also included
 in the ZIP file for your convenience.
 
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
   More information:
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
 
 http://www.tasharen.com/?page_id=4518
 
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
  Version History
------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------
 
 3.0.0
 - NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
