@@ -718,6 +718,7 @@ public sealed class TNObject : MonoBehaviour
 			if (connected)
 			{
 				BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
+				writer.Write(TNManager.playerID);
 				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
@@ -731,6 +732,7 @@ public sealed class TNObject : MonoBehaviour
 			if (connected)
 			{
 				BinaryWriter writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+				writer.Write(TNManager.playerID);
 				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
@@ -764,6 +766,7 @@ public sealed class TNObject : MonoBehaviour
 			{
 				byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 				BinaryWriter writer = TNManager.BeginSend(packetID);
+				writer.Write(TNManager.playerID);
 				writer.Write(channelID);
 				writer.Write(GetUID(uid, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
@@ -798,6 +801,7 @@ public sealed class TNObject : MonoBehaviour
 		else
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardByName);
+			writer.Write(TNManager.playerID);
 			writer.Write(targetName);
 			writer.Write(channelID);
 			writer.Write(GetUID(uid, rfcID));
@@ -818,6 +822,7 @@ public sealed class TNObject : MonoBehaviour
 		if (TNManager.isConnected)
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+			writer.Write(TNManager.playerID);
 			writer.Write(target);
 			writer.Write(channelID);
 			writer.Write(GetUID(uid, rfcID));
@@ -840,6 +845,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (mDestroyed) return;
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+		writer.Write(TNManager.playerID);
 		writer.Write(channelID);
 		writer.Write(GetUID(uid, rfcID));
 		if (rfcID == 0) writer.Write(rfcName);

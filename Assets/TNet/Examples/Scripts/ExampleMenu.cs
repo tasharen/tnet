@@ -202,7 +202,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void OnNetworkConnect (bool success, string message)
 	{
-		Debug.Log("OnNetworkConnect: " + success + " " + message);
+		Debug.Log("OnNetworkConnect: " + success + " " + message + " (Player ID #" + TNManager.playerID + ")");
 		mMessage = message;
 	}
 

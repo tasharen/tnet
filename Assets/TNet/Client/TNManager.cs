@@ -203,12 +203,22 @@ public class TNManager : MonoBehaviour
 	static public long serverTime { get { return (mInstance != null) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
 
 	/// <summary>
+	/// Forward and Create type packets write down their source.
+	/// If the packet was sent by the server instead of another player, the ID will be 0.
+	/// </summary>
+
+	static public int packetSourceID { get { return (mInstance != null) ? mInstance.mClient.packetSourceID : 0; } }
+
+	/// <summary>
 	/// Address from which the packet was received. Only available during packet processing callbacks.
 	/// If null, then the packet arrived via the active connection (TCP).
 	/// If the return value is not null, then the last packet arrived via UDP.
 	/// </summary>
 
-	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSource : null; } }
+	static public IPEndPoint packetSourceIP { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
+
+	[System.Obsolete("Use TNManager.packetSourceIP or TNManager.packetSourceID instead")]
+	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
 
 	/// <summary>
 	/// TCP end point, available only if we're actually connected to the server.
@@ -1095,6 +1105,7 @@ public class TNManager : MonoBehaviour
 					}
 
 					BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
+					writer.Write(playerID);
 					writer.Write(channelID);
 					writer.Write((ushort)index);
 					writer.Write(GetFlag(go, persistent));
@@ -1171,6 +1182,7 @@ public class TNManager : MonoBehaviour
 
 				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
 				byte flag = GetFlag(go, persistent);
+				writer.Write(playerID);
 				writer.Write(channelID);
 				writer.Write((ushort)65535);
 				writer.Write(flag);

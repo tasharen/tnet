@@ -681,12 +681,14 @@ static public class Tools
 	static public string GetDocumentsPath (string path = null)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-		string docs = persistentDataPath;
 		try
 		{
 			if (!string.IsNullOrEmpty(applicationDirectory))
-				docs = Path.Combine(docs, applicationDirectory).Replace("\\", "/");
-			path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+			{
+				string docs = Path.Combine(persistentDataPath, applicationDirectory).Replace("\\", "/");
+				path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
+			}
+
 			path = path.Replace("\\", "/");
 		}
 		catch (System.Exception ex)
@@ -704,6 +706,7 @@ static public class Tools
 
 	/// <summary>
 	/// Application directory to use in My Documents. Generally should be the name of your game.
+	/// If not set, current directory will be used instead.
 	/// </summary>
 
 	static public string applicationDirectory = null;

@@ -308,10 +308,17 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Forward and Create type packets write down their source.
+	/// If the packet was sent by the server instead of another player, the ID will be 0.
+	/// </summary>
+
+	public int packetSourceID = 0;
+
+	/// <summary>
 	/// Source of the last packet.
 	/// </summary>
 
-	public IPEndPoint packetSource { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
+	public IPEndPoint packetSourceIP { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
 
 	/// <summary>
 	/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -987,12 +994,14 @@ public class GameClient
 			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
+				packetSourceID = reader.ReadInt32();
 				int channelID = reader.ReadInt32();
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
 			case Packet.ForwardToPlayer:
 			{
+				packetSourceID = reader.ReadInt32();
 				int channelID = reader.ReadInt32();
 				reader.ReadInt32(); // Skip the player ID
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
@@ -1000,6 +1009,7 @@ public class GameClient
 			}
 			case Packet.ForwardByName:
 			{
+				packetSourceID = reader.ReadInt32();
 				int channelID = reader.ReadInt32();
 				reader.ReadString(); // Skip the player name
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
@@ -1212,8 +1222,8 @@ public class GameClient
 			{
 				if (onCreate != null)
 				{
-					int channelID = reader.ReadInt32();
 					int playerID = reader.ReadInt32();
+					int channelID = reader.ReadInt32();
 					ushort index = reader.ReadUInt16();
 					uint objID = reader.ReadUInt32();
 					onCreate(channelID, playerID, index, objID, reader);

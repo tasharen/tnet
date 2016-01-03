@@ -1364,6 +1364,9 @@ public class GameServer : FileServer
 			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
+				// 4 bytes for size, 1 byte for ID
+				int origin = buffer.position - 5;
+
 				//Tools.Print("Broadcast: " + player.name + ", " + player.address);
 
 				if (!player.isAdmin)
@@ -1385,8 +1388,17 @@ public class GameServer : FileServer
 					}
 				}
 
-				// 4 bytes for size, 1 byte for ID
-				buffer.position = buffer.position - 5;
+				int playerID = reader.ReadInt32();
+
+				// Exploit: echoed packet of another player
+				if (playerID != player.id)
+				{
+					player.LogError("Tried to echo a broadcast packet (" + playerID + " vs " + player.id + ")", null);
+					RemovePlayer(player);
+					break;
+				}
+
+				buffer.position = origin;
 
 				// Forward the packet to everyone connected to the server
 				for (int i = 0; i < mPlayerList.size; ++i)
@@ -1837,7 +1849,16 @@ public class GameServer : FileServer
 	{
 		// 4 bytes for packet size, 1 byte for packet ID
 		int start = buffer.position - 5;
+		int playerID = reader.ReadInt32();
 		int channelID = reader.ReadInt32();
+
+		// Exploit: echoed packet of another player
+		if (playerID != player.id)
+		{
+			player.LogError("Tried to echo a " + request + " packet (" + playerID + " vs " + player.id + ")", null);
+			RemovePlayer(player);
+			return;
+		}
 
 		// The channel must exist
 		Channel ch;
@@ -1911,6 +1932,16 @@ public class GameServer : FileServer
 		{
 			case Packet.RequestCreateObject:
 			{
+				int playerID = reader.ReadInt32();
+
+				// Exploit: echoed packet of another player
+				if (playerID != player.id)
+				{
+					player.LogError("Tried to echo a create packet (" + playerID + " vs " + player.id + ")", null);
+					RemovePlayer(player);
+					return;
+				}
+
 				int channelID = reader.ReadInt32();
 				Channel ch = player.GetChannel(channelID);
 				ushort objectIndex = reader.ReadUInt16();
@@ -1940,8 +1971,8 @@ public class GameServer : FileServer
 
 					// Inform the channel
 					BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
+					writer.Write(playerID);
 					writer.Write(channelID);
-					writer.Write(player.id);
 					writer.Write(objectIndex);
 					writer.Write(uniqueID);
 					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
@@ -2015,8 +2046,8 @@ public class GameServer : FileServer
 
 								// Object creation notification
 								BinaryWriter writer = temp.BeginPacket(Packet.ResponseCreateObject);
-								writer.Write(to.id);
 								writer.Write(obj.playerID);
+								writer.Write(to.id);
 								writer.Write(obj.objectIndex);
 								writer.Write(obj.objectID);
 								writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);

@@ -162,8 +162,8 @@ public class TcpPlayer : TcpProtocol
 			if (!isPresent) obj.playerID = channel.host.id;
 
 			writer = buffer.BeginPacket(Packet.ResponseCreateObject, offset);
-			writer.Write(channel.id);
 			writer.Write(obj.playerID);
+			writer.Write(channel.id);
 			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);

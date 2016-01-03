@@ -32,6 +32,7 @@ public class Channel
 		public int WritePacket (int channelID, Buffer buffer, int offset)
 		{
 			BinaryWriter writer = buffer.BeginPacket(Packet.ForwardToOthers, offset);
+			writer.Write(0);
 			writer.Write(channelID);
 			writer.Write(uid);
 			if (functionID == 0) writer.Write(functionName);
