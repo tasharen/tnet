@@ -13,6 +13,10 @@ using System.Threading;
 using System.Net;
 using System.Text;
 
+#if UNITY_EDITOR
+using UnityEngine;
+#endif
+
 namespace TNet
 {
 /// <summary>
@@ -23,6 +27,9 @@ namespace TNet
 
 public class GameServer : FileServer
 {
+	GameClient mLocalClient;
+	TcpPlayer mLocalPlayer = null;
+
 #if MULTI_THREADED
 	public const bool isMultiThreaded = true;
 #else
@@ -101,7 +108,7 @@ public class GameServer : FileServer
 	Dictionary<int, Channel> mChannelDict = new Dictionary<int, Channel>();
 
 	// Random number generator.
-	Random mRandom = new Random();
+	System.Random mRandom = new System.Random();
 	Buffer mBuffer;
 	TcpListener mListener;
 	Thread mThread;
@@ -112,6 +119,7 @@ public class GameServer : FileServer
 	object mLock = 0;
 	DataNode mServerData = null;
 	string mFilename = "world.dat";
+	bool mIsActive = false;
 
 	// List of admin keywords
 	List<string> mAdmin = new List<string>();
@@ -137,34 +145,13 @@ public class GameServer : FileServer
 	/// Whether the server is currently actively serving players.
 	/// </summary>
 
-#if MULTI_THREADED
-	public bool isActive { get { return mThread != null; } }
-#else
-	public bool isActive { get { return mListener != null; } }
-#endif
+	public bool isActive { get { return mIsActive; } }
 
 	/// <summary>
 	/// Whether the server is listening for incoming connections.
 	/// </summary>
 
-	public bool isListening
-	{
-		get
-		{
-			return (mListener != null);
-		}
-		set
-		{
-			lock (mLock)
-			{
-				if (mListener != null)
-				{
-					mListener.Stop();
-					mListener = null;
-				}
-			}
-		}
-	}
+	public bool isListening { get { return (mListener != null); } set { Listen(value ? mListenerPort : 0); } }
 
 	/// <summary>
 	/// Port used for listening to incoming connections. Set when the server is started.
@@ -185,16 +172,81 @@ public class GameServer : FileServer
 	public int playerCount { get { return isActive ? mPlayerDict.Count : 0; } }
 
 	/// <summary>
-	/// Start listening to incoming connections on the specified port.
+	/// Set to a client instance if not using sockets.
 	/// </summary>
 
-	public bool Start (int tcpPort) { return Start(tcpPort, 0); }
+	public GameClient localClient
+	{
+		get
+		{
+			return mLocalClient;
+		}
+		set
+		{
+			if (mLocalPlayer != null)
+			{
+				RemovePlayer(mLocalPlayer);
+				mLocalPlayer = null;
+			}
+
+			if (value != null)
+			{
+				lock (mLock)
+				{
+					mLocalClient = value;
+					mLocalPlayer = new TcpPlayer();
+					mLocalPlayer.id = 0;
+					mLocalPlayer.name = "Guest";
+					mLocalPlayer.stage = TcpProtocol.Stage.Verifying;
+					mLocalPlayer.directOutboundQueue = mLocalClient.incomingBuffer;
+					mLocalClient.directOutboundQueue = mLocalPlayer.incomingBuffer;
+					mPlayerList.Add(mLocalPlayer);
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Listen to the specified port. This will overwrite any previous Listen() call as only one port can be listened to at a time.
+	/// </summary>
+
+	public bool Listen (int port)
+	{
+		if (mListenerPort == port) return true;
+
+		lock (mLock)
+		{
+			if (mListener != null)
+			{
+				mListener.Stop();
+				mListener = null;
+			}
+
+			mListenerPort = port;
+
+			if (port != 0)
+			{
+				try
+				{
+					mListener = new TcpListener(IPAddress.Any, port);
+					mListener.Start(50);
+					//mListener.BeginAcceptSocket(OnAccept, null);
+					return true;
+				}
+				catch (System.Exception ex)
+				{
+					Tools.LogError(ex.Message, ex.StackTrace, false);
+				}
+			}
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Start listening to incoming connections on the specified port.
 	/// </summary>
 
-	public bool Start (int tcpPort, int udpPort)
+	public bool Start (int tcpPort = 0, int udpPort = 0)
 	{
 		Stop();
 
@@ -212,38 +264,12 @@ public class GameServer : FileServer
 		Tools.Log("Admins: " + mAdmin.size);
 		Tools.Log("Bans: " + mBan.size);
 
-		// Check URL: http://steamcommunity.com/profiles/76561199211637591
-		//AddUnique(mBan, "76561198265685624"); // Shared account, hundreds of people using it
-		//AddUnique(mBan, "76561198022066592"); // Hacker: spammed chat with repeated packets for 2 days
-		//AddUnique(mBan, "76561198046792874"); // Hacker: was doing all kinds of weird shit
-		//AddUnique(mBan, "76561199046841142"); // Hidden account, 2 billion gold, very fishy
-		//AddUnique(mBan, "76561198744124281"); // ALI213
-		//AddUnique(mBan, "76561200587781055"); // ALI213
-		//AddUnique(mBan, "76561201119545283"); // Chinese hackers
-		//AddUnique(mBan, "76561198311261525"); // Chinese hackers
-		//AddUnique(mBan, "76561197960639879"); // Using some old version
-		//AddUnique(mBan, "76561202232029992"); // Shared account
-		//AddUnique(mBan, "76561197996533125"); // Shared account
-#if STANDALONE
-		AddUnique(mBan, "ALI213");
-#endif
-		try
-		{
-			mListenerPort = tcpPort;
-			mListener = new TcpListener(IPAddress.Any, tcpPort);
-			mListener.Start(50);
-			//mListener.BeginAcceptSocket(OnAccept, null);
-		}
-		catch (System.Exception ex)
-		{
-			Tools.LogError(ex.Message, ex.StackTrace, true);
-			return false;
-		}
+		if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
 #if STANDALONE
 		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
-		if (!mUdp.Start(udpPort))
+		if (udpPort > 0 && !mUdp.Start(udpPort))
 		{
 			Tools.LogError("Unable to listen to UDP port " + udpPort, null);
 			Stop();
@@ -251,6 +277,7 @@ public class GameServer : FileServer
 		}
 
 		mAllowUdp = (udpPort > 0);
+		mIsActive = true;
 
 		if (lobbyLink != null)
 		{
@@ -269,7 +296,7 @@ public class GameServer : FileServer
 	/// Call this function when you've disabled multi-threading.
 	/// </summary>
 
-	public void Update () { if (mThread == null && mListener != null) ThreadFunction(); }
+	public void Update () { if (mThread == null && isActive) ThreadFunction(); }
 
 	/// <summary>
 	/// Accept socket callback.
@@ -314,6 +341,9 @@ public class GameServer : FileServer
 
 		// Player counter should be reset
 		Player.ResetPlayerCounter();
+		mLocalPlayer = null;
+		mLocalClient = null;
+		mIsActive = false;
 	}
 
 	/// <summary>
@@ -339,8 +369,9 @@ public class GameServer : FileServer
 				continue;
 			}
 #endif
+#if MULTI_THREADED
 			bool received = false;
-
+#endif
 			lock (mLock)
 			{
 				Buffer buffer;
@@ -390,8 +421,11 @@ public class GameServer : FileServer
 
 							try
 							{
-								if (ProcessPlayerPacket(buffer, player, false))
-									received = true;
+#if MULTI_THREADED
+								if (ProcessPlayerPacket(buffer, player, false)) received = true;
+#else
+								ProcessPlayerPacket(buffer, player, false);
+#endif
 							}
 							catch (System.Exception ex)
 							{
@@ -446,7 +480,7 @@ public class GameServer : FileServer
 					TcpPlayer player = mPlayerList[i];
 
 					// Remove disconnected players
-					if (!player.isSocketConnected)
+					if (player != mLocalPlayer && !player.isSocketConnected)
 					{
 						RemovePlayer(player);
 						continue;
@@ -463,7 +497,7 @@ public class GameServer : FileServer
 								if (ProcessPlayerPacket(buffer, player, true))
 									received = true;
 							}
-#if STANDALONE
+ #if STANDALONE
 							catch (System.Exception ex)
 							{
 								player.LogError(ex.Message, ex.StackTrace);
@@ -471,35 +505,37 @@ public class GameServer : FileServer
 								buffer.Recycle();
 								continue;
 							}
-#else
+ #else
 							catch (System.Exception ex)
 							{
 								player.LogError(ex.Message, ex.StackTrace);
 								RemovePlayer(player);
 							}
-#endif
+ #endif
 #else
-							if (ProcessPlayerPacket(buffer, player, true))
-								received = true;
+							ProcessPlayerPacket(buffer, player, true);
 #endif
 						}
 						buffer.Recycle();
 					}
 
-					// Time out -- disconnect this player
-					if (player.stage == TcpProtocol.Stage.Connected)
+					if (player != mLocalPlayer)
 					{
-						// If the player doesn't send any packets in a while, disconnect him
-						if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
+						// Time out -- disconnect this player
+						if (player.stage == TcpProtocol.Stage.Connected)
+						{
+							// If the player doesn't send any packets in a while, disconnect him
+							if (player.timeoutTime > 0 && player.lastReceivedTime + player.timeoutTime < mTime)
+							{
+								RemovePlayer(player);
+								continue;
+							}
+						}
+						else if (player.lastReceivedTime + 2000 < mTime)
 						{
 							RemovePlayer(player);
 							continue;
 						}
-					}
-					else if (player.lastReceivedTime + 2000 < mTime)
-					{
-						RemovePlayer(player);
-						continue;
 					}
 					++i;
 				}
@@ -708,12 +744,13 @@ public class GameServer : FileServer
 	void EndSend (Channel channel, TcpPlayer exclude, bool reliable)
 	{
 		mBuffer.EndPacket();
+
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			TcpPlayer player = (TcpPlayer)channel.players[i];
-			
+
 			if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 			{
 				if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
@@ -782,6 +819,7 @@ public class GameServer : FileServer
 	void EndSend (bool reliable)
 	{
 		mBuffer.EndPacket();
+
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < mChannelList.size; ++i)
@@ -791,7 +829,7 @@ public class GameServer : FileServer
 			for (int b = 0; b < channel.players.size; ++b)
 			{
 				TcpPlayer player = (TcpPlayer)channel.players[b];
-				
+
 				if (player.stage == TcpProtocol.Stage.Connected)
 				{
 					if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
@@ -802,6 +840,7 @@ public class GameServer : FileServer
 				}
 			}
 		}
+
 		mBuffer.Recycle();
 		mBuffer = null;
 	}
@@ -813,12 +852,13 @@ public class GameServer : FileServer
 	void SendToChannel (bool reliable, Channel channel, Buffer buffer)
 	{
 		mBuffer.MarkAsUsed();
+
 		if (mBuffer.size > 1024) reliable = true;
 
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			TcpPlayer player = (TcpPlayer)channel.players[i];
-			
+
 			if (player.stage == TcpProtocol.Stage.Connected)
 			{
 				if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
@@ -1055,27 +1095,33 @@ public class GameServer : FileServer
 
 	bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 	{
+		BinaryReader reader = buffer.BeginReading();
+
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			BinaryReader rd = player.VerifyRequestID(buffer, true);
-
-			if (rd != null)
+			if (player.VerifyRequestID(reader, true))
 			{
 				if (player.isAdmin || !mBan.Contains(player.name))
 				{
 					mPlayerDict.Add(player.id, player);
 
+					BinaryWriter writer = player.BeginSend(Packet.ResponseID);
+					writer.Write(TcpPlayer.version);
+					writer.Write(player.id);
+					writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
+					player.EndSend();
+
 					if (mServerData != null)
 					{
-						player.BeginSend(Packet.ResponseReloadServerOptions).Write(mServerData);
-						player.EndSend();
+						BeginSend(Packet.ResponseReloadServerOptions).Write(mServerData);
+						EndSend(true, player);
 					}
 
 					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					if (onPlayerConnect != null) onPlayerConnect(player);
 
-					BinaryWriter writer = BeginSend(Packet.PlayerConnected);
+					writer = BeginSend(Packet.PlayerConnected);
 					writer.Write(player.id);
 					writer.Write(player.name);
 					EndSend(true, player);
@@ -1089,15 +1135,23 @@ public class GameServer : FileServer
 				}
 			}
 
+			BeginSend(Packet.ResponseID).Write(0);
+			EndSend(true, player);
+
 			Tools.Print(player.address + " has failed the verification step");
 			RemovePlayer(player);
 			return false;
 		}
 
-		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
-		//if (request != Packet.RequestPing) Tools.Print("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
+//#if MULTI_THREADED
+//        if (request != Packet.RequestPing && request != Packet.ResponsePing)
+//            Tools.Print("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
+//#elif UNITY_EDITOR
+//        if (request != Packet.RequestPing && request != Packet.ResponsePing)
+//            UnityEngine.Debug.Log("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
+//#endif
 
 		switch (request)
 		{
@@ -1126,7 +1180,7 @@ public class GameServer : FileServer
 			{
 				int port = reader.ReadUInt16();
 
-				if (port != 0 && mUdp.isActive)
+				if (port != 0 && mUdp.isActive && player.tcpEndPoint != null)
 				{
 					IPAddress ip = new IPAddress(player.tcpEndPoint.Address.GetAddressBytes());
 					SetPlayerUdpEndPoint(player, new IPEndPoint(ip, port));
@@ -1426,8 +1480,8 @@ public class GameServer : FileServer
 						player.isAdmin = true;
 						player.Log("Admin verified");
 
-						player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
-						player.EndSend();
+						BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+						EndSend(true, player);
 					}
 				}
 				else
@@ -1482,8 +1536,8 @@ public class GameServer : FileServer
 					player.isAdmin = true;
 					player.Log("Admin verified");
 
-					player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
-					player.EndSend();
+					BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+					EndSend(true, player);
 				}
 
 				if (mServerData != null)
@@ -1667,7 +1721,7 @@ public class GameServer : FileServer
 				string original = reader.ReadString();
 				string path = Tools.FindDirectory(original, player.isAdmin);
 
-				BinaryWriter writer = player.BeginSend(Packet.ResponseGetFileList);
+				BinaryWriter writer = BeginSend(Packet.ResponseGetFileList);
 				writer.Write(original);
 
 				if (!string.IsNullOrEmpty(path))
@@ -1677,11 +1731,9 @@ public class GameServer : FileServer
 					for (int i = 0, imax = files.Length; i < imax; ++i)
 						writer.Write(files[i]);
 				}
-				else
-				{
-					writer.Write(0);
-				}
-				player.EndSend();
+				else writer.Write(0);
+
+				EndSend(true, player);
 				break;
 			}
 			case Packet.RequestLockChannel:
@@ -2238,7 +2290,7 @@ public class GameServer : FileServer
 		mFilename = fileName;
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
-		if (mListener == null) return;
+		if (!isActive) return;
 
 		Tools.SaveList("ServerConfig/ban.txt", mBan);
 		Tools.SaveList("ServerConfig/admin.txt", mAdmin);

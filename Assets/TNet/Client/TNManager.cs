@@ -150,8 +150,14 @@ public class TNManager : MonoBehaviour
 	/// Whether the player is currently in a channel.
 	/// </summary>
 
-	static public bool isInChannel { get { return !isJoiningChannel && (mInstance == null ||
-		mInstance.mClient == null || (mInstance.mClient.isConnected && mInstance.mClient.isInChannel)); } }
+	static public bool isInChannel
+	{
+		get
+		{
+			return !isJoiningChannel && (mInstance == null || mInstance.mClient == null ||
+				(mInstance.mClient.isConnected && mInstance.mClient.isInChannel));
+		}
+	}
 
 	/// <summary>
 	/// You can pause TNManager's message processing if you like.
@@ -652,17 +658,24 @@ public class TNManager : MonoBehaviour
 	{
 		if (!instance.mClient.isTryingToConnect)
 		{
-			IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
-
-			if (ip == null)
+			if (TNServerInstance.isLocal && (string.IsNullOrEmpty(address) || address.StartsWith("127.0.0.1")))
 			{
-				instance.OnConnect(false, "Unable to resolve [" + address + "]");
+				instance.mClient.Connect(TNServerInstance.game);
 			}
 			else
 			{
-				instance.mClient.playerName = mPlayer.name;
-				instance.mClient.playerData = mPlayer.data;
-				instance.mClient.Connect(ip, null);
+				IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
+
+				if (ip == null)
+				{
+					instance.OnConnect(false, "Unable to resolve [" + address + "]");
+				}
+				else
+				{
+					instance.mClient.playerName = mPlayer.name;
+					instance.mClient.playerData = mPlayer.data;
+					instance.mClient.Connect(ip, null);
+				}
 			}
 		}
 		else Debug.LogWarning("Already connecting...");
@@ -678,6 +691,23 @@ public class TNManager : MonoBehaviour
 		int port = 5127;
 		if (split.Length > 1) int.TryParse(split[1], out port);
 		Connect(split[0], port);
+	}
+
+	/// <summary>
+	/// Connect to a local server.
+	/// </summary>
+
+	static public void Connect ()
+	{
+		if (TNServerInstance.isActive && !TNServerInstance.isListening && !instance.mClient.isTryingToConnect)
+		{
+			instance.mClient.Connect(TNServerInstance.game);
+		}
+		else if (TNServerInstance.isListening)
+		{
+			Connect("127.0.0.1", TNServerInstance.listeningPort);
+		}
+		else Debug.LogError("Expecting an address to connect to or a local server to be started first.");
 	}
 
 	/// <summary>

@@ -154,7 +154,7 @@ public class ExampleMenu : MonoBehaviour
 			{
 				GUI.backgroundColor = Color.green;
 
-				if (GUILayout.Button("Start a Local Server", button))
+				if (GUILayout.Button("Start a LAN Server", button))
 				{
 #if UNITY_WEBPLAYER
 					mMessage = "Can't host from the Web Player due to Unity's security restrictions";
@@ -173,10 +173,20 @@ public class ExampleMenu : MonoBehaviour
 					{
 						TNServerInstance.Type type = (lobby is TNUdpLobbyClient) ?
 							TNServerInstance.Type.Udp : TNServerInstance.Type.Tcp;
-						TNServerInstance.Start(serverTcpPort, udpPort, lobby.remotePort, "server.dat", type);
+
+						if (TNServerInstance.Start(serverTcpPort, udpPort, lobby.remotePort, "server.dat", type))
+							TNManager.Connect();
 					}
 					mMessage = "Server started";
 #endif
+				}
+
+				// Start a local server that doesn't use sockets. It's ideal for testing and for single player gameplay.
+				if (GUILayout.Button("Start a Private Server", button))
+				{
+					mMessage = "Server started";
+					TNServerInstance.Start("server.dat");
+					TNManager.Connect();
 				}
 			}
 			GUI.backgroundColor = Color.white;

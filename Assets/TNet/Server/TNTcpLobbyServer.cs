@@ -299,15 +299,24 @@ public class TcpLobbyServer : LobbyServer
 
 	bool ProcessPacket (Buffer buffer, TcpProtocol tc)
 	{
+		BinaryReader reader = buffer.BeginReading();
+
 		// TCP connections must be verified first to ensure that they are using the correct protocol
 		if (tc.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (tc.VerifyRequestID(buffer, false) != null) return true;
+			if (tc.VerifyRequestID(reader, false))
+			{
+				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				writer.Write(TcpPlayer.version);
+				writer.Write(tc.id);
+				writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
+				EndSend(tc);
+				return true;
+			}
 			Tools.Print(tc.address + " has failed the verification step");
 			return false;
 		}
 
-		BinaryReader reader = buffer.BeginReading();
 		Packet request = (Packet)reader.ReadByte();
 
 		switch (request)

@@ -69,6 +69,12 @@ public class TNServerInstance : MonoBehaviour
 	static public bool isListening { get { return (mInstance != null) && mInstance.mGame.isListening; } }
 
 	/// <summary>
+	/// Local server instance -- doesn't use sockets.
+	/// </summary>
+
+	static public bool isLocal { get { return (mInstance != null) && mInstance.mGame.isActive && mInstance.mGame.localClient != null; } }
+
+	/// <summary>
 	/// Port used to listen for incoming TCP connections.
 	/// </summary>
 
@@ -97,6 +103,12 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public LobbyServer lobby { get { return (mInstance != null) ? mInstance.mLobby : null; } }
+
+	/// <summary>
+	/// Start dummy server instance without using sockets. Ideal for single-player.
+	/// </summary>
+
+	static public bool Start (string fileName) { return instance.StartLocal(fileName); }
 
 	/// <summary>
 	/// Start a local server instance listening to the specified port.
@@ -156,6 +168,33 @@ public class TNServerInstance : MonoBehaviour
 	static public bool Start (int tcpPort, int udpPort, string fileName, Type type, IPEndPoint remoteLobby, bool openPort = true)
 	{
 		return instance.StartRemote(tcpPort, udpPort, fileName, remoteLobby, type, openPort);
+	}
+
+	/// <summary>
+	/// Start a new server.
+	/// </summary>
+
+	bool StartLocal (string fileName)
+	{
+		// Ensure that everything has been stopped first
+		if (mGame.isActive) Disconnect();
+
+		// Start the game server
+		if (mGame.Start())
+		{
+			if (!string.IsNullOrEmpty(fileName))
+			{
+				mGame.LoadFrom(fileName);
+#if !MULTI_THREADED
+				mGame.Update();
+#endif
+				return true;
+			}
+		}
+
+		// Something went wrong -- stop everything
+		Disconnect();
+		return false;
 	}
 
 	/// <summary>
@@ -318,6 +357,6 @@ public class TNServerInstance : MonoBehaviour
 	}
 
 #if !MULTI_THREADED
-	void Update () { if (mGame != null && mGame.isListening) mGame.Update(); }
+	void Update () { if (mGame != null && mGame.isActive) mGame.Update(); }
 #endif
 }

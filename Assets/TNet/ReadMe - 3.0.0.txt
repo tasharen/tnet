@@ -142,6 +142,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: TNet is now able to respond to a simple HTTP browser GET request. Simply connect to your server via http://127.0.0.1:5127/
 - NEW: Added DataNode.ToArray([type]) to quickly convert DataNode to byte[].
 - NEW: Added TNManager.packetSourceID that identifies the last Forward and Create type packet's source player ID.
+- NEW: Added an offline mode to TNet that still supports full functionality identical to that of playing alone on a local server.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.

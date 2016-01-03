@@ -105,7 +105,7 @@ public class Buffer
 	static public int recycleQueue { get { return mPool.size; } }
 
 	/// <summary>
-	/// Create a new buffer, reusing an old one if possible.
+	/// Create a new buffer, reusing an old one if possible. Marks the buffer as used.
 	/// </summary>
 
 	static public Buffer Create () { return Create(true); }

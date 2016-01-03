@@ -3,16 +3,16 @@
 // Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
 
-#if UNITY_EDITOR
-using UnityEngine;
-#endif
-
 using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Net;
 using System.Collections.Generic;
+
+#if UNITY_EDITOR
+using UnityEngine;
+#endif
 
 namespace TNet
 {
@@ -22,6 +22,9 @@ namespace TNet
 
 public class GameClient
 {
+	// TODO
+	public GameServer localServer;
+
 	public delegate void OnPing (IPEndPoint ip, int milliSeconds);
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
@@ -192,6 +195,18 @@ public class GameClient
 	// TCP connection is the primary method of communication with the server.
 	TcpProtocol mTcp = new TcpProtocol();
 
+	/// <summary>
+	/// Underlying TCP protocol.
+	/// </summary>
+
+	public TcpProtocol protocol { get { return mTcp; } }
+
+	/// <summary>
+	/// If sockets are not used, an outgoing queue can be specified instead.
+	/// </summary>
+
+	public Queue<Buffer> directOutboundQueue { get { return mTcp.directOutboundQueue; } set { mTcp.directOutboundQueue = value; } }
+
 #if !UNITY_WEBPLAYER
 	// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 	// UDP is not available in the Unity web player because using UDP packets makes Unity request the
@@ -264,7 +279,7 @@ public class GameClient
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
-	public bool isConnected { get { return mTcp.isConnected; } }
+	public bool isConnected { get { return mTcp.isConnected || localServer != null; } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -420,6 +435,12 @@ public class GameClient
 			SyncPlayerData();
 		}
 	}
+
+	/// <summary>
+	/// Direct access to the incoming buffer to deposit messages in. Don't forget to lock it before using it.
+	/// </summary>
+
+	public Queue<Buffer> incomingBuffer { get { return mTcp.incomingBuffer; } }
 
 	/// <summary>
 	/// Immediately sync the player's data.
@@ -612,20 +633,51 @@ public class GameClient
 	}
 
 	/// <summary>
+	/// Establish a local connection without using sockets.
+	/// </summary>
+
+	public void Connect (GameServer server)
+	{
+		Disconnect();
+
+		if (server != null)
+		{
+			localServer = server;
+			server.localClient = this;
+
+			mTcp.stage = TcpProtocol.Stage.Verifying;
+			BinaryWriter writer = BeginSend(Packet.RequestID);
+			writer.Write(TcpProtocol.version);
+			writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name);
+			writer.WriteObject(mTcp.data);
+			EndSend();
+		}
+	}
+
+	/// <summary>
 	/// Try to establish a connection with the specified address.
 	/// </summary>
 
-	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
+	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 	{
 		Disconnect();
-		mTcp.Connect(externalIP, internalIP);
+		if (externalIP == null) Debug.LogError("Expecting a valid IP address or a local server to be running");
+		else mTcp.Connect(externalIP, internalIP);
 	}
 
 	/// <summary>
 	/// Disconnect from the server.
 	/// </summary>
 
-	public void Disconnect () { mTcp.Disconnect(); }
+	public void Disconnect ()
+	{
+		if (localServer != null)
+		{
+			localServer.localClient = null;
+			localServer = null;
+		}
+		mTcp.Disconnect();
+	}
 
 	/// <summary>
 	/// Start listening to incoming UDP packets on the specified port.
@@ -906,7 +958,12 @@ public class GameClient
 		mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
+		if (localServer != null)
+		{
+			mPing = 0;
+			mPingTime = mMyTime;
+		}
+		else if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
 		{
 			mCanPing = false;
 			mPingTime = mMyTime;
@@ -969,10 +1026,10 @@ public class GameClient
 		}
 
 //#if !UNITY_EDITOR // DEBUG
-//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
 //#else
 //        if (response != Packet.ResponsePing && response != Packet.Broadcast)
-//            UnityEngine.Debug.Log("Client: " + response + " " + buffer.position + " of " + buffer.size + ((ip == null) ? " (TCP)" : " (UDP)"));
+//            UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
 //#endif
 
 		OnPacket callback;
@@ -1289,6 +1346,13 @@ public class GameClient
 				mGetFiles.Clear();
 				mJoining.Clear();
 				mIsAdmin = false;
+
+				if (localServer != null)
+				{
+					localServer.localClient = null;
+					localServer = null;
+				}
+
 				if (onDisconnect != null) onDisconnect();
 				serverOptions = null;
 				break;

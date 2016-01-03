@@ -81,7 +81,6 @@ public enum Packet
 	/// int32: Protocol version.
 	/// string: Player Name.
 	/// object: Player data.
-	/// string: Admin key. (used to flag administrators)
 	/// </summary>
 
 	RequestID,
