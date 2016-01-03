@@ -19,6 +19,12 @@ namespace TNet
 
 public class TcpProtocol : Player
 {
+	/// <summary>
+	/// Whether the hosted server will respond to HTTP GET requests.
+	/// </summary>
+
+	static public bool httpGetSupport = true;
+
 	public enum Stage
 	{
 		NotConnected,
@@ -683,19 +689,28 @@ public class TcpProtocol : Player
 				// "GET " -- HTTP GET request sent by a web browser
 				if (mExpected == 542393671)
 				{
-					if (stage == Stage.Verifying || stage == Stage.WebBrowser)
+					if (httpGetSupport)
 					{
-						stage = Stage.WebBrowser;
-						string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, available);
-						mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
-						mReceiveBuffer.EndPacket();
-						mReceiveBuffer.BeginReading(4);
-						lock (mIn) mIn.Enqueue(mReceiveBuffer);
-						mReceiveBuffer = null;
-						mExpected = 0;
-						mOffset = 0;
+						if (stage == Stage.Verifying || stage == Stage.WebBrowser)
+						{
+							stage = Stage.WebBrowser;
+							string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, available);
+							mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
+							mReceiveBuffer.EndPacket();
+							mReceiveBuffer.BeginReading(4);
+							lock (mIn) mIn.Enqueue(mReceiveBuffer);
+							mReceiveBuffer = null;
+							mExpected = 0;
+							mOffset = 0;
+						}
+						return true;
 					}
-					return true;
+
+					mReceiveBuffer = null;
+					mExpected = 0;
+					mOffset = 0;
+					Disconnect();
+					return false;
 				}
 				else if (mExpected < 0 || mExpected > 16777216)
 				{
@@ -707,14 +722,8 @@ public class TcpProtocol : Player
 					mReceiveBuffer = null;
 					mExpected = 0;
 					mOffset = 0;
-#if STANDALONE
 					Disconnect();
 					return false;
-#else
-					BeginSend(Packet.RequestCloseChannel);
-					EndSend();
-					break;
-#endif
 				}
 			}
 
