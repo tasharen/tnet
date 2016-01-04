@@ -670,7 +670,7 @@ public class TNManager : MonoBehaviour
 			instance.mClient.playerName = mPlayer.name;
 			instance.mClient.playerData = mPlayer.data;
 
-			if (TNServerInstance.isActive)
+			if (TNServerInstance.isLocal)
 			{
 				instance.mClient.Connect(TNServerInstance.game);
 			}

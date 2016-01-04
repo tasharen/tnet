@@ -72,7 +72,7 @@ public class TNServerInstance : MonoBehaviour
 	/// Local server instance -- doesn't use sockets.
 	/// </summary>
 
-	static public bool isLocal { get { return (mInstance != null) && mInstance.mGame.isActive && mInstance.mGame.localClient != null; } }
+	static public bool isLocal { get { return (mInstance != null) && mInstance.mGame.isActive && (mInstance.mGame.localClient != null || !mInstance.mGame.isListening); } }
 
 	/// <summary>
 	/// Port used to listen for incoming TCP connections.

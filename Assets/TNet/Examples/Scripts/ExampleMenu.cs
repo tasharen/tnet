@@ -68,9 +68,6 @@ public class ExampleMenu : MonoBehaviour
 
 			// We don't want mobile devices to dim their screen and go to sleep while the app is running
 			Screen.sleepTimeout = SleepTimeout.NeverSleep;
-
-			// Make it possible to use UDP using a random port
-			TNManager.StartUDP(Random.Range(10000, 50000));
 		}
 	}
 
@@ -167,7 +164,8 @@ public class ExampleMenu : MonoBehaviour
 
 					if (lobby == null)
 					{
-						TNServerInstance.Start(serverTcpPort, udpPort, "server.dat");
+						if (TNServerInstance.Start(serverTcpPort, udpPort, "server.dat"))
+							TNManager.Connect();
 					}
 					else
 					{
@@ -214,6 +212,9 @@ public class ExampleMenu : MonoBehaviour
 	{
 		Debug.Log("OnNetworkConnect: " + success + " " + message + " (Player ID #" + TNManager.playerID + ")");
 		mMessage = message;
+
+		// Make it possible to use UDP using a random port
+		if (!TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
 	}
 
 	/// <summary>

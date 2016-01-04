@@ -655,7 +655,11 @@ public class GameClient
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 	{
 		Disconnect();
+#if UNITY_EDITOR
 		if (externalIP == null) Debug.LogError("Expecting a valid IP address or a local server to be running");
+#else
+		if (externalIP == null) Tools.LogError("Expecting a valid IP address or a local server to be running");
+#endif
 		else mTcp.Connect(externalIP, internalIP);
 	}
 
@@ -680,7 +684,7 @@ public class GameClient
 	public bool StartUDP (int udpPort)
 	{
 #if !UNITY_WEBPLAYER
-		if (mUdp.Start(udpPort))
+		if (mLocalServer == null && mUdp.Start(udpPort))
 		{
 			if (isConnected)
 			{
@@ -1098,7 +1102,7 @@ public class GameClient
 				// The server has a new port for UDP traffic
 				ushort port = reader.ReadUInt16();
 
-				if (port != 0)
+				if (port != 0 && mTcp.tcpEndPoint != null)
 				{
 					IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
 					mServerUdpEndPoint = new IPEndPoint(ipa, port);

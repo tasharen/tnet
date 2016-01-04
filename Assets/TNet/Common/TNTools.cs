@@ -961,7 +961,9 @@ static public class Tools
 #else
 		msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
 		Tools.Print(msg, false);
+ #if STANDALONE
 		if (logInFile) LogFile(msg);
+ #endif
 #endif
 	}
 

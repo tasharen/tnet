@@ -473,7 +473,7 @@ public class TcpProtocol : Player
 //#if UNITY_EDITOR
 //        Packet packet = (Packet)buffer.PeekByte(4);
 //        if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
-//            UnityEngine.Debug.Log("Sending: " + packet);
+//            UnityEngine.Debug.Log("Sending: " + packet + " to " + name);
 //#endif
 
 		if (mSocket != null && mSocket.Connected)
@@ -513,7 +513,7 @@ public class TcpProtocol : Player
 			{
 				lock (sendQueue)
 				{
-					for (;;)
+					for (; ; )
 					{
 						byte[] bytes = reader.ReadBytes(size);
 
