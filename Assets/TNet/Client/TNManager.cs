@@ -635,19 +635,32 @@ public class TNManager : MonoBehaviour
 	static public void Ping (IPEndPoint udpEndPoint, GameClient.OnPing callback) { instance.mClient.Ping(udpEndPoint, callback); }
 
 	/// <summary>
-	/// Connect to the specified remote destination.
+	/// Connect to a local server.
 	/// </summary>
 
-	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
+	static public void Connect ()
 	{
-		if (!instance.mClient.isTryingToConnect)
+		if (TNServerInstance.isActive && !TNServerInstance.isListening && !instance.mClient.isTryingToConnect)
 		{
-			instance.mClient.Disconnect();
-			instance.mClient.playerName = mPlayer.name;
-			instance.mClient.playerData = mPlayer.data;
-			instance.mClient.Connect(externalIP, internalIP);
+			instance.mClient.Connect(TNServerInstance.game);
 		}
-		else Debug.LogWarning("Already connecting...");
+		else if (TNServerInstance.isListening)
+		{
+			Connect("127.0.0.1", TNServerInstance.listeningPort);
+		}
+		else Debug.LogError("Expecting an address to connect to or a local server to be started first.");
+	}
+
+	/// <summary>
+	/// Connect to the specified destination with the address and port specified as "255.255.255.255:255".
+	/// </summary>
+
+	static public void Connect (string address)
+	{
+		string[] split = address.Split(new char[] { ':' });
+		int port = 5127;
+		if (split.Length > 1) int.TryParse(split[1], out port);
+		Connect(split[0], port);
 	}
 
 	/// <summary>
@@ -682,32 +695,19 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Connect to the specified destination with the address and port specified as "255.255.255.255:255".
+	/// Connect to the specified remote destination.
 	/// </summary>
 
-	static public void Connect (string address)
+	static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 	{
-		string[] split = address.Split(new char[] { ':' });
-		int port = 5127;
-		if (split.Length > 1) int.TryParse(split[1], out port);
-		Connect(split[0], port);
-	}
-
-	/// <summary>
-	/// Connect to a local server.
-	/// </summary>
-
-	static public void Connect ()
-	{
-		if (TNServerInstance.isActive && !TNServerInstance.isListening && !instance.mClient.isTryingToConnect)
+		if (!instance.mClient.isTryingToConnect)
 		{
-			instance.mClient.Connect(TNServerInstance.game);
+			instance.mClient.Disconnect();
+			instance.mClient.playerName = mPlayer.name;
+			instance.mClient.playerData = mPlayer.data;
+			instance.mClient.Connect(externalIP, internalIP);
 		}
-		else if (TNServerInstance.isListening)
-		{
-			Connect("127.0.0.1", TNServerInstance.listeningPort);
-		}
-		else Debug.LogError("Expecting an address to connect to or a local server to be started first.");
+		else Debug.LogWarning("Already connecting...");
 	}
 
 	/// <summary>

@@ -306,11 +306,11 @@ public class TcpLobbyServer : LobbyServer
 		{
 			if (tc.VerifyRequestID(reader, false))
 			{
-				BinaryWriter writer = BeginSend(Packet.ResponseID);
+				BinaryWriter writer = tc.BeginSend(Packet.ResponseID);
 				writer.Write(TcpPlayer.version);
 				writer.Write(tc.id);
 				writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
-				EndSend(tc);
+				tc.EndSend();
 				return true;
 			}
 			Tools.Print(tc.address + " has failed the verification step");

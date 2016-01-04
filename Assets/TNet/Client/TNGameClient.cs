@@ -192,18 +192,6 @@ public class GameClient
 	// TCP connection is the primary method of communication with the server.
 	TcpProtocol mTcp = new TcpProtocol();
 
-	/// <summary>
-	/// Underlying TCP protocol.
-	/// </summary>
-
-	public TcpProtocol protocol { get { return mTcp; } }
-
-	/// <summary>
-	/// If sockets are not used, an outgoing queue can be specified instead.
-	/// </summary>
-
-	public Queue<Buffer> directOutboundQueue { get { return mTcp.directOutboundQueue; } set { mTcp.directOutboundQueue = value; } }
-
 #if !UNITY_WEBPLAYER
 	// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 	// UDP is not available in the Unity web player because using UDP packets makes Unity request the
@@ -437,10 +425,16 @@ public class GameClient
 	}
 
 	/// <summary>
-	/// Direct access to the incoming buffer to deposit messages in. Don't forget to lock it before using it.
+	/// Direct access to the incoming queue to deposit messages in. Don't forget to lock it before using it.
 	/// </summary>
 
-	public Queue<Buffer> incomingBuffer { get { return mTcp.incomingBuffer; } }
+	public Queue<Buffer> receiveQueue { get { return mTcp.receiveQueue; } }
+
+	/// <summary>
+	/// If sockets are not used, an outgoing queue can be specified instead. Don't forget to lock it before using it.
+	/// </summary>
+
+	public Queue<Buffer> sendQueue { get { return mTcp.sendQueue; } set { mTcp.sendQueue = value; } }
 
 	/// <summary>
 	/// Immediately sync the player's data.
@@ -1418,7 +1412,7 @@ public class GameClient
 				}
 				break;
 			}
-			case Packet.ResponseReloadServerOptions:
+			case Packet.ResponseReloadServerConfig:
 			{
 				serverOptions = reader.ReadDataNode();
 

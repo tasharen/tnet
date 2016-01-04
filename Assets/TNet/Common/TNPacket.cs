@@ -630,14 +630,14 @@ public enum Packet
 	/// Reload configuration, admin and ban list data. Only administrators can use this command.
 	/// </summary>
 
-	RequestReloadServerOptions,
+	RequestReloadServerConfig,
 
 	/// <summary>
 	/// The entire server data root node sent back from the server when the player connects or it gets reloaded.
 	/// DataNode: data.
 	/// </summary>
 
-	ResponseReloadServerOptions,
+	ResponseReloadServerConfig,
 
 	/// <summary>
 	/// Sets a server option. Only administrators can do this.

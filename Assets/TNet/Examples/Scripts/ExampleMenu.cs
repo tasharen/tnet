@@ -182,7 +182,7 @@ public class ExampleMenu : MonoBehaviour
 				}
 
 				// Start a local server that doesn't use sockets. It's ideal for testing and for single player gameplay.
-				if (GUILayout.Button("Start a Private Server", button))
+				if (GUILayout.Button("Start a Virtual Server", button))
 				{
 					mMessage = "Server started";
 					TNServerInstance.Start("server.dat");

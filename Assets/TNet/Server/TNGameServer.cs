@@ -27,9 +27,6 @@ namespace TNet
 
 public class GameServer : FileServer
 {
-	GameClient mLocalClient;
-	TcpPlayer mLocalPlayer = null;
-
 #if MULTI_THREADED
 	public const bool isMultiThreaded = true;
 #else
@@ -83,22 +80,13 @@ public class GameServer : FileServer
 
 	public LobbyServerLink lobbyLink;
 
-	/// <summary>
-	/// List of players in a consecutive order for each looping.
-	/// </summary>
-
+	// List of players in a consecutive order for each looping.
 	List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
 
-	/// <summary>
-	/// Dictionary list of players for easy access by ID.
-	/// </summary>
-
+	// Dictionary list of players for easy access by ID.
 	Dictionary<int, TcpPlayer> mPlayerDict = new Dictionary<int, TcpPlayer>();
 
-	/// <summary>
-	/// Dictionary list of players for easy access by IPEndPoint.
-	/// </summary>
-
+	// Dictionary list of players for easy access by IPEndPoint.
 	Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
 
 	// List of all the active channels.
@@ -106,6 +94,12 @@ public class GameServer : FileServer
 
 	// Dictionary of active channels to make lookup faster
 	Dictionary<int, Channel> mChannelDict = new Dictionary<int, Channel>();
+
+	// List of admin keywords
+	List<string> mAdmin = new List<string>();
+
+	// List of banned players
+	List<string> mBan = new List<string>();
 
 	// Random number generator.
 	System.Random mRandom = new System.Random();
@@ -119,13 +113,9 @@ public class GameServer : FileServer
 	object mLock = 0;
 	DataNode mServerData = null;
 	string mFilename = "world.dat";
+	GameClient mLocalClient = null;
+	TcpPlayer mLocalPlayer = null;
 	bool mIsActive = false;
-
-	// List of admin keywords
-	List<string> mAdmin = new List<string>();
-
-	// List of banned players
-	List<string> mBan = new List<string>();
 
 	/// <summary>
 	/// Add a new entry to the list. Returns 'true' if a new entry was added.
@@ -198,8 +188,8 @@ public class GameServer : FileServer
 					mLocalPlayer.id = 0;
 					mLocalPlayer.name = "Guest";
 					mLocalPlayer.stage = TcpProtocol.Stage.Verifying;
-					mLocalPlayer.directOutboundQueue = mLocalClient.incomingBuffer;
-					mLocalClient.directOutboundQueue = mLocalPlayer.incomingBuffer;
+					mLocalPlayer.sendQueue = mLocalClient.receiveQueue;
+					mLocalClient.sendQueue = mLocalPlayer.receiveQueue;
 					mPlayerList.Add(mLocalPlayer);
 				}
 			}
@@ -1114,8 +1104,8 @@ public class GameServer : FileServer
 
 					if (mServerData != null)
 					{
-						BeginSend(Packet.ResponseReloadServerOptions).Write(mServerData);
-						EndSend(true, player);
+						player.BeginSend(Packet.ResponseReloadServerConfig).Write(mServerData);
+						player.EndSend();
 					}
 
 					if (lobbyLink != null) lobbyLink.SendUpdate(this);
@@ -1479,9 +1469,8 @@ public class GameServer : FileServer
 					{
 						player.isAdmin = true;
 						player.Log("Admin verified");
-
-						BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
-						EndSend(true, player);
+						player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+						player.EndSend();
 					}
 				}
 				else
@@ -1535,9 +1524,8 @@ public class GameServer : FileServer
 				{
 					player.isAdmin = true;
 					player.Log("Admin verified");
-
-					BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
-					EndSend(true, player);
+					player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
+					player.EndSend();
 				}
 
 				if (mServerData != null)
@@ -1592,18 +1580,18 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestReloadServerOptions:
+			case Packet.RequestReloadServerConfig:
 			{
 				if (player.isAdmin)
 				{
 					Tools.LoadList("ServerConfig/ban.txt", mBan);
 					Tools.LoadList("ServerConfig/admin.txt", mAdmin);
-					LoadData();
+					LoadConfig();
 
 					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
 					Buffer buff = Buffer.Create();
-					buff.BeginPacket(Packet.ResponseReloadServerOptions).Write(mServerData);
+					buff.BeginPacket(Packet.ResponseReloadServerConfig).Write(mServerData);
 					buff.EndPacket();
 
 					// Forward the packet to everyone connected to the server
@@ -1721,7 +1709,7 @@ public class GameServer : FileServer
 				string original = reader.ReadString();
 				string path = Tools.FindDirectory(original, player.isAdmin);
 
-				BinaryWriter writer = BeginSend(Packet.ResponseGetFileList);
+				BinaryWriter writer = player.BeginSend(Packet.ResponseGetFileList);
 				writer.Write(original);
 
 				if (!string.IsNullOrEmpty(path))
@@ -1733,7 +1721,7 @@ public class GameServer : FileServer
 				}
 				else writer.Write(0);
 
-				EndSend(true, player);
+				player.EndSend();
 				break;
 			}
 			case Packet.RequestLockChannel:
@@ -2355,7 +2343,7 @@ public class GameServer : FileServer
 	/// Load the server's human-readable data.
 	/// </summary>
 
-	void LoadData ()
+	void LoadConfig ()
 	{
 		if (!string.IsNullOrEmpty(mFilename))
 		{
@@ -2380,7 +2368,7 @@ public class GameServer : FileServer
 		// There is no file access in the web player.
 		return false;
 #else
-		LoadData();
+		LoadConfig();
 
 		byte[] bytes = Tools.ReadFile(fileName);
 		if (bytes == null) return false;

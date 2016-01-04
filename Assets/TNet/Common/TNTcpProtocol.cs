@@ -51,12 +51,6 @@ public class TcpProtocol : Player
 	public IPEndPoint tcpEndPoint;
 
 	/// <summary>
-	/// If sockets are not used, an outgoing queue can be specified instead.
-	/// </summary>
-
-	public Queue<Buffer> directOutboundQueue = null;
-
-	/// <summary>
 	/// Timestamp of when we received the last message.
 	/// </summary>
 
@@ -104,10 +98,16 @@ public class TcpProtocol : Player
 	public Socket socket { get { return mSocket; } }
 
 	/// <summary>
-	/// Direct access to the incoming buffer to deposit messages in. Don't forget to lock it before using it.
+	/// If sockets are not used, an outgoing queue can be specified instead.
 	/// </summary>
 
-	public Queue<Buffer> incomingBuffer { get { return mIn; } }
+	public Queue<Buffer> sendQueue = null;
+
+	/// <summary>
+	/// Direct access to the incoming queue to deposit messages in. Don't forget to lock it before using it.
+	/// </summary>
+
+	public Queue<Buffer> receiveQueue { get { return mIn; } }
 
 	/// <summary>
 	/// Whether the socket is currently connected. A socket can be connected while verifying the connection.
@@ -329,13 +329,7 @@ public class TcpProtocol : Player
 	/// Disconnect the player, freeing all resources.
 	/// </summary>
 
-	public void Disconnect () { Disconnect(false); }
-
-	/// <summary>
-	/// Disconnect the player, freeing all resources.
-	/// </summary>
-
-	public void Disconnect (bool notify)
+	public void Disconnect (bool notify = false)
 	{
 		try
 		{
@@ -353,10 +347,10 @@ public class TcpProtocol : Player
 			{
 				Close(notify || mSocket.Connected);
 			}
-			else if (directOutboundQueue != null)
+			else if (sendQueue != null)
 			{
 				Close(true);
-				directOutboundQueue = null;
+				sendQueue = null;
 			}
 		}
 		catch (System.Exception)
@@ -405,9 +399,9 @@ public class TcpProtocol : Player
 			}
 			else lock (mIn) Buffer.Recycle(mIn);
 		}
-		else if (notify && directOutboundQueue != null)
+		else if (notify && sendQueue != null)
 		{
-			directOutboundQueue = null;
+			sendQueue = null;
 			Buffer buffer = Buffer.Create();
 			buffer.BeginPacket(Packet.Disconnect);
 			buffer.EndTcpPacketWithOffset(4);
@@ -432,11 +426,7 @@ public class TcpProtocol : Player
 
 	public void Release ()
 	{
-		lock (mOut)
-		{
-			CloseNotThreadSafe(false);
-			Buffer.Recycle(mIn);
-		}
+		lock (mOut) CloseNotThreadSafe(false);
 		data = null;
 	}
 
@@ -509,19 +499,19 @@ public class TcpProtocol : Player
 				}
 			}
 		}
-		else if (directOutboundQueue != null)
+		else if (sendQueue != null)
 		{
 			// Skip the packet's size
 			int size = reader.ReadInt32();
 
 			if (size == buffer.size)
 			{
-				lock (directOutboundQueue)
-					directOutboundQueue.Enqueue(buffer);
+				lock (sendQueue)
+					sendQueue.Enqueue(buffer);
 			}
 			else // Multi-part packet -- split it up into separate ones
 			{
-				lock (directOutboundQueue)
+				lock (sendQueue)
 				{
 					for (;;)
 					{
@@ -534,7 +524,7 @@ public class TcpProtocol : Player
 						temp.BeginReading(4);
 						temp.EndWriting();
 
-						directOutboundQueue.Enqueue(temp);
+						sendQueue.Enqueue(temp);
 
 						if (buffer.size > 0)
 						{
