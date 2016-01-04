@@ -22,9 +22,6 @@ namespace TNet
 
 public class GameClient
 {
-	// TODO
-	public GameServer localServer;
-
 	public delegate void OnPing (IPEndPoint ip, int milliSeconds);
 	public delegate void OnError (string message);
 	public delegate void OnConnect (bool success, string message);
@@ -246,6 +243,9 @@ public class GameClient
 	// List of channels we are currently in the process of joining
 	List<int> mJoining = new List<int>();
 
+	// Local server is used for socket-less mode
+	GameServer mLocalServer;
+
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
 	/// </summary>
@@ -279,7 +279,7 @@ public class GameClient
 	/// Whether the client is currently connected to the server.
 	/// </summary>
 
-	public bool isConnected { get { return mTcp.isConnected || localServer != null; } }
+	public bool isConnected { get { return mTcp.isConnected || mLocalServer != null; } }
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -642,7 +642,7 @@ public class GameClient
 
 		if (server != null)
 		{
-			localServer = server;
+			mLocalServer = server;
 			server.localClient = this;
 
 			mTcp.stage = TcpProtocol.Stage.Verifying;
@@ -671,10 +671,10 @@ public class GameClient
 
 	public void Disconnect ()
 	{
-		if (localServer != null)
+		if (mLocalServer != null)
 		{
-			localServer.localClient = null;
-			localServer = null;
+			mLocalServer.localClient = null;
+			mLocalServer = null;
 		}
 		mTcp.Disconnect();
 	}
@@ -958,7 +958,7 @@ public class GameClient
 		mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 		// Request pings every so often, letting the server know we're still here.
-		if (localServer != null)
+		if (mLocalServer != null)
 		{
 			mPing = 0;
 			mPingTime = mMyTime;
@@ -1347,10 +1347,10 @@ public class GameClient
 				mJoining.Clear();
 				mIsAdmin = false;
 
-				if (localServer != null)
+				if (mLocalServer != null)
 				{
-					localServer.localClient = null;
-					localServer = null;
+					mLocalServer.localClient = null;
+					mLocalServer = null;
 				}
 
 				if (onDisconnect != null) onDisconnect();
