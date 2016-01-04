@@ -1162,8 +1162,8 @@ public class GameServer : FileServer
 			case Packet.RequestPing:
 			{
 				// Respond with a ping back
-				BeginSend(Packet.ResponsePing);
-				EndSend(true, player);
+				player.BeginSend(Packet.ResponsePing);
+				player.EndSend();
 				break;
 			}
 			case Packet.RequestSetUDP:
@@ -1179,8 +1179,8 @@ public class GameServer : FileServer
 
 				// Let the player know if we are hosting an active UDP connection
 				ushort udp = mUdp.isActive ? (ushort)mUdp.listeningPort : (ushort)0;
-				BeginSend(Packet.ResponseSetUDP).Write(udp);
-				EndSend(true, player);
+				player.BeginSend(Packet.ResponseSetUDP).Write(udp);
+				player.EndSend();
 
 				// Send an empty packet to the target player to open up UDP for communication
 				if (player.udpEndPoint != null) mUdp.SendEmptyPacket(player.udpEndPoint);

@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using UnityEditor;
+using TNet;
 
 [CanEditMultipleObjects]
 [CustomEditor(typeof(TNObject), true)]
@@ -29,7 +30,6 @@ public class TNObjectEditor : Editor
 		else
 		{
 			serializedObject.Update();
-
 			SerializedProperty sp = serializedObject.FindProperty("id");
 			EditorGUILayout.PropertyField(sp, new GUIContent("ID"));
 			serializedObject.ApplyModifiedProperties();

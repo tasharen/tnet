@@ -957,7 +957,7 @@ public class GameClient
 			mPing = 0;
 			mPingTime = mMyTime;
 		}
-		else if (mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
+		else if (isActive && mTcp.isConnected && mCanPing && mPingTime + 4000 < mMyTime)
 		{
 			mCanPing = false;
 			mPingTime = mMyTime;
