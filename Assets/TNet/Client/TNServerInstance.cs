@@ -188,8 +188,8 @@ public class TNServerInstance : MonoBehaviour
 #if !MULTI_THREADED
 				mGame.Update();
 #endif
-				return true;
 			}
+			return true;
 		}
 
 		// Something went wrong -- stop everything

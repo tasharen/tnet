@@ -640,11 +640,7 @@ public class TNManager : MonoBehaviour
 
 	static public void Connect ()
 	{
-		if (TNServerInstance.isActive && !TNServerInstance.isListening && !instance.mClient.isTryingToConnect)
-		{
-			instance.mClient.Connect(TNServerInstance.game);
-		}
-		else if (TNServerInstance.isListening)
+		if (TNServerInstance.isActive)
 		{
 			Connect("127.0.0.1", TNServerInstance.listeningPort);
 		}
@@ -671,24 +667,18 @@ public class TNManager : MonoBehaviour
 	{
 		if (!instance.mClient.isTryingToConnect)
 		{
-			if (TNServerInstance.isLocal && (string.IsNullOrEmpty(address) || address.StartsWith("127.0.0.1")))
+			instance.mClient.playerName = mPlayer.name;
+			instance.mClient.playerData = mPlayer.data;
+
+			if (TNServerInstance.isActive)
 			{
 				instance.mClient.Connect(TNServerInstance.game);
 			}
 			else
 			{
 				IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
-
-				if (ip == null)
-				{
-					instance.OnConnect(false, "Unable to resolve [" + address + "]");
-				}
-				else
-				{
-					instance.mClient.playerName = mPlayer.name;
-					instance.mClient.playerData = mPlayer.data;
-					instance.mClient.Connect(ip, null);
-				}
+				if (ip == null) instance.OnConnect(false, "Unable to resolve [" + address + "]");
+				else instance.mClient.Connect(ip, null);
 			}
 		}
 		else Debug.LogWarning("Already connecting...");
