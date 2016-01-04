@@ -304,7 +304,7 @@ public class TcpLobbyServer : LobbyServer
 		// TCP connections must be verified first to ensure that they are using the correct protocol
 		if (tc.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (tc.VerifyRequestID(reader, false))
+			if (tc.VerifyRequestID(reader, buffer, false))
 			{
 				BinaryWriter writer = tc.BeginSend(Packet.ResponseID);
 				writer.Write(TcpPlayer.version);

@@ -113,7 +113,9 @@ public class GameServer : FileServer
 	object mLock = 0;
 	DataNode mServerData = null;
 	string mFilename = "world.dat";
+#if !STANDALONE
 	GameClient mLocalClient = null;
+#endif
 	TcpPlayer mLocalPlayer = null;
 	bool mIsActive = false;
 
@@ -161,6 +163,7 @@ public class GameServer : FileServer
 
 	public int playerCount { get { return isActive ? mPlayerDict.Count : 0; } }
 
+#if !STANDALONE
 	/// <summary>
 	/// Set to a client instance if not using sockets.
 	/// </summary>
@@ -195,6 +198,7 @@ public class GameServer : FileServer
 			}
 		}
 	}
+#endif
 
 	/// <summary>
 	/// Listen to the specified port. This will overwrite any previous Listen() call as only one port can be listened to at a time.
@@ -332,7 +336,9 @@ public class GameServer : FileServer
 		// Player counter should be reset
 		Player.ResetPlayerCounter();
 		mLocalPlayer = null;
+#if !STANDALONE
 		mLocalClient = null;
+#endif
 		mIsActive = false;
 	}
 
@@ -1090,7 +1096,7 @@ public class GameServer : FileServer
 		// If the player has not yet been verified, the first packet must be an ID request
 		if (player.stage == TcpProtocol.Stage.Verifying)
 		{
-			if (player.VerifyRequestID(reader, true))
+			if (player.VerifyRequestID(reader, buffer, true))
 			{
 				if (player.isAdmin || !mBan.Contains(player.name))
 				{

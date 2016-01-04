@@ -905,7 +905,7 @@ public class TcpProtocol : Player
 	/// Verify the connection. Returns 'true' if successful.
 	/// </summary>
 
-	public bool VerifyRequestID (BinaryReader reader, bool uniqueID)
+	public bool VerifyRequestID (BinaryReader reader, Buffer buffer, bool uniqueID)
 	{
 		Packet request = (Packet)reader.ReadByte();
 
