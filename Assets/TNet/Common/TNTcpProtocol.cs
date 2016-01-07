@@ -456,10 +456,13 @@ public class TcpProtocol : Player
 
 	public void EndSend ()
 	{
-		mBuffer.EndPacket();
-		SendTcpPacket(mBuffer);
-		mBuffer.Recycle();
-		mBuffer = null;
+		if (mBuffer != null)
+		{
+			mBuffer.EndPacket();
+			SendTcpPacket(mBuffer);
+			mBuffer.Recycle();
+			mBuffer = null;
+		}
 	}
 
 	/// <summary>

@@ -165,13 +165,17 @@ public class TcpLobbyServerLink : LobbyServerLink
 			{
 				mUpdateNeeded = false;
 				mNextSend = time + 5000;
-				BinaryWriter writer = mTcp.BeginSend(Packet.RequestAddServer);
+
+				Buffer buff = Buffer.Create();
+				BinaryWriter writer = buff.BeginPacket(Packet.RequestAddServer);
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);
 				writer.Write((short)mGameServer.playerCount);
 				Tools.Serialize(writer, mInternal);
 				Tools.Serialize(writer, mExternal);
-				mTcp.EndSend();
+				buff.EndPacket();
+				mTcp.SendTcpPacket(buff);
+				buff.Recycle();
 			}
 			Thread.Sleep(10);
 		}
