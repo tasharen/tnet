@@ -27,7 +27,9 @@ public class Buffer
 	volatile BinaryWriter mWriter;
 	volatile BinaryReader mReader;
 
+#if RECYCLE_BUFFERS
 	volatile int mCounter = 0;
+#endif
 	volatile int mSize = 0;
 	volatile bool mWriting = false;
 
@@ -159,7 +161,9 @@ public class Buffer
 				}
 			}
 		}
+#if RECYCLE_BUFFERS
 		b.mCounter = 1;
+#endif
 		return b;
 	}
 
@@ -183,7 +187,7 @@ public class Buffer
 
 			lock (mPool)
 			{
-				Clear();
+				ClearNotThreadSafe();
 				mPool.Add(this);
 #if DEBUG_BUFFERS
 				Log("Recycling " + mPool.size);
@@ -208,16 +212,7 @@ public class Buffer
 			while (list.Count != 0)
 			{
 				Buffer b = list.Dequeue();
-#if UNITY_EDITOR
-				if (b.mCounter == 0)
-				{
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
-					continue;
-				}
-#endif
-				if (--b.mCounter > 0) continue;
-				b.Clear();
-				mPool.Add(b);
+				b.Recycle();
 			}
 		}
 #else
@@ -236,17 +231,13 @@ public class Buffer
 		{
 			while (list.Count != 0)
 			{
-				Buffer b = list.Dequeue().buffer;
-#if UNITY_EDITOR
-				if (b.mCounter == 0)
+				Datagram dg = list.Dequeue();
+
+				if (dg.buffer != null)
 				{
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
-					continue;
+					dg.buffer.Recycle();
+					dg.buffer = null;
 				}
-#endif
-				if (--b.mCounter > 0) continue;
-				b.Clear();
-				mPool.Add(b);
 			}
 		}
 #else
@@ -266,16 +257,7 @@ public class Buffer
 			for (int i = 0; i < list.size; ++i)
 			{
 				Buffer b = list[i];
-#if UNITY_EDITOR
-				if (b.mCounter == 0)
-				{
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
-					continue;
-				}
-#endif
-				if (--b.mCounter > 0) continue;
-				b.Clear();
-				mPool.Add(b);
+				b.Recycle();
 			}
 			list.Clear();
 		}
@@ -295,17 +277,13 @@ public class Buffer
 		{
 			for (int i = 0; i < list.size; ++i)
 			{
-				Buffer b = list[i].buffer;
-#if UNITY_EDITOR
-				if (b.mCounter == 0)
+				Datagram dg = list[i];
+
+				if (dg.buffer != null)
 				{
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
-					continue;
+					dg.buffer.Recycle();
+					dg.buffer = null;
 				}
-#endif
-				if (--b.mCounter > 0) continue;
-				b.Clear();
-				mPool.Add(b);
 			}
 			list.Clear();
 		}
@@ -324,17 +302,33 @@ public class Buffer
 	/// Mark the buffer as being in use.
 	/// </summary>
 
-	public void MarkAsUsed () { lock (this) ++mCounter; }
+	public void MarkAsUsed ()
+	{
+#if RECYCLE_BUFFERS
+		lock (this) ++mCounter;
+#endif
+	}
 
 	/// <summary>
 	/// Clear the buffer.
 	/// </summary>
 
-	public void Clear ()
+#if RECYCLE_BUFFERS
+	public void Clear () { lock (this) ClearNotThreadSafe(); }
+#else
+	public void Clear () { ClearNotThreadSafe(); }
+#endif
+
+	/// <summary>
+	/// Clear the buffer.
+	/// </summary>
+
+	void ClearNotThreadSafe ()
 	{
 		mSize = 0;
+#if RECYCLE_BUFFERS
 		mCounter = 0;
-
+#endif
 		if (mStream != null)
 		{
 			if (mStream.Capacity > 1024)

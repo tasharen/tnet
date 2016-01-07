@@ -887,6 +887,9 @@ public class TcpProtocol : Player
 
 	public void RespondWithError (Exception ex)
 	{
+#if UNITY_EDITOR
+		Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+#endif
 		RespondWithError(Buffer.Create(), ex.Message);
 		LogError(ex.Message, ex.StackTrace, true);
 	}
