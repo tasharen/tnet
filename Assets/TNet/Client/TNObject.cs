@@ -127,7 +127,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			mDestroyed = true;
 
-			if (TNManager.isConnected && TNManager.isInChannel)
+			if (TNManager.IsInChannel(channelID))
 			{
 				if (TNManager.IsChannelLocked(channelID))
 				{
@@ -762,7 +762,7 @@ public sealed class TNObject : MonoBehaviour
 				}
 			}
 
-			if (connected && TNManager.isInChannel)
+			if (connected && TNManager.IsInChannel(channelID))
 			{
 				byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
 				BinaryWriter writer = TNManager.BeginSend(packetID);
@@ -859,7 +859,7 @@ public sealed class TNObject : MonoBehaviour
 
 	static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, string funcName)
 	{
-		if (TNManager.isInChannel)
+		if (TNManager.IsInChannel(channelID))
 		{
 			BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
 			writer.Write(channelID);

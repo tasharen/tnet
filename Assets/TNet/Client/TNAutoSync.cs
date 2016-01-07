@@ -174,7 +174,7 @@ public class TNAutoSync : TNBehaviour
 	{
 		for (; ; )
 		{
-			if (TNManager.isInChannel && updatesPerSecond > 0f)
+			if (TNManager.IsInChannel(tno.channelID) && updatesPerSecond > 0f)
 			{
 				if (mList.size != 0 && (!onlyOwnerCanSync || tno.isMine) && Cache()) Sync();
 				yield return new WaitForSeconds(1f / updatesPerSecond);
@@ -237,7 +237,7 @@ public class TNAutoSync : TNBehaviour
 
 	public void Sync ()
 	{
-		if (TNManager.isInChannel && mList.size != 0)
+		if (TNManager.IsInChannel(tno.channelID) && mList.size != 0)
 		{
 			if (isImportant) tno.Send(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);
 			else tno.SendQuickly(255, isSavedOnServer ? Target.OthersSaved : Target.Others, mCached);

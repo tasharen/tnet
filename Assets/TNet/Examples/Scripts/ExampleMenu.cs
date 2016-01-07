@@ -100,7 +100,7 @@ public class ExampleMenu : MonoBehaviour
 			{
 				DrawSelectionMenu();
 			}
-			else if (TNManager.isInChannel)
+			else if (TNManager.channels.size > 0)
 			{
 				DrawExampleMenu();
 			}

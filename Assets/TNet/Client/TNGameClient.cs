@@ -277,7 +277,7 @@ public class GameClient
 
 	/// <summary>
 	/// Whether we are currently in the process of joining a channel.
-	/// To find out whether we are joining a specific channel, use the "IsSwitchingScenes(id)" function.
+	/// To find out whether we are joining a specific channel, use the "IsJoiningChannel(id)" function.
 	/// </summary>
 
 	public bool isJoiningChannel { get { return mJoining.size != 0; } }
@@ -456,6 +456,23 @@ public class GameClient
 	/// </summary>
 
 	public bool IsJoiningChannel (int id) { return mJoining.Contains(id); }
+
+	/// <summary>
+	/// Whether the player is currently in the specified channel.
+	/// </summary>
+
+	public bool IsInChannel (int channelID)
+	{
+		if (isConnected)
+		{
+			for (int i = 0; i < mChannels.size; ++i)
+			{
+				Channel ch = mChannels[i];
+				if (ch.id == channelID) return true;
+			}
+		}
+		return false;
+	}
 
 	/// <summary>
 	/// Get the player hosting the specified channel. Only works for the channels the player is in.
@@ -728,7 +745,7 @@ public class GameClient
 
 	public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 	{
-		if (isConnected && !mJoining.Contains(channelID))
+		if (isConnected && !IsInChannel(channelID) && !mJoining.Contains(channelID))
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
@@ -751,13 +768,15 @@ public class GameClient
 	/// Once a channel has been closed, it cannot be re-opened.
 	/// </summary>
 
-	public void CloseChannel (int channelID)
+	public bool CloseChannel (int channelID)
 	{
-		if (isConnected && isInChannel)
+		if (isConnected && IsInChannel(channelID))
 		{
 			BeginSend(Packet.RequestCloseChannel).Write(channelID);
 			EndSend();
+			return true;
 		}
+		return false;
 	}
 
 	/// <summary>
@@ -825,7 +844,7 @@ public class GameClient
 
 	public void SetPlayerLimit (int channelID, int max)
 	{
-		if (isConnected && isInChannel)
+		if (isConnected && IsInChannel(channelID))
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestSetPlayerLimit);
 			writer.Write(channelID);
@@ -838,15 +857,17 @@ public class GameClient
 	/// Switch the current level.
 	/// </summary>
 
-	public void LoadLevel (int channelID, string levelName)
+	public bool LoadLevel (int channelID, string levelName)
 	{
-		if (isConnected && isInChannel)
+		if (isConnected && IsInChannel(channelID))
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestLoadLevel);
 			writer.Write(channelID);
 			writer.Write(levelName);
 			EndSend();
+			return true;
 		}
+		return false;
 	}
 
 	/// <summary>
@@ -855,7 +876,7 @@ public class GameClient
 
 	public void SetHost (int channelID, Player player)
 	{
-		if (isConnected && isInChannel && GetHost(channelID) == mTcp)
+		if (isConnected && GetHost(channelID) == mTcp)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestSetHost);
 			writer.Write(channelID);

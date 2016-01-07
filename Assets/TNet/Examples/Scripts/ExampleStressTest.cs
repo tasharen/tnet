@@ -98,21 +98,21 @@ public class ExampleStressTest : TNBehaviour
 		}
 	}
 
-	[RFC] void First (string a) { if (TNManager.isJoiningChannel) Debug.Log("First: " + a); }
-	[RFC] void Second (string a, int b) { if (TNManager.isJoiningChannel) Debug.Log("Second: " + a + ", " + b); }
-	[RFC] void Third (byte ch) { if (TNManager.isJoiningChannel) Debug.Log("Third: " + ch); }
-	[RFC] void Fourth (string a, string b, string c) { if (TNManager.isJoiningChannel) Debug.Log("Fourth: " + c); }
+	[RFC] void First (string a) { Debug.Log("First: " + a); }
+	[RFC] void Second (string a, int b) { Debug.Log("Second: " + a + ", " + b); }
+	[RFC] void Third (byte ch) { Debug.Log("Third: " + ch); }
+	[RFC] void Fourth (string a, string b, string c) { Debug.Log("Fourth: " + c); }
 
 	IEnumerator PeriodicCreate ()
 	{
 		while (TNManager.isConnected)
 		{
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				TNManager.Create("Stress Test Object", true);
 
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
 
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				TNManager.Create("Stress Test Object", false);
 
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
@@ -123,7 +123,7 @@ public class ExampleStressTest : TNBehaviour
 	{
 		while (TNManager.isConnected)
 		{
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				tno.Send("First", Target.Others, "Testing1");
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
 		}
@@ -133,7 +133,7 @@ public class ExampleStressTest : TNBehaviour
 	{
 		while (TNManager.isConnected)
 		{
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				tno.Send("Second", Target.OthersSaved, "Testing Function 2", TNManager.playerID);
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
 		}
@@ -143,7 +143,7 @@ public class ExampleStressTest : TNBehaviour
 	{
 		while (TNManager.isConnected)
 		{
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				tno.Send("Third", Target.AllSaved, (byte)3);
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
 		}
@@ -153,7 +153,7 @@ public class ExampleStressTest : TNBehaviour
 	{
 		while (TNManager.isConnected)
 		{
-			if (!TNManager.isJoiningChannel)
+			if (!TNManager.IsJoiningChannel(tno.channelID))
 				tno.Send("Fourth", Target.AllSaved, "Long String 1", "Longer String 2", "Still longer string 3");
 			yield return new WaitForSeconds(Random.Range(0.04f, 0.06f));
 		}

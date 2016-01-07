@@ -113,7 +113,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Whether we are currently in the process of joining a channel.
-	/// To find out whether we are joining a specific channel, use the "IsSwitchingScenes(id)" function.
+	/// To find out whether we are joining a specific channel, use the "IsJoiningChannel(id)" function.
 	/// </summary>
 
 	static public bool isJoiningChannel
@@ -147,7 +147,7 @@ public class TNManager : MonoBehaviour
 	static public bool isHosting { get { return GetHost(lastChannelID) == player; } }
 
 	/// <summary>
-	/// Whether the player is currently in a channel.
+	/// Whether we're currently in any channel. To find out if we are in a specific channel, use TNManager.IsInChannel(id).
 	/// </summary>
 
 	static public bool isInChannel
@@ -300,20 +300,7 @@ public class TNManager : MonoBehaviour
 	/// Check to see if we are currently in the specified channel.
 	/// </summary>
 
-	static public bool IsInChannel (int channelID)
-	{
-		List<Channel> list = channels;
-
-		if (list != null)
-		{
-			for (int i = 0; i < list.size; ++i)
-			{
-				Channel ch = list[i];
-				if (ch != null && ch.id == channelID) return true;
-			}
-		}
-		return false;
-	}
+	static public bool IsInChannel (int channelID) { return isConnected && mInstance.mClient.IsInChannel(channelID); }
 
 	/// <summary>
 	/// ID of the host.
@@ -877,11 +864,8 @@ public class TNManager : MonoBehaviour
 
 	static public void LoadLevel (int channelID, string levelName)
 	{
-		if (isConnected)
-		{
-			mInstance.mClient.LoadLevel(channelID, levelName);
-		}
-		else Application.LoadLevel(levelName);
+		if (!mInstance.mClient.LoadLevel(channelID, levelName))
+			Application.LoadLevel(levelName);
 	}
 
 	/// <summary>
@@ -1108,7 +1092,7 @@ public class TNManager : MonoBehaviour
 		{
 			int index = IndexOf(go);
 
-			if (isConnected && isInChannel)
+			if (TNManager.IsInChannel(channelID))
 			{
 				if (index != -1)
 				{
@@ -1186,7 +1170,7 @@ public class TNManager : MonoBehaviour
 
 		if (go != null)
 		{
-			if (isConnected && isInChannel)
+			if (TNManager.IsInChannel(channelID))
 			{
 				if (IsJoiningChannel(channelID))
 				{
@@ -1422,20 +1406,7 @@ public class TNManager : MonoBehaviour
 	/// Packets that are going to a channel should use EndSend(channelID, reliable) function instead.
 	/// </summary>
 
-	static public void EndSend ()
-	{
-		if (!isJoiningChannel)
-		{
-			mInstance.mClient.EndSend();
-		}
-		else
-		{
-			mInstance.mClient.CancelSend();
-#if UNITY_EDITOR
-			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
-#endif
-		}
-	}
+	static public void EndSend () { mInstance.mClient.EndSend(); }
 
 	/// <summary>
 	/// Send the outgoing buffer.

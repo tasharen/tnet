@@ -69,7 +69,7 @@ public class TNSyncRigidbody : TNBehaviour
 	{
 		if (updatesPerSecond < 0.001f) return;
 
-		if (isActive && tno.isMine && TNManager.isInChannel)
+		if (isActive && tno.isMine && TNManager.IsInChannel(tno.channelID))
 		{
 			bool isSleeping = mRb.IsSleeping();
 			if (isSleeping && mWasSleeping) return;
@@ -135,7 +135,7 @@ public class TNSyncRigidbody : TNBehaviour
 
 	public void Sync ()
 	{
-		if (isActive && TNManager.isInChannel)
+		if (isActive && TNManager.IsInChannel(tno.channelID))
 		{
 			UpdateInterval();
 			mWasSleeping = false;

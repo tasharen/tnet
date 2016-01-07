@@ -20,10 +20,6 @@ public class TNManagerEditor : Editor
 		if (TNManager.isConnected)
 		{
 			EditorGUILayout.LabelField("Ping", TNManager.ping.ToString());
-		}
-
-		if (TNManager.isInChannel)
-		{
 			List<Channel> list = TNManager.channels;
 
 			foreach (Channel ch in list)
