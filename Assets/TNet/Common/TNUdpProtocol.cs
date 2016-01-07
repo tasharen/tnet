@@ -260,10 +260,11 @@ public class UdpProtocol
 
 	public void SendEmptyPacket (IPEndPoint ip)
 	{
-		Buffer buffer = Buffer.Create(false);
+		Buffer buffer = Buffer.Create();
 		buffer.BeginPacket(Packet.Empty);
 		buffer.EndPacket();
 		Send(buffer, ip);
+		buffer.Recycle();
 	}
 
 	/// <summary>
@@ -274,7 +275,6 @@ public class UdpProtocol
 	{
 		if (buffer != null)
 		{
-			buffer.MarkAsUsed();
 #if UNITY_WEBPLAYER || UNITY_FLASH
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogError("[TNet] Sending broadcasts doesn't work in the Unity Web Player or Flash");
@@ -292,7 +292,6 @@ public class UdpProtocol
 				Error(null, ex.Message);
 			}
 #endif
-			buffer.Recycle();
 		}
 	}
 
@@ -305,13 +304,10 @@ public class UdpProtocol
 		if (ip.Address.Equals(IPAddress.Broadcast))
 		{
 			Broadcast(buffer, ip.Port);
-			return;
 		}
-
-		buffer.MarkAsUsed();
-
-		if (mSocket != null)
+		else if (mSocket != null)
 		{
+			buffer.MarkAsUsed();
 			buffer.BeginReading();
 
 			lock (mOut)
@@ -323,17 +319,21 @@ public class UdpProtocol
 
 				if (mOut.Count == 1)
 				{
-					// If it's the first datagram, begin the sending process
-					mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size,
-						SocketFlags.None, ip, OnSend, null);
+					try
+					{
+						// If it's the first datagram, begin the sending process
+						mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size,
+							SocketFlags.None, ip, OnSend, null);
+					}
+					catch (Exception ex)
+					{
+						Tools.LogError(ex.Message + "\n" + ex.StackTrace);
+						buffer.Recycle();
+					}
 				}
 			}
 		}
-		else
-		{
-			buffer.Recycle();
-			throw new InvalidOperationException("The socket is null. Did you forget to call UdpProtocol.Start()?");
-		}
+		else Tools.LogError("The socket is null. Did you forget to call UdpProtocol.Start()?");
 	}
 
 	/// <summary>

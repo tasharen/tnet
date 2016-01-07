@@ -37,7 +37,7 @@ public class Channel
 			writer.Write(uid);
 			if (functionID == 0) writer.Write(functionName);
 			writer.Write(data.buffer, 0, data.size);
-			return buffer.EndPacket(offset);
+			return buffer.EndTcpPacketStartingAt(offset);
 		}
 	}
 

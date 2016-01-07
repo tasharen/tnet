@@ -1800,10 +1800,11 @@ public class GameServer : FileServer
 					sb.Append(text);
 
 					// Send the response
-					mBuffer = Buffer.Create(false);
+					mBuffer = Buffer.Create();
 					BinaryWriter bw = mBuffer.BeginWriting(false);
 					bw.Write(Encoding.ASCII.GetBytes(sb.ToString()));
 					player.SendTcpPacket(mBuffer);
+					mBuffer.Recycle();
 					mBuffer = null;
 				}
 				break;
@@ -2009,8 +2010,8 @@ public class GameServer : FileServer
 
 						if (buffer.size > 0)
 						{
-							obj.buffer = buffer;
 							buffer.MarkAsUsed();
+							obj.buffer = buffer;
 						}
 						ch.AddCreatedObject(obj);
 					}
@@ -2157,7 +2158,7 @@ public class GameServer : FileServer
 			{
 				Channel ch = player.GetChannel(reader.ReadInt32());
 
-				if (ch != null)
+				if (ch != null && (mServerData == null || mServerData.GetChild<bool>("canCloseChannels", true)))
 				{
 					if (!ch.persistent && ch.host == player)
 					{

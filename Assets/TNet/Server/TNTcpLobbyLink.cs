@@ -145,6 +145,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 						return;
 					}
 				}
+				else if (response == Packet.RequestPing) {}
 #if STANDALONE
 				else if (response == Packet.Error) Tools.Print("TcpLobbyLink Error: " + reader.ReadString());
 				else if (response == Packet.Disconnect) Tools.Print("TcpLobbyLink disconnected");

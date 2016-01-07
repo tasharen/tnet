@@ -122,7 +122,7 @@ public class TcpPlayer : TcpProtocol
 		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
 		writer.Write(channel.id);
 		writer.Write(channel.host.id);
-		offset = buffer.EndPacket(offset);
+		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Send the channel's data
 		if (channel.data != null)
@@ -130,7 +130,7 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
 			writer.Write(channel.id);
 			writer.Write(channel.data);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Send the LoadLevel packet, but only if some level name was specified in the original LoadLevel request.
@@ -139,7 +139,7 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
 			writer.Write(channel.id);
 			writer.Write(channel.level);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Send the list of objects that have been created
@@ -167,7 +167,7 @@ public class TcpPlayer : TcpProtocol
 			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Send the list of objects that have been destroyed
@@ -178,7 +178,7 @@ public class TcpPlayer : TcpProtocol
 			writer.Write((ushort)channel.destroyed.size);
 			for (int i = 0; i < channel.destroyed.size; ++i)
 				writer.Write(channel.destroyed.buffer[i]);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// Send all buffered RFCs to the new player
@@ -194,14 +194,14 @@ public class TcpPlayer : TcpProtocol
 			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
 			writer.Write(channel.id);
 			writer.Write(true);
-			offset = buffer.EndPacket(offset);
+			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
 		// The join process is now complete
 		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 		writer.Write(channel.id);
 		writer.Write(true);
-		offset = buffer.EndPacket(offset);
+		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Send the entire buffer
 		SendTcpPacket(buffer);

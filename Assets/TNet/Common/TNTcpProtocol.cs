@@ -27,7 +27,7 @@ public class TcpProtocol : Player
 	/// Whether the hosted server will respond to HTTP GET requests.
 	/// </summary>
 
-	static public bool httpGetSupport = true;
+	static public bool httpGetSupport = false;
 
 	public enum Stage
 	{
@@ -104,7 +104,7 @@ public class TcpProtocol : Player
 	public Queue<Buffer> sendQueue = null;
 
 	/// <summary>
-	/// Direct access to the incoming queue to deposit messages in. Don't forget to lock it before using it.
+	/// Direct access to the incoming buffer to deposit messages in. Don't forget to lock it before using it.
 	/// </summary>
 
 	public Queue<Buffer> receiveQueue { get { return mIn; } }
@@ -436,7 +436,7 @@ public class TcpProtocol : Player
 
 	public BinaryWriter BeginSend (Packet type)
 	{
-		mBuffer = Buffer.Create(false);
+		mBuffer = Buffer.Create();
 		return mBuffer.BeginPacket(type);
 	}
 
@@ -446,7 +446,7 @@ public class TcpProtocol : Player
 
 	public BinaryWriter BeginSend (byte packetID)
 	{
-		mBuffer = Buffer.Create(false);
+		mBuffer = Buffer.Create();
 		return mBuffer.BeginPacket(packetID);
 	}
 
@@ -458,6 +458,7 @@ public class TcpProtocol : Player
 	{
 		mBuffer.EndPacket();
 		SendTcpPacket(mBuffer);
+		mBuffer.Recycle();
 		mBuffer = null;
 	}
 
@@ -482,9 +483,9 @@ public class TcpProtocol : Player
 			{
 				mOut.Enqueue(buffer);
 
+				// If it's the first packet, let's begin the send process
 				if (mOut.Count == 1)
 				{
-					// If it's the first packet, let's begin the send process
 					try
 					{
 #if !UNITY_WINRT
@@ -493,50 +494,49 @@ public class TcpProtocol : Player
 					}
 					catch (System.Exception ex)
 					{
+						mOut.Clear();
+						buffer.Recycle();
 						RespondWithError(ex);
 						CloseNotThreadSafe(false);
 					}
 				}
 			}
+			return;
 		}
-		else if (sendQueue != null)
+		
+		if (sendQueue != null)
 		{
 			// Skip the packet's size
 			int size = reader.ReadInt32();
 
 			if (size == buffer.size)
 			{
-				lock (sendQueue)
-					sendQueue.Enqueue(buffer);
+				lock (sendQueue) sendQueue.Enqueue(buffer);
+				return;
 			}
-			else // Multi-part packet -- split it up into separate ones
+
+			// Multi-part packet -- split it up into separate ones
+			lock (sendQueue)
 			{
-				lock (sendQueue)
+				for (;;)
 				{
-					for (; ; )
-					{
-						byte[] bytes = reader.ReadBytes(size);
+					byte[] bytes = reader.ReadBytes(size);
 
-						Buffer temp = Buffer.Create();
-						BinaryWriter writer = temp.BeginWriting();
-						writer.Write(size);
-						writer.Write(bytes);
-						temp.BeginReading(4);
-						temp.EndWriting();
+					Buffer temp = Buffer.Create();
+					BinaryWriter writer = temp.BeginWriting();
+					writer.Write(size);
+					writer.Write(bytes);
+					temp.BeginReading(4);
+					temp.EndWriting();
+					sendQueue.Enqueue(temp);
 
-						sendQueue.Enqueue(temp);
-
-						if (buffer.size > 0)
-						{
-							size = reader.ReadInt32();
-						}
-						else break;
-					}
+					if (buffer.size > 0) size = reader.ReadInt32();
+					else break;
 				}
-				buffer.Recycle();
 			}
 		}
-		else buffer.Recycle();
+		
+		buffer.Recycle();
 	}
 
 	/// <summary>
@@ -691,7 +691,6 @@ public class TcpProtocol : Player
 			Disconnect(true);
 			return;
 		}
-
 		lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
 		if (bytes == 0)
@@ -765,6 +764,7 @@ public class TcpProtocol : Player
 						return true;
 					}
 
+					mReceiveBuffer.Recycle();
 					mReceiveBuffer = null;
 					mExpected = 0;
 					mOffset = 0;
@@ -778,6 +778,7 @@ public class TcpProtocol : Player
 #else
 					Tools.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
 #endif
+					mReceiveBuffer.Recycle();
 					mReceiveBuffer = null;
 					mExpected = 0;
 					mOffset = 0;

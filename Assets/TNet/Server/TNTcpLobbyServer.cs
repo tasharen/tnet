@@ -452,10 +452,11 @@ public class TcpLobbyServer : LobbyServer
 					sb.Append(text);
 
 					// Send the response
-					mBuffer = Buffer.Create(false);
+					mBuffer = Buffer.Create();
 					BinaryWriter bw = mBuffer.BeginWriting(false);
 					bw.Write(Encoding.ASCII.GetBytes(sb.ToString()));
 					tc.SendTcpPacket(mBuffer);
+					mBuffer.Recycle();
 					mBuffer = null;
 				}
 				break;

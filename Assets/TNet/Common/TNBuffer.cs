@@ -3,9 +3,8 @@
 // Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
 
-#if !STANDALONE
 #define RECYCLE_BUFFERS
-#endif
+//#define DEBUG_BUFFERS
 
 using System;
 using System.IO;
@@ -31,9 +30,6 @@ public class Buffer
 	volatile int mCounter = 0;
 	volatile int mSize = 0;
 	volatile bool mWriting = false;
-#if RECYCLE_BUFFERS
-	volatile bool mInPool = false;
-#endif
 
 	Buffer ()
 	{
@@ -44,7 +40,9 @@ public class Buffer
 
 	~Buffer ()
 	{
-		//Tools.Print("DISPOSED " + (Packet)PeekByte(4));
+#if DEBUG_BUFFERS
+		Log("DISPOSED " + (Packet)PeekByte(4));
+#endif
 		if (mStream != null)
 		{
 			mStream.Dispose();
@@ -104,22 +102,41 @@ public class Buffer
 
 	static public int recycleQueue { get { return mPool.size; } }
 
-	/// <summary>
-	/// Create a new buffer, reusing an old one if possible. Marks the buffer as used.
-	/// </summary>
+#if DEBUG_BUFFERS
+	static List<string> mEntries = new List<string>();
 
-	static public Buffer Create () { return Create(true); }
+	static void Log (string text)
+	{
+		lock (mEntries)
+		{
+			mEntries.Add(text);
+
+			if (mEntries.size == 100)
+			{
+				FileStream fs = File.Open("log.txt", FileMode.Append);
+				StreamWriter sw = new StreamWriter(fs);
+				foreach (string s in mEntries) sw.WriteLine(s);
+				sw.Flush();
+				sw.Dispose();
+				mEntries.Clear();
+			}
+		}
+	}
+#endif
 
 	/// <summary>
 	/// Create a new buffer, reusing an old one if possible.
 	/// </summary>
 
-	static public Buffer Create (bool markAsUsed)
+	static public Buffer Create ()
 	{
 		Buffer b = null;
 
 		if (mPool.size == 0)
 		{
+#if DEBUG_BUFFERS
+			Log("New");
+#endif
 			b = new Buffer();
 		}
 		else
@@ -128,15 +145,21 @@ public class Buffer
 			{
 				if (mPool.size != 0)
 				{
-					b = mPool.Pop();
-#if RECYCLE_BUFFERS
-					b.mInPool = false;
+#if DEBUG_BUFFERS
+					Log("Existing " + mPool.size);
 #endif
+					b = mPool.Pop();
 				}
-				else b = new Buffer();
+				else
+				{
+#if DEBUG_BUFFERS
+					Log("New");
+#endif
+					b = new Buffer();
+				}
 			}
 		}
-		b.mCounter = markAsUsed ? 1 : 0;
+		b.mCounter = 1;
 		return b;
 	}
 
@@ -149,19 +172,22 @@ public class Buffer
 #if RECYCLE_BUFFERS
 		lock (this)
 		{
-			if (mInPool)
+#if UNITY_EDITOR
+			if (mCounter == 0)
 			{
-				// I really want to know if this ever happens
-				//throw new Exception("Releasing a buffer that's already in the pool");
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
 				return false;
 			}
+#endif
 			if (--mCounter > 0) return false;
 
 			lock (mPool)
 			{
-				mInPool = true;
 				Clear();
 				mPool.Add(this);
+#if DEBUG_BUFFERS
+				Log("Recycling " + mPool.size);
+#endif
 			}
 			return true;
 		}
@@ -182,6 +208,14 @@ public class Buffer
 			while (list.Count != 0)
 			{
 				Buffer b = list.Dequeue();
+#if UNITY_EDITOR
+				if (b.mCounter == 0)
+				{
+					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+					continue;
+				}
+#endif
+				if (--b.mCounter > 0) continue;
 				b.Clear();
 				mPool.Add(b);
 			}
@@ -203,6 +237,14 @@ public class Buffer
 			while (list.Count != 0)
 			{
 				Buffer b = list.Dequeue().buffer;
+#if UNITY_EDITOR
+				if (b.mCounter == 0)
+				{
+					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+					continue;
+				}
+#endif
+				if (--b.mCounter > 0) continue;
 				b.Clear();
 				mPool.Add(b);
 			}
@@ -224,6 +266,14 @@ public class Buffer
 			for (int i = 0; i < list.size; ++i)
 			{
 				Buffer b = list[i];
+#if UNITY_EDITOR
+				if (b.mCounter == 0)
+				{
+					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+					continue;
+				}
+#endif
+				if (--b.mCounter > 0) continue;
 				b.Clear();
 				mPool.Add(b);
 			}
@@ -246,6 +296,14 @@ public class Buffer
 			for (int i = 0; i < list.size; ++i)
 			{
 				Buffer b = list[i].buffer;
+#if UNITY_EDITOR
+				if (b.mCounter == 0)
+				{
+					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+					continue;
+				}
+#endif
+				if (--b.mCounter > 0) continue;
 				b.Clear();
 				mPool.Add(b);
 			}
@@ -487,7 +545,7 @@ public class Buffer
 	/// Finish writing of the packet, updating (and returning) its size.
 	/// </summary>
 
-	public int EndPacket (int startOffset)
+	public int EndTcpPacketStartingAt (int startOffset)
 	{
 		if (mWriting)
 		{
