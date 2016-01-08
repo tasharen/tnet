@@ -8,7 +8,7 @@
 Thank you for buying TNet!
 
 If you have any questions, suggestions, comments or feature requests, please
-drop by the NGUI forum, found here: http://www.tasharen.com/forum/index.php
+drop by the TNet forum, found here: http://www.tasharen.com/forum/index.php?board=9.0
 
 Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 
