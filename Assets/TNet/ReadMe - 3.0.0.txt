@@ -157,6 +157,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added TNManager.SetAlias convenience function.
 - NEW: Added connect/disconnect notifications.
 - FIX: Fix for channel data not being set/cleared properly in some cases.
+- FIX: Fixed a long-standing issue with rare packet corruption being caused by improper buffer reuse.
 
 2.1.0
 - NEW: Users can now authenticate as administrators for additional functionality. Some requests now require admin authentication.
