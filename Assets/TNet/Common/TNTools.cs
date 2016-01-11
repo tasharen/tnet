@@ -834,6 +834,25 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Read the following file as text and return the contents.
+	/// </summary>
+
+	static public string ReadTextFile (string path)
+	{
+		byte[] bytes = Tools.ReadFile(path);
+
+		if (bytes != null)
+		{
+			MemoryStream ms = new MemoryStream(bytes);
+			StreamReader sr = new StreamReader(ms);
+			string s = sr.ReadToEnd();
+			sr.Dispose();
+			return s;
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Read the specified file, returning all bytes read.
 	/// </summary>
 

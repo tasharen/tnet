@@ -1893,4 +1893,17 @@ public class TNManager : MonoBehaviour
 #endregion
 
 	void OnApplicationPause (bool paused) { isPaused = paused; }
+
+	/// <summary>
+	/// Add the specified packet to the receive queue. Useful for inserting messages to be processed by the network manager.
+	/// </summary>
+
+	static public void AddToReceiveQueue (Buffer buff)
+	{
+		if (TNManager.client != null)
+		{
+			System.Collections.Generic.Queue<Buffer> queue = TNManager.client.receiveQueue;
+			lock (queue) queue.Enqueue(buff);
+		}
+	}
 }
