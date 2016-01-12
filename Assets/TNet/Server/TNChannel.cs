@@ -383,12 +383,13 @@ public class Channel
 	{
 		writer.Write(13);
 		writer.Write(level);
-		
+
 		if (data != null)
 		{
 			writer.Write(true);
 			writer.Write(data);
 		}
+		else writer.Write(false);
 
 		writer.Write(objectCounter);
 		writer.Write(password);
