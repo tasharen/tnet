@@ -96,22 +96,6 @@ public enum Packet
 	ResponseID,
 
 	/// <summary>
-	/// Notification sent when a new player connects to the server and authenticates successfully.
-	/// int32: Player's ID.
-	/// string: Player's name.
-	/// </summary>
-
-	PlayerConnected,
-
-	/// <summary>
-	/// Notification sent when a player disconnects from the server.
-	/// int32: Player's ID.
-	/// string: Player's name.
-	/// </summary>
-
-	PlayerDisconnected,
-
-	/// <summary>
 	/// Clients should send a ping request periodically.
 	/// </summary>
 

@@ -585,11 +585,6 @@ public class GameServer : FileServer
 				{
 					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					if (onPlayerDisconnect != null) onPlayerDisconnect(p);
-
-					BinaryWriter writer = BeginSend(Packet.PlayerDisconnected);
-					writer.Write(p.id);
-					writer.Write(p.name);
-					EndSend(true, p);
 				}
 				p.id = 0;
 			}
@@ -1116,11 +1111,6 @@ public class GameServer : FileServer
 
 					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					if (onPlayerConnect != null) onPlayerConnect(player);
-
-					writer = BeginSend(Packet.PlayerConnected);
-					writer.Write(player.id);
-					writer.Write(player.name);
-					EndSend(true, player);
 					return true;
 				}
 				else

@@ -53,7 +53,7 @@ public class Channel
 	public int id;
 	public string password = "";
 	public string level = "";
-	public DataNode data = new DataNode("Version", Player.version);
+	public DataNode data;
 	public bool persistent = false;
 	public bool closed = false;
 	public bool locked = false;
@@ -383,7 +383,13 @@ public class Channel
 	{
 		writer.Write(13);
 		writer.Write(level);
-		writer.Write(data);
+		
+		if (data != null)
+		{
+			writer.Write(true);
+			writer.Write(data);
+		}
+
 		writer.Write(objectCounter);
 		writer.Write(password);
 		writer.Write(persistent);
@@ -485,7 +491,7 @@ public class Channel
 		mCreatedObjectDictionary.Clear();
 
 		level = reader.ReadString();
-		data = reader.ReadDataNode();
+		data = reader.ReadBoolean() ? reader.ReadDataNode(): null;
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();

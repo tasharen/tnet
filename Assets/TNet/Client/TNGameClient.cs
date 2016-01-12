@@ -1023,6 +1023,13 @@ public class GameClient
 		int packetID = reader.ReadByte();
 		Packet response = (Packet)packetID;
 
+//#if !UNITY_EDITOR // DEBUG
+//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
+//#else
+//        if (response != Packet.ResponsePing && response != Packet.Broadcast)
+//            UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
+//#endif
+
 		// Verification step must be passed first
 		if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
 		{
@@ -1043,13 +1050,6 @@ public class GameClient
 			}
 			return true;
 		}
-
-//#if !UNITY_EDITOR // DEBUG
-//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
-//#else
-//        if (response != Packet.ResponsePing && response != Packet.Broadcast)
-//            UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
-//#endif
 
 		OnPacket callback;
 

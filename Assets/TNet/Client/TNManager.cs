@@ -718,7 +718,6 @@ public class TNManager : MonoBehaviour
 			if (!IsInChannel(channelID))
 			{
 				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				if (!string.IsNullOrEmpty(levelName)) mInstance.mLoadingLevel.Add(channelID, true);
 				mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 			}
 		}
@@ -1825,7 +1824,7 @@ public class TNManager : MonoBehaviour
 
 		if (!string.IsNullOrEmpty(levelName))
 		{
-			mLoadingLevel.Add(channelID, true);
+			mLoadingLevel.Add(channelID);
 			StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
 		}
 	}
