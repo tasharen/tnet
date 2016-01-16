@@ -495,7 +495,7 @@ public class GameClient
 	/// Retrieve a player by their ID.
 	/// </summary>
 
-	public Player GetPlayer (int id)
+	public Player GetPlayer (int id, bool createIfMissing = false)
 	{
 		if (id == mTcp.id) return mTcp;
 
@@ -503,6 +503,13 @@ public class GameClient
 		{
 			Player player = null;
 			mDictionary.TryGetValue(id, out player);
+
+			if (player == null && createIfMissing)
+			{
+				player = new Player();
+				player.id = id;
+				mDictionary[id] = player;
+			}
 			return player;
 		}
 		return null;
@@ -531,12 +538,20 @@ public class GameClient
 	/// Return a channel with the specified ID.
 	/// </summary>
 
-	public Channel GetChannel (int channelID)
+	public Channel GetChannel (int channelID, bool createIfMissing = false)
 	{
 		for (int i = 0; i < mChannels.size; ++i)
 		{
 			Channel ch = mChannels[i];
 			if (ch.id == channelID) return ch;
+		}
+
+		if (createIfMissing)
+		{
+			Channel ch = new Channel();
+			ch.id = channelID;
+			mChannels.Add(ch);
+			return ch;
 		}
 		return null;
 	}
@@ -1147,17 +1162,18 @@ public class GameClient
 			{
 				int channelID = reader.ReadInt32();
 				int count = reader.ReadInt16();
-
-				Channel ch = new Channel();
-				ch.id = channelID;
+				Channel ch = GetChannel(channelID, true);
 
 				for (int i = 0; i < count; ++i)
 				{
-					Player p = new Player();
-					p.id = reader.ReadInt32();
-					p.name = reader.ReadString();
-					p.data = reader.ReadObject();
-					mDictionary[p.id] = p;
+					int pid = reader.ReadInt32();
+					Player p = GetPlayer(pid, true);
+
+					if (reader.ReadBoolean())
+					{
+						p.name = reader.ReadString();
+						p.data = reader.ReadObject();
+					}
 					ch.players.Add(p);
 				}
 				break;
@@ -1178,12 +1194,15 @@ public class GameClient
 
 				if (ch != null)
 				{
-					Player p = new Player();
-					p.id = reader.ReadInt32();
-					p.name = reader.ReadString();
-					p.data = reader.ReadObject();
+					Player p = GetPlayer(reader.ReadInt32(), true);
+
+					if (reader.ReadBoolean())
+					{
+						p.name = reader.ReadString();
+						p.data = reader.ReadObject();
+					}
+
 					ch.players.Add(p);
-					mDictionary[p.id] = p;
 					if (onPlayerJoined != null) onPlayerJoined(channelID, p);
 				}
 				break;
@@ -1255,13 +1274,6 @@ public class GameClient
 #if UNITY_EDITOR
 				if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
 #endif
-				if (success)
-				{
-					Channel ch = new Channel();
-					ch.id = channelID;
-					mChannels.Add(ch);
-				}
-
 				if (onJoinChannel != null) onJoinChannel(channelID, success, msg);
 				break;
 			}

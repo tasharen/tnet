@@ -1054,20 +1054,31 @@ public class GameServer : FileServer
 		// Everything else gets sent to the player, so it's faster to do it all at once
 		player.FinishJoiningChannel(channel, mServerData, requestedLevelName);
 
-		// Inform the channel that a new player is joining
-		BinaryWriter writer = BeginSend(Packet.ResponsePlayerJoined);
+		for (int i = 0; i < channel.players.size; ++i)
 		{
-			writer.Write(channel.id);
-			writer.Write(player.id);
-			writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
+			TcpPlayer p = (TcpPlayer)channel.players[i];
+
+			// Inform the channel that a new player is joining
+			BinaryWriter writer = p.BeginSend(Packet.ResponsePlayerJoined);
+			{
+				writer.Write(channel.id);
+				writer.Write(player.id);
+
+				if (!player.IsKnownTo(p, channel))
+				{
+					writer.Write(true);
+					writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
 #if STANDALONE
-			if (player.data == null) writer.Write((byte)0);
-			else writer.Write((byte[])player.data);
+					if (player.data == null) writer.Write((byte)0);
+					else writer.Write((byte[])player.data);
 #else
-			writer.WriteObject(player.data);
+					writer.WriteObject(player.data);
 #endif
+				}
+				else writer.Write(false);
+			}
+			p.EndSend();
 		}
-		EndSend(channel, null, true);
 
 		// Add this player to the channel now that the joining process is complete
 		channel.players.Add(player);

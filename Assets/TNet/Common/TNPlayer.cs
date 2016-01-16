@@ -18,7 +18,7 @@ public class Player
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 20151214;
+	public const int version = 20160116;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.

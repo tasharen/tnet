@@ -87,6 +87,21 @@ public class TcpPlayer : TcpProtocol
 	public int broadcastCount = 0;
 
 	/// <summary>
+	/// Whether the specified player is already known to this one.
+	/// </summary>
+
+	public bool IsKnownTo (Player p, Channel currentChannel)
+	{
+		for (int i = 0; i < channels.size; ++i)
+		{
+			Channel ch = channels[i];
+			if (ch == currentChannel) continue;
+			if (ch.players.Contains(p)) return true;
+		}
+		return false;
+	}
+
+	/// <summary>
 	/// Channel joining process involves multiple steps. It's faster to perform them all at once.
 	/// </summary>
 
@@ -104,13 +119,19 @@ public class TcpPlayer : TcpProtocol
 			{
 				Player tp = channel.players[i];
 				writer.Write(tp.id);
-				writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
+
+				if (!IsKnownTo(tp, channel))
+				{
+					writer.Write(true);
+					writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
 #if STANDALONE
-				if (tp.data == null) writer.Write((byte)0);
-				else writer.Write((byte[])tp.data);
+					if (tp.data == null) writer.Write((byte)0);
+					else writer.Write((byte[])tp.data);
 #else
-				writer.WriteObject(tp.data);
+					writer.WriteObject(tp.data);
 #endif
+				}
+				else writer.Write(false);
 			}
 		}
 

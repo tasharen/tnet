@@ -147,6 +147,7 @@ public enum Packet
 	/// 
 	/// Then for each player:
 	/// int32: Player ID.
+	/// bool: Whether player name and data follows. If a player is already known, it won't be sent.
 	/// string: Player Name.
 	/// object: Player data.
 	/// </summary>
@@ -166,6 +167,7 @@ public enum Packet
 	/// Inform the channel that a new player has joined.
 	/// int32: Channel ID.
 	/// int32: Player ID.
+	/// bool: Whether player name and data follows. If a player is already known, it won't be sent.
 	/// string: Player name.
 	/// object: Player data.
 	/// </summary>
