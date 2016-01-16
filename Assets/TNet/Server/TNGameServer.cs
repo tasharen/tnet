@@ -1052,14 +1052,131 @@ public class GameServer : FileServer
 		player.channels.Add(channel);
 
 		// Everything else gets sent to the player, so it's faster to do it all at once
-		player.FinishJoiningChannel(channel, mServerData, requestedLevelName);
+		Buffer buffer = Buffer.Create();
 
+		// Tell the player who else is in the channel
+		BinaryWriter writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
+		{
+			writer.Write(channel.id);
+			writer.Write((short)channel.players.size);
+
+			for (int i = 0; i < channel.players.size; ++i)
+			{
+				Player tp = channel.players[i];
+				writer.Write(tp.id);
+
+				if (!player.IsKnownTo(tp, channel))
+				{
+					writer.Write(true);
+					writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
+
+					if (tp.data != null) writer.Write((byte[])tp.data);
+					else writer.WriteObject(null);
+				}
+				else writer.Write(false);
+			}
+		}
+
+		// End the first packet, but remember where it ended
+		int offset = buffer.EndPacket();
+
+		// Inform the player of who is hosting
+		if (channel.host == null) channel.host = player;
+		writer = buffer.BeginPacket(Packet.ResponseSetHost, offset);
+		writer.Write(channel.id);
+		writer.Write(channel.host.id);
+		offset = buffer.EndTcpPacketStartingAt(offset);
+
+		// Send the channel's data
+		if (channel.data != null)
+		{
+			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
+			writer.Write(channel.id);
+			if (channel.data != null) writer.Write((byte[])channel.data);
+			else writer.WriteObject(null);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Send the LoadLevel packet, but only if some level name was specified in the original LoadLevel request.
+		if (!string.IsNullOrEmpty(requestedLevelName) && !string.IsNullOrEmpty(channel.level))
+		{
+			writer = buffer.BeginPacket(Packet.ResponseLoadLevel, offset);
+			writer.Write(channel.id);
+			writer.Write(channel.level);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Send the list of objects that have been created
+		for (int i = 0; i < channel.created.size; ++i)
+		{
+			Channel.CreatedObject obj = channel.created.buffer[i];
+
+			bool isPresent = false;
+
+			for (int b = 0; b < channel.players.size; ++b)
+			{
+				if (channel.players[b].id == obj.playerID)
+				{
+					isPresent = true;
+					break;
+				}
+			}
+
+			// If the previous owner is not present, transfer ownership to the host
+			if (!isPresent) obj.playerID = channel.host.id;
+
+			writer = buffer.BeginPacket(Packet.ResponseCreateObject, offset);
+			writer.Write(obj.playerID);
+			writer.Write(channel.id);
+			writer.Write(obj.objectIndex);
+			writer.Write(obj.objectID);
+			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Send the list of objects that have been destroyed
+		if (channel.destroyed.size != 0)
+		{
+			writer = buffer.BeginPacket(Packet.ResponseDestroyObject, offset);
+			writer.Write(channel.id);
+			writer.Write((ushort)channel.destroyed.size);
+			for (int i = 0; i < channel.destroyed.size; ++i)
+				writer.Write(channel.destroyed.buffer[i]);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// Send all buffered RFCs to the new player
+		for (int i = 0; i < channel.rfcs.size; ++i)
+		{
+			Channel.RFC rfc = channel.rfcs[i];
+			offset = rfc.WritePacket(channel.id, buffer, offset);
+		}
+
+		// Inform the player that the channel is now locked
+		if (channel.locked)
+		{
+			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
+			writer.Write(channel.id);
+			writer.Write(true);
+			offset = buffer.EndTcpPacketStartingAt(offset);
+		}
+
+		// The join process is now complete
+		buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
+		writer.Write(channel.id);
+		writer.Write(true);
+		offset = buffer.EndTcpPacketStartingAt(offset);
+
+		// Send the entire buffer
+		player.SendTcpPacket(buffer);
+		buffer.Recycle();
+
+		// Inform the channel that a new player is joining
 		for (int i = 0; i < channel.players.size; ++i)
 		{
 			TcpPlayer p = (TcpPlayer)channel.players[i];
 
-			// Inform the channel that a new player is joining
-			BinaryWriter writer = p.BeginSend(Packet.ResponsePlayerJoined);
+			writer = p.BeginSend(Packet.ResponsePlayerJoined);
 			{
 				writer.Write(channel.id);
 				writer.Write(player.id);
@@ -1068,12 +1185,8 @@ public class GameServer : FileServer
 				{
 					writer.Write(true);
 					writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
-#if STANDALONE
-					if (player.data == null) writer.Write((byte)0);
-					else writer.Write((byte[])player.data);
-#else
-					writer.WriteObject(player.data);
-#endif
+					if (player.data != null) writer.Write((byte[])player.data);
+					else writer.WriteObject(null);
 				}
 				else writer.Write(false);
 			}
@@ -1247,32 +1360,60 @@ public class GameServer : FileServer
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
 
-				// Find the player
-				TcpPlayer target = GetPlayer(reader.ReadInt32());
-				if (target == null) break;
+				// The ID must match
+				if (player.id != reader.ReadInt32()) break;
 
 				// Read the player's custom data
-				if (buffer.size > 1)
-				{
-#if STANDALONE
-					target.data = reader.ReadBytes(buffer.size);
-#else
-					target.data = reader.ReadObject();
-#endif
-				}
-				else target.data = null;
+				player.data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
 
-				if (target.channels.size != 0)
+				if (player.channels.size != 0)
 				{
 					// We want to forward the packet as-is
 					buffer.position = origin;
-					SendToOthers(buffer, target, player, reliable);
+					SendToOthers(buffer, player, player, reliable);
 				}
-				else if (target != player)
+				break;
+			}
+			case Packet.RequestSavePlayerData:
+			{
+				// Save the player's data into the specified file
+				try
 				{
-					buffer.position = origin;
-					target.SendTcpPacket(buffer);
+					string fileName = reader.ReadString();
+					byte[] data = (byte[])player.data;
+
+					if (data == null || data.Length == 0)
+					{
+						if (DeleteFile(fileName))
+							player.Log("Deleted " + fileName);
+					}
+					else if (SaveFile(fileName, data))
+					{
+						player.Log("Saved " + fileName + " (" + (data != null ? data.Length.ToString("N0") : "0") + " bytes)");
+					}
+					else player.LogError("Unable to save " + fileName);
 				}
+				catch (Exception ex)
+				{
+					player.LogError(ex.Message, ex.StackTrace);
+					RemovePlayer(player);
+				}
+				break;
+			}
+			case Packet.RequestLoadPlayerData:
+			{
+				// Load and set the player's data from the specified file
+				player.data = LoadFile(reader.ReadString());
+
+				Buffer buff = Buffer.Create();
+				BinaryWriter writer = buff.BeginPacket(Packet.SyncPlayerData);
+				writer.Write(player.id);
+				if (player.data != null) writer.Write((byte[])player.data);
+				else writer.WriteObject(null);
+				player.SendTcpPacket(buff);
+
+				SendToOthers(buffer, player, player, reliable);
+				buff.Recycle();
 				break;
 			}
 			case Packet.RequestSaveFile:
@@ -1359,7 +1500,8 @@ public class GameServer : FileServer
 						writer.Write(!string.IsNullOrEmpty(ch.password));
 						writer.Write(ch.persistent);
 						writer.Write(ch.level);
-						writer.Write(ch.data);
+						if (ch.data != null) writer.Write((byte[])ch.data);
+						else writer.WriteObject(null);
 					}
 				}
 				EndSend(true, player);
@@ -2254,10 +2396,12 @@ public class GameServer : FileServer
 					if (player.isAdmin || !ch.locked)
 					{
 						ch.persistent = true;
-						ch.data = reader.ReadDataNode();
+						ch.data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
+
 						BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
 						writer.Write(ch.id);
-						writer.Write(ch.data);
+						if (ch.data != null) writer.Write((byte[])ch.data);
+						else writer.WriteObject(null);
 						EndSend(ch, null, true);
 					}
 					else

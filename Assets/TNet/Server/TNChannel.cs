@@ -53,7 +53,7 @@ public class Channel
 	public int id;
 	public string password = "";
 	public string level = "";
-	public DataNode data;
+	public object data; // Always stored as byte[] on the server
 	public bool persistent = false;
 	public bool closed = false;
 	public bool locked = false;
@@ -64,6 +64,12 @@ public class Channel
 	public List<uint> destroyed = new List<uint>();
 	public uint objectCounter = 0xFFFFFF;
 	public Player host;
+
+	/// <summary>
+	/// Cast the channel data to DataNode, if possible. Convenience method.
+	/// </summary>
+
+	public DataNode dataNode { get { return (data != null && data is DataNode) ? (DataNode)data : null; } }
 
 	// Key = Object ID. Value is 'true'. This dictionary is used for a quick lookup checking to see
 	// if the object actually exists. It's used to store RFCs. RFCs for objects that don't exist are not stored.
@@ -384,12 +390,15 @@ public class Channel
 		writer.Write(13);
 		writer.Write(level);
 
-		if (data != null)
+		// Server keeps the data as a byte array
+		byte[] bytes = data as byte[];
+		
+		if (bytes != null && bytes.Length > 0)
 		{
-			writer.Write(true);
-			writer.Write(data);
+			writer.Write(bytes.Length);
+			writer.Write(bytes);
 		}
-		else writer.Write(false);
+		else writer.Write(0);
 
 		writer.Write(objectCounter);
 		writer.Write(password);
@@ -492,7 +501,10 @@ public class Channel
 		mCreatedObjectDictionary.Clear();
 
 		level = reader.ReadString();
-		data = reader.ReadBoolean() ? reader.ReadDataNode(): null;
+
+		int len = reader.ReadInt32();
+		data = (len > 0) ? reader.ReadBytes(len) : null;
+
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();

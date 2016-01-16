@@ -187,9 +187,9 @@ public class TNAutoSync : TNBehaviour
 	/// If this values are not saved on the server, at least send them to the newly joined player.
 	/// </summary>
 
-	void OnNetworkPlayerJoin (int channelID, Player p)
+	void OnNetworkPlayerJoin (Channel channel, Player p)
 	{
-		if (mList.size != 0 && !isSavedOnServer && TNManager.isHosting)
+		if (mList.size != 0 && !isSavedOnServer && tno.isMine && tno.channelID == channel.id)
 		{
 			if (Cache()) Sync();
 			else tno.Send(255, p, mCached);

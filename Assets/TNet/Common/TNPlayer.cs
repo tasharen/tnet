@@ -34,6 +34,7 @@ public class Player
 
 	/// <summary>
 	/// Player's custom data. Set via TNManger.playerData.
+	/// Player's data is always kept as byte[] on the server.
 	/// </summary>
 
 	public object data = null;

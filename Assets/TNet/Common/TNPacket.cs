@@ -389,7 +389,7 @@ public enum Packet
 	/// <summary>
 	/// Set the channel's data field.
 	/// int32: Channel ID.
-	/// string: Custom data
+	/// object: Custom data
 	/// </summary>
 
 	RequestSetChannelData,
@@ -397,7 +397,7 @@ public enum Packet
 	/// <summary>
 	/// The channel's data has been changed.
 	/// int32: Channel ID.
-	/// DataNode: Custom data
+	/// object: Custom data
 	/// </summary>
 
 	ResponseSetChannelData,
@@ -677,6 +677,20 @@ public enum Packet
 	/// </summary>
 
 	RequestRenameServer,
+
+	/// <summary>
+	/// Request to load the specified filename as the player's data. SyncPlayerData will be sent back.
+	/// string: Filename to load.
+	/// </summary>
+
+	RequestLoadPlayerData,
+
+	/// <summary>
+	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
+	/// string: Filename where the player data should be saved.
+	/// </summary>
+
+	RequestSavePlayerData,
 
 	/// <summary>
 	/// Begin custom packets here.

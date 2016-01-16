@@ -305,12 +305,14 @@ public class TcpProtocol : Player
 				BinaryWriter writer = BeginSend(Packet.RequestID);
 				writer.Write(version);
 				writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-#if STANDALONE
-				if (data == null) writer.Write((byte)0);
-				else writer.Write((byte[])data);
-#else
-				writer.WriteObject(data);
-#endif
+
+				if (data != null)
+				{
+					if (data.GetType() == typeof(byte[])) writer.Write((byte[])data);
+					else writer.WriteObject(data);
+				}
+				else writer.WriteObject(null);
+
 				EndSend();
 				StartReceiving();
 			}
@@ -922,16 +924,10 @@ public class TcpProtocol : Player
 
 			if (theirVer == version)
 			{
-				lock (mLock)
-				{
-					id = uniqueID ? ++mPlayerCounter : 0;
-				}
+				if (uniqueID) lock (mLock) { id = ++mPlayerCounter; }
+				else id = 0;
 				name = reader.ReadString();
-#if STANDALONE
-				data = reader.ReadBytes(buffer.size);
-#else
-				data = reader.ReadObject();
-#endif
+				data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
 				stage = TcpProtocol.Stage.Connected;
 #if STANDALONE
 				if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");

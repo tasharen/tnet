@@ -33,8 +33,8 @@ public class GameClient
 	public delegate void OnPlayerLeft (int channelID, Player p);
 	public delegate void OnPlayerSync (Player p);
 	public delegate void OnRenamePlayer (Player p, string previous);
-	public delegate void OnSetHost (int channelID, bool hosting);
-	public delegate void OnSetChannelData (int channelID, DataNode data);
+	public delegate void OnHostChanged (Channel ch);
+	public delegate void OnSetChannelData (Channel ch);
 	public delegate void OnCreate (int channelID, int creator, int index, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (int channelID, uint objID);
 	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
@@ -123,7 +123,7 @@ public class GameClient
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
-	public OnSetHost onSetHost;
+	public OnHostChanged onHostChanged;
 
 	/// <summary>
 	/// Notification of the channel's custom data changing.
@@ -1235,20 +1235,22 @@ public class GameClient
 					if (ch.id == channelID)
 					{
 						ch.host = GetPlayer(hostID);
+						if (onHostChanged != null) onHostChanged(ch);
 						break;
 					}
 				}
-
-				if (onSetHost != null) onSetHost(channelID, hostID == playerID);
 				break;
 			}
 			case Packet.ResponseSetChannelData:
 			{
 				int channelID = reader.ReadInt32();
-				DataNode data = reader.ReadDataNode();
 				Channel ch = GetChannel(channelID);
-				if (ch != null) ch.data = data;
-				if (onSetChannelData != null) onSetChannelData(channelID, data);
+
+				if (ch != null)
+				{
+					ch.data = reader.ReadObject();
+					if (onSetChannelData != null) onSetChannelData(ch);
+				}
 				break;
 			}
 			case Packet.ResponseJoinChannel:
@@ -1567,7 +1569,7 @@ public class GameClient
 	public DataNode GetChannelData (int channelID)
 	{
 		Channel ch = GetChannel(channelID);
-		return (ch != null) ? ch.data : null;
+		return (ch != null) ? ch.data as DataNode : null;
 	}
 
 	/// <summary>
@@ -1624,11 +1626,18 @@ public class GameClient
 		{
 			if (!ch.locked || isAdmin)
 			{
-				if (ch.data == null) ch.data = new DataNode("Version", Player.version);
-				ch.data.SetChild(key, val);
+				DataNode node = ch.dataNode;
+
+				if (node == null)
+				{
+					node = new DataNode("Version", Player.version);
+					ch.data = node;
+				}
+
+				node.SetChild(key, val);
 				BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
 				bw.Write(channelID);
-				bw.Write(ch.data);
+				bw.WriteObject(ch.data);
 				EndSend();
 			}
 		}
