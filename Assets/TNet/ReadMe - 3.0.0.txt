@@ -144,6 +144,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added TNManager.packetSourceID that identifies the last Forward and Create type packet's source player ID.
 - NEW: Added an offline mode to TNet that still supports full functionality identical to that of playing alone on a local server.
 - NEW: DataNode now supports exporting prefabs using asset bundles export for situations when regular binary export is not suitable.
+- NEW: It's now possible to pass an empty string to TNManager.Create causing TNet to pass back a dummy object on creation, thus letting the game object's contents be procedurally set.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.

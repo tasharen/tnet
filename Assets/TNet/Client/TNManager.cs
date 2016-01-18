@@ -1165,7 +1165,7 @@ public class TNManager : MonoBehaviour
 
 	static public void CreateEx (int channelID, int rccID, bool persistent, string path, params object[] objs)
 	{
-		GameObject go = UnityTools.LoadPrefab(path);
+		GameObject go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
 
 		if (go != null)
 		{
@@ -1598,7 +1598,7 @@ public class TNManager : MonoBehaviour
 		if (tno == null) return 0;
 		return persistent ? (byte)1 : (byte)2;
 	}
-
+	
 	/// <summary>
 	/// Notification of a new object being created.
 	/// </summary>
@@ -1613,7 +1613,7 @@ public class TNManager : MonoBehaviour
 		{
 			// Load the object from the resources folder
 			string str = reader.ReadString();
-			go = UnityTools.LoadPrefab(str);
+			go = UnityTools.LoadPrefab(str) ?? UnityTools.GetDummyObject();
 		}
 		else if (index >= 0 && index < objects.Length)
 		{

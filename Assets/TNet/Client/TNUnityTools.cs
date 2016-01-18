@@ -700,6 +700,24 @@ static public class UnityTools
 		new System.Collections.Generic.Dictionary<string, GameObject>();
 	static Transform mPrefabRoot = null;
 
+	static GameObject mDummy = null;
+
+	/// <summary>
+	/// Dummy object is used as an empty dummy prefab for when TNManager.Create is called without a prefab specified.
+	/// </summary>
+
+	static public GameObject GetDummyObject ()
+	{
+		if (mDummy == null)
+		{
+			mDummy = new GameObject("Dummy Network Object");
+			mDummy.SetActive(false);
+			Object.DontDestroyOnLoad(mDummy);
+			mDummy.AddComponent<TNObject>();
+		}
+		return mDummy;
+	}
+
 	/// <summary>
 	/// Load a game object prefab at the specified path. This is equivalent to Resources.Load, but it will
 	/// also consider DataNode-exported binary assets as well, automatically loading them as if they were
@@ -708,14 +726,7 @@ static public class UnityTools
 
 	static public GameObject LoadPrefab (string path)
 	{
-		if (string.IsNullOrEmpty(path))
-		{
-#if UNITY_EDITOR
-			Debug.LogError("[TNet] Null path passed to UnityTools.LoadPrefab!");
-#endif
-			return null;
-		}
-
+		if (string.IsNullOrEmpty(path)) return null;
 		if (!Application.isPlaying) return Resources.Load(path, typeof(GameObject)) as GameObject;
 
 		GameObject prefab = null;
@@ -763,10 +774,15 @@ static public class UnityTools
 				}
 			}
 		}
-#if UNITY_EDITOR
+
 		if (prefab == null)
+		{
+#if UNITY_EDITOR
 			Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
 #endif
+			prefab = GetDummyObject();
+		}
+
 		mPrefabs.Add(path, prefab);
 		return prefab;
 	}
