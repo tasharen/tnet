@@ -250,18 +250,6 @@ public class DataNode
 	}
 
 	/// <summary>
-	/// Retrieve a child by name.
-	/// </summary>
-
-	public DataNode GetChild (string name)
-	{
-		for (int i = 0; i < children.size; ++i)
-			if (children[i].name == name)
-				return children[i];
-		return null;
-	}
-
-	/// <summary>
 	/// Retrieve a child by its path.
 	/// </summary>
 
@@ -333,7 +321,7 @@ public class DataNode
 	/// Retrieve a child by name, optionally creating a new one if the child doesn't already exist.
 	/// </summary>
 
-	public DataNode GetChild (string name, bool createIfMissing)
+	public DataNode GetChild (string name, bool createIfMissing = false)
 	{
 		for (int i = 0; i < children.size; ++i)
 			if (children[i].name == name)

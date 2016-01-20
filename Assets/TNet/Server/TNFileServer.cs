@@ -27,7 +27,7 @@ public class FileServer
 
 	public bool SaveFile (string fileName, byte[] data)
 	{
-		if (Tools.WriteFile(fileName, data, !string.IsNullOrEmpty(Tools.applicationDirectory)))
+		if (Tools.WriteFile(fileName, data, true))
 		{
 			mSavedFiles[fileName] = data;
 			return true;

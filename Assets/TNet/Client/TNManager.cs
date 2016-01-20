@@ -907,6 +907,40 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Load the specified filename and set it as the player's data.
+	/// TNManager.onPlayerSync will be called when the operation completes.
+	/// </summary>
+
+	static public void LoadPlayerData (string filename)
+	{
+		if (isConnected)
+		{
+			BeginSend(Packet.RequestLoadPlayerData).Write(filename);
+			EndSend();
+		}
+		else
+		{
+			byte[] data = Tools.ReadFile(filename);
+			playerData = (data != null) ? DataNode.Read(data) : null;
+			if (onPlayerSync != null) onPlayerSync(player);
+		}
+	}
+
+	/// <summary>
+	/// Save the player data into the specified file.
+	/// </summary>
+
+	static public void SavePlayerData (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
+	{
+		if (isConnected && !TNServerInstance.isActive)
+		{
+			BeginSend(Packet.RequestSavePlayerData).Write(filename);
+			EndSend();
+		}
+		else Tools.WriteFile(filename, playerDataNode.ToArray(type), true, false);
+	}
+
+	/// <summary>
 	/// Delete the specified file on the server.
 	/// </summary>
 
