@@ -47,12 +47,15 @@ public class ExampleMenu : MonoBehaviour
 
 	void Awake ()
 	{
-		if (mInst == null)
+		if (Application.isPlaying)
 		{
-			mInst = this;
-			DontDestroyOnLoad(gameObject);
+			if (mInst == null)
+			{
+				mInst = this;
+				DontDestroyOnLoad(gameObject);
+			}
+			else Destroy(gameObject);
 		}
-		else Destroy(gameObject);
 	}
 
 	/// <summary>
