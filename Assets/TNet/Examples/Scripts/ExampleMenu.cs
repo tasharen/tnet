@@ -99,7 +99,11 @@ public class ExampleMenu : MonoBehaviour
 		}
 		else
 		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 			if (!Application.isPlaying || Application.loadedLevelName == mainMenu)
+#else
+			if (!Application.isPlaying || UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == mainMenu)
+#endif
 			{
 				DrawSelectionMenu();
 			}
@@ -283,7 +287,13 @@ public class ExampleMenu : MonoBehaviour
 		Debug.Log("OnNetworkLeaveChannel #" + channelID);
 
 		if (TNManager.channels.size == 0)
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 			Application.LoadLevel(mainMenu);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(mainMenu);
+#endif
+		}
 	}
 
 	/// <summary>

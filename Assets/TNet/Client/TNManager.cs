@@ -1,4 +1,4 @@
-//---------------------------------------------
+﻿//---------------------------------------------
 //            Tasharen Network
 // Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
@@ -724,7 +724,11 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 			Application.LoadLevel(levelName);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+#endif
 		}
 	}
 
@@ -747,7 +751,11 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 			Application.LoadLevel(levelName);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+#endif
 		}
 	}
 
@@ -783,7 +791,14 @@ public class TNManager : MonoBehaviour
 			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
 			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
-		else Application.LoadLevel(levelName);
+		else
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
+			Application.LoadLevel(levelName);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+#endif
+		}
 	}
 
 	/// <summary>
@@ -864,7 +879,13 @@ public class TNManager : MonoBehaviour
 	static public void LoadLevel (int channelID, string levelName)
 	{
 		if (!mInstance.mClient.LoadLevel(channelID, levelName))
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 			Application.LoadLevel(levelName);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+#endif
+		}
 	}
 
 	/// <summary>
@@ -1866,7 +1887,11 @@ public class TNManager : MonoBehaviour
 	System.Collections.IEnumerator LoadLevelCoroutine (System.Collections.Generic.KeyValuePair<int, string> pair)
 	{
 		yield return null;
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 		loadLevelOperation = Application.LoadLevelAsync(pair.Value);
+#else
+		loadLevelOperation = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(pair.Value);
+#endif
 		loadLevelOperation.allowSceneActivation = false;
 
 		while (loadLevelOperation.progress < 0.9f)

@@ -1029,7 +1029,11 @@ public static class ComponentSerialization
 
 			if (!mCachedBundles.TryGetValue(assetBytes, out prefab))
 			{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 				AssetBundle qr = AssetBundle.CreateFromMemoryImmediate(assetBytes);
+#else
+				AssetBundle qr = AssetBundle.LoadFromMemory(assetBytes);
+#endif
 				if (qr != null) prefab = qr.mainAsset as GameObject;
 				if (prefab == null) prefab = new GameObject(data.name);
 				mCachedBundles[assetBytes] = prefab;
