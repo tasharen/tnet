@@ -532,12 +532,21 @@ public enum Packet
 	RequestSetTimeout,
 
 	/// <summary>
-	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
+	/// Set the player's 'data' property. When a client sends this packet to the server,
+	/// the same packet will be echoed to everyone except the sender.
+	/// int32: Player ID who's data should be synchronized. Must match the player that sent the request.
+	/// object: Player's data.
+	/// </summary>
+
+	RequestSetPlayerData,
+
+	/// <summary>
+	/// Set the player data associated with the specified player.
 	/// int32: Player ID who's data should be synchronized.
 	/// object: Player's data.
 	/// </summary>
 
-	SyncPlayerData,
+	ResponseSetPlayerData,
 
 	/// <summary>
 	/// Mark the channel as closed and kick out all the players.

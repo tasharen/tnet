@@ -1355,10 +1355,13 @@ public class GameServer : FileServer
 				EndSendToOthers(player, null, true);
 				break;
 			}
-			case Packet.SyncPlayerData:
+			case Packet.RequestSetPlayerData:
 			{
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
+
+				// Change the packet type to a response before sending it as-is
+				buffer.buffer[buffer.position - 1] = (byte)Packet.ResponseSetPlayerData;
 
 				// The ID must match
 				if (player.id != reader.ReadInt32()) break;
@@ -1404,15 +1407,13 @@ public class GameServer : FileServer
 			{
 				// Load and set the player's data from the specified file
 				player.data = LoadFile(reader.ReadString());
-
 				Buffer buff = Buffer.Create();
-				BinaryWriter writer = buff.BeginPacket(Packet.SyncPlayerData);
+				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 				writer.Write(player.id);
 				if (player.data != null) writer.Write((byte[])player.data);
 				else writer.WriteObject(null);
 				player.SendTcpPacket(buff);
-
-				SendToOthers(buffer, player, player, reliable);
+				SendToOthers(buffer, player, null, true);
 				buff.Recycle();
 				break;
 			}

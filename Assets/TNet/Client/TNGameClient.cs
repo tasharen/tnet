@@ -444,7 +444,7 @@ public class GameClient
 	{
 		if (isConnected)
 		{
-			BinaryWriter writer = BeginSend(Packet.SyncPlayerData);
+			BinaryWriter writer = BeginSend(Packet.RequestSetPlayerData);
 			writer.Write(mTcp.id);
 			writer.WriteObject(mTcp.data);
 			EndSend();
@@ -1106,7 +1106,7 @@ public class GameClient
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
-			case Packet.SyncPlayerData:
+			case Packet.ResponseSetPlayerData:
 			{
 				Player target = GetPlayer(reader.ReadInt32());
 
