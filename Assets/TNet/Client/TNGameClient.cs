@@ -408,21 +408,10 @@ public class GameClient
 	}
 
 	/// <summary>
-	/// Get or set the player's data.
+	/// Get or set the player's data. Don't forget to call SyncPlayerData() afterwards.
 	/// </summary>
 
-	public object playerData
-	{
-		get
-		{
-			return mTcp.data;
-		}
-		set
-		{
-			mTcp.data = value;
-			SyncPlayerData();
-		}
-	}
+	public object playerData { get { return mTcp.data; } set { mTcp.data = value; } }
 
 	/// <summary>
 	/// Direct access to the incoming queue to deposit messages in. Don't forget to lock it before using it.
@@ -1038,13 +1027,10 @@ public class GameClient
 		int packetID = reader.ReadByte();
 		Packet response = (Packet)packetID;
 
-//#if !UNITY_EDITOR // DEBUG
-//        if (response != Packet.ResponsePing) Console.WriteLine("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
-//#else
-//        if (response != Packet.ResponsePing && response != Packet.Broadcast)
-//            UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
-//#endif
-
+#if DEBUG_PACKETS && !STANDALONE
+		if (response != Packet.ResponsePing && response != Packet.Broadcast)
+			UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
+#endif
 		// Verification step must be passed first
 		if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
 		{
@@ -1108,13 +1094,15 @@ public class GameClient
 			}
 			case Packet.ResponseSetPlayerData:
 			{
-				Player target = GetPlayer(reader.ReadInt32());
+				int pid = reader.ReadInt32();
+				Player target = GetPlayer(pid);
 
 				if (target != null)
 				{
 					target.data = reader.ReadObject();
 					if (onPlayerSync != null) onPlayerSync(target);
 				}
+				else Debug.LogError("Not found: " + pid);
 				break;
 			}
 			case Packet.ResponsePing:

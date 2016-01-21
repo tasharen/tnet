@@ -476,11 +476,11 @@ public class TcpProtocol : Player
 		buffer.MarkAsUsed();
 		BinaryReader reader = buffer.BeginReading();
 
-//#if UNITY_EDITOR
-//        Packet packet = (Packet)buffer.PeekByte(4);
-//        if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
-//            UnityEngine.Debug.Log("Sending: " + packet + " to " + name);
-//#endif
+#if DEBUG_PACKETS && !STANDALONE
+		Packet packet = (Packet)buffer.PeekByte(4);
+		if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
+			UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
+#endif
 
 		if (mSocket != null && mSocket.Connected)
 		{

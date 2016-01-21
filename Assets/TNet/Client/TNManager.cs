@@ -1,4 +1,4 @@
-﻿//---------------------------------------------
+//---------------------------------------------
 //            Tasharen Network
 // Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
@@ -346,7 +346,7 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Get or set the player's data, synchronizing it with the server.
+	/// Get or set the player's data, synchronizing it with the server. Don't forget to call SyncPlayerData() afterwards.
 	/// </summary>
 
 	static public object playerData
@@ -951,14 +951,10 @@ public class TNManager : MonoBehaviour
 	/// Save the player data into the specified file.
 	/// </summary>
 
-	static public void SavePlayerData (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
+	static public void SavePlayerData (string filename)
 	{
-		if (isConnected && !TNServerInstance.isActive)
-		{
-			BeginSend(Packet.RequestSavePlayerData).Write(filename);
-			EndSend();
-		}
-		else Tools.WriteFile(filename, playerDataNode.ToArray(type), true, false);
+		BeginSend(Packet.RequestSavePlayerData).Write(filename);
+		EndSend();
 	}
 
 	/// <summary>

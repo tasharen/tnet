@@ -3,8 +3,6 @@
 // Copyright © 2012-2016 Tasharen Entertainment
 //---------------------------------------------
 
-#define MULTI_THREADED
-
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -27,10 +25,10 @@ namespace TNet
 
 public class GameServer : FileServer
 {
-#if MULTI_THREADED
-	public const bool isMultiThreaded = true;
-#else
+#if SINGLE_THREADED
 	public const bool isMultiThreaded = false;
+#else
+	public const bool isMultiThreaded = true;
 #endif
 
 	/// <summary>
@@ -279,7 +277,7 @@ public class GameServer : FileServer
 			lobbyLink.SendUpdate(this);
 		}
 
-#if MULTI_THREADED
+#if !SINGLE_THREADED
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();
 #endif
@@ -354,18 +352,18 @@ public class GameServer : FileServer
 
 	void ThreadFunction ()
 	{
-#if MULTI_THREADED
+#if !SINGLE_THREADED
 		for (; ; )
 #endif
 		{
-#if MULTI_THREADED && !STANDALONE
+#if !SINGLE_THREADED && !STANDALONE
 			if (TNManager.isPaused)
 			{
 				Thread.Sleep(500);
 				continue;
 			}
 #endif
-#if MULTI_THREADED
+#if !SINGLE_THREADED
 			bool received = false;
 #endif
 			lock (mLock)
@@ -417,10 +415,10 @@ public class GameServer : FileServer
 
 							try
 							{
-#if MULTI_THREADED
-								if (ProcessPlayerPacket(buffer, player, false)) received = true;
-#else
+#if SINGLE_THREADED
 								ProcessPlayerPacket(buffer, player, false);
+#else
+								if (ProcessPlayerPacket(buffer, player, false)) received = true;
 #endif
 							}
 							catch (System.Exception ex)
@@ -487,7 +485,9 @@ public class GameServer : FileServer
 					{
 						if (buffer.size > 0)
 						{
-#if MULTI_THREADED
+#if SINGLE_THREADED
+							ProcessPlayerPacket(buffer, player, true);
+#else
 							try
 							{
 								if (ProcessPlayerPacket(buffer, player, true))
@@ -508,8 +508,6 @@ public class GameServer : FileServer
 								RemovePlayer(player);
 							}
  #endif
-#else
-							ProcessPlayerPacket(buffer, player, true);
 #endif
 						}
 						buffer.Recycle();
@@ -536,7 +534,7 @@ public class GameServer : FileServer
 					++i;
 				}
 			}
-#if MULTI_THREADED
+#if !SINGLE_THREADED
 			if (!received) Thread.Sleep(1);
 #endif
 		}
@@ -1255,14 +1253,15 @@ public class GameServer : FileServer
 
 		Packet request = (Packet)reader.ReadByte();
 
-//#if MULTI_THREADED
-//        if (request != Packet.RequestPing && request != Packet.ResponsePing)
-//            Tools.Print("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
-//#elif UNITY_EDITOR
-//        if (request != Packet.RequestPing && request != Packet.ResponsePing)
-//            UnityEngine.Debug.Log("Server: " + request + " (" + (int)request + ") " + buffer.position + " " + buffer.size);
-//#endif
-
+#if DEBUG_PACKETS && !STANDALONE
+ #if !SINGLE_THREADED
+        if (request != Packet.RequestPing && request != Packet.ResponsePing)
+            Tools.Print("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
+ #elif UNITY_EDITOR
+		if (request != Packet.RequestPing && request != Packet.ResponsePing)
+			UnityEngine.Debug.Log("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
+ #endif
+#endif
 		switch (request)
 		{
 			case Packet.Empty:
@@ -1406,12 +1405,16 @@ public class GameServer : FileServer
 			case Packet.RequestLoadPlayerData:
 			{
 				// Load and set the player's data from the specified file
-				player.data = LoadFile(reader.ReadString());
+				byte[] bytes = LoadFile(reader.ReadString());
+				player.data = bytes;
+
 				Buffer buff = Buffer.Create();
 				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 				writer.Write(player.id);
-				if (player.data != null) writer.Write((byte[])player.data);
+				if (bytes != null) writer.Write(bytes);
 				else writer.WriteObject(null);
+				buff.EndPacket();
+
 				player.SendTcpPacket(buff);
 				SendToOthers(buffer, player, null, true);
 				buff.Recycle();
