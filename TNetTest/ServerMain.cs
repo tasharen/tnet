@@ -241,6 +241,7 @@ public class Application : IDisposable
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
 			Console.WriteLine("   -service                    <-- Run it as a service");
+			Console.WriteLine("   -http	                      <-- Respond to HTTP requests");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 
@@ -254,6 +255,7 @@ public class Application : IDisposable
 		int lobbyPort = 0;
 		bool tcpLobby = false;
 		bool service = false;
+		bool http = false;
 
 		for (int i = 0; i < args.Length; )
 		{
@@ -319,12 +321,17 @@ public class Application : IDisposable
 			{
 				if (val0 != null) ushort.TryParse(val0, out GameServer.gameID);
 			}
+			else if (param == "-http")
+			{
+				http = true;
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;
 			else ++i;
 		}
 
+		TcpProtocol.httpGetSupport = http;
 		Application app = new Application();
 		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service);
 		return 0;
