@@ -511,11 +511,21 @@ public class TcpProtocol : Player
 		
 		if (sendQueue != null)
 		{
+			if (buffer.position != 0)
+			{
+				// Offline mode sends packets individually and they should not be reused
+#if UNITY_EDITOR
+				Debug.LogWarning("Packet's position is not 0. Potentially sending the same packet more than once. Ignoring...");
+#endif
+				return;
+			}
+
 			// Skip the packet's size
 			int size = reader.ReadInt32();
 
 			if (size == buffer.size)
 			{
+				// Note that after this the buffer can no longer be used again as its offset is +4
 				lock (sendQueue) sendQueue.Enqueue(buffer);
 				return;
 			}

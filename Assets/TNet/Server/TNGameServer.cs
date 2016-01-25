@@ -1416,7 +1416,7 @@ public class GameServer : FileServer
 				buff.EndPacket();
 
 				player.SendTcpPacket(buff);
-				SendToOthers(buff, player, null, true);
+				SendToOthers(buff, player, player, true);
 				buff.Recycle();
 				break;
 			}
