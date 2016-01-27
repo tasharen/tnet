@@ -137,7 +137,7 @@ public class DataNode
 	/// Get the node's value cast into the specified type.
 	/// </summary>
 
-	public object Get (Type type) { return Serialization.ConvertValue(value, type); }
+	public object Get (Type type) { return Serialization.ConvertObject(value, type); }
 
 	/// <summary>
 	/// Retrieve the value cast into the appropriate type.
@@ -146,8 +146,7 @@ public class DataNode
 	public T Get<T> ()
 	{
 		if (value is T) return (T)mValue;
-		object retVal = Get(typeof(T));
-		return (retVal != null) ? (T)retVal : default(T);
+		return Serialization.Convert<T>(mValue);
 	}
 
 	/// <summary>
@@ -157,8 +156,7 @@ public class DataNode
 	public T Get<T> (T defaultVal)
 	{
 		if (value is T) return (T)mValue;
-		object retVal = Get(typeof(T));
-		return (retVal != null) ? (T)retVal : defaultVal;
+		return Serialization.Convert<T>(mValue, defaultVal);
 	}
 
 	/// <summary>
@@ -554,14 +552,132 @@ public class DataNode
 		// Only proceed if this node has some data associated with it
 		if (isSerializable)
 		{
-			// Write down its own data
-			Write(writer, tab, string.IsNullOrEmpty(name) ? "DataNode" : name, value, true);
+			Write(writer, string.IsNullOrEmpty(name) ? "DataNode" : name, value, tab);
+			writer.Write('\n');
 
 			// Iterate through children
 			for (int i = 0; i < children.size; ++i)
 				children[i].Write(writer, tab + 1);
 		}
 		if (tab == 0) writer.Flush();
+	}
+
+	/// <summary>
+	/// Write the values into the stream writer.
+	/// </summary>
+
+	static void Write (StreamWriter writer, string name, object value, int tab = 0)
+	{
+		bool prefix = false;
+
+		if (!string.IsNullOrEmpty(name))
+		{
+			prefix = true;
+			writer.WriteTabs(tab);
+			writer.Write(name);
+		}
+		else if (value != null)
+		{
+			writer.WriteTabs(tab);
+		}
+
+		if (value != null && !writer.WriteObject(value, prefix))
+		{
+			Type type = value.GetType();
+
+#if !STANDALONE
+			if (value is AnimationCurve)
+			{
+				AnimationCurve ac = value as AnimationCurve;
+				Keyframe[] kfs = ac.keys;
+
+				type = typeof(Vector4[]);
+
+				Vector4[] vs = new Vector4[kfs.Length];
+
+				for (int i = 0, imax = kfs.Length; i < imax; ++i)
+				{
+					Keyframe kf = kfs[i];
+					vs[i] = new Vector4(kf.time, kf.value, kf.inTangent, kf.outTangent);
+				}
+				value = vs;
+			}
+#endif
+			if (value is TList)
+			{
+				TList list = value as TList;
+
+				if (prefix) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+
+				if (list.Count > 0)
+				{
+					for (int i = 0, imax = list.Count; i < imax; ++i)
+					{
+						writer.Write('\n');
+						Write(writer, null, list.Get(i), tab + 1);
+					}
+				}
+				return;
+			}
+
+			if (value is System.Collections.IList)
+			{
+				System.Collections.IList list = value as System.Collections.IList;
+
+				if (prefix) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+
+				if (list.Count > 0)
+				{
+					for (int i = 0, imax = list.Count; i < imax; ++i)
+					{
+						writer.Write('\n');
+						Write(writer, null, list[i], tab + 1);
+					}
+				}
+				return;
+			}
+
+			if (value is IDataNodeSerializable)
+			{
+				IDataNodeSerializable ser = value as IDataNodeSerializable;
+				DataNode node = new DataNode();
+				ser.Serialize(node);
+
+				if (prefix) writer.Write(" = ");
+				writer.Write(Serialization.TypeToName(type));
+
+				for (int i = 0; i < node.children.size; ++i)
+				{
+					DataNode child = node.children[i];
+					writer.Write('\n');
+					child.Write(writer, tab + 1);
+				}
+				return;
+			}
+
+#if REFLECTION_SUPPORT
+			if (prefix) writer.Write(" = ");
+			writer.Write(Serialization.TypeToName(type));
+			List<FieldInfo> fields = type.GetSerializableFields();
+
+			if (fields.size > 0)
+			{
+				for (int i = 0; i < fields.size; ++i)
+				{
+					FieldInfo field = fields[i];
+					object val = field.GetValue(value);
+
+					if (val != null)
+					{
+						writer.Write('\n');
+						Write(writer, field.Name, val, tab + 1);
+					}
+				}
+			}
+#endif
+		}
 	}
 
 	/// <summary>
@@ -640,398 +756,6 @@ public class DataNode
 #region Private Functions
 
 	/// <summary>
-	/// Write the values into the stream writer.
-	/// </summary>
-
-	static void Write (StreamWriter writer, int tab, string name, object value, bool writeType)
-	{
-		if (string.IsNullOrEmpty(name) && value == null) return;
-
-		WriteTabs(writer, tab);
-
-		if (name != null)
-		{
-			writer.Write(Escape(name));
-
-			if (value == null)
-			{
-				writer.Write('\n');
-				return;
-			}
-		}
-
-		if (value is Enum)
-		{
-			if (name != null) writer.Write(" = \"");
-			writer.Write(Escape(value.ToString()));
-			if (name != null) writer.Write('"');
-			writer.Write('\n');
-			return;
-		}
-
-		Type type = value.GetType();
-
-		if (type == typeof(string))
-		{
-			if (name != null) writer.Write(" = \"");
-			writer.Write(Escape((string)value));
-			if (name != null) writer.Write('"');
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(bool))
-		{
-			if (name != null) writer.Write(" = ");
-			writer.Write((bool)value ? "true" : "false");
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(float))
-		{
-			if (name != null) writer.Write(" = ");
-			writer.WriteFloat((float)value);
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
-		{
-			if (name != null) writer.Write(" = ");
-			writer.Write(value.ToString());
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(byte[]))
-		{
-			if (name != null) writer.Write(" = [");
-			byte[] bytes = (byte[])value;
-
-			StringBuilder sb = new StringBuilder();
-			
-			for (int i = 0, imax = bytes.Length; i < imax; ++i)
-			{
-				int val = bytes[i];
-				sb.Append(DecimalToHexChar((val >> 4) & 0xF));
-				sb.Append(DecimalToHexChar(val & 0xF));
-			}
-
-			writer.Write(sb.ToString());
-			writer.Write("]\n");
-			return;
-		}
-
-		if (type == typeof(char))
-		{
-			if (name != null) writer.Write(" = ");
-			writer.Write(((int)value).ToString());
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(long) || type == typeof(ulong))
-		{
-			if (name != null) writer.Write(" = ");
-			writer.Write(value.ToString());
-			writer.Write("\n");
-			return;
-		}
-
-		if (type == typeof(ObsInt))
-		{
-			ObsInt o = (ObsInt)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write("ObsInt(");
-			writer.Write((int)o);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Vector2))
-		{
-			Vector2 v = (Vector2)value;
-			writer.Write(name != null ? " = (" : "(");
-			writer.WriteFloat(v.x);
-			writer.Write(", ");
-			writer.WriteFloat(v.y);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Vector3))
-		{
-			Vector3 v = (Vector3)value;
-			writer.Write(name != null ? " = (" : "(");
-			writer.WriteFloat(v.x);
-			writer.Write(", ");
-			writer.WriteFloat(v.y);
-			writer.Write(", ");
-			writer.WriteFloat(v.z);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Color))
-		{
-			Color c = (Color)value;
-			writer.Write(name != null ? " = (" : "(");
-			writer.WriteFloat(c.r);
-			writer.Write(", ");
-			writer.WriteFloat(c.g);
-			writer.Write(", ");
-			writer.WriteFloat(c.b);
-			writer.Write(", ");
-			writer.WriteFloat(c.a);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Color32))
-		{
-			Color32 c = (Color32)value;
-			writer.Write(name != null ? " = 0x" : "0x");
-
-			if (c.a == 255)
-			{
-				int i = (c.r << 16) | (c.g << 8) | c.b;
-				writer.Write(i.ToString("X6"));
-			}
-			else
-			{
-				int i = (c.r << 24) | (c.g << 16) | (c.b << 8) | c.a;
-				writer.Write(i.ToString("X8"));
-			}
-			writer.Write('\n');
-			return;
-		}
-
-		if (type == typeof(Vector4))
-		{
-			Vector4 v = (Vector4)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(v.x);
-			writer.Write(", ");
-			writer.WriteFloat(v.y);
-			writer.Write(", ");
-			writer.WriteFloat(v.z);
-			writer.Write(", ");
-			writer.WriteFloat(v.w);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Quaternion))
-		{
-			Quaternion q = (Quaternion)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(q.x);
-			writer.Write(", ");
-			writer.WriteFloat(q.y);
-			writer.Write(", ");
-			writer.WriteFloat(q.z);
-			writer.Write(", ");
-			writer.WriteFloat(q.w);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Rect))
-		{
-			Rect r = (Rect)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(r.x);
-			writer.Write(", ");
-			writer.WriteFloat(r.y);
-			writer.Write(", ");
-			writer.WriteFloat(r.width);
-			writer.Write(", ");
-			writer.WriteFloat(r.height);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Matrix4x4))
-		{
-			Matrix4x4 m = (Matrix4x4)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(m.m00); writer.Write(", ");
-			writer.WriteFloat(m.m10); writer.Write(", ");
-			writer.WriteFloat(m.m20); writer.Write(", ");
-			writer.WriteFloat(m.m30); writer.Write(", ");
-
-			writer.WriteFloat(m.m01); writer.Write(", ");
-			writer.WriteFloat(m.m11); writer.Write(", ");
-			writer.WriteFloat(m.m21); writer.Write(", ");
-			writer.WriteFloat(m.m31); writer.Write(", ");
-
-			writer.WriteFloat(m.m02); writer.Write(", ");
-			writer.WriteFloat(m.m12); writer.Write(", ");
-			writer.WriteFloat(m.m22); writer.Write(", ");
-			writer.WriteFloat(m.m32); writer.Write(", ");
-
-			writer.WriteFloat(m.m03); writer.Write(", ");
-			writer.WriteFloat(m.m13); writer.Write(", ");
-			writer.WriteFloat(m.m23); writer.Write(", ");
-			writer.WriteFloat(m.m33);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(BoneWeight))
-		{
-			BoneWeight bw = (BoneWeight)value;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(bw.boneIndex0);	writer.Write(", ");
-			writer.WriteFloat(bw.weight0);		writer.Write(", ");
-			writer.WriteFloat(bw.boneIndex1);	writer.Write(", ");
-			writer.WriteFloat(bw.weight1);		writer.Write(", ");
-			writer.WriteFloat(bw.boneIndex2);	writer.Write(", ");
-			writer.WriteFloat(bw.weight2);		writer.Write(", ");
-			writer.WriteFloat(bw.boneIndex3);	writer.Write(", ");
-			writer.WriteFloat(bw.weight3);
-			writer.Write(")\n");
-			return;
-		}
-
-		if (type == typeof(Bounds))
-		{
-			Bounds b = (Bounds)value;
-			Vector3 c = b.center;
-			Vector3 s = b.size;
-			if (name != null) writer.Write(" = ");
-			writer.Write('(');
-			writer.WriteFloat(c.x);
-			writer.Write(", ");
-			writer.WriteFloat(c.y);
-			writer.Write(", ");
-			writer.WriteFloat(c.z);
-			writer.Write(", ");
-			writer.WriteFloat(s.x);
-			writer.Write(", ");
-			writer.WriteFloat(s.y);
-			writer.Write(", ");
-			writer.WriteFloat(s.z);
-			writer.Write(")\n");
-			return;
-		}
-
-#if !STANDALONE
-		if (value is AnimationCurve)
-		{
-			AnimationCurve ac = value as AnimationCurve;
-			Keyframe[] kfs = ac.keys;
-
-			type = typeof(Vector4[]);
-
-			Vector4[] vs = new Vector4[kfs.Length];
-
-			for (int i = 0, imax = kfs.Length; i < imax; ++i)
-			{
-				Keyframe kf = kfs[i];
-				vs[i] = new Vector4(kf.time, kf.value, kf.inTangent, kf.outTangent);
-			}
-			value = vs;
-		}
-
-		if (value is LayerMask)
-		{
-			int val = (int)((LayerMask)value);
-			if (name != null) writer.Write(" = ");
-			writer.Write(val.ToString());
-			writer.Write('\n');
-			return;
-		}
-
-		if (value is UnityEngine.Object)
-		{
-			writer.Write('\n');
-			Debug.LogWarning(name + ": It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.");
-			return;
-		}
-#endif
-		if (value is TList)
-		{
-			TList list = value as TList;
-
-			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
-			writer.Write('\n');
-
-			if (list.Count > 0)
-			{
-				for (int i = 0, imax = list.Count; i < imax; ++i)
-					Write(writer, tab + 1, null, list.Get(i), false);
-			}
-			return;
-		}
-
-		if (value is System.Collections.IList)
-		{
-			System.Collections.IList list = value as System.Collections.IList;
-
-			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
-			writer.Write('\n');
-
-			if (list.Count > 0)
-			{
-				for (int i = 0, imax = list.Count; i < imax; ++i)
-					Write(writer, tab + 1, null, list[i], false);
-			}
-			return;
-		}
-
-		if (value is IDataNodeSerializable)
-		{
-			IDataNodeSerializable ser = value as IDataNodeSerializable;
-			DataNode node = new DataNode();
-			ser.Serialize(node);
-
-			if (name != null) writer.Write(" = ");
-			writer.Write(Serialization.TypeToName(type));
-			writer.Write('\n');
-
-			for (int i = 0; i < node.children.size; ++i)
-			{
-				DataNode child = node.children[i];
-				child.Write(writer, tab + 1);
-			}
-			return;
-		}
-
-		if (name != null) writer.Write(" = ");
-		writer.Write(Serialization.TypeToName(type));
-		writer.Write('\n');
-
-#if REFLECTION_SUPPORT
-		List<FieldInfo> fields = type.GetSerializableFields();
-
-		if (fields.size > 0)
-		{
-			for (int i = 0; i < fields.size; ++i)
-			{
-				FieldInfo field = fields[i];
-				object val = field.GetValue(value);
-				if (val != null) Write(writer, tab + 1, field.Name, val, true);
-			}
-		}
-#endif
-	}
-
-	static void WriteTabs (StreamWriter writer, int count)
-	{
-		for (int i = 0; i < count; ++i)
-			writer.Write('\t');
-	}
-
-	/// <summary>
 	/// Read this node and all of its children from the stream reader.
 	/// </summary>
 
@@ -1044,13 +768,13 @@ public class DataNode
 
 			if (divider == -1)
 			{
-				name = Unescape(line.Substring(offset)).Trim();
+				name = Serialization.Unescape(line.Substring(offset)).Trim();
 				value = null;
 			}
 			else
 			{
-				name = Unescape(line.Substring(offset, divider - offset)).Trim();
-				mValue = Unescape(line.Substring(divider + 1)).Trim();
+				name = Serialization.Unescape(line.Substring(offset, divider - offset)).Trim();
+				mValue = Serialization.Unescape(line.Substring(divider + 1)).Trim();
 				mResolved = false;
 			}
 
@@ -1076,443 +800,85 @@ public class DataNode
 
 	public bool ResolveValue (Type type = null)
 	{
-		mResolved = true;
-		string line = mValue as string;
-
-		if (string.IsNullOrEmpty(line))
-			return SetValue(line, type, null);
-
-		// Legacy, no longer used
-		if (line.Length > 1 && line[line.Length - 1] == 'L')
+		if (mValue is string)
 		{
-			long lv;
+			mResolved = true;
+			string line = mValue as string;
 
-			if (long.TryParse(line.Substring(0, line.Length - 1), out lv))
+			// Trim strings wrapped in quotes
+			if (type == typeof(string))
 			{
-				mValue = lv;
-				return true;
-			}
-		}
-		else if (line.Length > 2)
-		{
-			// If the line starts with a quote, it must also end with a quote
-			if (line[0] == '"' && line[line.Length - 1] == '"')
-			{
-				mValue = line.Substring(1, line.Length - 2);
-				return true;
-			}
-			else if (line[0] == '0' && line[1] == 'x' && line.Length > 7)
-			{
-				mValue = ParseColor32(line, 2);
-				return true;
-			}
-			else if (line[0] == '[' && line[line.Length - 1] == ']')
-			{
-				string s = line.Substring(1, line.Length - 2);
-				byte[] bytes = new byte[s.Length / 2];
-
-				for (int i = 0, b = 0, imax = s.Length; i < imax; ++b, i += 2)
-					bytes[b] = (byte)((HexToDecimal(s[i]) << 4) | HexToDecimal(s[i + 1]));
-
-				mValue = bytes;
-				return true;
-			}
-
-			// If the line starts with an opening bracket, it must always end with a closing bracket
-			if (line[0] == '(' && line[line.Length - 1] == ')')
-			{
-				line = line.Substring(1, line.Length - 2);
-				string[] parts = line.Split(',');
-
-				if (parts.Length == 1) return SetValue(line, typeof(float), null);
-				if (parts.Length == 2) return SetValue(line, typeof(Vector2), parts);
-				if (parts.Length == 3) return SetValue(line, type != null ? type : typeof(Vector3), parts);
-				if (parts.Length == 4) return SetValue(line, type != null ? type : typeof(Color), parts);
-				if (parts.Length == 6) return SetValue(line, typeof(Bounds), parts);
-				if (parts.Length == 8) return SetValue(line, typeof(BoneWeight), parts);
-				if (parts.Length == 16) return SetValue(line, typeof(Matrix4x4), parts);
-
-				mValue = line;
-				return true;
-			}
-
-			bool v;
-
-			if (bool.TryParse(line, out v))
-			{
-				mValue = v;
-				return true;
-			}
-		}
-		else if (line == "\"\"")
-		{
-			mValue = "";
-			return true;
-		}
-
-		int dataStart = line.IndexOf('(');
-
-		// Is there embedded data in brackets?
-		if (dataStart == -1)
-		{
-			// Is it a number?
-			if (line[0] == '-' || (line[0] >= '0' && line[0] <= '9'))
-			{
-				if (line.IndexOf('.') != -1)
+				if (line == "\"\"")
 				{
-					float f;
-
-					if (float.TryParse(line, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
-					{
-						mValue = f;
-						return true;
-					}
+					mValue = "";
 				}
 				else
 				{
-					int i;
-
-					if (line.Length < 12 && int.TryParse(line, out i))
-					{
-						if (type == typeof(byte)) mValue = (byte)i;
-						else if (type == typeof(short)) mValue = (short)i;
-						else if (type == typeof(ushort)) mValue = (ushort)i;
-						else mValue = i;
-						return true;
-					}
-					else
-					{
-						long l;
-						ulong ul;
-
-						if (line[0] == '-')
-						{
-							if (long.TryParse(line, out l))
-							{
-								mValue = l;
-								return true;
-							}
-						}
-						else if (ulong.TryParse(line, out ul))
-						{
-							mValue = ul;
-							return true;
-						}
-					}
+					int len = line.Length;
+					if (len > 2 && line[0] == '"' && line[len - 1] == '"')
+						mValue = line.Substring(1, len - 2);
 				}
-			}
-		}
-		else
-		{
-			// For some odd reason LastIndexOf() fails to find the last character of the string
-			int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
-
-			if (dataEnd != -1 && line.Length > 2)
-			{
-				// Set the type and extract the embedded data
-				string strType = line.Substring(0, dataStart);
-				type = Serialization.NameToType(strType);
-				line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
-			}
-			else if (type == null)
-			{
-				// No type specified, so just treat this line as a string
-				type = typeof(string);
-				mValue = line;
 				return true;
 			}
-		}
 
-		// Resolve the type and set the value
-		if (type == null) type = Serialization.NameToType(line);
-		return SetValue(line, type, null);
-	}
+			// Try to resolve this type as a simple type
+			if (Serialization.ReadObject(line, out mValue, type)) return true;
 
-	/// <summary>
-	/// Set the node's value using its text representation.
-	/// Returns whether the child nodes should be processed or not.
-	/// </summary>
+			// This type is either a class or an array
+			if (type == null) type = Serialization.NameToType(line);
 
-	bool SetValue (string text, Type type, string[] parts)
-	{
-		if (type == null || type == typeof(void))
-		{
-			mValue = null;
-		}
-		else if (type == typeof(string))
-		{
-			mValue = Unescape(text);
-		}
-		else if (type == typeof(bool))
-		{
-			bool b = false;
-			if (bool.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(byte))
-		{
-			byte b;
-			if (byte.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(Int16))
-		{
-			Int16 b;
-			if (Int16.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(UInt16))
-		{
-			UInt16 b;
-			if (UInt16.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(Int32))
-		{
-			Int32 b;
-			if (Int32.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(UInt32))
-		{
-			UInt32 b;
-			if (UInt32.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(long))
-		{
-			long b;
-			if (long.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(ulong))
-		{
-			ulong b;
-			if (ulong.TryParse(text, out b)) mValue = b;
-		}
-		else if (type == typeof(float))
-		{
-			float b;
-			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) mValue = b;
-		}
-		else if (type == typeof(double))
-		{
-			double b;
-			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) mValue = b;
-		}
-		else if (type == typeof(ObsInt))
-		{
-			int val = 0;
-			if (int.TryParse(text, out val))
-				mValue = new ObsInt(val);
-		}
-		else if (type == typeof(Vector2))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 2)
+			if (type == null || type == typeof(void))
 			{
-				Vector2 v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y))
-					mValue = v;
+				mValue = null;
+				return true;
 			}
-		}
-		else if (type == typeof(Vector3))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 3)
+			else if (type.Implements(typeof(IDataNodeSerializable)))
 			{
-				Vector3 v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
-					mValue = v;
+				IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
+				ds.Deserialize(this);
+				mValue = ds;
+				return false;
 			}
-		}
-		else if (type == typeof(Vector4))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 4)
-			{
-				Vector4 v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					mValue = v;
-			}
-		}
-		else if (type == typeof(Quaternion))
-		{
-			if (parts == null) parts = text.Split(',');
-
 #if !STANDALONE
-			if (parts.Length == 3)
+			else if (type == typeof(AnimationCurve))
 			{
-				Vector3 v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
-					mValue = Quaternion.Euler(v);
+				if (children.size != 0)
+				{
+					AnimationCurve cv = new AnimationCurve();
+					Keyframe[] kfs = new Keyframe[children.size];
+
+					for (int i = 0; i < children.size; ++i)
+					{
+						DataNode child = children[i];
+
+						if (child.value == null)
+						{
+							child.mValue = child.name;
+							child.mResolved = false;
+							child.ResolveValue(typeof(Vector4));
+
+							Vector4 v = (Vector4)child.mValue;
+							kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
+						}
+						else
+						{
+							Vector4 v = (Vector4)child.mValue;
+							kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
+						}
+					}
+
+					cv.keys = kfs;
+					mValue = cv;
+					children.Clear();
+				}
+				return false;
 			}
+			else if (type == typeof(LayerMask))
+			{
+				mValue = (LayerMask)Get<int>();
+			}
+#endif
 			else
-#endif
-				if (parts.Length == 4)
-			{
-				Quaternion v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					mValue = v;
-			}
-		}
-		else if (type == typeof(Color))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 4)
-			{
-				Color v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.r) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.g) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.b) &&
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.a))
-					mValue = v;
-			}
-		}
-		else if (type == typeof(Rect))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 4)
-			{
-				Vector4 v;
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
-					mValue = new Rect(v.x, v.y, v.z, v.w);
-			}
-		}
-		else if (type == typeof(BoneWeight))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 8)
-			{
-				int i;
-				float f;
-				BoneWeight w = new BoneWeight();
-
-				if (int.TryParse(parts[0], out i)) w.boneIndex0 = i;
-				if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight0 = f;
-
-				if (int.TryParse(parts[2], out i)) w.boneIndex1 = i;
-				if (float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight1 = f;
-
-				if (int.TryParse(parts[4], out i)) w.boneIndex2 = i;
-				if (float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight2 = f;
-
-				if (int.TryParse(parts[6], out i)) w.boneIndex3 = i;
-				if (float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight3 = f;
-
-				mValue = w;
-			}
-		}
-		else if (type == typeof(Matrix4x4))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 16)
-			{
-				Matrix4x4 m;
-				float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m00);
-				float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m10);
-				float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m20);
-				float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m30);
-				float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m01);
-				float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m11);
-				float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m21);
-				float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m31);
-				float.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m02);
-				float.TryParse(parts[9], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m12);
-				float.TryParse(parts[10], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m22);
-				float.TryParse(parts[11], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m32);
-				float.TryParse(parts[12], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m03);
-				float.TryParse(parts[13], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m13);
-				float.TryParse(parts[14], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m23);
-				float.TryParse(parts[15], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m33);
-				mValue = m;
-			}
-		}
-		else if (type == typeof(Bounds))
-		{
-			if (parts == null) parts = text.Split(',');
-
-			if (parts.Length == 6)
-			{
-				Vector3 center;
-				Vector3 size;
-
-				if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out center.x) &&
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out center.y) &&
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out center.z) &&
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out size.x) &&
-					float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out size.y) &&
-					float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out size.z))
-				{
-					mValue = new Bounds(center, size);
-				}
-			}
-		}
-		else if (type.IsEnum)
-		{
-			mValue = Enum.Parse(type, text);
-		}
-		else if (type.Implements(typeof(IDataNodeSerializable)))
-		{
-			IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
-			ds.Deserialize(this);
-			mValue = ds;
-			return false;
-		}
-#if !STANDALONE
-		else if (type == typeof(AnimationCurve))
-		{
-			if (children.size != 0)
-			{
-				AnimationCurve cv = new AnimationCurve();
-				Keyframe[] kfs = new Keyframe[children.size];
-
-				for (int i = 0; i < children.size; ++i)
-				{
-					DataNode child = children[i];
-
-					if (child.value == null)
-					{
-						child.mValue = child.name;
-						child.mResolved = false;
-						child.ResolveValue(typeof(Vector4));
-
-						Vector4 v = (Vector4)child.mValue;
-						kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
-					}
-					else
-					{
-						Vector4 v = (Vector4)child.mValue;
-						kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
-					}
-				}
-
-				cv.keys = kfs;
-				mValue = cv;
-				children.Clear();
-			}
-			return false;
-		}
-		else if (type == typeof(LayerMask))
-		{
-			mValue = (LayerMask)Get<int>();
-		}
-#endif
-		else
 #if !STANDALONE
 			if (!type.IsSubclassOf(typeof(Component)))
 #endif
@@ -1606,8 +972,11 @@ public class DataNode
 				else Tools.LogError("Unhandled type: " + type);
 #endif
 			}
+			return true;
+		}
 		return true;
 	}
+
 #endregion
 #region Static Helper Functions
 
@@ -1642,96 +1011,6 @@ public class DataNode
 			}
 		}
 		return 0;
-	}
-
-	/// <summary>
-	/// Escape the characters in the string.
-	/// </summary>
-
-	static string Escape (string val)
-	{
-		if (!string.IsNullOrEmpty(val))
-		{
-			val = val.Replace("\n", "\\n");
-			val = val.Replace("\t", "\\t");
-		}
-		return val;
-	}
-
-	/// <summary>
-	/// Recover escaped characters, converting them back to usable characters.
-	/// </summary>
-
-	static string Unescape (string val)
-	{
-		if (!string.IsNullOrEmpty(val))
-		{
-			val = val.Replace("\\n", "\n");
-			val = val.Replace("\\t", "\t");
-		}
-		return val;
-	}
-
-	/// <summary>
-	/// Convert byte to hexadecimal character helper function.
-	/// </summary>
-
-	[System.Diagnostics.DebuggerHidden]
-	[System.Diagnostics.DebuggerStepThrough]
-	static char DecimalToHexChar (int num)
-	{
-		if (num > 15) return 'F';
-		if (num < 10) return (char)('0' + num);
-		return (char)('A' + num - 10);
-	}
-
-	/// <summary>
-	/// Convert a hexadecimal character to its decimal value.
-	/// </summary>
-
-	[System.Diagnostics.DebuggerHidden]
-	[System.Diagnostics.DebuggerStepThrough]
-	static int HexToDecimal (char ch)
-	{
-		switch (ch)
-		{
-			case '0': return 0x0;
-			case '1': return 0x1;
-			case '2': return 0x2;
-			case '3': return 0x3;
-			case '4': return 0x4;
-			case '5': return 0x5;
-			case '6': return 0x6;
-			case '7': return 0x7;
-			case '8': return 0x8;
-			case '9': return 0x9;
-			case 'a':
-			case 'A': return 0xA;
-			case 'b':
-			case 'B': return 0xB;
-			case 'c':
-			case 'C': return 0xC;
-			case 'd':
-			case 'D': return 0xD;
-			case 'e':
-			case 'E': return 0xE;
-			case 'f':
-			case 'F': return 0xF;
-		}
-		return 0xF;
-	}
-
-	/// <summary>
-	/// Parse a RrGgBbAa color encoded in the string.
-	/// </summary>
-
-	static Color32 ParseColor32 (string text, int offset)
-	{
-		byte r = (byte)((HexToDecimal(text[offset]) << 4) | HexToDecimal(text[offset + 1]));
-		byte g = (byte)((HexToDecimal(text[offset + 2]) << 4) | HexToDecimal(text[offset + 3]));
-		byte b = (byte)((HexToDecimal(text[offset + 4]) << 4) | HexToDecimal(text[offset + 5]));
-		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
-		return new Color32(r, g, b, a);
 	}
 #endregion
 }

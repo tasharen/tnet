@@ -22,6 +22,7 @@ using System;
 #if REFLECTION_SUPPORT
 using System.Reflection;
 using System.Globalization;
+using System.Text;
 #endif
 
 public struct Vector4i
@@ -344,29 +345,19 @@ public static class Serialization
 		return name;
 	}
 
-	static int Round (float val) { return (int)(val + 0.5f); } 
+	static int Round (float val) { return (int)(val + 0.5f); }
 
 	/// <summary>
-	/// Helper function to convert the specified value into the provided type.
+	/// Cast the specified object into the desired type.
 	/// </summary>
 
-#if STANDALONE
-	static public object ConvertValue (object value, Type desiredType)
-#else
-	static public object ConvertValue (object value, Type desiredType, GameObject go = null)
-#endif
+	static object CastValue (object value, Type desiredType)
 	{
-		if (value == null) return null;
-
 		Type valueType = value.GetType();
 		if (valueType == desiredType) return value;
 		if (desiredType.IsAssignableFrom(valueType)) return value;
 
-		if (desiredType == typeof(string))
-		{
-			return value.ToString();
-		}
-		else if (valueType == typeof(int))
+		if (valueType == typeof(int))
 		{
 			// Integer conversion
 			if (desiredType == typeof(byte)) return (byte)(int)value;
@@ -475,51 +466,7 @@ public static class Serialization
 			return vs;
 		}
 		else if (valueType == typeof(LayerMask) && desiredType == typeof(int)) return (int)(LayerMask)value;
-		else if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
-		{
-			if (go != null) return go.StringToReference((string)value);
-			else Debug.LogWarning("Game object reference is needed for a path-based reference");
-		}
- #if REFLECTION_SUPPORT
-		else if (valueType == typeof(string[]) && desiredType.IsArray)
-		{
-			System.Type elemType = desiredType.GetElementType();
-
-			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
-			{
-				string[] list = (string[])value;
-				IList newList = desiredType.Create(list.Length) as IList;
-
-				for (int i = 0, imax = list.Length; i < imax; ++i)
-				{
-					object obj = go.StringToReference(list[i]);
-					if (go != null) newList[i] = Convert.ChangeType(obj, elemType);
-					else Debug.LogWarning("Game object reference is needed for a path-based reference");
-				}
-				return newList;
-			}
-		}
-		else if (valueType == typeof(string[]) && desiredType.IsGenericType)
-		{
-			System.Type elemType = desiredType.GetGenericArgument();
-
-			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
-			{
-				string[] list = (string[])value;
-				Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
-				IList newList = (IList)Activator.CreateInstance(arrType);
-
-				for (int i = 0, imax = list.Length; i < imax; ++i)
-				{
-					if (go != null) newList.Add(go.StringToReference(list[i]));
-					else Debug.LogWarning("Game object reference is needed for a path-based reference");
-				}
-				return newList;
-			}
-		}
- #endif
 #endif
-
 #if REFLECTION_SUPPORT
 		if (desiredType.IsEnum)
 		{
@@ -546,8 +493,884 @@ public static class Serialization
 			}
 		}
 #endif
+		return null;
+	}
+
+	/// <summary>
+	/// Convert the specified value into another type.
+	/// </summary>
+
+	static public T Convert<T> (object value)
+	{
+		object obj = ConvertObject(value, typeof(T));
+		return (obj != null) ? (T)obj : default(T);
+	}
+
+	/// <summary>
+	/// Convert the specified value into another type.
+	/// </summary>
+
+	static public T Convert<T> (object value, T defaultValue)
+	{
+		object obj = ConvertObject(value, typeof(T));
+		return (obj != null) ? (T)obj : defaultValue;
+	}
+
+	/// <summary>
+	/// Helper function to convert the specified value into the provided type.
+	/// </summary>
+
+#if STANDALONE
+	static public object ConvertObject (object value, Type desiredType)
+#else
+	static public object ConvertObject (object value, Type desiredType, GameObject go = null)
+#endif
+	{
+		if (value == null) return null;
+
+		Type valueType = value.GetType();
+		if (valueType == desiredType) return value;
+		if (desiredType.IsAssignableFrom(valueType)) return value;
+
+		object retVal = CastValue(value, desiredType);
+		if (retVal != null) return retVal;
+
+		if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
+		{
+			if (go != null) return go.StringToReference((string)value);
+			else Debug.LogWarning("Game object reference is needed for a path-based reference");
+		}
+#if REFLECTION_SUPPORT
+		else if (valueType == typeof(string[]) && desiredType.IsArray)
+		{
+			System.Type elemType = desiredType.GetElementType();
+
+			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+			{
+				string[] list = (string[])value;
+				IList newList = desiredType.Create(list.Length) as IList;
+
+				for (int i = 0, imax = list.Length; i < imax; ++i)
+				{
+					object obj = go.StringToReference(list[i]);
+					if (go != null) newList[i] = System.Convert.ChangeType(obj, elemType);
+					else Debug.LogWarning("Game object reference is needed for a path-based reference");
+				}
+				return newList;
+			}
+		}
+		else if (valueType == typeof(string[]) && desiredType.IsGenericType)
+		{
+			System.Type elemType = desiredType.GetGenericArgument();
+
+			if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+			{
+				string[] list = (string[])value;
+				Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+				IList newList = (IList)Activator.CreateInstance(arrType);
+
+				for (int i = 0, imax = list.Length; i < imax; ++i)
+				{
+					if (go != null) newList.Add(go.StringToReference(list[i]));
+					else Debug.LogWarning("Game object reference is needed for a path-based reference");
+				}
+				return newList;
+			}
+		}
+#endif
+
+		// Object to string conversion
+		if (desiredType == typeof(string))
+		{
+			if (mTempStream == null)
+			{
+				mTempStream = new MemoryStream();
+				mTempWriter = new StreamWriter(mTempStream);
+				mTempReader = new StreamReader(mTempStream);
+			}
+			else
+			{
+				mTempStream.Position = 0;
+				mTempReader.DiscardBufferedData();
+			}
+			
+			mTempWriter.WriteObject(value);
+			mTempWriter.Write("\n");
+			mTempWriter.Flush();
+			mTempStream.Position = 0;
+			mTempReader.DiscardBufferedData();
+			return mTempReader.ReadLine();
+		}
+
+		// String to object conversion
+		if (valueType == typeof(string))
+		{
+			object obj;
+			return (ReadObject((string)value, out obj) && obj != null) ? CastValue(obj, desiredType) : null;
+		}
+
 		Tools.LogError("Unable to convert " + valueType + " (" + value.ToString() + ") to " + desiredType);
 		return null;
+	}
+
+	// Temporary variables used in the ConvertObject function.
+	static MemoryStream mTempStream = null;
+	static StreamWriter mTempWriter = null;
+	static StreamReader mTempReader = null;
+
+	/// <summary>
+	/// Parse the string into an object, if possible.
+	/// </summary>
+
+	static public bool ReadObject (string line, out object obj, Type type = null)
+	{
+		if (line == "\"\"")
+		{
+			obj = "";
+			return true;
+		}
+		else if (line.Length > 2)
+		{
+			char ch0 = line[0];
+			char ch1 = line[line.Length - 1];
+
+			if (line[0] == '"' && ch1 == '"')
+			{
+				obj = line.Substring(1, line.Length - 2);
+				return true;
+			}
+			else if (ch0 == '0' && line[1] == 'x' && line.Length > 7)
+			{
+				obj = Serialization.ParseColor32(line, 2);
+				return true;
+			}
+			else if (ch0 == '[' && ch1 == ']')
+			{
+				string s = line.Substring(1, line.Length - 2);
+				byte[] bytes = new byte[s.Length / 2];
+				for (int i = 0, b = 0, imax = s.Length; i < imax; ++b, i += 2)
+					bytes[b] = (byte)((Serialization.HexToDecimal(s[i]) << 4) | Serialization.HexToDecimal(s[i + 1]));
+				obj = bytes;
+				return true;
+			}
+			else if (ch0 == '(' && ch1 == ')')
+			{
+				line = line.Substring(1, line.Length - 2);
+				obj = Serialization.ReadInnerObject(line, type, null);
+				return true;
+			}
+		}
+
+		bool v;
+		if (bool.TryParse(line, out v))
+		{
+			obj = v;
+			return true;
+		}
+
+		int dataStart = line.IndexOf('(');
+
+		// Is there embedded data in brackets?
+		if (dataStart == -1)
+		{
+			// Is it a number?
+			if (line[0] == '-' || (line[0] >= '0' && line[0] <= '9'))
+			{
+				if (line.IndexOf('.') != -1)
+				{
+					float f;
+
+					if (float.TryParse(line, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
+					{
+						obj = f;
+						return true;
+					}
+				}
+				else
+				{
+					int i;
+
+					if (line.Length < 12 && int.TryParse(line, out i))
+					{
+						if (type == typeof(byte)) obj = (byte)i;
+						else if (type == typeof(short)) obj = (short)i;
+						else if (type == typeof(ushort)) obj = (ushort)i;
+						else obj = i;
+						return true;
+					}
+					else
+					{
+						long l;
+						ulong ul;
+
+						if (line[0] == '-')
+						{
+							if (long.TryParse(line, out l))
+							{
+								obj = l;
+								return true;
+							}
+						}
+						else if (ulong.TryParse(line, out ul))
+						{
+							obj = ul;
+							return true;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			// For some odd reason LastIndexOf() fails to find the last character of the string
+			int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
+
+			if (dataEnd != -1 && line.Length > 2)
+			{
+				// Set the type and extract the embedded data
+				string strType = line.Substring(0, dataStart);
+				type = Serialization.NameToType(strType);
+				line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
+			}
+			else if (type == null)
+			{
+				// No type specified, so just treat this line as a string
+				type = typeof(string);
+				obj = line;
+				return true;
+			}
+		}
+
+		obj = line;
+		return false;
+	}
+
+	/// <summary>
+	/// Parse the string into an object, if possible.
+	/// </summary>
+
+	static object ReadInnerObject (string text, Type type, string[] parts)
+	{
+		if (type == typeof(void) || string.IsNullOrEmpty(text)) return null;
+
+		if (type == typeof(string))
+		{
+			return Serialization.Unescape(text);
+		}
+		else if (type == typeof(bool))
+		{
+			bool b = false;
+			if (bool.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(byte))
+		{
+			byte b;
+			if (byte.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(Int16))
+		{
+			Int16 b;
+			if (Int16.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(UInt16))
+		{
+			UInt16 b;
+			if (UInt16.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(Int32))
+		{
+			Int32 b;
+			if (Int32.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(UInt32))
+		{
+			UInt32 b;
+			if (UInt32.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(long))
+		{
+			long b;
+			if (long.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(ulong))
+		{
+			ulong b;
+			if (ulong.TryParse(text, out b)) return b;
+		}
+		else if (type == typeof(float))
+		{
+			float b;
+			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) return b;
+		}
+		else if (type == typeof(double))
+		{
+			double b;
+			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) return b;
+		}
+		else if (type == typeof(ObsInt))
+		{
+			int val = 0;
+			if (int.TryParse(text, out val))
+				return new ObsInt(val);
+		}
+		else if (type != null && type.IsEnum)
+		{
+			return Enum.Parse(type, text);
+		}
+		else
+		{
+			if (parts == null) parts = text.Split(',');
+
+			if (type == null)
+			{
+				int count = parts.Length;
+
+				switch (count)
+				{
+					case 2: type = typeof(Vector2); break;
+					case 3: type = typeof(Vector3); break;
+					case 4: type = typeof(Color); break;
+					case 8: type = typeof(BoneWeight); break;
+					case 6: type = typeof(Bounds); break;
+					case 16: type = typeof(Matrix4x4); break;
+					default: return null;
+				}
+			}
+
+			if (type == typeof(Vector2))
+			{
+				if (parts.Length == 2)
+				{
+					Vector2 v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y))
+						return v;
+				}
+			}
+			else if (type == typeof(Vector3))
+			{
+				if (parts.Length == 3)
+				{
+					Vector3 v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
+						return v;
+				}
+			}
+			else if (type == typeof(Vector4))
+			{
+				if (parts.Length == 4)
+				{
+					Vector4 v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+						return v;
+				}
+			}
+			else if (type == typeof(Quaternion))
+			{
+#if !STANDALONE
+				if (parts.Length == 3)
+				{
+					Vector3 v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
+						return Quaternion.Euler(v);
+				}
+				else
+#endif
+					if (parts.Length == 4)
+					{
+						Quaternion v;
+						if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+							float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+							float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
+							float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+							return v;
+					}
+			}
+			else if (type == typeof(Color))
+			{
+				if (parts.Length == 4)
+				{
+					Color v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.r) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.g) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.b) &&
+						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.a))
+						return v;
+				}
+			}
+			else if (type == typeof(Rect))
+			{
+				if (parts.Length == 4)
+				{
+					Vector4 v;
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+						return new Rect(v.x, v.y, v.z, v.w);
+				}
+			}
+			else if (type == typeof(BoneWeight))
+			{
+				if (parts.Length == 8)
+				{
+					int i;
+					float f;
+					BoneWeight w = new BoneWeight();
+
+					if (int.TryParse(parts[0], out i)) w.boneIndex0 = i;
+					if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight0 = f;
+
+					if (int.TryParse(parts[2], out i)) w.boneIndex1 = i;
+					if (float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight1 = f;
+
+					if (int.TryParse(parts[4], out i)) w.boneIndex2 = i;
+					if (float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight2 = f;
+
+					if (int.TryParse(parts[6], out i)) w.boneIndex3 = i;
+					if (float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight3 = f;
+
+					return w;
+				}
+			}
+			else if (type == typeof(Matrix4x4))
+			{
+				if (parts.Length == 16)
+				{
+					Matrix4x4 m;
+					float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m00);
+					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m10);
+					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m20);
+					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m30);
+					float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m01);
+					float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m11);
+					float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m21);
+					float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m31);
+					float.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m02);
+					float.TryParse(parts[9], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m12);
+					float.TryParse(parts[10], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m22);
+					float.TryParse(parts[11], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m32);
+					float.TryParse(parts[12], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m03);
+					float.TryParse(parts[13], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m13);
+					float.TryParse(parts[14], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m23);
+					float.TryParse(parts[15], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m33);
+					return m;
+				}
+			}
+			else if (type == typeof(Bounds))
+			{
+				if (parts.Length == 6)
+				{
+					Vector3 center;
+					Vector3 size;
+
+					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out center.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out center.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out center.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out size.x) &&
+						float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out size.y) &&
+						float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out size.z))
+						return new Bounds(center, size);
+				}
+			}
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Read an object that was serialized using StreamWriter.WriteObject().
+	/// </summary>
+
+	static public object ReadObject (this TextReader reader, Type type = null)
+	{
+		object obj;
+		ReadObject(Unescape(reader.ReadLine()).Trim(), out obj, type);
+		return obj;
+	}
+
+	/// <summary>
+	/// Serialize the specified object into the stream writer. This function is only capable of serializing single-line types.
+	/// </summary>
+
+	static public bool WriteObject (this StreamWriter writer, object value, bool prefix = false)
+	{
+		if (value is Enum)
+		{
+			if (prefix) writer.Write(" = \"");
+			writer.Write(Escape(value.ToString()));
+			if (prefix) writer.Write('"');
+			return true;
+		}
+
+		Type type = value.GetType();
+
+		if (type == typeof(string))
+		{
+			if (prefix) writer.Write(" = \"");
+			writer.Write(Escape((string)value));
+			if (prefix) writer.Write('"');
+			return true;
+		}
+
+		if (type == typeof(bool))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.Write((bool)value ? "true" : "false");
+			return true;
+		}
+
+		if (type == typeof(float))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.WriteFloat((float)value);
+			return true;
+		}
+
+		if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.Write(value.ToString());
+			return true;
+		}
+
+		if (type == typeof(byte[]))
+		{
+			if (prefix) writer.Write(" = [");
+			byte[] bytes = (byte[])value;
+
+			StringBuilder sb = new StringBuilder();
+
+			for (int i = 0, imax = bytes.Length; i < imax; ++i)
+			{
+				int val = bytes[i];
+				sb.Append(DecimalToHexChar((val >> 4) & 0xF));
+				sb.Append(DecimalToHexChar(val & 0xF));
+			}
+
+			writer.Write(sb.ToString());
+			writer.Write("]");
+			return true;
+		}
+
+		if (type == typeof(char))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.Write(((int)value).ToString());
+			return true;
+		}
+
+		if (type == typeof(long) || type == typeof(ulong))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.Write(value.ToString());
+			return true;
+		}
+
+		if (type == typeof(ObsInt))
+		{
+			ObsInt o = (ObsInt)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write("ObsInt(");
+			writer.Write((int)o);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Vector2))
+		{
+			Vector2 v = (Vector2)value;
+			writer.Write(prefix ? " = (" : "(");
+			writer.WriteFloat(v.x);
+			writer.Write(", ");
+			writer.WriteFloat(v.y);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Vector3))
+		{
+			Vector3 v = (Vector3)value;
+			writer.Write(prefix ? " = (" : "(");
+			writer.WriteFloat(v.x);
+			writer.Write(", ");
+			writer.WriteFloat(v.y);
+			writer.Write(", ");
+			writer.WriteFloat(v.z);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Color))
+		{
+			Color c = (Color)value;
+			writer.Write(prefix ? " = (" : "(");
+			writer.WriteFloat(c.r);
+			writer.Write(", ");
+			writer.WriteFloat(c.g);
+			writer.Write(", ");
+			writer.WriteFloat(c.b);
+			writer.Write(", ");
+			writer.WriteFloat(c.a);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Color32))
+		{
+			Color32 c = (Color32)value;
+			writer.Write(prefix ? " = 0x" : "0x");
+
+			if (c.a == 255)
+			{
+				int i = (c.r << 16) | (c.g << 8) | c.b;
+				writer.Write(i.ToString("X6"));
+			}
+			else
+			{
+				int i = (c.r << 24) | (c.g << 16) | (c.b << 8) | c.a;
+				writer.Write(i.ToString("X8"));
+			}
+			return true;
+		}
+
+		if (type == typeof(Vector4))
+		{
+			Vector4 v = (Vector4)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(v.x);
+			writer.Write(", ");
+			writer.WriteFloat(v.y);
+			writer.Write(", ");
+			writer.WriteFloat(v.z);
+			writer.Write(", ");
+			writer.WriteFloat(v.w);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Quaternion))
+		{
+			Quaternion q = (Quaternion)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(q.x);
+			writer.Write(", ");
+			writer.WriteFloat(q.y);
+			writer.Write(", ");
+			writer.WriteFloat(q.z);
+			writer.Write(", ");
+			writer.WriteFloat(q.w);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Rect))
+		{
+			Rect r = (Rect)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(r.x);
+			writer.Write(", ");
+			writer.WriteFloat(r.y);
+			writer.Write(", ");
+			writer.WriteFloat(r.width);
+			writer.Write(", ");
+			writer.WriteFloat(r.height);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Matrix4x4))
+		{
+			Matrix4x4 m = (Matrix4x4)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(m.m00); writer.Write(", ");
+			writer.WriteFloat(m.m10); writer.Write(", ");
+			writer.WriteFloat(m.m20); writer.Write(", ");
+			writer.WriteFloat(m.m30); writer.Write(", ");
+
+			writer.WriteFloat(m.m01); writer.Write(", ");
+			writer.WriteFloat(m.m11); writer.Write(", ");
+			writer.WriteFloat(m.m21); writer.Write(", ");
+			writer.WriteFloat(m.m31); writer.Write(", ");
+
+			writer.WriteFloat(m.m02); writer.Write(", ");
+			writer.WriteFloat(m.m12); writer.Write(", ");
+			writer.WriteFloat(m.m22); writer.Write(", ");
+			writer.WriteFloat(m.m32); writer.Write(", ");
+
+			writer.WriteFloat(m.m03); writer.Write(", ");
+			writer.WriteFloat(m.m13); writer.Write(", ");
+			writer.WriteFloat(m.m23); writer.Write(", ");
+			writer.WriteFloat(m.m33);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(BoneWeight))
+		{
+			BoneWeight bw = (BoneWeight)value;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(bw.boneIndex0); writer.Write(", ");
+			writer.WriteFloat(bw.weight0); writer.Write(", ");
+			writer.WriteFloat(bw.boneIndex1); writer.Write(", ");
+			writer.WriteFloat(bw.weight1); writer.Write(", ");
+			writer.WriteFloat(bw.boneIndex2); writer.Write(", ");
+			writer.WriteFloat(bw.weight2); writer.Write(", ");
+			writer.WriteFloat(bw.boneIndex3); writer.Write(", ");
+			writer.WriteFloat(bw.weight3);
+			writer.Write(")");
+			return true;
+		}
+
+		if (type == typeof(Bounds))
+		{
+			Bounds b = (Bounds)value;
+			Vector3 c = b.center;
+			Vector3 s = b.size;
+			if (prefix) writer.Write(" = ");
+			writer.Write('(');
+			writer.WriteFloat(c.x);
+			writer.Write(", ");
+			writer.WriteFloat(c.y);
+			writer.Write(", ");
+			writer.WriteFloat(c.z);
+			writer.Write(", ");
+			writer.WriteFloat(s.x);
+			writer.Write(", ");
+			writer.WriteFloat(s.y);
+			writer.Write(", ");
+			writer.WriteFloat(s.z);
+			writer.Write(")");
+			return true;
+		}
+
+#if !STANDALONE
+		if (value is LayerMask)
+		{
+			int val = (int)((LayerMask)value);
+			if (prefix) writer.Write(" = ");
+			writer.Write(val.ToString());
+			return true;
+		}
+
+		if (value is UnityEngine.Object)
+		{
+			Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.");
+			return true;
+		}
+#endif
+		return false;
+	}
+
+	/// <summary>
+	/// Write the specified number of tabs into the writer.
+	/// </summary>
+
+	static public void WriteTabs (this StreamWriter writer, int count)
+	{
+		for (int i = 0; i < count; ++i)
+			writer.Write('\t');
+	}
+
+	/// <summary>
+	/// Escape the characters in the string.
+	/// </summary>
+
+	static public string Escape (string val)
+	{
+		if (!string.IsNullOrEmpty(val))
+		{
+			val = val.Replace("\n", "\\n");
+			val = val.Replace("\t", "\\t");
+		}
+		return val;
+	}
+
+	/// <summary>
+	/// Recover escaped characters, converting them back to usable characters.
+	/// </summary>
+
+	static public string Unescape (string val)
+	{
+		if (!string.IsNullOrEmpty(val))
+		{
+			val = val.Replace("\\n", "\n");
+			val = val.Replace("\\t", "\t");
+		}
+		return val;
+	}
+
+	/// <summary>
+	/// Convert byte to hexadecimal character helper function.
+	/// </summary>
+
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static public char DecimalToHexChar (int num)
+	{
+		if (num > 15) return 'F';
+		if (num < 10) return (char)('0' + num);
+		return (char)('A' + num - 10);
+	}
+
+	/// <summary>
+	/// Convert a hexadecimal character to its decimal value.
+	/// </summary>
+
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static public int HexToDecimal (char ch)
+	{
+		switch (ch)
+		{
+			case '0': return 0x0;
+			case '1': return 0x1;
+			case '2': return 0x2;
+			case '3': return 0x3;
+			case '4': return 0x4;
+			case '5': return 0x5;
+			case '6': return 0x6;
+			case '7': return 0x7;
+			case '8': return 0x8;
+			case '9': return 0x9;
+			case 'a':
+			case 'A': return 0xA;
+			case 'b':
+			case 'B': return 0xB;
+			case 'c':
+			case 'C': return 0xC;
+			case 'd':
+			case 'D': return 0xD;
+			case 'e':
+			case 'E': return 0xE;
+			case 'f':
+			case 'F': return 0xF;
+		}
+		return 0xF;
+	}
+
+	/// <summary>
+	/// Parse a RrGgBbAa color encoded in the string.
+	/// </summary>
+
+	static public Color32 ParseColor32 (string text, int offset)
+	{
+		byte r = (byte)((HexToDecimal(text[offset]) << 4) | HexToDecimal(text[offset + 1]));
+		byte g = (byte)((HexToDecimal(text[offset + 2]) << 4) | HexToDecimal(text[offset + 3]));
+		byte b = (byte)((HexToDecimal(text[offset + 4]) << 4) | HexToDecimal(text[offset + 5]));
+		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
+		return new Color32(r, g, b, a);
 	}
 
 #if !REFLECTION_SUPPORT
@@ -577,7 +1400,7 @@ public static class Serialization
 		{
 			try
 			{
-				object val = ConvertValue(value, pro.PropertyType);
+				object val = ConvertObject(value, pro.PropertyType);
 				pro.SetValue(obj, val, null);
 				return true;
 			}
@@ -594,7 +1417,7 @@ public static class Serialization
 		{
 			try
 			{
-				object val = ConvertValue(value, fi.FieldType);
+				object val = ConvertObject(value, fi.FieldType);
 				fi.SetValue(obj, val);
 			}
 			catch (Exception ex)
@@ -622,12 +1445,12 @@ public static class Serialization
 		if (fi != null)
 		{
  #if UNITY_EDITOR
-			object val = ConvertValue(value, fi.FieldType, go);
+			object val = ConvertObject(value, fi.FieldType, go);
 			fi.SetValue(obj, val);
  #else
 			try
 			{
-				object val = ConvertValue(value, fi.FieldType, go);
+				object val = ConvertObject(value, fi.FieldType, go);
 				fi.SetValue(obj, val);
 			}
 			catch (Exception ex)
@@ -643,13 +1466,13 @@ public static class Serialization
 		if (pro != null)
 		{
  #if UNITY_EDITOR
-			object val = ConvertValue(value, pro.PropertyType, go);
+			object val = ConvertObject(value, pro.PropertyType, go);
 			pro.SetValue(obj, val, null);
 			return true;
  #else
 			try
 			{
-				object val = ConvertValue(value, pro.PropertyType, go);
+				object val = ConvertObject(value, pro.PropertyType, go);
 				pro.SetValue(obj, val, null);
 				return true;
 			}
@@ -1021,7 +1844,7 @@ public static class Serialization
 
 #if !STANDALONE
 		// AnimationCurve should be sent as an array of Vector4 values since it's not serializable on its own
-		if (obj is AnimationCurve) obj = ConvertValue(obj, typeof(Vector4[]));
+		if (obj is AnimationCurve) obj = Convert<Vector4[]>(obj);
 #endif
 		// The object implements IBinarySerializable
 		if (obj is IBinarySerializable)
