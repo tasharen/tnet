@@ -1074,6 +1074,42 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Get the specified RCC.
+	/// </summary>
+
+	static CachedFunc GetRCC (int rccID, string funcName)
+	{
+		CachedFunc func = null;
+
+		if (rccID > 0 && rccID < 256 && !mDict0.TryGetValue(rccID, out func))
+		{
+			CacheRFCs();
+			if (!mDict0.TryGetValue(rccID, out func))
+				mDict0[rccID] = null;
+		}
+
+		if (func == null)
+		{
+			if (funcName != null)
+			{
+				if (!mDict1.TryGetValue(funcName, out func))
+				{
+					CacheRFCs();
+					if (!mDict1.TryGetValue(funcName, out func))
+						mDict1[funcName] = null;
+				}
+#if UNITY_EDITOR
+				if (func == null) Debug.LogError("RCC(" + funcName + ") was not found. Did you forget to call TNManager.AddRCCs<T>()?");
+#endif
+			}
+#if UNITY_EDITOR
+			else Debug.LogError("RCC(" + rccID + ")  was not found. Did you forget to call TNManager.AddRCCs<T>()?");
+#endif
+		}
+		return func;
+	}
+
+	/// <summary>
 	/// Create a packet that will send a custom object creation call.
 	/// Instantiate a new game object in the specified channel on all connected players.
 	/// </summary>
@@ -1084,42 +1120,7 @@ public class TNManager : MonoBehaviour
 
 		if (go != null && instance != null)
 		{
-			CachedFunc func = null;
-
-			if (rccID > 0 && rccID < 256 && !mDict0.TryGetValue(rccID, out func))
-			{
-				CacheRFCs();
-				if (!mDict0.TryGetValue(rccID, out func))
-					mDict0[rccID] = null;
-			}
-
-			if (func == null)
-			{
-				if (funcName != null)
-				{
-					if (!mDict1.TryGetValue(funcName, out func))
-					{
-						CacheRFCs();
-						if (!mDict1.TryGetValue(funcName, out func))
-							mDict1[funcName] = null;
-					}
-
-					if (func == null)
-					{
-#if UNITY_EDITOR
-						Debug.LogError("RCC(" + funcName + ") was not found. Did you forget to call TNManager.AddRCCs<T>()?");
-#endif
-						return;
-					}
-				}
-				else
-				{
-#if UNITY_EDITOR
-					Debug.LogError("RCC(" + rccID + ")  was not found. Did you forget to call TNManager.AddRCCs<T>()?");
-#endif
-					return;
-				}
-			}
+			CachedFunc func = GetRCC(rccID, funcName);
 
 			if (TNManager.IsInChannel(channelID))
 			{
@@ -1511,27 +1512,8 @@ public class TNManager : MonoBehaviour
 		currentObjectOwner = GetPlayer(creator) ?? player;
 		TNManager.lastChannelID = channelID;
 		byte rccID = reader.ReadByte();
-		CachedFunc func;
-
-		if (rccID != 0)
-		{
-#if UNITY_EDITOR
-			if (!mDict0.TryGetValue(rccID, out func))
-				Debug.LogError("[TNet] Unable to find RCC #" + rccID);
-#else
-			mDict0.TryGetValue(rccID, out func);
-#endif
-		}
-		else
-		{
-			string funcName = reader.ReadString();
-#if UNITY_EDITOR
-			if (!mDict1.TryGetValue(funcName, out func))
-				Debug.LogError("[TNet] Unable to find RCC \"" + funcName + "\"");
-#else
-			mDict1.TryGetValue(funcName, out func);
-#endif
-		}
+		string funcName = (rccID == 0) ? reader.ReadString() : null;
+		CachedFunc func = GetRCC(rccID, funcName);
 
 		// Load the object from the resources folder
 		string prefab = reader.ReadString();
