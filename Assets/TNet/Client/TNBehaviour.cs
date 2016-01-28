@@ -69,8 +69,8 @@ public abstract class TNBehaviour : MonoBehaviour
 	public virtual void DestroySelf () { if (mTNO != null) mTNO.DestroySelf(); }
 
 	/// <summary>
-	/// Convenience method mirroring TNManager.Instantiate. Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Convenience method mirroring TNManager.Instantiate.
+	/// Instantiate a new game object in the behaviour's channel on all connected players.
 	/// </summary>
 
 	public void Instantiate (int rccID, string path, bool persistent, params object[] objs)
@@ -79,8 +79,8 @@ public abstract class TNBehaviour : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Convenience method mirroring TNManager.Instantiate. Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Convenience method mirroring TNManager.Instantiate.
+	/// Instantiate a new game object in the behaviour's channel on all connected players.
 	/// </summary>
 
 	public void Instantiate (string funcName, string path, bool persistent, params object[] objs)

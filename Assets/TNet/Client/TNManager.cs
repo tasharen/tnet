@@ -1032,10 +1032,10 @@ public class TNManager : MonoBehaviour
 
 	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
 	static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(rccID, path, persistent, objs); }
-	
+
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Instantiate a new game object in the current channel on all connected players.
 	/// </summary>
 
 	static public void Instantiate (int rccID, string path, bool persistent, params object[] objs)
@@ -1045,7 +1045,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Instantiate a new game object in the current channel on all connected players.
 	/// </summary>
 
 	static public void Instantiate (string funcName, string path, bool persistent, params object[] objs)
@@ -1055,7 +1055,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Instantiate a new game object in the specified channel on all connected players.
 	/// </summary>
 
 	static public void Instantiate (int channelID, int rccID, string path, bool persistent, params object[] objs)
@@ -1065,7 +1065,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Instantiate a new game object in the specified channel on all connected players.
 	/// </summary>
 
 	static public void Instantiate (int channelID, string funcName, string path, bool persistent, params object[] objs)
@@ -1075,7 +1075,7 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// Instantiate a new game object in the specified channel on all connected players.
 	/// </summary>
 
 	static internal void Instantiate (int channelID, int rccID, string funcName, string path, bool persistent, params object[] objs)
