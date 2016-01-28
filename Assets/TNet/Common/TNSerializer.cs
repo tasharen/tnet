@@ -535,12 +535,13 @@ public static class Serialization
 		object retVal = CastValue(value, desiredType);
 		if (retVal != null) return retVal;
 
+#if !STANDALONE
 		if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
 		{
 			if (go != null) return go.StringToReference((string)value);
 			else Debug.LogWarning("Game object reference is needed for a path-based reference");
 		}
-#if REFLECTION_SUPPORT
+ #if REFLECTION_SUPPORT
 		else if (valueType == typeof(string[]) && desiredType.IsArray)
 		{
 			System.Type elemType = desiredType.GetElementType();
@@ -577,8 +578,8 @@ public static class Serialization
 				return newList;
 			}
 		}
+ #endif
 #endif
-
 		// Object to string conversion
 		if (desiredType == typeof(string))
 		{
