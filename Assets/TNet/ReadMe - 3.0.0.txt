@@ -148,6 +148,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: TNManager.LoadPlayerData and TNManager.SavePlayerData as a more efficient way of loading, setting and saving TNManager.playerDataNode.
 - NEW: Serialization.Convert<T>(value) will use TNet's serialization to convert types.
 - NEW: RCCs no longer require an ID and can be called by their function name.
+- NEW: It's no longer necessary to call TNManager.AddRCCs. TNet will find all RCCs automatically.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.

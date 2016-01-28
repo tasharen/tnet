@@ -4,8 +4,8 @@
 //---------------------------------------------
 
 using UnityEngine;
-using TNet;
 using System.Collections;
+using TNet;
 
 /// <summary>
 /// Instantiate the specified prefab at the game object's position.
@@ -29,7 +29,20 @@ public class TNAutoCreate : MonoBehaviour
 	IEnumerator Start ()
 	{
 		while (TNManager.isJoiningChannel) yield return null;
-		TNManager.Create(prefabPath, transform.position, transform.rotation, persistent);
+		TNManager.Instantiate("CreateAtPosition", prefabPath, persistent, transform.position, transform.rotation);
 		Destroy(gameObject);
+	}
+
+	[RCC]
+	static GameObject CreateAtPosition (GameObject prefab, Vector3 pos, Quaternion rot)
+	{
+		// Instantiate the prefab
+		GameObject go = Object.Instantiate(prefab) as GameObject;
+
+		// Set the position and rotation based on the passed values
+		Transform t = go.transform;
+		t.position = pos;
+		t.rotation = rot;
+		return go;
 	}
 }

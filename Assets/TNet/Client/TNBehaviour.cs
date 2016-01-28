@@ -67,4 +67,24 @@ public abstract class TNBehaviour : MonoBehaviour
 	/// </summary>
 
 	public virtual void DestroySelf () { if (mTNO != null) mTNO.DestroySelf(); }
+
+	/// <summary>
+	/// Convenience method mirroring TNManager.Instantiate. Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// </summary>
+
+	public void Instantiate (int rccID, string path, bool persistent, params object[] objs)
+	{
+		TNManager.Instantiate(tno.channelID, rccID, null, path, persistent, objs);
+	}
+
+	/// <summary>
+	/// Convenience method mirroring TNManager.Instantiate. Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
+	/// </summary>
+
+	public void Instantiate (string funcName, string path, bool persistent, params object[] objs)
+	{
+		TNManager.Instantiate(tno.channelID, 0, funcName, path, persistent, objs);
+	}
 }

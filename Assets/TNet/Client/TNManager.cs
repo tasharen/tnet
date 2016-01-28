@@ -1021,46 +1021,26 @@ public class TNManager : MonoBehaviour
 		if (onPlayerSync != null) onPlayerSync(player);
 	}
 
+	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, bool persistent = true) { Instantiate(lastChannelID, 1, null, path, persistent); }
+
+	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { Instantiate(lastChannelID, 2, null, path, persistent, pos, rot); }
+
+	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true) { Instantiate(lastChannelID, 3, null, path, persistent, pos, rot, vel, angVel); }
+
+	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(rccID, path, persistent, objs); }
+	
 	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
+	/// Create a packet that will send a custom object creation call.
+	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void Create (string path, bool persistent = true) { CreateEx(lastChannelID, 1, null, persistent, path); }
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (int channelID, string path, bool persistent = true) { CreateEx(channelID, 1, null, persistent, path); }
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(lastChannelID, 2, null, persistent, path, pos, rot); }
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (int channelID, string path, Vector3 pos, Quaternion rot, bool persistent = true) { CreateEx(channelID, 2, null, persistent, path, pos, rot); }
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
+	static public void Instantiate (int rccID, string path, bool persistent, params object[] objs)
 	{
-		CreateEx(lastChannelID, 3, null, persistent, path, pos, rot, vel, angVel);
-	}
-
-	/// <summary>
-	/// Create the specified game object on all connected clients. The object must be located in the Resources folder.
-	/// </summary>
-
-	static public void Create (int channelID, string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true)
-	{
-		CreateEx(channelID, 3, null, persistent, path, pos, rot, vel, angVel);
+		Instantiate(lastChannelID, rccID, null, path, persistent, objs);
 	}
 
 	/// <summary>
@@ -1068,9 +1048,9 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (int rccID, bool persistent, string path, params object[] objs)
+	static public void Instantiate (string funcName, string path, bool persistent, params object[] objs)
 	{
-		CreateEx(lastChannelID, rccID, null, persistent, path, objs);
+		Instantiate(lastChannelID, 0, funcName, path, persistent, objs);
 	}
 
 	/// <summary>
@@ -1078,9 +1058,9 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (string funcName, bool persistent, string path, params object[] objs)
+	static public void Instantiate (int channelID, int rccID, string path, bool persistent, params object[] objs)
 	{
-		CreateEx(lastChannelID, 0, funcName, persistent, path, objs);
+		Instantiate(channelID, rccID, null, path, persistent, objs);
 	}
 
 	/// <summary>
@@ -1088,9 +1068,9 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (int channelID, int rccID, bool persistent, string path, params object[] objs)
+	static public void Instantiate (int channelID, string funcName, string path, bool persistent, params object[] objs)
 	{
-		CreateEx(channelID, rccID, null, persistent, path, objs);
+		Instantiate(channelID, 0, funcName, path, persistent, objs);
 	}
 
 	/// <summary>
@@ -1098,17 +1078,7 @@ public class TNManager : MonoBehaviour
 	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
 	/// </summary>
 
-	static public void CreateEx (int channelID, string funcName, bool persistent, string path, params object[] objs)
-	{
-		CreateEx(channelID, 0, funcName, persistent, path, objs);
-	}
-
-	/// <summary>
-	/// Create a packet that will send a custom object creation call.
-	/// It is expected that the first byte that follows will identify which function will be parsing this packet later.
-	/// </summary>
-
-	static void CreateEx (int channelID, int rccID, string funcName, bool persistent, string path, params object[] objs)
+	static internal void Instantiate (int channelID, int rccID, string funcName, string path, bool persistent, params object[] objs)
 	{
 		GameObject go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
 
@@ -1116,23 +1086,37 @@ public class TNManager : MonoBehaviour
 		{
 			CachedFunc func = null;
 
-			if (rccID > 0 && rccID < 256) mDict0.TryGetValue(rccID, out func);
+			if (rccID > 0 && rccID < 256 && !mDict0.TryGetValue(rccID, out func))
+			{
+				CacheRFCs();
+				if (!mDict0.TryGetValue(rccID, out func))
+					mDict0[rccID] = null;
+			}
 
 			if (func == null)
 			{
 				if (funcName != null)
 				{
-					mDict1.TryGetValue(funcName, out func);
+					if (!mDict1.TryGetValue(funcName, out func))
+					{
+						CacheRFCs();
+						if (!mDict1.TryGetValue(funcName, out func))
+							mDict1[funcName] = null;
+					}
 
 					if (func == null)
 					{
+#if UNITY_EDITOR
 						Debug.LogError("RCC(" + funcName + ") was not found. Did you forget to call TNManager.AddRCCs<T>()?");
+#endif
 						return;
 					}
 				}
 				else
 				{
+#if UNITY_EDITOR
 					Debug.LogError("RCC(" + rccID + ")  was not found. Did you forget to call TNManager.AddRCCs<T>()?");
+#endif
 					return;
 				}
 			}
@@ -1141,13 +1125,17 @@ public class TNManager : MonoBehaviour
 			{
 				if (IsJoiningChannel(channelID))
 				{
+#if UNITY_EDITOR
 					Debug.LogWarning("Trying to create an object while switching scenes. Call will be ignored.");
+#endif
 					return;
 				}
 
 				if (TNManager.IsChannelLocked(channelID))
 				{
+#if UNITY_EDITOR
 					Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
+#endif
 					return;
 				}
 
@@ -1191,10 +1179,28 @@ public class TNManager : MonoBehaviour
 				}
 			}
 		}
+#if UNITY_EDITOR
 		else Debug.LogError("Unable to load " + path);
+#endif
 	}
 
 	static uint mObjID = 32767;
+
+	/// <summary>
+	/// Automatically find and cache RFCs on all known MonoBehaviours.
+	/// </summary>
+
+	static void CacheRFCs ()
+	{
+		var mb = typeof(MonoBehaviour);
+		var types = TypeExtensions.GetTypes();
+
+		for (int i = 0; i < types.size; ++i)
+		{
+			var t = types[i];
+			if (t.IsSubclassOf(mb)) AddRCCs(t);
+		}
+	}
 
 	/// <summary>
 	/// Add a new Remote Creation Call.
@@ -1509,19 +1515,37 @@ public class TNManager : MonoBehaviour
 
 		if (rccID != 0)
 		{
+#if UNITY_EDITOR
 			if (!mDict0.TryGetValue(rccID, out func))
-				Debug.LogError("[TNet] Failed to find RCC(" + rccID + ".\nYou need to register custom RCCs using TNManager.AddRCCs<T>() in Awake().");
+				Debug.LogError("[TNet] Unable to find RCC #" + rccID);
+#else
+			mDict0.TryGetValue(rccID, out func);
+#endif
 		}
 		else
 		{
 			string funcName = reader.ReadString();
+#if UNITY_EDITOR
 			if (!mDict1.TryGetValue(funcName, out func))
-				Debug.LogError("[TNet] Failed to call RCC \"" + funcName + "\".\nYou need to register custom RCCs using TNManager.AddRCCs<T>() in Awake().");
+				Debug.LogError("[TNet] Unable to find RCC \"" + funcName + "\"");
+#else
+			mDict1.TryGetValue(funcName, out func);
+#endif
 		}
 
 		// Load the object from the resources folder
 		string prefab = reader.ReadString();
-		GameObject go = UnityTools.LoadPrefab(prefab) ?? UnityTools.GetDummyObject();
+		GameObject go = UnityTools.LoadPrefab(prefab);
+
+		if (go == null)
+		{
+			go = UnityTools.GetDummyObject();
+#if UNITY_EDITOR
+			Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\". Make sure it's in the Resources folder.");
+#else
+			Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
+#endif
+		}
 
 		if (func != null)
 		{
@@ -1529,29 +1553,28 @@ public class TNManager : MonoBehaviour
 			object[] objs = reader.ReadArray(go);
 			go = func.Execute(objs) as GameObject;
 			UnityTools.Clear(objs);
+		}
+		// Fallback to a very basic function
+		else go = OnCreate1(go);
 
-			if (go != null)
+		if (go != null)
+		{
+			go.SetActive(true);
+
+			// If an object ID was requested, assign it to the TNObject
+			if (objectID != 0)
 			{
-				go.SetActive(true);
+				TNObject obj = go.GetComponent<TNObject>();
 
-				// If an object ID was requested, assign it to the TNObject
-				if (objectID != 0)
+				if (obj != null)
 				{
-					TNObject obj = go.GetComponent<TNObject>();
-
-					if (obj != null)
-					{
-						obj.channelID = channelID;
-						obj.uid = objectID;
-						obj.Register();
-					}
-					else
-					{
-						Debug.LogWarning("[TNet] The instantiated object has no TNObject component. Don't request an ObjectID when creating it.", go);
-					}
+					obj.channelID = channelID;
+					obj.uid = objectID;
+					obj.Register();
 				}
 			}
 		}
+
 		currentObjectOwner = null;
 
 		if (onObjectCreated != null)

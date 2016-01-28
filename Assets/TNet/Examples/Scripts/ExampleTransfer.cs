@@ -1,4 +1,4 @@
-﻿//------------------------------------------
+//------------------------------------------
 //            Tasharen Network
 // Copyright © 2012-2016 Tasharen Entertainment
 //------------------------------------------
@@ -54,7 +54,9 @@ public class ExampleTransfer : MonoBehaviour
 			if (GUILayout.Button("Create a Cube in Channel #" + chan1))
 			{
 				Vector3 pos = new Vector3(Random.Range(-3f, 3f), 0f, Random.Range(-3f, 3f));
-				TNManager.Create(chan1, "AutoSync Cube", pos, Quaternion.identity, true);
+
+				// "CreateAtPosition" function is defined in TNAutoCreate, so this assumes that script exists!
+				TNManager.Instantiate(chan1, "CreateAtPosition", "AutoSync Cube", true, pos, Quaternion.identity);
 			}
 
 			// Transfer one of the cubes to another channel. If there is a player in that channel, they will see the cube appear.
