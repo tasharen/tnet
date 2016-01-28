@@ -147,6 +147,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: It's now possible to pass an empty string to TNManager.Create causing TNet to pass back a dummy object on creation, thus letting the game object's contents be procedurally set.
 - NEW: TNManager.LoadPlayerData and TNManager.SavePlayerData as a more efficient way of loading, setting and saving TNManager.playerDataNode.
 - NEW: Serialization.Convert<T>(value) will use TNet's serialization to convert types.
+- NEW: RCCs no longer require an ID and can be called by their function name.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.

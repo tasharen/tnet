@@ -1126,7 +1126,6 @@ public class GameServer : FileServer
 			writer = buffer.BeginPacket(Packet.ResponseCreateObject, offset);
 			writer.Write(obj.playerID);
 			writer.Write(channel.id);
-			writer.Write(obj.objectIndex);
 			writer.Write(obj.objectID);
 			writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
 			offset = buffer.EndTcpPacketStartingAt(offset);
@@ -1151,7 +1150,7 @@ public class GameServer : FileServer
 		}
 
 		// Inform the player that the channel is now locked
-		if (channel.locked)
+		if (channel.isLocked)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseLockChannel, offset);
 			writer.Write(channel.id);
@@ -1888,7 +1887,7 @@ public class GameServer : FileServer
 				{
 					if (player.isAdmin)
 					{
-						ch.locked = locked;
+						ch.isLocked = locked;
 						BinaryWriter writer = BeginSend(Packet.ResponseLockChannel);
 						writer.Write(ch.id);
 						writer.Write(locked);
@@ -2085,7 +2084,7 @@ public class GameServer : FileServer
 			// If the request should be saved, let's do so
 			if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 			{
-				if (ch.locked && !player.isAdmin)
+				if (ch.isLocked && !player.isAdmin)
 				{
 					player.LogError("Tried to call a persistent RFC while the channel is locked", null);
 					RemovePlayer(player);
@@ -2138,10 +2137,9 @@ public class GameServer : FileServer
 
 				int channelID = reader.ReadInt32();
 				Channel ch = player.GetChannel(channelID);
-				ushort objectIndex = reader.ReadUInt16();
 				byte type = reader.ReadByte();
 
-				if (ch != null && !ch.locked)
+				if (ch != null && !ch.isLocked)
 				{
 					uint uniqueID = 0;
 
@@ -2151,7 +2149,6 @@ public class GameServer : FileServer
 
 						Channel.CreatedObject obj = new Channel.CreatedObject();
 						obj.playerID = player.id;
-						obj.objectIndex = objectIndex;
 						obj.objectID = uniqueID;
 						obj.type = type;
 
@@ -2167,9 +2164,8 @@ public class GameServer : FileServer
 					BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
 					writer.Write(playerID);
 					writer.Write(channelID);
-					writer.Write(objectIndex);
 					writer.Write(uniqueID);
-					if (buffer.size > 0) writer.Write(buffer.buffer, buffer.position, buffer.size);
+					writer.Write(buffer.buffer, buffer.position, buffer.size);
 					EndSend(ch, null, true);
 				}
 				break;
@@ -2179,7 +2175,7 @@ public class GameServer : FileServer
 				Channel ch = player.GetChannel(reader.ReadInt32());
 				uint objectID = reader.ReadUInt32();
 
-				if (ch != null && !ch.locked && ch.DestroyObject(objectID))
+				if (ch != null && !ch.isLocked && ch.DestroyObject(objectID))
 				{
 					// Inform all players in the channel that the object should be destroyed
 					BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
@@ -2242,7 +2238,6 @@ public class GameServer : FileServer
 								BinaryWriter writer = temp.BeginPacket(Packet.ResponseCreateObject);
 								writer.Write(obj.playerID);
 								writer.Write(to.id);
-								writer.Write(obj.objectIndex);
 								writer.Write(obj.objectID);
 								writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
 								int offset = temp.EndPacket();
@@ -2269,7 +2264,7 @@ public class GameServer : FileServer
 				string lvl = reader.ReadString();
 
 				// Change the currently loaded level
-				if (ch.host == player && ch != null && !ch.locked)
+				if (ch.host == player && ch != null && !ch.isLocked)
 				{
 					ch.Reset();
 					ch.level = lvl;
@@ -2386,7 +2381,7 @@ public class GameServer : FileServer
 				Channel ch = player.GetChannel(reader.ReadInt32());
 				uint id = reader.ReadUInt32();
 				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
-				if (ch != null && (player.isAdmin || !ch.locked))
+				if (ch != null && (player.isAdmin || !ch.isLocked))
 					ch.DeleteRFC(id, funcName);
 				break;
 			}
@@ -2397,7 +2392,7 @@ public class GameServer : FileServer
 
 				if (ch != null)
 				{
-					if (player.isAdmin || !ch.locked)
+					if (player.isAdmin || !ch.isLocked)
 					{
 						ch.persistent = true;
 						ch.data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;

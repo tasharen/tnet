@@ -268,14 +268,26 @@ public enum Packet
 	RequestRemoveRFC,
 
 	/// <summary>
+	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
+	/// int32: ID of the player that sent the packet.
+	/// int32: Channel ID.
+	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
+	/// Arbitrary amount of data follows.
+	/// </summary>
+
+	/// <summary>
 	/// Instantiate a new object with the specified identifier.
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
-	/// ushort: Index of the object being created (within a static list of prefabs on the client).
 	/// byte:
-	/// 0 = Local-only object. Only echoed to other clients.
-	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
-	/// 2 = Saved on the server, destroyed when the owner leaves.
+	///   0 = Local-only object. Only echoed to other clients.
+	///   1 = Saved on the server, assigned a new owner when the existing owner leaves.
+	///   2 = Saved on the server, destroyed when the owner leaves.
+	///
+	/// byte: RCC ID.
+	/// string: Function name (only if RCC ID is 0).
+	/// string: Path to the object in the Resources folder.
 	/// Arbitrary amount of data follows. All of it will be passed along with the response call.
 	/// </summary>
 
@@ -285,8 +297,11 @@ public enum Packet
 	/// Create a new persistent entry.
 	/// int32: ID of the player that requested this object to be created.
 	/// int32: Channel ID.
-	/// ushort: Index of the object being created (within a static list of prefabs on the client).
 	/// uint32: Unique Identifier (aka Object ID) if requested, 0 otherwise. 0-16777215 range.
+	///
+	/// byte: RCC ID.
+	/// string: Function name (only if RCC ID is 0).
+	/// string: Path to the object in the Resources folder.
 	/// Arbitrary amount of data follows, same data that was passed along with the Create Request.
 	/// </summary>
 
@@ -428,6 +443,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -438,6 +454,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -448,6 +465,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -458,6 +476,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -468,6 +487,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -479,6 +499,7 @@ public enum Packet
 	/// int32: Player ID.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -490,6 +511,7 @@ public enum Packet
 	/// string: Player name.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -507,6 +529,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -517,6 +540,7 @@ public enum Packet
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).
+	/// string: Function name (only if RFC ID is 0).
 	/// Arbitrary amount of data follows.
 	/// </summary>
 
@@ -656,7 +680,7 @@ public enum Packet
 	ResponseVerifyAdmin,
 
 	/// <summary>
-	/// Lock the current channel, preventing all forms of create, delete or saved RFCs.
+	/// Lock the current channel, preventing all forms of create, delete and saved RFCs.
 	/// Anyone trying to call create, delete or saved RFCs will be logged and ignored.
 	/// Only administrators can lock channels.
 	/// int32: channel ID.

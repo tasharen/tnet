@@ -15,10 +15,9 @@ namespace TNet
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class RFC : Attribute
 {
-	public byte id = 0;
-
+	public int id = 0;
 	public RFC () { }
-	public RFC (byte rid) { id = rid; }
+	public RFC (int rid) { id = rid; }
 }
 
 /// <summary>
@@ -28,21 +27,43 @@ public sealed class RFC : Attribute
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class RCC : System.Attribute
 {
-	public byte id;
-	public RCC (byte rid) { id = rid; }
+	public int id = 0;
+	public RCC () { }
+	public RCC (int rid) { id = rid; }
 }
 
 /// <summary>
-/// Remote function calls consist of a method called on some object (such as a MonoBehavior).
-/// This method may or may not have an explicitly specified Remote Function ID. If an ID is specified, the function
-/// will require less data to be sent across the network as the ID will be sent instead of the function's name.
+/// Functions gathered via reflection get cached along with their object references and expected parameter types.
 /// </summary>
 
-public struct CachedFunc
+public class CachedFunc
 {
-	public byte id;
-	public object obj;
+	public object obj = null;
 	public MethodInfo func;
 	public ParameterInfo[] parameters;
+
+	/// <summary>
+	/// Execute this function with the specified number of parameters.
+	/// </summary>
+
+	public object Execute (params object[] pars)
+	{
+		if (func == null) return null;
+		if (parameters == null)
+			parameters = func.GetParameters();
+
+		try
+		{
+			return (parameters.Length == 1 && parameters[0].ParameterType == typeof(object[])) ?
+				func.Invoke(obj, new object[] { pars }) :
+				func.Invoke(obj, pars);
+		}
+		catch (System.Exception ex)
+		{
+			if (ex.GetType() == typeof(System.NullReferenceException)) return null;
+			UnityTools.PrintException(ex, this, 0, func.Name, pars);
+			return null;
+		}
+	}
 }
 }

@@ -35,7 +35,7 @@ public class GameClient
 	public delegate void OnRenamePlayer (Player p, string previous);
 	public delegate void OnHostChanged (Channel ch);
 	public delegate void OnSetChannelData (Channel ch);
-	public delegate void OnCreate (int channelID, int creator, int index, uint objID, BinaryReader reader);
+	public delegate void OnCreate (int channelID, int creator, uint objID, BinaryReader reader);
 	public delegate void OnDestroy (int channelID, uint objID);
 	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
 	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
@@ -1029,7 +1029,7 @@ public class GameClient
 
 #if DEBUG_PACKETS && !STANDALONE
 		if (response != Packet.ResponsePing && response != Packet.Broadcast)
-			UnityEngine.Debug.Log("Client: " + response + " [" + buffer.position + " of " + buffer.size + ((ip == null) ? "] (TCP)" : "] (UDP)"));
+			UnityEngine.Debug.Log("Client: " + response + " (" + buffer.size + " bytes) " + ((ip == null) ? "(TCP)" : "(UDP)"));
 #endif
 		// Verification step must be passed first
 		if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
@@ -1302,9 +1302,8 @@ public class GameClient
 				{
 					int playerID = reader.ReadInt32();
 					int channelID = reader.ReadInt32();
-					ushort index = reader.ReadUInt16();
 					uint objID = reader.ReadUInt32();
-					onCreate(channelID, playerID, index, objID, reader);
+					onCreate(channelID, playerID, objID, reader);
 				}
 				break;
 			}
@@ -1482,7 +1481,7 @@ public class GameClient
 				int channelID = reader.ReadInt32();
 				bool isLocked = reader.ReadBoolean();
 				Channel ch = GetChannel(channelID);
-				if (ch != null) ch.locked = isLocked;
+				if (ch != null) ch.isLocked = isLocked;
 				if (onLockChannel != null) onLockChannel(channelID, isLocked);
 				break;
 			}
@@ -1612,7 +1611,7 @@ public class GameClient
 
 		if (ch != null)
 		{
-			if (!ch.locked || isAdmin)
+			if (!ch.isLocked || isAdmin)
 			{
 				DataNode node = ch.dataNode;
 

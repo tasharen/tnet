@@ -17,7 +17,7 @@ public class TNAutoCreate : MonoBehaviour
 	/// Prefab to instantiate.
 	/// </summary>
 
-	public GameObject prefab;
+	public string prefabPath;
 
 	/// <summary>
 	/// Whether the instantiated object will remain in the game when the player that created it leaves.
@@ -29,7 +29,7 @@ public class TNAutoCreate : MonoBehaviour
 	IEnumerator Start ()
 	{
 		while (TNManager.isJoiningChannel) yield return null;
-		TNManager.Create(prefab, transform.position, transform.rotation, persistent);
+		TNManager.Create(prefabPath, transform.position, transform.rotation, persistent);
 		Destroy(gameObject);
 	}
 }

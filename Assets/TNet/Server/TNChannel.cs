@@ -44,7 +44,6 @@ public class Channel
 	public class CreatedObject
 	{
 		public int playerID;
-		public ushort objectIndex;
 		public uint objectID;
 		public byte type;
 		public Buffer buffer;
@@ -56,7 +55,7 @@ public class Channel
 	public object data; // Always stored as byte[] on the server
 	public bool persistent = false;
 	public bool closed = false;
-	public bool locked = false;
+	public bool isLocked = false;
 	public ushort playerLimit = 65535;
 	public List<Player> players = new List<Player>();
 	public List<RFC> rfcs = new List<RFC>();
@@ -387,7 +386,7 @@ public class Channel
 
 	public void SaveTo (BinaryWriter writer)
 	{
-		writer.Write(13);
+		writer.Write(Player.version);
 		writer.Write(level);
 
 		// Server keeps the data as a byte array
@@ -458,7 +457,6 @@ public class Channel
 			CreatedObject co = mCreatedOBJs[i];
 			writer.Write(co.playerID);
 			writer.Write(co.objectID);
-			writer.Write(co.objectIndex);
 			writer.Write(co.buffer.size);
 			if (co.buffer.size > 0) writer.Write(co.buffer.buffer, co.buffer.position, co.buffer.size);
 		}
@@ -470,7 +468,7 @@ public class Channel
 		mCreatedOBJs.Clear();
 		mCreatedRFCs.Clear();
 
-		writer.Write(locked);
+		writer.Write(isLocked);
 	}
 
 	/// <summary>
@@ -480,7 +478,7 @@ public class Channel
 	public bool LoadFrom (BinaryReader reader)
 	{
 		int version = reader.ReadInt32();
-		if (version < 12)
+		if (version < 20160128)
 		{
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("Incompatible data: " + version);
@@ -531,7 +529,6 @@ public class Channel
 			CreatedObject co = new CreatedObject();
 			co.playerID = reader.ReadInt32();
 			co.objectID = reader.ReadUInt32();
-			co.objectIndex = reader.ReadUInt16();
 			co.type = 1;
 			Buffer b = Buffer.Create();
 			b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
@@ -548,7 +545,7 @@ public class Channel
 			if (uid < 32768) destroyed.Add(uid);
 		}
 
-		locked = (version > 12 && reader.ReadBoolean());
+		isLocked = reader.ReadBoolean();
 		return true;
 	}
 }

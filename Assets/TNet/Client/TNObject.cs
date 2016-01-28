@@ -70,7 +70,8 @@ public sealed class TNObject : MonoBehaviour
 	[System.NonSerialized][HideInInspector] public bool rebuildMethodList = true;
 
 	// Cached RFC functions
-	[System.NonSerialized] TNet.List<CachedFunc> mRFCs = new TNet.List<CachedFunc>();
+	[System.NonSerialized] Dictionary<int, CachedFunc> mDict0 = new Dictionary<int, CachedFunc>();
+	[System.NonSerialized] Dictionary<string, CachedFunc> mDict1 = new Dictionary<string, CachedFunc>();
 
 	// Whether the object has been registered with the lists
 	[System.NonSerialized] bool mIsRegistered = false;
@@ -419,12 +420,28 @@ public sealed class TNObject : MonoBehaviour
 	public bool Execute (byte funcID, params object[] parameters)
 	{
 		if (mParent != null) return mParent.Execute(funcID, parameters);
-		if (UnityTools.ExecuteAll(mRFCs, funcID, parameters)) return true;
 
 		if (rebuildMethodList)
-		{
 			RebuildMethodList();
-			return UnityTools.ExecuteAll(mRFCs, funcID, parameters);
+
+		CachedFunc ent;
+		
+		if (mDict0.TryGetValue(funcID, out ent))
+		{
+			if (ent.parameters == null)
+				ent.parameters = ent.func.GetParameters();
+
+			try
+			{
+				ent.func.Invoke(ent.obj, parameters);
+				return true;
+			}
+			catch (System.Exception ex)
+			{
+				if (ex.GetType() == typeof(System.NullReferenceException)) return false;
+				UnityTools.PrintException(ex, ent, funcID, "", parameters);
+				return false;
+			}
 		}
 		return false;
 	}
@@ -436,16 +453,31 @@ public sealed class TNObject : MonoBehaviour
 	public bool Execute (string funcName, params object[] parameters)
 	{
 		if (mParent != null) return mParent.Execute(funcName, parameters);
-		if (UnityTools.ExecuteAll(mRFCs, funcName, parameters)) return true;
 
 		if (rebuildMethodList)
-		{
 			RebuildMethodList();
-			return UnityTools.ExecuteAll(mRFCs, funcName, parameters);
+
+		CachedFunc ent;
+
+		if (mDict1.TryGetValue(funcName, out ent))
+		{
+			if (ent.parameters == null)
+				ent.parameters = ent.func.GetParameters();
+
+			try
+			{
+				ent.func.Invoke(ent.obj, parameters);
+				return true;
+			}
+			catch (System.Exception ex)
+			{
+				if (ex.GetType() == typeof(System.NullReferenceException)) return false;
+				UnityTools.PrintException(ex, ent, 0, funcName, parameters);
+				return false;
+			}
 		}
 		return false;
 	}
-
 
 	/// <summary>
 	/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
@@ -458,13 +490,6 @@ public sealed class TNObject : MonoBehaviour
 		if (obj != null)
 		{
 			if (obj.Execute(funcID, parameters)) return;
-
-			if (obj.rebuildMethodList)
-			{
-				obj.RebuildMethodList();
-				if (obj.Execute(funcID, parameters)) return;
-			}
-
 #if UNITY_EDITOR
 			Debug.LogError("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
 				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
@@ -493,13 +518,6 @@ public sealed class TNObject : MonoBehaviour
 		if (obj != null)
 		{
 			if (obj.Execute(funcName, parameters)) return;
-
-			if (obj.rebuildMethodList)
-			{
-				obj.RebuildMethodList();
-				if (obj.Execute(funcName, parameters)) return;
-			}
-			
 #if UNITY_EDITOR
 			Debug.LogError("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
 				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
@@ -526,7 +544,8 @@ public sealed class TNObject : MonoBehaviour
 	void RebuildMethodList ()
 	{
 		rebuildMethodList = false;
-		mRFCs.Clear();
+		mDict0.Clear();
+		mDict1.Clear();
 		MonoBehaviour[] mbs = GetComponentsInChildren<MonoBehaviour>(true);
 
 		for (int i = 0, imax = mbs.Length; i < imax; ++i)
@@ -539,17 +558,24 @@ public sealed class TNObject : MonoBehaviour
 				BindingFlags.NonPublic |
 				BindingFlags.Instance);
 
-			for (int b = 0; b < methods.Length; ++b)
+			for (int b = 0, bmax = methods.Length; b < bmax; ++b)
 			{
-				if (methods[b].IsDefined(typeof(RFC), true))
+				MethodInfo method = methods[b];
+
+				if (method.IsDefined(typeof(RFC), true))
 				{
 					CachedFunc ent = new CachedFunc();
 					ent.obj = mb;
-					ent.func = methods[b];
+					ent.func = method;
 
 					RFC tnc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
-					ent.id = tnc.id;
-					mRFCs.Add(ent);
+
+					if (tnc.id > 0)
+					{
+						if (tnc.id < 256) mDict0[tnc.id] = ent;
+						else Debug.LogError("RFC IDs need to be between 1 and 255 (1 byte). If you need more, just don't specify an ID and use the function's name instead.");
+					}
+					else mDict1[method.Name] = ent;
 				}
 			}
 		}

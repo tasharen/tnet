@@ -28,7 +28,7 @@ static public class UnityTools
 	/// Print out useful information about an exception that occurred when trying to call a function.
 	/// </summary>
 
-	static void PrintException (System.Exception ex, CachedFunc ent, int funcID, string funcName, params object[] parameters)
+	static public void PrintException (System.Exception ex, CachedFunc ent, int funcID, string funcName, params object[] parameters)
 	{
 		string received = "";
 
@@ -62,9 +62,13 @@ static public class UnityTools
 
 		if (string.IsNullOrEmpty(funcName))
 		{
-			err += "RFC #" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
+			err += "function #" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
 		}
-		else err += "RFC " + ent.obj.GetType() + "." + funcName;
+		else if (ent.obj != null)
+		{
+			err += "function " + ent.obj.GetType() + "." + funcName;
+		}
+		else err += "function " + funcName;
 
 		if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";
 		else err += ": " + ex.Message + "\n";
@@ -79,106 +83,6 @@ static public class UnityTools
 		else err += ex.StackTrace + "\n";
 
 		Debug.LogError(err, ent.obj as Object);
-	}
-
-	/// <summary>
-	/// Execute the first function matching the specified ID.
-	/// </summary>
-
-	static public bool ExecuteFirst (List<CachedFunc> rfcs, byte funcID, out object retVal, params object[] parameters)
-	{
-		retVal = null;
-
-		for (int i = 0; i < rfcs.size; ++i)
-		{
-			CachedFunc ent = rfcs[i];
-
-			if (ent.id == funcID)
-			{
-				if (ent.parameters == null)
-					ent.parameters = ent.func.GetParameters();
-
-				try
-				{
-					retVal = (ent.parameters.Length == 1 && ent.parameters[0].ParameterType == typeof(object[])) ?
-						ent.func.Invoke(ent.obj, new object[] { parameters }) :
-						ent.func.Invoke(ent.obj, parameters);
-					return (retVal != null);
-				}
-				catch (System.Exception ex)
-				{
-					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
-					PrintException(ex, ent, funcID, "", parameters);
-					return false;
-				}
-			}
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Invoke the function specified by the ID.
-	/// </summary>
-
-	static public bool ExecuteAll (List<CachedFunc> rfcs, byte funcID, params object[] parameters)
-	{
-		for (int i = 0; i < rfcs.size; ++i)
-		{
-			CachedFunc ent = rfcs[i];
-
-			if (ent.id == funcID)
-			{
-				if (ent.parameters == null)
-					ent.parameters = ent.func.GetParameters();
-
-				try
-				{
-					ent.func.Invoke(ent.obj, parameters);
-					return true;
-				}
-				catch (System.Exception ex)
-				{
-					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
-				    PrintException(ex, ent, funcID, "", parameters);
-				    return false;
-				}
-			}
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Invoke the function specified by the function name.
-	/// </summary>
-
-	static public bool ExecuteAll (List<CachedFunc> rfcs, string funcName, params object[] parameters)
-	{
-		bool retVal = false;
-
-		for (int i = 0; i < rfcs.size; ++i)
-		{
-			CachedFunc ent = rfcs[i];
-
-			if (ent.func.Name == funcName)
-			{
-				retVal = true;
-
-				if (ent.parameters == null)
-					ent.parameters = ent.func.GetParameters();
-
-				try
-				{
-					ent.func.Invoke(ent.obj, parameters);
-					return true;
-				}
-				catch (System.Exception ex)
-				{
-					if (ex.GetType() == typeof(System.NullReferenceException)) return false;
-					PrintException(ex, ent, 0, funcName, parameters);
-				}
-			}
-		}
-		return retVal;
 	}
 
 	/// <summary>
