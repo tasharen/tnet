@@ -676,11 +676,7 @@ public class GameClient
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 	{
 		Disconnect();
-#if UNITY_EDITOR
-		if (externalIP == null) Debug.LogError("Expecting a valid IP address or a local server to be running");
-#else
-		if (externalIP == null) Tools.LogError("Expecting a valid IP address or a local server to be running");
-#endif
+		if (externalIP == null) UnityEngine.Debug.LogError("Expecting a valid IP address or a local server to be running");
 		else mTcp.Connect(externalIP, internalIP);
 	}
 
@@ -1102,7 +1098,7 @@ public class GameClient
 					target.data = reader.ReadObject();
 					if (onPlayerSync != null) onPlayerSync(target);
 				}
-				else Debug.LogError("Not found: " + pid);
+				else UnityEngine.Debug.LogError("Not found: " + pid);
 				break;
 			}
 			case Packet.ResponsePing:
