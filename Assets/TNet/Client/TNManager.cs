@@ -17,6 +17,8 @@ using UnityTools = TNet.UnityTools;
 [AddComponentMenu("TNet/Network Manager")]
 public class TNManager : MonoBehaviour
 {
+	[System.NonSerialized] static bool mDestroyed = false;
+
 	/// <summary>
 	/// Whether the application is currently paused.
 	/// </summary>
@@ -36,6 +38,22 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public OnObjectCreatedFunc onObjectCreated;
+
+	/// <summary>
+	/// Notification of server data being changed.
+	/// </summary>
+
+	static public GameClient.OnServerData onServerOption
+	{
+		get
+		{
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onServerOption : null;
+		}
+		set
+		{
+			if (!mDestroyed) instance.mClient.onServerOption = value;
+		}
+	}
 
 	/// <summary>
 	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
@@ -104,7 +122,13 @@ public class TNManager : MonoBehaviour
 	/// TNet Client used for communication.
 	/// </summary>
 
-	static public GameClient client { get { return instance.mClient; } }
+	static public GameClient client
+	{
+		get
+		{
+			return mInstance != null ? mInstance.mClient : (mDestroyed ? null : instance.mClient);
+		}
+	}
 
 	/// <summary>
 	/// Whether we're currently connected.
@@ -426,17 +450,11 @@ public class TNManager : MonoBehaviour
 			{
 				GameObject go = new GameObject("Network Manager");
 				mInstance = go.AddComponent<TNManager>();
+				mDestroyed = false;
 			}
 			return mInstance;
 		}
 	}
-
-	/// <summary>
-	/// Server data is stored separately from the game data and can be changed only by admins.
-	/// It's also sent to all players as soon as they join, and can be used for such things as MOTD.
-	/// </summary>
-
-	static public GameClient.OnServerData onServerOption { get { return instance.mClient.onServerOption; } set { instance.mClient.onServerOption = value; } }
 
 	static DataNode mDummyOptions = new DataNode("Version", Player.version);
 
@@ -1480,6 +1498,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance == this)
 		{
+			mDestroyed = true;
 			if (isConnected) mClient.Disconnect();
 			mClient.StopUDP();
 			mInstance = null;
@@ -1779,9 +1798,9 @@ public class TNManager : MonoBehaviour
 
 	static public void AddToReceiveQueue (Buffer buff)
 	{
-		if (TNManager.client != null)
+		if (mInstance != null && mInstance.mClient != null)
 		{
-			System.Collections.Generic.Queue<Buffer> queue = TNManager.client.receiveQueue;
+			System.Collections.Generic.Queue<Buffer> queue = mInstance.mClient.receiveQueue;
 			lock (queue) queue.Enqueue(buff);
 		}
 	}
