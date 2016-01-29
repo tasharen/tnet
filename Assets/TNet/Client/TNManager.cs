@@ -104,7 +104,7 @@ public class TNManager : MonoBehaviour
 	/// TNet Client used for communication.
 	/// </summary>
 
-	static public GameClient client { get { return (mInstance != null) ? mInstance.mClient : null; } }
+	static public GameClient client { get { return instance.mClient; } }
 
 	/// <summary>
 	/// Whether we're currently connected.
@@ -430,6 +430,13 @@ public class TNManager : MonoBehaviour
 			return mInstance;
 		}
 	}
+
+	/// <summary>
+	/// Server data is stored separately from the game data and can be changed only by admins.
+	/// It's also sent to all players as soon as they join, and can be used for such things as MOTD.
+	/// </summary>
+
+	static public GameClient.OnServerData onServerOption { get { return instance.mClient.onServerOption; } set { instance.mClient.onServerOption = value; } }
 
 	static DataNode mDummyOptions = new DataNode("Version", Player.version);
 
