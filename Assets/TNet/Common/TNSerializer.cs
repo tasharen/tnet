@@ -274,6 +274,10 @@ public static class Serialization
 				}
 				else Tools.LogError("Malformed type: " + name);
 			}
+			else if (name == "null")
+			{
+				type = typeof(void);
+			}
 			else
 			{
 				try

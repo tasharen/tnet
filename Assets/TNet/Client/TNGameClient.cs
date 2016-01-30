@@ -22,65 +22,45 @@ namespace TNet
 
 public class GameClient
 {
-	public delegate void OnPing (IPEndPoint ip, int milliSeconds);
-	public delegate void OnError (string message);
-	public delegate void OnConnect (bool success, string message);
-	public delegate void OnDisconnect ();
-	public delegate void OnJoinChannel (int channelID, bool success, string message);
-	public delegate void OnLeftChannel (int channelID);
-	public delegate void OnLoadLevel (int channelID, string levelName);
-	public delegate void OnPlayerJoined (int channelID, Player p);
-	public delegate void OnPlayerLeft (int channelID, Player p);
-	public delegate void OnPlayerSync (Player p);
-	public delegate void OnRenamePlayer (Player p, string previous);
-	public delegate void OnHostChanged (Channel ch);
-	public delegate void OnSetChannelData (Channel ch);
-	public delegate void OnCreate (int channelID, int creator, uint objID, BinaryReader reader);
-	public delegate void OnDestroy (int channelID, uint objID);
-	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
-	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
-	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
-	public delegate void OnGetFiles (string path, string[] files);
-	public delegate void OnLoadFile (string filename, byte[] data);
-	public delegate void OnServerData (DataNode data);
-	public delegate void OnLockChannel (int channelID, bool locked);
-	public delegate void OnSetAdmin (Player p);
-
 	/// <summary>
 	/// Custom packet listeners. You can set these to handle custom packets.
 	/// </summary>
 
 	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
+	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 
 	/// <summary>
 	/// Ping notification.
 	/// </summary>
 
 	public OnPing onPing;
+	public delegate void OnPing (IPEndPoint ip, int ping);
 
 	/// <summary>
 	/// Error notification.
 	/// </summary>
 
-	public OnError onError;
+	public Action<string> onError;
 
 	/// <summary>
 	/// Connection attempt result indicating success or failure.
 	/// </summary>
 
 	public OnConnect onConnect;
+	public delegate void OnConnect (bool success, string message);
 
 	/// <summary>
 	/// Notification sent after the connection terminates for any reason.
 	/// </summary>
 
-	public OnDisconnect onDisconnect;
+	public Action onDisconnect;
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
 	public OnJoinChannel onJoinChannel;
+	public delegate void OnJoinChannel (int channelID, bool success, string message);
 
 	/// <summary>
 	/// Notification sent when leaving a channel.
@@ -88,97 +68,107 @@ public class GameClient
 	/// </summary>
 
 	public OnLeftChannel onLeftChannel;
+	public delegate void OnLeftChannel (int channelID);
 
 	/// <summary>
 	/// Notification sent when changing levels.
 	/// </summary>
 
 	public OnLoadLevel onLoadLevel;
+	public delegate void OnLoadLevel (int channelID, string levelName);
 
 	/// <summary>
 	/// Notification sent when a new player joins the channel.
 	/// </summary>
 
 	public OnPlayerJoined onPlayerJoined;
+	public delegate void OnPlayerJoined (int channelID, Player p);
 
 	/// <summary>
 	/// Notification sent when a player leaves the channel.
 	/// </summary>
 
 	public OnPlayerLeft onPlayerLeft;
+	public delegate void OnPlayerLeft (int channelID, Player p);
 
 	/// <summary>
 	/// Notification sent when player data gets synchronized.
 	/// </summary>
 
-	public OnPlayerSync onPlayerSync;
+	public Action<Player> onPlayerSync;
 
 	/// <summary>
 	/// Notification of some player changing their name.
 	/// </summary>
 
 	public OnRenamePlayer onRenamePlayer;
+	public delegate void OnRenamePlayer (Player p, string previous);
 
 	/// <summary>
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
-	public OnHostChanged onHostChanged;
+	public Action<Channel> onHostChanged;
 
 	/// <summary>
 	/// Notification of the channel's custom data changing.
 	/// </summary>
 
-	public OnSetChannelData onSetChannelData;
+	public Action<Channel> onSetChannelData;
 
 	/// <summary>
 	/// Notification of a new object being created.
 	/// </summary>
 
 	public OnCreate onCreate;
+	public delegate void OnCreate (int channelID, int creator, uint objID, BinaryReader reader);
 
 	/// <summary>
 	/// Notification of the specified object being destroyed.
 	/// </summary>
 
 	public OnDestroy onDestroy;
+	public delegate void OnDestroy (int channelID, uint objID);
 
 	/// <summary>
 	/// Notification of the specified object being transferred to another channel.
 	/// </summary>
 
 	public OnTransfer onTransfer;
+	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
 
 	/// <summary>
-	/// Server data is stored separately from the game data and can be changed only by admins.
-	/// It's also sent to all players as soon as they join, and can be used for such things as MOTD.
+	/// Server configuration is stored separately from the game data and can be changed only by admins.
+	/// It's automatically sent to all players as soon as they join, and can be used for such things as MOTD.
 	/// </summary>
 
-	public OnServerData onServerOption;
+	public Action<DataNode> onSetServerConfig;
+
+	/// <summary>
+	/// Notification sent when a specific server configuration node gets changed.
+	/// </summary>
+
+	public Action<string, DataNode> onSetServerOption;
 
 	/// <summary>
 	/// Callback triggered when the channel becomes locked or unlocked.
 	/// </summary>
 
 	public OnLockChannel onLockChannel;
+	public delegate void OnLockChannel (int channelID, bool locked);
 
 	/// <summary>
 	/// Callback triggered when the player gets verified as an administrator.
 	/// </summary>
 
-	public OnSetAdmin onSetAdmin;
-
-	/// <summary>
-	/// Server data associated with the connected server. Don't try to change it manually.
-	/// </summary>
-
-	public DataNode serverOptions;
+	public Action<Player> onSetAdmin;
 
 	/// <summary>
 	/// Notification of a client packet arriving.
 	/// </summary>
 
 	public OnForwardedPacket onForwardedPacket;
+	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
 
 	/// <summary>
 	/// Whether the game client should be actively processing messages or not.
@@ -214,9 +204,11 @@ public class GameClient
 
 	// Each GetFileList() call can specify its own callback
 	Dictionary<string, OnGetFiles> mGetFiles = new Dictionary<string, OnGetFiles>();
+	public delegate void OnGetFiles (string path, string[] files);
 
 	// Each LoadFile() call can specify its own callback
 	Dictionary<string, OnLoadFile> mLoadFiles = new Dictionary<string, OnLoadFile>();
+	public delegate void OnLoadFile (string filename, byte[] data);
 
 	// Server's UDP address
 	IPEndPoint mServerUdpEndPoint;
@@ -233,6 +225,9 @@ public class GameClient
 
 	// Local server is used for socket-less mode
 	GameServer mLocalServer;
+
+	// Server configuration data
+	DataNode mConfig = new DataNode("Version", Player.version);
 
 	/// <summary>
 	/// Whether the player has verified himself as an administrator.
@@ -367,6 +362,27 @@ public class GameClient
 #else
 			return mUdp.isActive && mServerUdpEndPoint != null;
 #endif
+		}
+	}
+
+	/// <summary>
+	/// Server data associated with the connected server. Don't try to change it manually.
+	/// </summary>
+
+	public DataNode serverConfig
+	{
+		get
+		{
+			return mConfig;
+		}
+		set
+		{
+			if (isAdmin)
+			{
+				mConfig = value;
+				BeginSend(Packet.RequestSetServerConfig).Write(value);
+				EndSend();
+			}
 		}
 	}
 
@@ -1370,7 +1386,7 @@ public class GameClient
 				}
 
 				if (onDisconnect != null) onDisconnect();
-				serverOptions = null;
+				mConfig = new DataNode("Version", Player.version);
 				break;
 			}
 			case Packet.ResponseGetFileList:
@@ -1434,20 +1450,6 @@ public class GameClient
 				}
 				break;
 			}
-			case Packet.ResponseReloadServerConfig:
-			{
-				serverOptions = reader.ReadDataNode();
-
-				if (onServerOption != null)
-				{
-					for (int i = 0; i < serverOptions.children.size; ++i)
-					{
-						DataNode child = serverOptions.children[i];
-						onServerOption(child);
-					}
-				}
-				break;
-			}
 			case Packet.ResponseVerifyAdmin:
 			{
 				int pid = reader.ReadInt32();
@@ -1456,19 +1458,26 @@ public class GameClient
 				if (onSetAdmin != null) onSetAdmin(p);
 				break;
 			}
+			case Packet.ResponseSetServerConfig:
+			{
+				mConfig = reader.ReadDataNode();
+				if (onSetServerConfig != null) onSetServerConfig(mConfig);
+				break;
+			}
 			case Packet.ResponseSetServerOption:
 			{
-				if (serverOptions == null) serverOptions = new DataNode("Version", Player.version);
-				DataNode node = reader.ReadDataNode();
+				string path = reader.ReadString();
+				object obj = reader.ReadObject();
 
-				if (node.value == null && node.children.size == 0)
+				if (obj != null)
 				{
-					serverOptions.RemoveChild(node.name);
+					DataNode node = mConfig.SetHierarchy(path, obj);
+					if (onSetServerOption != null) onSetServerOption(path, node);
 				}
 				else
 				{
-					DataNode child = serverOptions.ReplaceChild(node);
-					if (onServerOption != null) onServerOption(child);
+					DataNode node = mConfig.RemoveHierarchy(path);
+					if (onSetServerOption != null) onSetServerOption(path, node);
 				}
 				break;
 			}
@@ -1509,19 +1518,19 @@ public class GameClient
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public DataNode GetServerOption (string key) { return (serverOptions != null) ? serverOptions.GetChild(key) : null; }
+	public DataNode GetServerOption (string key) { return (mConfig != null) ? mConfig.GetHierarchy(key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetServerOption<T> (string key) { return (serverOptions != null) ? serverOptions.GetChild<T>(key) : default(T); }
+	public T GetServerOption<T> (string key) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetServerOption<T> (string key, T def) { return (serverOptions != null) ? serverOptions.GetChild<T>(key, def) : def; }
+	public T GetServerOption<T> (string key, T def) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
@@ -1529,18 +1538,9 @@ public class GameClient
 
 	public void SetServerOption (string key, object val)
 	{
-		DataNode node = new DataNode(key, val);
-		BeginSend(Packet.RequestSetServerOption).Write(node);
-		EndSend();
-	}
-
-	/// <summary>
-	/// Set the specified server option.
-	/// </summary>
-
-	public void SetServerOption (DataNode node)
-	{
-		BeginSend(Packet.RequestSetServerOption).Write(node);
+		BinaryWriter writer = BeginSend(Packet.RequestSetServerOption);
+		writer.Write(key);
+		writer.WriteObject(val);
 		EndSend();
 	}
 
@@ -1549,22 +1549,10 @@ public class GameClient
 	/// After modifying don't forget to call SyncChannelData().
 	/// </summary>
 
-	public DataNode GetChannelData (int channelID)
+	DataNode GetChannelData (int channelID)
 	{
 		Channel ch = GetChannel(channelID);
 		return (ch != null) ? ch.data as DataNode : null;
-	}
-
-	/// <summary>
-	/// Set the channel data for the specified channel. Use this to set data for channels other than the ones where the player resides.
-	/// </summary>
-
-	public void SetChannelData (int channelID, DataNode val)
-	{
-		BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
-		bw.Write(channelID);
-		bw.Write(val);
-		EndSend();
 	}
 
 	/// <summary>
@@ -1574,7 +1562,7 @@ public class GameClient
 	public DataNode GetChannelOption (int channelID, string key)
 	{
 		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetChild(key) : null;
+		return (data != null) ? data.GetHierarchy(key) : null;
 	}
 
 	/// <summary>
@@ -1584,7 +1572,7 @@ public class GameClient
 	public T GetChannelOption<T> (int channelID, string key)
 	{
 		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetChild<T>(key) : default(T);
+		return (data != null) ? data.GetHierarchy<T>(key) : default(T);
 	}
 
 	/// <summary>
@@ -1594,7 +1582,7 @@ public class GameClient
 	public T GetChannelOption<T> (int channelID, string key, T def)
 	{
 		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetChild<T>(key, def) : def;
+		return (data != null) ? data.GetHierarchy<T>(key, def) : def;
 	}
 
 	/// <summary>
@@ -1617,28 +1605,13 @@ public class GameClient
 					ch.data = node;
 				}
 
-				node.SetChild(key, val);
+				node.SetHierarchy(key, val);
 				BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
 				bw.Write(channelID);
 				bw.WriteObject(ch.data);
 				EndSend();
 			}
 		}
-	}
-
-	/// <summary>
-	/// Set the specified server option.
-	/// </summary>
-
-	public void SetChannelOption (int channelID, DataNode node)
-	{
-		DataNode data = GetChannelData(channelID);
-		if (data == null) data = new DataNode("Version", Player.version);
-		data.ReplaceChild(node);
-		BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
-		bw.Write(channelID);
-		bw.Write(data);
-		EndSend();
 	}
 
 	/// <summary>

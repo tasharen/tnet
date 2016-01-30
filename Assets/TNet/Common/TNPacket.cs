@@ -652,22 +652,31 @@ public enum Packet
 	RequestReloadServerConfig,
 
 	/// <summary>
-	/// The entire server data root node sent back from the server when the player connects or it gets reloaded.
+	/// Sets the complete server's configuration data. Only administrators can do this.
+	/// DataNode: data. Note that some types may not be readable on the server side, such as Vector3 for example.
+	/// </summary>
+
+	RequestSetServerConfig,
+
+	/// <summary>
+	/// Complete server's configuration data. It's automatically sent to all clients when they get connected.
 	/// DataNode: data.
 	/// </summary>
 
-	ResponseReloadServerConfig,
+	ResponseSetServerConfig,
 
 	/// <summary>
 	/// Sets a server option. Only administrators can do this.
-	/// DataNode: data. Note that some types may not be readable on the server side, such as Vector3 for example.
+	/// string: Hierarchy path.
+	/// object: Value.
 	/// </summary>
 
 	RequestSetServerOption,
 
 	/// <summary>
 	/// Server option sent back from the server to all connected clients in response to RequestSetServerOption.
-	/// DataNode: data.
+	/// string: Hierarchy path.
+	/// object: Value.
 	/// </summary>
 
 	ResponseSetServerOption,

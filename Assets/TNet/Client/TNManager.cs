@@ -9,6 +9,7 @@ using TNet;
 using System.Net;
 using System.Reflection;
 using UnityTools = TNet.UnityTools;
+using System;
 
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
@@ -29,29 +30,53 @@ public class TNManager : MonoBehaviour
 	/// Notification that will be called when SyncPlayerData() gets called, even in offline mode (for consistency).
 	/// </summary>
 
-	static public GameClient.OnPlayerSync onPlayerSync;
-
-	public delegate void OnObjectCreatedFunc (GameObject go);
+	static public System.Action<Player> onPlayerSync
+	{
+		get
+		{
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onPlayerSync : null;
+		}
+		set
+		{
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onPlayerSync = value;
+		}
+	}
 
 	/// <summary>
 	/// Custom callback that will be called every time any object gets instantiated.
 	/// </summary>
 
-	static public OnObjectCreatedFunc onObjectCreated;
+	static public System.Action<GameObject> onObjectCreated;
 
 	/// <summary>
 	/// Notification of server data being changed.
 	/// </summary>
 
-	static public GameClient.OnServerData onServerOption
+	static public System.Action<DataNode> onSetServerConfig
 	{
 		get
 		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onServerOption : null;
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerConfig : null;
 		}
 		set
 		{
-			if (!mDestroyed) instance.mClient.onServerOption = value;
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerConfig = value;
+		}
+	}
+
+	/// <summary>
+	/// Notification of server data being changed.
+	/// </summary>
+
+	static public System.Action<string, DataNode> onSetServerOption
+	{
+		get
+		{
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerOption : null;
+		}
+		set
+		{
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerOption = value;
 		}
 	}
 
@@ -94,7 +119,7 @@ public class TNManager : MonoBehaviour
 	/// Whether the player has verified himself as an administrator.
 	/// </summary>
 
-	static public bool isAdmin { get { return (mInstance != null && mInstance.mClient.isAdmin); } }
+	static public bool isAdmin { get { return (mInstance == null || !mInstance.mClient.isConnected || mInstance.mClient.isAdmin); } }
 
 	/// <summary>
 	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
@@ -248,21 +273,11 @@ public class TNManager : MonoBehaviour
 
 	static public IPEndPoint packetSourceIP { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
 
-	[System.Obsolete("Use TNManager.packetSourceIP or TNManager.packetSourceID instead")]
-	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
-
 	/// <summary>
 	/// TCP end point, available only if we're actually connected to the server.
 	/// </summary>
 
 	static public IPEndPoint tcpEndPoint { get { return (mInstance != null) ? mInstance.mClient.tcpEndPoint : null; } }
-
-	/// <summary>
-	/// Whether the player is in a locked channel.
-	/// </summary>
-
-	[System.Obsolete("It's now possible to be in more than one channel at once. Use TNManager.IsChannelLocked(channelID) instead.")]
-	static public bool isChannelLocked { get { return IsChannelLocked(lastChannelID); } }
 
 	/// <summary>
 	/// Whether the specified channel is currently locked.
@@ -279,31 +294,11 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Custom data associated with the channel.
-	/// </summary>
-
-	[System.Obsolete("Use TNManager.GetChannelOption and TNManager.SetChannelOption instead")]
-	static public string channelData
-	{
-		get
-		{
-			return GetChannelOption<string>("channelData");
-		}
-		set
-		{
-			SetChannelOption("channelData", value);
-		}
-	}
-
-	/// <summary>
 	/// ID of the channel the player is in.
 	/// Note that if used while the player is in more than one channel, a warning will be shown.
 	/// </summary>
 
 	static public int lastChannelID = 0;
-
-	[System.Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
-	static public int channelID { get { return lastChannelID; } }
 
 	static List<Channel> mDummyCL = new List<Channel>();
 
@@ -326,13 +321,6 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public bool IsInChannel (int channelID) { return isConnected && mInstance.mClient.IsInChannel(channelID); }
-
-	/// <summary>
-	/// ID of the host.
-	/// </summary>
-
-	[System.Obsolete("It's now possible to be in more than one channel at once. Use TNManager.GetHost(channelID) instead.")]
-	static public int hostID { get { return GetHost(lastChannelID).id; } }
 
 	/// <summary>
 	/// Get the player hosting the specified channel. Only works for the channels the player is in.
@@ -408,13 +396,15 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// List of players in the same channel as the client.
+	/// List of other players in the same channel as the client. This list does not include TNManager.player.
 	/// </summary>
 
 	static public List<Player> players { get { return GetPlayers(lastChannelID); } }
 
 	/// <summary>
-	/// Get a list of players under the specified channel. This will only work for channels the player has joined.
+	/// Get a list of players under the specified channel.
+	/// This will only work for channels the player has joined.
+	/// The returned list will not include TNManager.player.
 	/// </summary>
 
 	static public List<Player> GetPlayers (int channelID)
@@ -456,13 +446,25 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
-	static DataNode mDummyOptions = new DataNode("Version", Player.version);
+	static DataNode mDummyNode = new DataNode("Version", Player.version);
 
 	/// <summary>
-	/// Server options are set by administrators. Don't try to change this structure yourself -- use SetServerOption() instead.
+	/// Server configuration is set by administrators.
+	/// In most cases you should use GetServerOption and SetServerOption functions instead.
 	/// </summary>
 
-	static public DataNode serverOptions { get { return ((mInstance != null) ? mInstance.mClient.serverOptions : null) ?? mDummyOptions; } }
+	static public DataNode serverConfig
+	{
+		get
+		{
+			return ((mInstance != null) ? mInstance.mClient.serverConfig : null) ?? mDummyNode;
+		}
+		set
+		{
+			if (mInstance != null)
+				mInstance.mClient.serverConfig = value;
+		}
+	}
 
 	/// <summary>
 	/// Retrieve the specified server option.
@@ -483,22 +485,37 @@ public class TNManager : MonoBehaviour
 	static public T GetServerOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key, def) : def; }
 
 	/// <summary>
-	/// Set the specified server option.
+	/// Set the specified server option using key = value notation.
 	/// </summary>
 
-	static public void SetServerOption (string key, object val) { if (mInstance != null) mInstance.mClient.SetServerOption(key, val); }
+	static public void SetServerOption (string text)
+	{
+		if (!string.IsNullOrEmpty(text))
+		{
+			string[] parts = text.Split(new char[] { '=' }, 2);
+
+			if (parts.Length == 2)
+			{
+				string key = parts[0].Trim();
+				string val = parts[1].Trim();
+				DataNode node = new DataNode(key, val);
+				if (node.ResolveValue()) SetServerOption(node.name, node.value);
+			}
+			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
+		}
+	}
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetServerOption (DataNode node) { if (mInstance != null) mInstance.mClient.SetServerOption(node); }
+	static public void SetServerOption (string key, object val) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerOption(key, val); }
 
 	/// <summary>
 	/// Remove this server option.
 	/// </summary>
 
-	static public void RemoveServerOption (string key) { if (mInstance != null) mInstance.mClient.SetServerOption(key, null); }
+	static public void RemoveServerOption (string key) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerOption(key, null); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
@@ -523,12 +540,6 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void SetChannelOption (string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, key, val); }
-
-	/// <summary>
-	/// Set the specified server option.
-	/// </summary>
-
-	static public void SetChannelOption (DataNode node) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, node); }
 
 	/// <summary>
 	/// Remove this server option.
@@ -559,12 +570,6 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public void SetChannelOption (int channelID, string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, key, val); }
-
-	/// <summary>
-	/// Set the specified server option.
-	/// </summary>
-
-	static public void SetChannelOption (int channelID, DataNode node) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, node); }
 
 	/// <summary>
 	/// Remove this server option.
@@ -1046,18 +1051,6 @@ public class TNManager : MonoBehaviour
 		if (onPlayerSync != null) onPlayerSync(player);
 	}
 
-	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
-	static internal void Create (string path, bool persistent = true) { Instantiate(lastChannelID, 1, null, path, persistent); }
-
-	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
-	static internal void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { Instantiate(lastChannelID, 2, null, path, persistent, pos, rot); }
-
-	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
-	static internal void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true) { Instantiate(lastChannelID, 3, null, path, persistent, pos, rot, vel, angVel); }
-
-	[System.Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
-	static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(rccID, path, persistent, objs); }
-
 	/// <summary>
 	/// Create a packet that will send a custom object creation call.
 	/// Instantiate a new game object in the current channel on all connected players.
@@ -1344,28 +1337,6 @@ public class TNManager : MonoBehaviour
 	/// Send the outgoing buffer.
 	/// </summary>
 
-	[System.Obsolete("You need to specify a channel ID to send the packet to: TNManager.EndSend(channelID, reliable);")]
-	static public void EndSend (bool reliable)
-	{
-		if (!IsJoiningChannel(lastChannelID))
-		{
-			if (channels.size > 1)
-				Debug.LogWarning("You need to specify which channel this packet should be going to");
-			mInstance.mClient.EndSend(lastChannelID, reliable);
-		}
-		else
-		{
-			mInstance.mClient.CancelSend();
-#if UNITY_EDITOR
-			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
-#endif
-		}
-	}
-
-	/// <summary>
-	/// Send the outgoing buffer.
-	/// </summary>
-
 	static public void EndSend (int channelID, bool reliable = true)
 	{
 		if (!IsJoiningChannel(channelID))
@@ -1446,7 +1417,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (mInstance != null)
 		{
-			Object.Destroy(gameObject);
+			UnityEngine.Object.Destroy(gameObject);
 		}
 		else
 		{
@@ -1464,7 +1435,6 @@ public class TNManager : MonoBehaviour
 			mClient.onLoadLevel			= OnLoadLevel;
 			mClient.onPlayerJoined		= OnPlayerJoined;
 			mClient.onPlayerLeft		= OnPlayerLeft;
-			mClient.onPlayerSync		= OnPlayerSync;
 			mClient.onRenamePlayer		= OnRenamePlayer;
 			mClient.onCreate			= OnCreateObject;
 			mClient.onDestroy			= OnDestroyObject;
@@ -1606,7 +1576,7 @@ public class TNManager : MonoBehaviour
 		if (obj)
 		{
 			if (obj.onDestroy != null) obj.onDestroy();
-			Object.Destroy(obj.gameObject);
+			UnityEngine.Object.Destroy(obj.gameObject);
 		}
 	}
 
@@ -1645,7 +1615,7 @@ public class TNManager : MonoBehaviour
 				funcName = reader.ReadString();
 				TNObject.FindAndExecute(channelID, objID, funcName, reader.ReadArray());
 			}
-			catch (System.Exception ex)
+			catch (Exception ex)
 			{
 				Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
 			}
@@ -1763,12 +1733,6 @@ public class TNManager : MonoBehaviour
 	void OnPlayerLeft (int channelID, Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", channelID, p); }
 
 	/// <summary>
-	/// Notification of player's data changing.
-	/// </summary>
-
-	void OnPlayerSync (Player p) { if (onPlayerSync != null) onPlayerSync(p); }
-
-	/// <summary>
 	/// Notification of a player being renamed.
 	/// </summary>
 
@@ -1796,12 +1760,66 @@ public class TNManager : MonoBehaviour
 	/// Add the specified packet to the receive queue. Useful for inserting messages to be processed by the network manager.
 	/// </summary>
 
-	static public void AddToReceiveQueue (Buffer buff)
+	static public void AddToReceiveQueue (TNet.Buffer buff)
 	{
 		if (mInstance != null && mInstance.mClient != null)
 		{
-			System.Collections.Generic.Queue<Buffer> queue = mInstance.mClient.receiveQueue;
+			var queue = mInstance.mClient.receiveQueue;
 			lock (queue) queue.Enqueue(buff);
+		}
+	}
+
+	[Obsolete("Use TNManager.serverConfig instead")]
+	static public DataNode serverOptions { get { return serverConfig; } }
+
+	[Obsolete("Use TNManager.SetServerOption(key, value) instead")]
+	static public void SetServerOption (DataNode node) { SetServerOption(node.name, node.value); }
+
+	[Obsolete("Use TNManager.SetChannelOption(key, value) instead")]
+	static public void SetChannelOption (DataNode node) { SetChannelOption(node.name, node.value); }
+
+	[Obsolete("Use TNManager.packetSourceIP or TNManager.packetSourceID instead")]
+	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
+
+	[Obsolete("It's now possible to be in more than one channel at once. Use TNManager.IsChannelLocked(channelID) instead.")]
+	static public bool isChannelLocked { get { return IsChannelLocked(lastChannelID); } }
+
+	[Obsolete("Use TNManager.GetChannelOption and TNManager.SetChannelOption instead")]
+	static public string channelData { get { return GetChannelOption<string>("channelData"); } set { SetChannelOption("channelData", value); } }
+
+	[Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
+	static public int channelID { get { return lastChannelID; } }
+
+	[Obsolete("It's now possible to be in more than one channel at once. Use TNManager.GetHost(channelID) instead.")]
+	static public int hostID { get { return GetHost(lastChannelID).id; } }
+
+	[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, bool persistent = true) { Instantiate(lastChannelID, 1, null, path, persistent); }
+
+	[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, Vector3 pos, Quaternion rot, bool persistent = true) { Instantiate(lastChannelID, 2, null, path, persistent, pos, rot); }
+
+	[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true) { Instantiate(lastChannelID, 3, null, path, persistent, pos, rot, vel, angVel); }
+
+	[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
+	static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(rccID, path, persistent, objs); }
+
+	[Obsolete("You need to specify a channel ID to send the packet to: TNManager.EndSend(channelID, reliable);")]
+	static public void EndSend (bool reliable)
+	{
+		if (!IsJoiningChannel(lastChannelID))
+		{
+			if (channels.size > 1)
+				Debug.LogWarning("You need to specify which channel this packet should be going to");
+			mInstance.mClient.EndSend(lastChannelID, reliable);
+		}
+		else
+		{
+			mInstance.mClient.CancelSend();
+#if UNITY_EDITOR
+			Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+#endif
 		}
 	}
 }

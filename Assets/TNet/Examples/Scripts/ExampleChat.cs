@@ -37,6 +37,10 @@ public class ExampleChat : TNBehaviour
 		mChatEntries.Add(ent);
 	}
 
+	protected override void OnEnable () { base.OnEnable(); TNManager.onSetServerOption += OnSetServerOption; }
+	void OnDisable () { TNManager.onSetServerOption -= OnSetServerOption; }
+	void OnSetServerOption (string path, DataNode node) { PrintConfig(path, node); }
+
 	/// <summary>
 	/// The list of players in the channel is immediately available upon joining a room.
 	/// </summary>
@@ -45,7 +49,10 @@ public class ExampleChat : TNBehaviour
 	{
 		mName = TNManager.playerName;
 
-		string text = "Players here: ";
+		// Show the current server configuration
+		PrintConfig(TNManager.serverConfig);
+
+		string text = "Other players here: ";
 		List<Player> players = TNManager.players;
 		
 		for (int i = 0; i < players.size; ++i)
@@ -104,7 +111,13 @@ public class ExampleChat : TNBehaviour
 	{
 		if (!string.IsNullOrEmpty(mInput))
 		{
-			tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
+			mInput = mInput.Trim();
+
+			if (mInput == "/get") PrintConfig(TNManager.serverConfig);
+			else if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
+			else if (mInput.StartsWith("/set ")) TNManager.SetServerOption(mInput.Substring(5));
+			else tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
+
 			mInput = "";
 		}
 	}
@@ -120,38 +133,48 @@ public class ExampleChat : TNBehaviour
 
 		GUI.Box(new Rect(Screen.width * 0.5f - 270f, Screen.height * 0.5f - 200f, 540f, 410f), "");
 
-		GUI.Label(new Rect(cx - 140f, cy - 170f, 80f, 24f), "Nickname");
-		GUI.SetNextControlName("Nickname");
+		GUI.Label(new Rect(cx - 140f, cy - 170f, 80f, 24f), "Name");
+		GUI.SetNextControlName("Name");
 		mName = GUI.TextField(new Rect(cx - 70f, cy - 170f, 120f, 24f), mName);
 
+		// Change the player's name when the button gets clicked.
 		if (GUI.Button(new Rect(cx + 60f, cy - 170f, 80f, 24f), "Change"))
-		{
-			// Change the player's name when the button gets clicked.
 			TNManager.playerName = mName;
-		}
 
 		GUI.SetNextControlName("Chat Window");
 		mRect = new Rect(cx - 200f, cy - 120f, 400f, 300f);
 		GUI.Window(0, mRect, OnGUIWindow, "Chat Window");
 
-		if (Event.current.keyCode == KeyCode.Return && Event.current.type == EventType.KeyUp)
+		if (Event.current.type == EventType.KeyUp)
 		{
+			var keyCode = Event.current.keyCode;
 			string ctrl = GUI.GetNameOfFocusedControl();
 
-			if (ctrl == "Nickname")
+			if (ctrl == "Name")
 			{
-				// Enter key pressed on the input field for the player's nickname -- change the player's name.
-				TNManager.playerName = mName;
-				GUI.FocusControl("Chat Window");
+				if (keyCode == KeyCode.Return)
+				{
+					// Enter key pressed on the input field for the player's nickname -- change the player's name.
+					TNManager.playerName = mName;
+					GUI.FocusControl("Chat Window");
+				}
 			}
 			else if (ctrl == "Chat Input")
 			{
-				Send();
-				GUI.FocusControl("Chat Window");
+				if (keyCode == KeyCode.Return)
+				{
+					Send();
+					GUI.FocusControl("Chat Window");
+				}
 			}
-			else
+			else if (keyCode == KeyCode.Return)
 			{
 				// Enter key pressed -- give focus to the chat input
+				GUI.FocusControl("Chat Input");
+			}
+			else if (keyCode == KeyCode.Slash)
+			{
+				mInput = "/";
 				GUI.FocusControl("Chat Input");
 			}
 		}
@@ -188,4 +211,21 @@ public class ExampleChat : TNBehaviour
 		}
 		GUI.EndGroup();
 	}
+
+	/// <summary>
+	/// Helper function that prints the specified config node and its children.
+	/// </summary>
+
+	void PrintConfig (string path, DataNode node)
+	{
+		if (node != null)
+		{
+			string[] lines = node.ToString().Split(new char[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+			foreach (string s in lines) AddToChat(s.Replace("\t", "    "), Color.yellow);
+		}
+		else AddToChat(path + " has not been set", Color.yellow);
+	}
+
+	void PrintConfig (string path) { PrintConfig(path, TNManager.GetServerOption(path)); }
+	void PrintConfig (DataNode node) { if (node != null) PrintConfig(node.name, node); }
 }

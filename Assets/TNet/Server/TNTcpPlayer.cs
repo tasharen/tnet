@@ -69,12 +69,6 @@ public class TcpPlayer : TcpProtocol
 	public bool isAdmin = false;
 
 	/// <summary>
-	/// Set during the verification stage, if at all. Used to automatically flag administrators when they connect.
-	/// </summary>
-
-	public string adminKey = null;
-
-	/// <summary>
 	/// Time of the next possible broadcast, used to catch spammers.
 	/// </summary>
 

@@ -1214,6 +1214,10 @@ public class GameServer : FileServer
 		{
 			if (player.VerifyRequestID(reader, buffer, true))
 			{
+				player.isAdmin = (player.address == null ||
+					player.address == "0.0.0.0:0" ||
+					player.address.StartsWith("127.0.0.1:"));
+
 				if (player.isAdmin || !mBan.Contains(player.name))
 				{
 					mPlayerDict.Add(player.id, player);
@@ -1226,7 +1230,13 @@ public class GameServer : FileServer
 
 					if (mServerData != null)
 					{
-						player.BeginSend(Packet.ResponseReloadServerConfig).Write(mServerData);
+						player.BeginSend(Packet.ResponseSetServerConfig).Write(mServerData);
+						player.EndSend();
+					}
+
+					if (player.isAdmin)
+					{
+						player.BeginSend(Packet.ResponseVerifyAdmin).Write(player.id);
 						player.EndSend();
 					}
 
@@ -1743,7 +1753,7 @@ public class GameServer : FileServer
 					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
 					Buffer buff = Buffer.Create();
-					buff.BeginPacket(Packet.ResponseReloadServerConfig).Write(mServerData);
+					buff.BeginPacket(Packet.ResponseSetServerConfig).Write(mServerData);
 					buff.EndPacket();
 
 					// Forward the packet to everyone connected to the server
@@ -1761,34 +1771,62 @@ public class GameServer : FileServer
 				}
 				break;
 			}
+			case Packet.RequestSetServerConfig:
+			{
+				if (player.isAdmin)
+				{
+					// 4 bytes for size, 1 byte for ID
+					int origin = buffer.position - 5;
+
+					// Read the configuration
+					mServerData = reader.ReadDataNode();
+
+					// Change the packet type to a response before sending it as-is
+					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerConfig;
+					buffer.position = origin;
+
+					// We want to forward the packet as-is
+					buffer.position = origin;
+
+					// Forward the packet to everyone connected to the server
+					for (int i = 0; i < mPlayerList.size; ++i)
+					{
+						TcpPlayer tp = mPlayerList[i];
+						tp.SendTcpPacket(buffer);
+					}
+				}
+				else
+				{
+					player.LogError("Tried to set the server data without authorization", null);
+					RemovePlayer(player);
+				}
+				break;
+			}
 			case Packet.RequestSetServerOption:
 			{
 				if (player.isAdmin)
 				{
 					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
-					DataNode child = reader.ReadDataNode();
+					// 4 bytes for size, 1 byte for ID
+					int origin = buffer.position - 5;
 
-					if (child.value == null && child.children.size == 0)
-					{
-						mServerData.RemoveChild(child.name);
-						child = mServerData;
-					}
-					else child = mServerData.ReplaceChild(child);
+					// Change the local configuration
+					string path = reader.ReadString();
+					object obj = reader.ReadObject();
+					mServerData.SetHierarchy(path, obj);
+					SaveData();
 
-					Buffer buff = Buffer.Create();
-					buff.BeginPacket(Packet.ResponseSetServerOption).Write(child);
-					buff.EndPacket();
+					// Change the packet type to a response before sending it as-is
+					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerOption;
+					buffer.position = origin;
 
 					// Forward the packet to everyone connected to the server
 					for (int i = 0; i < mPlayerList.size; ++i)
 					{
 						TcpPlayer tp = mPlayerList[i];
-						tp.SendTcpPacket(buff);
+						tp.SendTcpPacket(buffer);
 					}
-					buff.Recycle();
-
-					SaveData();
 				}
 				else
 				{

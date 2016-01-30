@@ -279,6 +279,32 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Retrieve a child by its path.
+	/// </summary>
+
+	public T GetHierarchy<T> (string path)
+	{
+		DataNode node = GetHierarchy(path);
+		if (node == null) return default(T);
+		object value = node.value;
+		if (value is T) return (T)node.value;
+		return Serialization.Convert<T>(value);
+	}
+
+	/// <summary>
+	/// Retrieve a child by its path.
+	/// </summary>
+
+	public T GetHierarchy<T> (string path, T defaultValue)
+	{
+		DataNode node = GetHierarchy(path);
+		if (node == null) return defaultValue;
+		object value = node.value;
+		if (value is T) return (T)node.value;
+		return Serialization.Convert<T>(value, defaultValue);
+	}
+
+	/// <summary>
 	/// Set a node's value given its hierarchical path.
 	/// </summary>
 
@@ -286,6 +312,7 @@ public class DataNode
 	{
 		path = path.Replace("\\", "/");
 		string[] names = path.Split('/');
+		DataNode parent = null;
 		DataNode node = this;
 		int index = 0;
 
@@ -297,6 +324,7 @@ public class DataNode
 			{
 				if (node.children[i].name == names[index])
 				{
+					parent = node;
 					node = node.children[i];
 					++index;
 					found = true;
@@ -306,14 +334,28 @@ public class DataNode
 
 			if (!found)
 			{
+				if (obj == null) break;
+				parent = node;
 				node = node.AddChild(names[index]);
 				++index;
 			}
 		}
 
+		if (obj == null)
+		{
+			if (parent != null) parent.RemoveChild(names[index - 1]);
+			return parent;
+		}
+
 		node.value = obj;
 		return node;
 	}
+
+	/// <summary>
+	/// Remove the specified child from the list. Returns the parent node of the removed node if successful.
+	/// </summary>
+
+	public DataNode RemoveHierarchy (string path) { return SetHierarchy(path, null); }
 
 	/// <summary>
 	/// Retrieve a child by name, optionally creating a new one if the child doesn't already exist.
