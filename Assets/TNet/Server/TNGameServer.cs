@@ -389,15 +389,26 @@ public class GameServer : FileServer
 					{
 						Socket socket = mListener.AcceptSocket();
 
-						if (socket != null)
+						try
 						{
-							IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
-
-							if (remote == null || mBan.Contains(remote.Address.ToString()))
+							if (socket != null && socket.Connected)
 							{
-								socket.Close();
+								IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
+
+								if (remote == null || mBan.Contains(remote.Address.ToString()))
+								{
+									socket.Close();
+								}
+								else AddPlayer(socket);
 							}
-							else AddPlayer(socket);
+						}
+						catch (Exception)
+						{
+							if (socket != null)
+							{
+								try { socket.Close(); }
+								catch (Exception) { }
+							}
 						}
 					}
 				}
