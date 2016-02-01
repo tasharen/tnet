@@ -521,61 +521,67 @@ public class TNManager : MonoBehaviour
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public DataNode GetChannelOption (string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption(lastChannelID, key) : null; }
+	static public DataNode GetChannelOption (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption(lastChannelID, key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key) : default(T); }
+	static public T GetChannelOption<T> (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key, def) : def; }
+	static public T GetChannelOption<T> (string key, T def) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetChannelOption (string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, key, val); }
+	static public void SetChannelOption (string key, object val) { if (isConnected && isInChannel) mInstance.mClient.SetChannelOption(lastChannelID, key, val); }
 
 	/// <summary>
 	/// Remove this server option.
 	/// </summary>
 
-	static public void RemoveChannelOption (string key) { if (mInstance != null) mInstance.mClient.SetChannelOption(lastChannelID, key, null); }
+	static public void RemoveChannelOption (string key) { if (isConnected && isInChannel) mInstance.mClient.SetChannelOption(lastChannelID, key, null); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public DataNode GetChannelOption (int channelID, string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption(channelID, key) : null; }
+	static public DataNode GetChannelOption (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelOption(channelID, key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (int channelID, string key) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(channelID, key) : default(T); }
+	static public T GetChannelOption<T> (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelOption<T>(channelID, key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (int channelID, string key, T def) { return (mInstance != null) ? mInstance.mClient.GetChannelOption<T>(channelID, key, def) : def; }
+	static public T GetChannelOption<T> (int channelID, string key, T def) { return (isConnected) ? mInstance.mClient.GetChannelOption<T>(channelID, key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetChannelOption (int channelID, string key, object val) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, key, val); }
+	static public void SetChannelOption (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelOption(channelID, key, val); }
 
 	/// <summary>
 	/// Remove this server option.
 	/// </summary>
 
-	static public void RemoveChannelOption (int channelID, string key) { if (mInstance != null) mInstance.mClient.SetChannelOption(channelID, key, null); }
+	static public void RemoveChannelOption (int channelID, string key) { if (isConnected) mInstance.mClient.SetChannelOption(channelID, key, null); }
+
+	/// <summary>
+	/// Get a list of channels from the server.
+	/// </summary>
+
+	static public void GetChannelList (GameClient.OnGetChannels callback) { if (isConnected) mInstance.mClient.GetChannelList(callback); }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.

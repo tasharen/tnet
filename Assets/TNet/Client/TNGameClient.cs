@@ -1372,6 +1372,7 @@ public class GameClient
 				}
 
 				mChannels.Clear();
+				mGetChannelsCallbacks.Clear();
 				mDictionary.Clear();
 				mTcp.Close(false);
 				mLoadFiles.Clear();
@@ -1478,6 +1479,31 @@ public class GameClient
 				{
 					DataNode node = mConfig.RemoveHierarchy(path);
 					if (onSetServerOption != null) onSetServerOption(path, node);
+				}
+				break;
+			}
+			case Packet.ResponseChannelList:
+			{
+				if (mGetChannelsCallbacks.Count != 0)
+				{
+					OnGetChannels cb = mGetChannelsCallbacks.Dequeue();
+					List<Channel.Info> channels = new List<Channel.Info>();
+					int count = reader.ReadInt32();
+
+					for (int i = 0; i < count; ++i)
+					{
+						Channel.Info info = new Channel.Info();
+						info.id = reader.ReadInt32();
+						info.players = reader.ReadUInt16();
+						info.limit = reader.ReadUInt16();
+						info.hasPassword = reader.ReadBoolean();
+						info.isPersistent = reader.ReadBoolean();
+						info.level = reader.ReadString();
+						info.data = reader.ReadObject() as DataNode;
+						channels.Add(info);
+					}
+
+					if (cb != null) cb(channels);
 				}
 				break;
 			}
@@ -1630,6 +1656,20 @@ public class GameClient
 			bw.Write(data);
 			EndSend();
 		}
+	}
+
+	public delegate void OnGetChannels (List<Channel.Info> list);
+	Queue<OnGetChannels> mGetChannelsCallbacks = new Queue<OnGetChannels>();
+
+	/// <summary>
+	/// Get a list of channels from the server.
+	/// </summary>
+
+	public void GetChannelList (OnGetChannels callback)
+	{
+		mGetChannelsCallbacks.Enqueue(callback);
+		BeginSend(Packet.RequestChannelList);
+		EndSend();
 	}
 }
 }

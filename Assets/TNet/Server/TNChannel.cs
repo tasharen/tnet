@@ -15,6 +15,10 @@ namespace TNet
 
 public class Channel
 {
+	/// <summary>
+	/// Remote function call entry stored within the channel.
+	/// </summary>
+
 	public class RFC
 	{
 		// Object ID (24 bytes), RFC ID (8 bytes)
@@ -41,12 +45,31 @@ public class Channel
 		}
 	}
 
+	/// <summary>
+	/// Created objects are saved by the channels.
+	/// </summary>
+
 	public class CreatedObject
 	{
 		public int playerID;
 		public uint objectID;
 		public byte type;
 		public Buffer buffer;
+	}
+
+	/// <summary>
+	/// Channel information class created as a result of retrieving a list of channels.
+	/// </summary>
+
+	public class Info
+	{
+		public int id;				// Channel's ID
+		public ushort players;		// Number of players present
+		public ushort limit;		// Player limit
+		public bool hasPassword;	// Whether the channel is password-protected or not
+		public bool isPersistent;	// Whether the channel is persistent or not
+		public string level;		// Name of the loaded level
+		public DataNode data;		// Data associated with the channel
 	}
 
 	public int id;

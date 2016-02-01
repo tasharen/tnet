@@ -150,6 +150,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: RCCs no longer require an ID and can be called by their function name.
 - NEW: It's no longer necessary to call TNManager.AddRCCs. TNet will find all RCCs automatically.
 - NEW: Expanded the chat example to support /get and /set commands that change server configuration.
+- NEW: Added TNManager.GetChannelList().
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.

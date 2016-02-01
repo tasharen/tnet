@@ -433,7 +433,7 @@ public enum Packet
 	///   bool: Has a password
 	///   bool: Is persistent
 	///   string: Level
-	///   string: Custom data
+	///   object: Custom data
 	/// </summary>
 
 	ResponseChannelList,
