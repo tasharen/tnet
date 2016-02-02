@@ -103,19 +103,19 @@ public sealed class TNObject : MonoBehaviour
 	/// Whether this object belongs to the player.
 	/// </summary>
 
-	public bool isMine { get { return mOwner == TNManager.player; } }
+	public bool isMine { get { return (mOwner != null) ? mOwner == TNManager.player : TNManager.isHosting; } }
 
 	/// <summary>
 	/// ID of the player that owns this object.
 	/// </summary>
 
-	public int ownerID { get { return (mParent != null) ? mParent.ownerID : (mOwner ?? TNManager.player).id; } }
+	public int ownerID { get { return (mParent != null) ? mParent.ownerID : (mOwner ?? TNManager.GetHost(channelID)).id; } }
 
 	/// <summary>
 	/// ID of the player that owns this object.
 	/// </summary>
 
-	public Player owner { get { return (mParent != null) ? mParent.owner : (mOwner ?? TNManager.player); } }
+	public Player owner { get { return (mParent != null) ? mParent.owner : (mOwner ?? TNManager.GetHost(channelID)); } }
 
 	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
