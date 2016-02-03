@@ -1388,7 +1388,7 @@ public class TNManager : MonoBehaviour
 		if (isConnected)
 		{
 			IPEndPoint ip = tcpEndPoint;
-			string addr = ip.Address + ":" + ip.Port;
+			string addr = (ip != null) ? (ip.Address + ":" + ip.Port) : "127.0.0.1:5127";
 			int code = addr.GetHashCode();
 			if (code < 0) code = -code;
 			return Tools.WriteFile("Temp/" + code + "/" + path, data, inMyDocuments, false);
