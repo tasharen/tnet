@@ -81,6 +81,22 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Notification of channel data being changed.
+	/// </summary>
+
+	static public System.Action<Channel> onSetChannelData
+	{
+		get
+		{
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetChannelData : null;
+		}
+		set
+		{
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetChannelData = value;
+		}
+	}
+
+	/// <summary>
 	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
 	/// </summary>
 
