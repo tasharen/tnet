@@ -50,7 +50,7 @@ public class TNAutoSyncInspector : Editor
 		float updates = EditorGUILayout.FloatField("Updates Per Second", sync.updatesPerSecond);
 		bool persistent = EditorGUILayout.Toggle("Saved On Server", sync.isSavedOnServer);
 		bool important = EditorGUILayout.Toggle("Important", sync.isImportant);
-		bool owner = EditorGUILayout.Toggle("Only Owner Can Sync", sync.onlyOwnerCanSync);
+		bool owner = EditorGUILayout.Toggle("Only Owner Syncs", sync.onlyOwnerCanSync);
 
 		if (sync.updatesPerSecond != updates ||
 			sync.isSavedOnServer != persistent ||

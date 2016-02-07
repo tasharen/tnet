@@ -134,14 +134,14 @@ public class ExampleChat : TNBehaviour
 		GUI.Box(new Rect(Screen.width * 0.5f - 270f, Screen.height * 0.5f - 200f, 540f, 410f), "");
 
 		GUI.Label(new Rect(cx - 140f, cy - 170f, 80f, 24f), "Name");
-		GUI.SetNextControlName("Name");
+		if (Application.isPlaying) GUI.SetNextControlName("Name");
 		mName = GUI.TextField(new Rect(cx - 70f, cy - 170f, 120f, 24f), mName);
 
 		// Change the player's name when the button gets clicked.
 		if (GUI.Button(new Rect(cx + 60f, cy - 170f, 80f, 24f), "Change"))
 			TNManager.playerName = mName;
 
-		GUI.SetNextControlName("Chat Window");
+		if (Application.isPlaying) GUI.SetNextControlName("Chat Window");
 		mRect = new Rect(cx - 200f, cy - 120f, 400f, 300f);
 		GUI.Window(0, mRect, OnGUIWindow, "Chat Window");
 
@@ -156,7 +156,7 @@ public class ExampleChat : TNBehaviour
 				{
 					// Enter key pressed on the input field for the player's nickname -- change the player's name.
 					TNManager.playerName = mName;
-					GUI.FocusControl("Chat Window");
+					if (Application.isPlaying) GUI.FocusControl("Chat Window");
 				}
 			}
 			else if (ctrl == "Chat Input")
@@ -164,20 +164,27 @@ public class ExampleChat : TNBehaviour
 				if (keyCode == KeyCode.Return)
 				{
 					Send();
-					GUI.FocusControl("Chat Window");
+					if (Application.isPlaying) GUI.FocusControl("Chat Window");
 				}
 			}
 			else if (keyCode == KeyCode.Return)
 			{
 				// Enter key pressed -- give focus to the chat input
-				GUI.FocusControl("Chat Input");
+				if (Application.isPlaying) GUI.FocusControl("Chat Input");
 			}
 			else if (keyCode == KeyCode.Slash)
 			{
 				mInput = "/";
-				GUI.FocusControl("Chat Input");
+				if (Application.isPlaying) GUI.FocusControl("Chat Input");
 			}
 		}
+
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+		// Ridiculous Unity bug: http://forum.unity3d.com/threads/dest-m_multiframeguistate-m_namedkeycontrollist.158676/page-2
+		GUI.SetNextControlName(gameObject.GetHashCode().ToString());
+		Rect bounds = new Rect(-10, -10, 0, 0);
+		GUI.TextField(bounds, "", 0);
+#endif
 	}
 
 	/// <summary>
@@ -186,13 +193,13 @@ public class ExampleChat : TNBehaviour
 
 	void OnGUIWindow (int id)
 	{
-		GUI.SetNextControlName("Chat Input");
+		if (Application.isPlaying) GUI.SetNextControlName("Chat Input");
 		mInput = GUI.TextField(new Rect(6f, mRect.height - 30f, 328f, 24f), mInput);
 
 		if (GUI.Button(new Rect(334f, mRect.height - 31f, 60f, 26f), "Send"))
 		{
 			Send();
-			GUI.FocusControl("Chat Window");
+			if (Application.isPlaying) GUI.FocusControl("Chat Window");
 		}
 
 		GUI.BeginGroup(new Rect(2f, 20f, 382f, 254f));

@@ -47,17 +47,17 @@ public class TNAutoSync : TNBehaviour
 	public bool isSavedOnServer = true;
 
 	/// <summary>
-	/// Whether only the object's owner can send sync messages. In most cases it should remain as 'true'.
-	/// </summary>
-
-	public bool onlyOwnerCanSync = true;
-
-	/// <summary>
 	/// Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.
 	/// If you have a lot of frequent updates, leave it as not important.
 	/// </summary>
 
-	public bool isImportant = false;
+	public bool isImportant = true;
+
+	/// <summary>
+	/// Whether only the object's owner can send sync messages. In most cases it should remain as 'true'.
+	/// </summary>
+
+	public bool onlyOwnerCanSync = true;
 
 	class ExtendedEntry : SavedEntry
 	{

@@ -26,7 +26,7 @@ public class ExampleMenu : MonoBehaviour
 {
 	static ExampleMenu mInst = null;
 
-	const float buttonWidth = 200f;
+	const float buttonWidth = 400f;
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
@@ -259,7 +259,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void DrawExampleMenu ()
 	{
-		Rect rect = new Rect(0f, Screen.height - buttonHeight, buttonWidth, buttonHeight);
+		Rect rect = new Rect(0f, Screen.height - buttonHeight, 200f, buttonHeight);
 
 		if (GUI.Button(rect, "Main Menu", button))
 		{
@@ -311,7 +311,7 @@ public class ExampleMenu : MonoBehaviour
 
 	void DrawDisconnectButton ()
 	{
-		Rect rect = new Rect(Screen.width - buttonWidth, Screen.height - buttonHeight, buttonWidth, buttonHeight);
+		Rect rect = new Rect(Screen.width - 200f, Screen.height - buttonHeight, 200f, buttonHeight);
 
 		if (GUI.Button(rect, "Disconnect", button))
 		{

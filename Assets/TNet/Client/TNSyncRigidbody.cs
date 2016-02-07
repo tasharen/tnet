@@ -44,14 +44,14 @@ public class TNSyncRigidbody : TNBehaviour
 	bool mWasSleeping = false;
 
 	Vector3 mLastPos;
-	Vector3 mLastRot;
+	Quaternion mLastRot;
 
 	void Awake ()
 	{
 		mTrans = transform;
 		mRb = GetComponent<Rigidbody>();
 		mLastPos = mTrans.position;
-		mLastRot = mTrans.rotation.eulerAngles;
+		mLastRot = mTrans.rotation;
 		UpdateInterval();
 	}
 
@@ -79,9 +79,9 @@ public class TNSyncRigidbody : TNBehaviour
 			UpdateInterval();
 
 			Vector3 pos = mTrans.position;
-			Vector3 rot = mTrans.rotation.eulerAngles;
+			Quaternion rot = mTrans.rotation;
 
-			if (mWasSleeping || pos != mLastPos || rot != mLastRot)
+			if (mWasSleeping || pos != mLastPos || Quaternion.Dot(rot, mLastRot) < 0.99f)
 			{
 				mLastPos = pos;
 				mLastRot = rot;
@@ -108,10 +108,10 @@ public class TNSyncRigidbody : TNBehaviour
 	/// </summary>
 
 	[RFC(1)]
-	void OnSync (Vector3 pos, Vector3 rot, Vector3 vel, Vector3 ang)
+	void OnSync (Vector3 pos, Quaternion rot, Vector3 vel, Vector3 ang)
 	{
 		mTrans.position = pos;
-		mTrans.rotation = Quaternion.Euler(rot);
+		mTrans.rotation = rot;
 		//mRb.MovePosition(pos);
 		//mRb.MoveRotation(Quaternion.Euler(rot));
 
@@ -140,7 +140,7 @@ public class TNSyncRigidbody : TNBehaviour
 			UpdateInterval();
 			mWasSleeping = false;
 			mLastPos = mTrans.position;
-			mLastRot = mTrans.rotation.eulerAngles;
+			mLastRot = mTrans.rotation;
 			tno.Send(1, Target.OthersSaved, mLastPos, mLastRot, mRb.velocity, mRb.angularVelocity);
 		}
 	}

@@ -151,6 +151,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: It's no longer necessary to call TNManager.AddRCCs. TNet will find all RCCs automatically.
 - NEW: Expanded the chat example to support /get and /set commands that change server configuration.
 - NEW: Added TNManager.GetChannelList().
+- NEW: Added a new example showing a simple car with a frequent input and an infrequent rigidbody sync.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Player and channel data is now always stored as byte[] on the server, as it's much more efficient to not have to parse it (and the server doesn't care about the contents).
 - FIX: Changing server options now immediately saves the server's configuration.
