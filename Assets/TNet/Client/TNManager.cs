@@ -493,92 +493,88 @@ public class TNManager : MonoBehaviour
 	static public void SetServerData (string key, object val) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerData(key, val); }
 
 	/// <summary>
-	/// Remove this server option.
+	/// Return a channel with the specified ID. This will only work as long as the player is in this channel.
 	/// </summary>
 
-	static public void RemoveServerData (string key) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerData(key, null); }
+	static public Channel GetChannel (int channelID) { return isConnected ? mInstance.mClient.GetChannel(channelID, false) : null; }
 
 	/// <summary>
-	/// Retrieve the specified server option.
+	/// Convenience method: Retrieve the specified channel option.
 	/// </summary>
 
-	static public DataNode GetChannelData (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData(lastChannelID, key) : null; }
+	static public DataNode GetChannelData (string key)
+	{
+		if (!isConnected) return null;
+		var ch = GetChannel(lastChannelID);
+		return (ch != null) ? ch.Get(key) : null;
+	}
 
 	/// <summary>
-	/// Retrieve the specified server option.
+	/// Convenience method: Retrieve the specified channel option.
 	/// </summary>
 
-	static public T GetChannelData<T> (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData<T>(lastChannelID, key) : default(T); }
+	static public T GetChannelData<T> (string key)
+	{
+		if (!isConnected) return default(T);
+		var ch = GetChannel(lastChannelID);
+		return (ch != null) ? ch.Get<T>(key) : default(T);
+	}
 
 	/// <summary>
-	/// Retrieve the specified server option.
+	/// Convenience method: Retrieve the specified channel option.
 	/// </summary>
 
-	static public T GetChannelData<T> (string key, T def) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData<T>(lastChannelID, key, def) : def; }
+	static public T GetChannelData<T> (string key, T def)
+	{
+		if (!isConnected) return def;
+		var ch = GetChannel(lastChannelID);
+		return (ch != null) ? ch.Get<T>(key) : def;
+	}
 
 	/// <summary>
-	/// Set the specified server option.
+	/// Convenience method: Retrieve the specified channel option.
+	/// </summary>
+
+	static public DataNode GetChannelData (int channelID, string key)
+	{
+		if (!isConnected) return null;
+		var ch = GetChannel(channelID);
+		return (ch != null) ? ch.Get(key) : null;
+	}
+
+	/// <summary>
+	/// Convenience method: Retrieve the specified channel option.
+	/// </summary>
+
+	static public T GetChannelData<T> (int channelID, string key)
+	{
+		if (!isConnected) return default(T);
+		var ch = GetChannel(channelID);
+		return (ch != null) ? ch.Get<T>(key) : default(T);
+	}
+
+	/// <summary>
+	/// Convenience method: Retrieve the specified channel option.
+	/// </summary>
+
+	static public T GetChannelData<T> (int channelID, string key, T def)
+	{
+		if (!isConnected) return def;
+		var ch = GetChannel(channelID);
+		return (ch != null) ? ch.Get<T>(key) : def;
+	}
+
+	/// <summary>
+	/// Set the specified channel option.
 	/// </summary>
 
 	static public void SetChannelData (string key, object val) { if (isConnected && isInChannel) mInstance.mClient.SetChannelData(lastChannelID, key, val); }
 
 	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	static public DataNode GetChannelData (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelData(channelID, key) : null; }
-
-	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	static public T GetChannelData<T> (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelData<T>(channelID, key) : default(T); }
-
-	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	static public T GetChannelData<T> (int channelID, string key, T def) { return (isConnected) ? mInstance.mClient.GetChannelData<T>(channelID, key, def) : def; }
-
-	/// <summary>
-	/// Set the specified server option.
+	/// Set the specified channel option.
 	/// </summary>
 
 	static public void SetChannelData (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelData(channelID, key, val); }
-
-	/// <summary>
-	/// Get the player's data.
-	/// </summary>
-
-	public DataNode GetPlayerData (string path) { return isConnected ? mInstance.mClient.GetPlayerData(path) : mPlayer.dataNode.GetHierarchy(path); }
-
-	/// <summary>
-	/// Get the specified value from the player.
-	/// </summary>
-
-	public T GetPlayerData<T> (string path) { return isConnected ? mInstance.mClient.GetPlayerData<T>(path) : mPlayer.dataNode.GetHierarchy<T>(path); }
-
-	/// <summary>
-	/// Get the specified value from the player.
-	/// </summary>
-
-	public T GetPlayerData<T> (string path, T defaultVal) { return isConnected ? mInstance.mClient.GetPlayerData<T>(path, defaultVal) : mPlayer.dataNode.GetHierarchy<T>(path); }
-
-	/// <summary>
-	/// Set the specified value on the player.
-	/// </summary>
-
-	public void SetPlayerData (string path, object val)
-	{
-		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
-		else mPlayer.dataNode.SetHierarchy(path, val);
-	}
-
-	/// <summary>
-	/// Get a list of channels from the server.
-	/// </summary>
-
-	static public void GetChannelList (GameClient.OnGetChannels callback) { if (isConnected) mInstance.mClient.GetChannelList(callback); }
 
 	/// <summary>
 	/// Get the player associated with the specified ID.
@@ -601,6 +597,40 @@ public class TNManager : MonoBehaviour
 		if (name == playerName) return mPlayer;
 		return null;
 	}
+
+	/// <summary>
+	/// Get our player's data.
+	/// </summary>
+
+	public DataNode GetPlayerData (string path) { return player.dataNode.GetHierarchy(path); }
+
+	/// <summary>
+	/// Convenience method: Get the specified value from our player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string path) { return player.Get<T>(path); }
+
+	/// <summary>
+	/// Convenience method: Get the specified value from our player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string path, T defaultVal) { return player.Get<T>(path, defaultVal); }
+
+	/// <summary>
+	/// Set the specified value on our player.
+	/// </summary>
+
+	public void SetPlayerData (string path, object val)
+	{
+		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
+		else mPlayer.dataNode.SetHierarchy(path, val);
+	}
+
+	/// <summary>
+	/// Get a list of channels from the server.
+	/// </summary>
+
+	static public void GetChannelList (GameClient.OnGetChannels callback) { if (isConnected) mInstance.mClient.GetChannelList(callback); }
 
 	/// <summary>
 	/// Set the following function to handle this type of packets.
@@ -1782,8 +1812,19 @@ public class TNManager : MonoBehaviour
 	[Obsolete("It's now possible to be in more than one channel at once. Use TNManager.IsChannelLocked(channelID) instead.")]
 	static public bool isChannelLocked { get { return IsChannelLocked(lastChannelID); } }
 
-	[Obsolete("Use TNManager.GetChannelData and TNManager.SetChannelData instead")]
-	static public string channelData { get { return GetChannelData<string>("channelData"); } set { SetChannelData("channelData", value); } }
+	[Obsolete("Use TNManager.GetChannelData(id, data) and TNManager.SetChannelData(id, data) instead")]
+	static public string channelData
+	{
+		get
+		{
+			Channel ch = GetChannel(lastChannelID);
+			return (ch != null) ? ch.Get<string>("channelData") : null;
+		}
+		set
+		{
+			SetChannelData("channelData", value);
+		}
+	}
 
 	[Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
 	static public int channelID { get { return lastChannelID; } }

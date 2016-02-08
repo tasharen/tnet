@@ -438,24 +438,6 @@ public class GameClient
 	public Queue<Buffer> sendQueue { get { return mTcp.sendQueue; } set { mTcp.sendQueue = value; } }
 
 	/// <summary>
-	/// Get the player's data.
-	/// </summary>
-
-	public DataNode GetPlayerData (string path) { return mTcp.Get(path); }
-
-	/// <summary>
-	/// Get the specified value from the player.
-	/// </summary>
-
-	public T GetPlayerData<T> (string key) { return mTcp.Get<T>(key); }
-
-	/// <summary>
-	/// Get the specified value from the player.
-	/// </summary>
-
-	public T GetPlayerData<T> (string key, T defaultVal) { return mTcp.Get<T>(key, defaultVal); }
-
-	/// <summary>
 	/// Set the specified value on the player.
 	/// </summary>
 
@@ -1587,47 +1569,6 @@ public class GameClient
 		writer.Write(key);
 		writer.WriteObject(val);
 		EndSend();
-	}
-
-	/// <summary>
-	/// Return the channel data for the specified channel. This only works for channels that the player is currently in.
-	/// After modifying don't forget to call SyncChannelData().
-	/// </summary>
-
-	DataNode GetChannelData (int channelID)
-	{
-		Channel ch = GetChannel(channelID);
-		return (ch != null) ? ch.dataNode : null;
-	}
-
-	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	public DataNode GetChannelData (int channelID, string key)
-	{
-		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetHierarchy(key) : null;
-	}
-
-	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	public T GetChannelData<T> (int channelID, string key)
-	{
-		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetHierarchy<T>(key) : default(T);
-	}
-
-	/// <summary>
-	/// Retrieve the specified server option.
-	/// </summary>
-
-	public T GetChannelData<T> (int channelID, string key, T def)
-	{
-		DataNode data = GetChannelData(channelID);
-		return (data != null) ? data.GetHierarchy<T>(key, def) : def;
 	}
 
 	/// <summary>
