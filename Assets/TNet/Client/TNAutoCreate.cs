@@ -14,6 +14,12 @@ using TNet;
 public class TNAutoCreate : MonoBehaviour
 {
 	/// <summary>
+	/// ID of the channel where the prefab should be created. '0' means "last used channel".
+	/// </summary>
+
+	public int channelID = 0;
+
+	/// <summary>
 	/// Prefab to instantiate.
 	/// </summary>
 
@@ -29,7 +35,8 @@ public class TNAutoCreate : MonoBehaviour
 	IEnumerator Start ()
 	{
 		while (TNManager.isJoiningChannel) yield return null;
-		TNManager.Instantiate("CreateAtPosition", prefabPath, persistent, transform.position, transform.rotation);
+		if (channelID < 1) channelID = TNManager.lastChannelID;
+		TNManager.Instantiate(channelID, "CreateAtPosition", prefabPath, persistent, transform.position, transform.rotation);
 		Destroy(gameObject);
 	}
 

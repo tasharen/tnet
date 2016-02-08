@@ -2205,21 +2205,21 @@ public class GameServer : FileServer
 							if (to.players.Contains(p))
 							{
 								// The player is also present in the other channel -- inform them of the transfer
-								BinaryWriter writer = BeginSend(Packet.ResponseTransferObject);
+								BinaryWriter writer = p.BeginSend(Packet.ResponseTransferObject);
 								writer.Write(from.id);
 								writer.Write(to.id);
 								writer.Write(objectID);
 								writer.Write(obj.objectID);
-								EndSend(true, p);
+								p.EndSend();
 							}
 							else
 							{
 								// The player is not present in the other channel -- delete this object
-								BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
+								BinaryWriter writer = p.BeginSend(Packet.ResponseDestroyObject);
 								writer.Write(from.id);
 								writer.Write((ushort)1);
 								writer.Write(objectID);
-								EndSend(true, p);
+								p.EndSend();
 							}
 						}
 
@@ -2245,11 +2245,11 @@ public class GameServer : FileServer
 								{
 									Channel.RFC rfc = to.rfcs[b];
 									if (rfc.objectID == obj.objectID)
-										offset = rfc.WritePacket(to.id, buffer, offset);
+										offset = rfc.WritePacket(to.id, temp, offset);
 								}
 
-								p.SendTcpPacket(buffer);
-								buffer.Recycle();
+								p.SendTcpPacket(temp);
+								temp.Recycle();
 							}
 						}
 					}

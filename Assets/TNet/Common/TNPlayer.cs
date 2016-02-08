@@ -30,7 +30,11 @@ public class Player : DataNodeContainer
 	/// All players have a name that they chose for themselves.
 	/// </summary>
 
+#if UNITY_EDITOR
+	public string name = "Editor";
+#else
 	public string name = "Guest";
+#endif
 
 	/// <summary>
 	/// Player's known aliases. These will be checked against the ban list.

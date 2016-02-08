@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using TNet;
+using System.Collections;
 
 /// <summary>
 /// Instantiated objects can be easily transferred from one channel to another.
@@ -16,97 +17,71 @@ using TNet;
 /// as if it was loaded from a save file.
 /// </summary>
 
-[ExecuteInEditMode]
 public class ExampleTransfer : MonoBehaviour
 {
-	int mChannelID = 0;
+	public int channelID = 0;
+	public float joinDistance = 14f;
+	public float leaveDistance = 16f;
+	public float transferDistance = 7f;
 
-	void Start ()
+	IEnumerator Start ()
 	{
-		mChannelID = TNManager.lastChannelID;
+		// Wait until we've joined the channel
+		while (TNManager.isJoiningChannel) yield return null;
+
+		// Start the periodic checks
+		InvokeRepeating("PeriodicCheck", 0.001f, 0.25f);
+		UpdateRenderer();
 	}
 
-	void OnGUI ()
+	void PeriodicCheck ()
 	{
-		int chan1 = mChannelID;
-		int chan2 = mChannelID + 1;
-		Rect rect = new Rect(Screen.width * 0.5f - 200f * 0.5f, Screen.height * 0.5f - 100f, 200f, 220f);
+		var car = ExampleCar.mine;
+		if (car == null) return;
 
-		GUILayout.BeginArea(rect);
+		// If the car belongs to this channel, we don't want to leave it
+		if (car.tno.channelID == channelID) return;
+
+		// Check the distance
+		float distance = Vector3.Distance(transform.position, car.transform.position);
+
+		if (distance < joinDistance)
 		{
-			string channels = null;
-			List<Channel> list = TNManager.channels;
+			// We're close -- join the channel
+			if (!TNManager.IsInChannel(channelID))
+				TNManager.JoinChannel(channelID, true);
 
-			if (list != null)
-			{
-				foreach (Channel ch in list)
-				{
-					if (string.IsNullOrEmpty(channels)) channels = ch.id.ToString();
-					else channels += ", " + ch.id;
-				}
-			}
-
-			GUI.color = Color.black;
-			GUILayout.Label("Subscribed channel list: " + (channels ?? "none"));
-			GUI.color = Color.white;
-
-			// Create a new cube in a random position
-			if (GUILayout.Button("Create a Cube in Channel #" + chan1))
-			{
-				Vector3 pos = new Vector3(Random.Range(-3f, 3f), 0f, Random.Range(-3f, 3f));
-
-				// "CreateAtPosition" function is defined in TNAutoCreate, so this assumes that script exists!
-				TNManager.Instantiate(chan1, "CreateAtPosition", "AutoSync Cube", true, pos, Quaternion.identity);
-			}
-
-			// Transfer one of the cubes to another channel. If there is a player in that channel, they will see the cube appear.
-			if (GUILayout.Button("Transfer a Cube to Channel #" + chan1))
-			{
-				TNObject[] tnos = FindObjectsOfType<TNObject>();
-
-				foreach (TNObject tno in tnos)
-				{
-					if (tno.isMine && tno.channelID == chan2)
-					{
-						tno.TransferToChannel(chan1);
-						break;
-					}
-				}
-			}
-
-			// Transfer one of the cubes to another channel. If there is a player in that channel, they will see the cube appear.
-			if (GUILayout.Button("Transfer a Cube to Channel #" + chan2))
-			{
-				TNObject[] tnos = FindObjectsOfType<TNObject>();
-
-				foreach (TNObject tno in tnos)
-				{
-					if (tno.isMine && tno.channelID == chan1)
-					{
-						tno.TransferToChannel(chan2);
-						break;
-					}
-				}
-			}
-
-			if (!TNManager.IsInChannel(chan1))
-			{
-				// Join the second channel without leaving the first one
-				if (GUILayout.Button("Join Channel #" + chan1))
-					TNManager.JoinChannel(chan1, true);
-			}
-			else if (GUILayout.Button("Leave Channel #" + chan1))
-				TNManager.LeaveChannel(chan1);
-
-			if (!TNManager.IsInChannel(chan2))
-			{
-				// Join the second channel without leaving the first one
-				if (GUILayout.Button("Join Channel #" + chan2))
-					TNManager.JoinChannel(chan2, true);
-			}
-			else if (GUILayout.Button("Leave Channel #" + chan2))
-				TNManager.LeaveChannel(chan2);
+			// Transfer the player's car into this channel
+			if (distance < transferDistance && car.tno.channelID != channelID)
+				car.tno.TransferToChannel(channelID);
 		}
-		GUILayout.EndArea();
+		else if (distance > leaveDistance)
+		{
+			// We're far away -- leave the channel
+			if (TNManager.IsInChannel(channelID))
+				TNManager.LeaveChannel(channelID);
+		}
+	}
+
+	void OnNetworkJoinChannel (int channelID, bool success, string msg)
+	{
+		if (channelID == this.channelID) UpdateRenderer();
+	}
+
+	void OnNetworkLeaveChannel (int channelID)
+	{
+		if (channelID == this.channelID) UpdateRenderer();
+	}
+
+	void UpdateRenderer ()
+	{
+		Renderer ren = GetComponent<Renderer>();
+		
+		if (ren != null)
+		{
+			Color c = TNManager.IsInChannel(channelID) ? Color.green : Color.red;
+			c.a = 0.25f;
+			ren.material.color = c;
+		}
 	}
 }

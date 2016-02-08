@@ -1,4 +1,3 @@
-
 /Client/obj
 /Client/bin
 /Server/obj
@@ -22,7 +21,7 @@
 /Art/*.psd
 /Assets/Temp.meta
 /Assets/Temp
-
+/Debug
 /*.user
 /TNet_Data
 /*.exe

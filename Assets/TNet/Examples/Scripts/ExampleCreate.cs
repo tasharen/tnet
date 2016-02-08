@@ -14,12 +14,26 @@ using TNet;
 
 public class ExampleCreate : MonoBehaviour
 {
+	public int channelID = 0;
+	public string prefabName = "Created Cube";
+	public float autoDestroyDelay = 5f;
+
+	/// <summary>
+	/// Channel ID is not required for TNManager.Instantiate calls, however if you are working with
+	/// multiple channels, you will want to pass which channel you want the object to be created in.
+	/// </summary>
+
+	void Start () { if (channelID < 0) channelID = TNManager.lastChannelID; }
+
 	/// <summary>
 	/// Create a new object above the clicked position
 	/// </summary>
 
 	void OnClick ()
 	{
+		// Let's not try to create objects unless we are in this channel
+		if (TNManager.isConnected && !TNManager.IsInChannel(channelID)) return;
+
 		// Object's position will be up in the air so that it can fall down
 		Vector3 pos = TouchHandler.worldPos + Vector3.up * 3f;
 
@@ -29,8 +43,9 @@ public class ExampleCreate : MonoBehaviour
 		// Object's color is completely random
 		Color color = new Color(Random.value, Random.value, Random.value, 1f);
 
-		// Create the object using a custom creation function defined below
-		TNManager.Instantiate("ColoredObject", "Created Cube", true, pos, rot, color);
+		// Create the object using a custom creation function defined below.
+		// Note that passing "channelID" is optional. If you don't pass anything, TNet will pick one for you.
+		TNManager.Instantiate(channelID, "ColoredObject", prefabName, true, pos, rot, color, autoDestroyDelay);
 	}
 
 	/// <summary>
@@ -39,7 +54,7 @@ public class ExampleCreate : MonoBehaviour
 	/// </summary>
 
 	[RCC]
-	static GameObject ColoredObject (GameObject prefab, Vector3 pos, Quaternion rot, Color c)
+	static GameObject ColoredObject (GameObject prefab, Vector3 pos, Quaternion rot, Color c, float autoDestroyDelay)
 	{
 		// Instantiate the prefab
 		GameObject go = Object.Instantiate(prefab) as GameObject;
@@ -51,6 +66,10 @@ public class ExampleCreate : MonoBehaviour
 
 		// Set the renderer's color as well
 		go.GetComponentInChildren<Renderer>().material.color = c;
+
+		// Set the destroy delay timer
+		var ed = go.GetComponent<ExampleDestroy>();
+		if (ed != null) ed.autoDestroyDelay = autoDestroyDelay;
 		return go;
 	}
 }

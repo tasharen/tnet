@@ -4,7 +4,6 @@
 //---------------------------------------------
 
 #define RECYCLE_BUFFERS
-//#define DEBUG_BUFFERS
 
 using System;
 using System.IO;
@@ -30,6 +29,10 @@ public class Buffer
 #if RECYCLE_BUFFERS
 	volatile int mCounter = 0;
 #endif
+#if DEBUG_BUFFERS
+	static volatile int mUniqueCounter = 0;
+	internal volatile int mUniqueID = 0;
+#endif
 	volatile int mSize = 0;
 	volatile bool mWriting = false;
 
@@ -38,12 +41,15 @@ public class Buffer
 		mStream = new MemoryStream();
 		mWriter = new BinaryWriter(mStream);
 		mReader = new BinaryReader(mStream);
+#if DEBUG_BUFFERS
+		mUniqueID = ++mUniqueCounter;
+#endif
 	}
 
 	~Buffer ()
 	{
 #if DEBUG_BUFFERS
-		Log("DISPOSED " + (Packet)PeekByte(4));
+		Log("DISPOSED of " + mUniqueID + " (" + (Packet)PeekByte(4) + ")");
 #endif
 		if (mStream != null)
 		{
@@ -105,10 +111,15 @@ public class Buffer
 	static public int recycleQueue { get { return mPool.size; } }
 
 #if DEBUG_BUFFERS
+ #if !UNITY_EDITOR
 	static List<string> mEntries = new List<string>();
+ #endif
 
 	static void Log (string text)
 	{
+ #if UNITY_EDITOR
+		UnityEngine.Debug.Log(text);
+ #else
 		lock (mEntries)
 		{
 			mEntries.Add(text);
@@ -123,6 +134,7 @@ public class Buffer
 				mEntries.Clear();
 			}
 		}
+ #endif
 	}
 #endif
 
@@ -136,10 +148,10 @@ public class Buffer
 
 		if (mPool.size == 0)
 		{
-#if DEBUG_BUFFERS
-			Log("New");
-#endif
 			b = new Buffer();
+#if DEBUG_BUFFERS
+			Log("New " + b.mUniqueID);
+#endif
 		}
 		else
 		{
@@ -147,21 +159,24 @@ public class Buffer
 			{
 				if (mPool.size != 0)
 				{
-#if DEBUG_BUFFERS
-					Log("Existing " + mPool.size);
-#endif
 					b = mPool.Pop();
+#if DEBUG_BUFFERS
+					Log("Existing " + b.mUniqueID + " (" + mPool.size + ")");
+#endif
 				}
 				else
 				{
-#if DEBUG_BUFFERS
-					Log("New");
-#endif
 					b = new Buffer();
+#if DEBUG_BUFFERS
+					Log("New " + b.mUniqueID);
+#endif
 				}
 			}
 		}
 #if RECYCLE_BUFFERS
+ #if UNITY_EDITOR && DEBUG_BUFFERS
+		if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use: " + b.mUniqueID);
+ #endif
 		b.mCounter = 1;
 #endif
 		return b;
@@ -176,22 +191,26 @@ public class Buffer
 #if RECYCLE_BUFFERS
 		lock (this)
 		{
-#if UNITY_EDITOR
+ #if UNITY_EDITOR
 			if (mCounter == 0)
 			{
+  #if DEBUG_BUFFERS
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool: " + mUniqueID);
+  #else
 				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+  #endif
 				return false;
 			}
-#endif
+ #endif
 			if (--mCounter > 0) return false;
 
 			lock (mPool)
 			{
 				ClearNotThreadSafe();
 				mPool.Add(this);
-#if DEBUG_BUFFERS
-				Log("Recycling " + mPool.size);
-#endif
+ #if DEBUG_BUFFERS
+				Log("Recycling " + mUniqueID + " (" + mPool.size + ")");
+ #endif
 			}
 			return true;
 		}

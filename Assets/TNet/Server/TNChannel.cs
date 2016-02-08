@@ -278,17 +278,15 @@ public class Channel : DataNodeContainer
 
 	public void DestroyObjectRFCs (uint objectID)
 	{
-		for (int i = 0; i < rfcs.size; )
+		for (int i = rfcs.size; i > 0; )
 		{
-			RFC r = rfcs[i];
+			RFC r = rfcs[--i];
 
 			if (r.objectID == objectID)
 			{
 				rfcs.RemoveAt(i);
 				r.data.Recycle();
-				continue;
 			}
-			++i;
 		}
 	}
 
@@ -312,23 +310,36 @@ public class Channel : DataNodeContainer
 				{
 					// Move the created object over to the other channel
 					obj.objectID = other.GetUniqueID();
-					obj.playerID = (other.host != null) ? other.host.id : 0;
+
+					// If the other channel doesn't contain the object's owner, assign a new owner
+					bool changeOwner = true;
+
+					for (int b = 0; b < other.players.size; ++b)
+					{
+						if (other.players[b].id == obj.playerID)
+						{
+							changeOwner = false;
+							break;
+						}
+					}
+
+					if (changeOwner) obj.playerID = (other.host != null) ? other.host.id : 0;
+
 					created.RemoveAt(i);
 					other.created.Add(obj);
 					other.mCreatedObjectDictionary[obj.objectID] = true;
 
 					// Move RFCs over to the other channel
-					for (int b = 0; b < rfcs.size; )
+					for (int b = rfcs.size; b > 0; )
 					{
-						RFC r = rfcs[b];
+						RFC r = rfcs[--b];
 
 						if (r.objectID == objectID)
 						{
 							r.objectID = obj.objectID;
-							rfcs.RemoveAt(i);
+							rfcs.RemoveAt(b);
 							other.rfcs.Add(r);
 						}
-						else ++b;
 					}
 					return obj;
 				}

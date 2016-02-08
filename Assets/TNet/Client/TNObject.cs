@@ -931,8 +931,6 @@ public sealed class TNObject : MonoBehaviour
 		Unregister();
 		channelID = newChannel;
 		uid = newObjectID;
-		if (mParent != null) mParent.mOwner = TNManager.GetHost(newChannel);
-		else mOwner = TNManager.GetHost(newChannel);
 		Register();
 		mDestroyed = false;
 	}

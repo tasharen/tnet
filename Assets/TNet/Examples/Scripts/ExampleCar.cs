@@ -36,6 +36,7 @@ public class ExampleCar : TNBehaviour
 	public Transform rearRight;
 	public float motorTorque = 3f;
 	public float maxRPM = 300f;
+	public bool showGUI = true;
 
 	/// <summary>
 	/// Maximum number of updates per second when synchronizing input axes. The actual number of updates may be less if nothing is changing.
@@ -126,15 +127,18 @@ public class ExampleCar : TNBehaviour
 			float delta = time - mLastInputSend;
 			float delay = 1f / inputUpdates;
 
-			// The closer we are to send time, the smaller deviation is required to send an update.
-			float threshold = Mathf.Clamp01(delta - delay) * 0.5f;
-
-			// Don't send updates more than a couple times per second, and only send if something actually changed
-			if (delta > 0.05f && (Changed(mLastInput.x, mInput.x, threshold) || Changed(mLastInput.y, mInput.y, threshold)))
+			// Don't send updates more than 20 times per second
+			if (delta > 0.05f)
 			{
-				mLastInputSend = time;
-				mLastInput = mInput;
-				tno.Send("SetAxis", Target.OthersSaved, mInput);
+				// The closer we are to the desired send time, the smaller is the deviation required to send an update.
+				float threshold = Mathf.Clamp01(delta - delay) * 0.5f;
+
+				if (Changed(mLastInput.x, mInput.x, threshold) || Changed(mLastInput.y, mInput.y, threshold))
+				{
+					mLastInputSend = time;
+					mLastInput = mInput;
+					tno.Send("SetAxis", Target.OthersSaved, mInput);
+				}
 			}
 
 			// Since the input is sent frequently, rigidbody only needs to be corrected every couple of seconds.
@@ -216,7 +220,7 @@ public class ExampleCar : TNBehaviour
 
 	void OnGUI ()
 	{
-		if (tno.isMine)
+		if (showGUI && tno.isMine)
 		{
 			GUI.color = Color.black;
 

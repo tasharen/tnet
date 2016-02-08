@@ -91,7 +91,11 @@ public class TNManager : MonoBehaviour
 	static System.Collections.Generic.Dictionary<string, CachedFunc> mDict1 = new System.Collections.Generic.Dictionary<string, CachedFunc>();
 
 	// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
+#if UNITY_EDITOR
+	static Player mPlayer = new Player("Editor");
+#else
 	static Player mPlayer = new Player("Guest");
+#endif
 
 	// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
 	static List<Player> mPlayers;
@@ -728,7 +732,7 @@ public class TNManager : MonoBehaviour
 		{
 			instance.mClient.Disconnect();
 			instance.mClient.playerName = mPlayer.name;
-			instance.mClient.playerData = mPlayer.dataNode.Clone();
+			instance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 			instance.mClient.Connect(externalIP, internalIP);
 		}
 		else Debug.LogWarning("Already connecting...");
@@ -771,11 +775,15 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
+
+			if (!string.IsNullOrEmpty(levelName))
+			{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			Application.LoadLevel(levelName);
+				Application.LoadLevel(levelName);
 #else
-			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
 #endif
+			}
 		}
 	}
 
@@ -798,11 +806,15 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
+
+			if (!string.IsNullOrEmpty(levelName))
+			{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			Application.LoadLevel(levelName);
+				Application.LoadLevel(levelName);
 #else
-			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
 #endif
+			}
 		}
 	}
 

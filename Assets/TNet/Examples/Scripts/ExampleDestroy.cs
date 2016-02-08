@@ -16,9 +16,11 @@ using UnityEngine;
 
 public class ExampleDestroy : TNBehaviour
 {
+	public float autoDestroyDelay = 5f;
+
 	float mDestroyTime = 0f;
 
-	void Awake () { mDestroyTime = Time.time + 5f; }
-	void Update () { if (mDestroyTime < Time.time) DestroySelf(); }
+	void Start () { mDestroyTime = (autoDestroyDelay > 0f) ? Time.time + autoDestroyDelay : 0f; }
+	void Update () { if (mDestroyTime != 0f && mDestroyTime < Time.time) DestroySelf(); }
 	void OnClick () { DestroySelf(); }
 }
