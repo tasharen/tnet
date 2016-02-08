@@ -310,44 +310,69 @@ public class DataNode
 
 	public DataNode SetHierarchy (string path, object obj)
 	{
-		path = path.Replace("\\", "/");
-		string[] names = path.Split('/');
-		DataNode parent = null;
 		DataNode node = this;
-		int index = 0;
 
-		while (node != null && index < names.Length)
+		if (!string.IsNullOrEmpty(path))
 		{
-			bool found = false;
-
-			for (int i = 0; i < node.children.size; ++i)
+			if (path.IndexOf('\\') == -1 && path.IndexOf('/') == -1)
 			{
-				if (node.children[i].name == names[index])
+				if (obj == null)
 				{
-					parent = node;
-					node = node.children[i];
-					++index;
-					found = true;
-					break;
+					RemoveChild(path);
+					return null;
+				}
+
+				node = GetChild(path, true);
+			}
+			else
+			{
+				path = path.Replace("\\", "/");
+				string[] names = path.Split('/');
+				DataNode parent = null;
+				int index = 0;
+
+				while (node != null && index < names.Length)
+				{
+					bool found = false;
+
+					for (int i = 0; i < node.children.size; ++i)
+					{
+						if (node.children[i].name == names[index])
+						{
+							parent = node;
+							node = node.children[i];
+							++index;
+							found = true;
+							break;
+						}
+					}
+
+					if (!found)
+					{
+						if (obj == null) break;
+						parent = node;
+						node = node.AddChild(names[index]);
+						++index;
+					}
+				}
+
+				if (obj == null)
+				{
+					if (parent != null) parent.RemoveChild(names[index - 1]);
+					return parent;
 				}
 			}
-
-			if (!found)
-			{
-				if (obj == null) break;
-				parent = node;
-				node = node.AddChild(names[index]);
-				++index;
-			}
 		}
 
-		if (obj == null)
+		if (obj is DataNode)
 		{
-			if (parent != null) parent.RemoveChild(names[index - 1]);
-			return parent;
+			DataNode other = (obj as DataNode);
+			node.value = other.value;
+			node.children.Clear();
+			for (int i = 0; i < other.children.size; ++i)
+				node.children.Add(other.children[i].Clone());
 		}
-
-		node.value = obj;
+		else node.value = obj;
 		return node;
 	}
 

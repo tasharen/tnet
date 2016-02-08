@@ -171,14 +171,14 @@ public class TcpLobbyServer : LobbyServer
 				{
 					RemoveServer(tc);
 					mTcp.RemoveAt(i);
-					ServerList.Entry se = tc.data as ServerList.Entry;
+					var se = tc.Get<ServerList.Entry>("data");
 					if (se != null) Tools.Print("Warning: Orphaned connection detected. Removing " + se.name);
 					continue;
 				}
 #if STANDALONE
-				else if (tc.data is ServerList.Entry)
+				else
 				{
-					ServerList.Entry ent = tc.data as ServerList.Entry;
+					var ent = tc.Get<ServerList.Entry>("data");
 					
 					if (ent != null && ent.recordTime + 30000 < mTime)
 					{
@@ -233,10 +233,9 @@ public class TcpLobbyServer : LobbyServer
 				// Skip clients that have not yet verified themselves
 				if (tc.stage != TcpProtocol.Stage.Connected) continue;
 
-				// Skip server links (data being a timestamp)
-				if (tc.data == null || !(tc.data is long)) continue;
-
-				long lastSendTime = (long)tc.data;
+				// Skip server links
+				long lastSendTime = tc.Get<long>("lastSend");
+				if (lastSendTime == 0) continue;
 
 				// If timestamp was set then the list was already sent previously
 				if (lastSendTime != 0)
@@ -261,7 +260,7 @@ public class TcpLobbyServer : LobbyServer
 						for (int b = 0; b < mTcp.size; ++b)
 						{
 							if (!mTcp[b].isConnected) continue;
-							ServerList.Entry ent = (mTcp[b].data as ServerList.Entry);
+							var ent = mTcp[b].Get<ServerList.Entry>("data");
 							if (ent != null) ++serverCount;
 						}
 
@@ -274,14 +273,15 @@ public class TcpLobbyServer : LobbyServer
 						for (int b = 0; b < mTcp.size; ++b)
 						{
 							if (!mTcp[b].isConnected) continue;
-							ServerList.Entry ent = (mTcp[b].data as ServerList.Entry);
+							var ent = mTcp[b].Get<ServerList.Entry>("data");
 							if (ent != null) ent.WriteTo(writer);
 						}
 						buffer.EndPacket();
 					}
 				}
+
 				tc.SendTcpPacket(buffer);
-				tc.data = mTime;
+				tc.Set("lastSend", mTime);
 			}
 
 			if (buffer != null)
@@ -330,7 +330,7 @@ public class TcpLobbyServer : LobbyServer
 			case Packet.RequestServerList:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;
-				tc.data = (long)0;
+				tc.Set("lastSend", mTime);
 				return true;
 			}
 			case Packet.RequestAddServer:
@@ -406,7 +406,7 @@ public class TcpLobbyServer : LobbyServer
 
 						if (p.stage == TcpProtocol.Stage.Connected)
 						{
-							ServerList.Entry ent = p.data as ServerList.Entry;
+							var ent = p.Get<ServerList.Entry>("data");
 
 							if (ent != null)
 							{
@@ -430,7 +430,7 @@ public class TcpLobbyServer : LobbyServer
 
 						if (p.stage == TcpProtocol.Stage.Connected)
 						{
-							ServerList.Entry ent = p.data as ServerList.Entry;
+							var ent = p.Get<ServerList.Entry>("data");
 
 							if (ent != null)
 							{
@@ -478,16 +478,16 @@ public class TcpLobbyServer : LobbyServer
 
 	bool RemoveServer (TcpProtocol tcp)
 	{
-		ServerList.Entry ent = tcp.data as ServerList.Entry;
+		var ent = tcp.Get<ServerList.Entry>("data");
 
 		if (ent != null)
 		{
 			mLastChange = mTime;
 #if STANDALONE
-			if (tcp.data != null)
+			if (tcp.Get<long>("lastSend") != 0)
 				Tools.Print("[-] " + ent.name);
 #endif
-			tcp.data = null;
+			tcp.Set("data", null);
 			return true;
 		}
 		return false;
@@ -502,20 +502,21 @@ public class TcpLobbyServer : LobbyServer
 		ent.recordTime = mTime;
 		bool noChange = false;
 
-		if (tcp.data != null)
+		var old = tcp.Get<ServerList.Entry>("data");
+
+		if (old != null)
 		{
-			ServerList.Entry old = tcp.data as ServerList.Entry;
-			if (old != null && old.playerCount == ent.playerCount && old.name == ent.name)
+			if (old.playerCount == ent.playerCount && old.name == ent.name)
 				noChange = true;
 		}
 
 		if (!noChange) mLastChange = mTime;
 
 #if STANDALONE
-		if (tcp.data == null)
+		if (tcp.Get<long>("lastSend") != 0)
 			Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
 #endif
-		tcp.data = ent;
+		tcp.Set("data", ent);
 	}
 
 	/// <summary>
@@ -526,7 +527,7 @@ public class TcpLobbyServer : LobbyServer
 	{
 		mLastChange = mTime;
 #if STANDALONE
-		ServerList.Entry ent = mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
+		var ent = mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
 		Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
 #else
 		mList.Add(name, playerCount, internalAddress, externalAddress, mTime);

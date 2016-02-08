@@ -37,8 +37,8 @@ public class ExampleChat : TNBehaviour
 		mChatEntries.Add(ent);
 	}
 
-	protected override void OnEnable () { base.OnEnable(); TNManager.onSetServerOption += OnSetServerOption; }
-	void OnDisable () { TNManager.onSetServerOption -= OnSetServerOption; }
+	protected override void OnEnable () { base.OnEnable(); TNManager.onSetServerData += OnSetServerOption; }
+	void OnDisable () { TNManager.onSetServerData -= OnSetServerOption; }
 	void OnSetServerOption (string path, DataNode node) { PrintConfig(path, node); }
 
 	/// <summary>
@@ -50,7 +50,7 @@ public class ExampleChat : TNBehaviour
 		mName = TNManager.playerName;
 
 		// Show the current server configuration
-		PrintConfig(TNManager.serverConfig);
+		PrintConfig(TNManager.serverData);
 
 		string text = "Other players here: ";
 		List<Player> players = TNManager.players;
@@ -113,9 +113,9 @@ public class ExampleChat : TNBehaviour
 		{
 			mInput = mInput.Trim();
 
-			if (mInput == "/get") PrintConfig(TNManager.serverConfig);
+			if (mInput == "/get") PrintConfig(TNManager.serverData);
 			else if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
-			else if (mInput.StartsWith("/set ")) TNManager.SetServerOption(mInput.Substring(5));
+			else if (mInput.StartsWith("/set ")) TNManager.SetServerData(mInput.Substring(5));
 			else tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
 
 			mInput = "";
@@ -233,6 +233,6 @@ public class ExampleChat : TNBehaviour
 		else AddToChat(path + " has not been set", Color.yellow);
 	}
 
-	void PrintConfig (string path) { PrintConfig(path, TNManager.GetServerOption(path)); }
+	void PrintConfig (string path) { PrintConfig(path, TNManager.GetServerData(path)); }
 	void PrintConfig (DataNode node) { if (node != null) PrintConfig(node.name, node); }
 }

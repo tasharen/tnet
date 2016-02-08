@@ -27,64 +27,32 @@ public class TNManager : MonoBehaviour
 	static public bool isPaused = false;
 
 	/// <summary>
-	/// Notification that will be called when SyncPlayerData() gets called, even in offline mode (for consistency).
-	/// </summary>
-
-	static public System.Action<Player> onPlayerSync
-	{
-		get
-		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onPlayerSync : null;
-		}
-		set
-		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onPlayerSync = value;
-		}
-	}
-
-	/// <summary>
 	/// Custom callback that will be called every time any object gets instantiated.
 	/// </summary>
 
 	static public System.Action<GameObject> onObjectCreated;
 
 	/// <summary>
-	/// Notification of server data being changed.
+	/// Notification sent when the server's data gets changed.
 	/// </summary>
 
-	static public System.Action<DataNode> onSetServerConfig
+	static public GameClient.OnSetServerData onSetServerData
 	{
 		get
 		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerConfig : null;
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerData : null;
 		}
 		set
 		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerConfig = value;
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerData = value;
 		}
 	}
 
 	/// <summary>
-	/// Notification of server data being changed.
+	/// Notification sent when the channel's data gets changed.
 	/// </summary>
 
-	static public System.Action<string, DataNode> onSetServerOption
-	{
-		get
-		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerOption : null;
-		}
-		set
-		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerOption = value;
-		}
-	}
-
-	/// <summary>
-	/// Notification of channel data being changed.
-	/// </summary>
-
-	static public System.Action<Channel> onSetChannelData
+	static public GameClient.OnSetChannelData onSetChannelData
 	{
 		get
 		{
@@ -93,6 +61,22 @@ public class TNManager : MonoBehaviour
 		set
 		{
 			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetChannelData = value;
+		}
+	}
+
+	/// <summary>
+	/// Notification sent when player data gets changed.
+	/// </summary>
+
+	static public GameClient.OnSetPlayerData onSetPlayerData
+	{
+		get
+		{
+			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetPlayerData : null;
+		}
+		set
+		{
+			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetPlayerData = value;
 		}
 	}
 
@@ -375,39 +359,20 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Get or set the player's data, synchronizing it with the server. Don't forget to call SyncPlayerData() afterwards.
+	/// Get or set the player's data, synchronizing it with the server.
+	/// To change the data, use TNManager.SetPlayerData instead of changing the content directly.
 	/// </summary>
 
-	static public object playerData
+	static public DataNode playerData
 	{
 		get
 		{
-			return isConnected ? mInstance.mClient.playerData : mPlayer.data;
+			return isConnected ? mInstance.mClient.playerData : mPlayer.dataNode;
 		}
 		set
 		{
-			mPlayer.data = value;
-			if (isConnected) mInstance.mClient.playerData = value;
-		}
-	}
-
-	/// <summary>
-	/// Gets the player's data in DataNode format. It's a convenience property.
-	/// After changing the values, call TNManager.SyncPlayerData().
-	/// </summary>
-
-	static public DataNode playerDataNode
-	{
-		get
-		{
-			DataNode node = playerData as DataNode;
-			
-			if (node == null)
-			{
-				node = new DataNode("Version", TNet.Player.version);
-				playerData = node;
-			}
-			return node;
+			mPlayer.dataNode = value;
+			if (isConnected) mInstance.mClient.SetPlayerData("", value);
 		}
 	}
 
@@ -466,19 +431,19 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// Server configuration is set by administrators.
-	/// In most cases you should use GetServerOption and SetServerOption functions instead.
+	/// In most cases you should use GetServerData and SetServerData functions instead.
 	/// </summary>
 
-	static public DataNode serverConfig
+	static public DataNode serverData
 	{
 		get
 		{
-			return ((mInstance != null) ? mInstance.mClient.serverConfig : null) ?? mDummyNode;
+			return ((mInstance != null) ? mInstance.mClient.serverData : null) ?? mDummyNode;
 		}
 		set
 		{
 			if (mInstance != null)
-				mInstance.mClient.serverConfig = value;
+				mInstance.mClient.serverData = value;
 		}
 	}
 
@@ -486,25 +451,25 @@ public class TNManager : MonoBehaviour
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public DataNode GetServerOption (string key) { return (mInstance != null) ? mInstance.mClient.GetServerOption(key) : null; }
+	static public DataNode GetServerData (string key) { return (mInstance != null) ? mInstance.mClient.GetServerData(key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetServerOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key) : default(T); }
+	static public T GetServerData<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetServerData<T>(key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetServerOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerOption<T>(key, def) : def; }
+	static public T GetServerData<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerData<T>(key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option using key = value notation.
 	/// </summary>
 
-	static public void SetServerOption (string text)
+	static public void SetServerData (string text)
 	{
 		if (!string.IsNullOrEmpty(text))
 		{
@@ -515,7 +480,7 @@ public class TNManager : MonoBehaviour
 				string key = parts[0].Trim();
 				string val = parts[1].Trim();
 				DataNode node = new DataNode(key, val);
-				if (node.ResolveValue()) SetServerOption(node.name, node.value);
+				if (node.ResolveValue()) SetServerData(node.name, node.value);
 			}
 			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
 		}
@@ -525,73 +490,89 @@ public class TNManager : MonoBehaviour
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetServerOption (string key, object val) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerOption(key, val); }
+	static public void SetServerData (string key, object val) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerData(key, val); }
 
 	/// <summary>
 	/// Remove this server option.
 	/// </summary>
 
-	static public void RemoveServerOption (string key) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerOption(key, null); }
+	static public void RemoveServerData (string key) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerData(key, null); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public DataNode GetChannelOption (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption(lastChannelID, key) : null; }
+	static public DataNode GetChannelData (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData(lastChannelID, key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key) : default(T); }
+	static public T GetChannelData<T> (string key) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData<T>(lastChannelID, key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (string key, T def) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelOption<T>(lastChannelID, key, def) : def; }
+	static public T GetChannelData<T> (string key, T def) { return (isConnected && isInChannel) ? mInstance.mClient.GetChannelData<T>(lastChannelID, key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetChannelOption (string key, object val) { if (isConnected && isInChannel) mInstance.mClient.SetChannelOption(lastChannelID, key, val); }
-
-	/// <summary>
-	/// Remove this server option.
-	/// </summary>
-
-	static public void RemoveChannelOption (string key) { if (isConnected && isInChannel) mInstance.mClient.SetChannelOption(lastChannelID, key, null); }
+	static public void SetChannelData (string key, object val) { if (isConnected && isInChannel) mInstance.mClient.SetChannelData(lastChannelID, key, val); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public DataNode GetChannelOption (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelOption(channelID, key) : null; }
+	static public DataNode GetChannelData (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelData(channelID, key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelOption<T>(channelID, key) : default(T); }
+	static public T GetChannelData<T> (int channelID, string key) { return (isConnected) ? mInstance.mClient.GetChannelData<T>(channelID, key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	static public T GetChannelOption<T> (int channelID, string key, T def) { return (isConnected) ? mInstance.mClient.GetChannelOption<T>(channelID, key, def) : def; }
+	static public T GetChannelData<T> (int channelID, string key, T def) { return (isConnected) ? mInstance.mClient.GetChannelData<T>(channelID, key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	static public void SetChannelOption (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelOption(channelID, key, val); }
+	static public void SetChannelData (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelData(channelID, key, val); }
 
 	/// <summary>
-	/// Remove this server option.
+	/// Get the player's data.
 	/// </summary>
 
-	static public void RemoveChannelOption (int channelID, string key) { if (isConnected) mInstance.mClient.SetChannelOption(channelID, key, null); }
+	public DataNode GetPlayerData (string path) { return isConnected ? mInstance.mClient.GetPlayerData(path) : mPlayer.dataNode.GetHierarchy(path); }
+
+	/// <summary>
+	/// Get the specified value from the player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string path) { return isConnected ? mInstance.mClient.GetPlayerData<T>(path) : mPlayer.dataNode.GetHierarchy<T>(path); }
+
+	/// <summary>
+	/// Get the specified value from the player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string path, T defaultVal) { return isConnected ? mInstance.mClient.GetPlayerData<T>(path, defaultVal) : mPlayer.dataNode.GetHierarchy<T>(path); }
+
+	/// <summary>
+	/// Set the specified value on the player.
+	/// </summary>
+
+	public void SetPlayerData (string path, object val)
+	{
+		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
+		else mPlayer.dataNode.SetHierarchy(path, val);
+	}
 
 	/// <summary>
 	/// Get a list of channels from the server.
@@ -691,7 +672,7 @@ public class TNManager : MonoBehaviour
 		if (!instance.mClient.isTryingToConnect)
 		{
 			instance.mClient.playerName = mPlayer.name;
-			instance.mClient.playerData = mPlayer.data;
+			instance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 
 			if (TNServerInstance.isLocal)
 			{
@@ -717,7 +698,7 @@ public class TNManager : MonoBehaviour
 		{
 			instance.mClient.Disconnect();
 			instance.mClient.playerName = mPlayer.name;
-			instance.mClient.playerData = mPlayer.data;
+			instance.mClient.playerData = mPlayer.dataNode.Clone();
 			instance.mClient.Connect(externalIP, internalIP);
 		}
 		else Debug.LogWarning("Already connecting...");
@@ -979,7 +960,7 @@ public class TNManager : MonoBehaviour
 		{
 			byte[] data = Tools.ReadFile(filename);
 			playerData = (data != null) ? DataNode.Read(data) : null;
-			if (onPlayerSync != null) onPlayerSync(player);
+			if (onSetPlayerData != null) onSetPlayerData(player, "", playerData);
 		}
 	}
 
@@ -987,9 +968,11 @@ public class TNManager : MonoBehaviour
 	/// Save the player data into the specified file.
 	/// </summary>
 
-	static public void SavePlayerData (string filename)
+	static public void SavePlayerData (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
 	{
-		BeginSend(Packet.RequestSavePlayerData).Write(filename);
+		var writer = BeginSend(Packet.RequestSavePlayerData);
+		writer.Write(filename);
+		writer.Write((byte)type);
 		EndSend();
 	}
 
@@ -1061,16 +1044,6 @@ public class TNManager : MonoBehaviour
 			writer.Write(locked);
 			EndSend(channelID, true);
 		}
-	}
-
-	/// <summary>
-	/// Sync the player's data with the server.
-	/// </summary>
-
-	static public void SyncPlayerData ()
-	{
-		if (isConnected) mInstance.mClient.SyncPlayerData();
-		if (onPlayerSync != null) onPlayerSync(player);
 	}
 
 	/// <summary>
@@ -1791,14 +1764,17 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
-	[Obsolete("Use TNManager.serverConfig instead")]
-	static public DataNode serverOptions { get { return serverConfig; } }
+	[System.Obsolete("Use TNManager.playerData")]
+	static public DataNode playerDataNode { get { return playerData; } }
 
-	[Obsolete("Use TNManager.SetServerOption(key, value) instead")]
-	static public void SetServerOption (DataNode node) { SetServerOption(node.name, node.value); }
+	[Obsolete("Use TNManager.serverData instead")]
+	static public DataNode serverOptions { get { return serverData; } }
 
-	[Obsolete("Use TNManager.SetChannelOption(key, value) instead")]
-	static public void SetChannelOption (DataNode node) { SetChannelOption(node.name, node.value); }
+	[Obsolete("Use TNManager.SetServerData(key, value) instead")]
+	static public void SetServerOption (DataNode node) { SetServerData(node.name, node.value); }
+
+	[Obsolete("Use TNManager.SetChannelData(key, value) instead")]
+	static public void SetChannelOption (DataNode node) { SetChannelData(node.name, node.value); }
 
 	[Obsolete("Use TNManager.packetSourceIP or TNManager.packetSourceID instead")]
 	static public IPEndPoint packetSource { get { return (mInstance != null) ? mInstance.mClient.packetSourceIP : null; } }
@@ -1806,8 +1782,8 @@ public class TNManager : MonoBehaviour
 	[Obsolete("It's now possible to be in more than one channel at once. Use TNManager.IsChannelLocked(channelID) instead.")]
 	static public bool isChannelLocked { get { return IsChannelLocked(lastChannelID); } }
 
-	[Obsolete("Use TNManager.GetChannelOption and TNManager.SetChannelOption instead")]
-	static public string channelData { get { return GetChannelOption<string>("channelData"); } set { SetChannelOption("channelData", value); } }
+	[Obsolete("Use TNManager.GetChannelData and TNManager.SetChannelData instead")]
+	static public string channelData { get { return GetChannelData<string>("channelData"); } set { SetChannelData("channelData", value); } }
 
 	[Obsolete("All TNObjects have channel IDs associated with them -- use them instead.")]
 	static public int channelID { get { return lastChannelID; } }

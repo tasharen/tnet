@@ -9,7 +9,7 @@ namespace TNet
 /// Class containing basic information about a remote player.
 /// </summary>
 
-public class Player
+public class Player : DataNodeContainer
 {
 	static protected int mPlayerCounter = 0;
 	static protected object mLock = new int();
@@ -18,7 +18,7 @@ public class Player
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 20160128;
+	public const int version = 20160207;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.
@@ -31,13 +31,6 @@ public class Player
 	/// </summary>
 
 	public string name = "Guest";
-
-	/// <summary>
-	/// Player's custom data. Set via TNManger.playerData.
-	/// Player's data is always kept as byte[] on the server.
-	/// </summary>
-
-	public object data = null;
 
 	/// <summary>
 	/// Player's known aliases. These will be checked against the ban list.
@@ -81,24 +74,6 @@ public class Player
 				return true;
 		return false;
 	}
-
-#if !STANDALONE
-	static DataNode mDummy = new DataNode("Version", version);
-
-	/// <summary>
-	/// Player's data converted to DataNode form. Always returns a valid DataNode.
-	/// It's a convenience property, intended for read-only purposes.
-	/// </summary>
-
-	public DataNode dataNode
-	{
-		get
-		{
-			DataNode node = data as DataNode;
-			return node ?? mDummy;
-		}
-	}
-#endif
 
 	public Player () { }
 	public Player (string playerName) { name = playerName; }

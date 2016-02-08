@@ -1078,9 +1078,7 @@ public class GameServer : FileServer
 				{
 					writer.Write(true);
 					writer.Write(string.IsNullOrEmpty(tp.name) ? "Guest" : tp.name);
-
-					if (tp.data != null) writer.Write((byte[])tp.data);
-					else writer.WriteObject(null);
+					writer.Write(tp.dataNode);
 				}
 				else writer.Write(false);
 			}
@@ -1097,12 +1095,12 @@ public class GameServer : FileServer
 		offset = buffer.EndTcpPacketStartingAt(offset);
 
 		// Send the channel's data
-		if (channel.data != null)
+		if (channel.dataNode != null)
 		{
 			writer = buffer.BeginPacket(Packet.ResponseSetChannelData, offset);
 			writer.Write(channel.id);
-			if (channel.data != null) writer.Write((byte[])channel.data);
-			else writer.WriteObject(null);
+			writer.Write("");
+			writer.WriteObject(channel.dataNode);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 		}
 
@@ -1193,8 +1191,7 @@ public class GameServer : FileServer
 				{
 					writer.Write(true);
 					writer.Write(string.IsNullOrEmpty(player.name) ? "Guest" : player.name);
-					if (player.data != null) writer.Write((byte[])player.data);
-					else writer.WriteObject(null);
+					writer.Write(player.dataNode);
 				}
 				else writer.Write(false);
 			}
@@ -1379,20 +1376,18 @@ public class GameServer : FileServer
 				// 4 bytes for size, 1 byte for ID
 				int origin = buffer.position - 5;
 
+				// Set the local data
+				player.Set(reader.ReadString(), reader.ReadObject());
+
 				// Change the packet type to a response before sending it as-is
-				buffer.buffer[buffer.position - 1] = (byte)Packet.ResponseSetPlayerData;
+				buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
+				buffer.position = origin;
 
-				// The ID must match
-				if (player.id != reader.ReadInt32()) break;
-
-				// Read the player's custom data
-				player.data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
-
-				if (player.channels.size != 0)
+				// Forward the packet to everyone connected to the server
+				for (int i = 0; i < mPlayerList.size; ++i)
 				{
-					// We want to forward the packet as-is
-					buffer.position = origin;
-					SendToOthers(buffer, player, player, reliable);
+					TcpPlayer tp = mPlayerList[i];
+					if (tp != player && tp.IsKnownTo(player)) tp.SendTcpPacket(buffer);
 				}
 				break;
 			}
@@ -1402,18 +1397,23 @@ public class GameServer : FileServer
 				try
 				{
 					string fileName = reader.ReadString();
-					byte[] data = (byte[])player.data;
+					var saveType = (DataNode.SaveType)reader.ReadByte();
 
-					if (data == null || data.Length == 0)
+					if (player.dataNode == null || player.dataNode.children.size == 0)
 					{
 						if (DeleteFile(fileName))
 							player.Log("Deleted " + fileName);
 					}
-					else if (SaveFile(fileName, data))
+					else
 					{
-						player.Log("Saved " + fileName + " (" + (data != null ? data.Length.ToString("N0") : "0") + " bytes)");
+						byte[] bytes = player.dataNode.ToArray(saveType);
+
+						if (SaveFile(fileName, bytes))
+						{
+							player.Log("Saved " + fileName + " (" + (bytes != null ? bytes.Length.ToString("N0") : "0") + " bytes)");
+						}
+						else player.LogError("Unable to save " + fileName);
 					}
-					else player.LogError("Unable to save " + fileName);
 				}
 				catch (Exception ex)
 				{
@@ -1425,14 +1425,13 @@ public class GameServer : FileServer
 			case Packet.RequestLoadPlayerData:
 			{
 				// Load and set the player's data from the specified file
-				byte[] bytes = LoadFile(reader.ReadString());
-				player.data = bytes;
+				player.dataNode = DataNode.Read(reader.ReadString());
 
 				Buffer buff = Buffer.Create();
 				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 				writer.Write(player.id);
-				if (bytes != null) writer.Write(bytes);
-				else writer.WriteObject(null);
+				writer.Write("");
+				writer.Write(player.dataNode);
 				buff.EndPacket();
 
 				player.SendTcpPacket(buff);
@@ -1524,8 +1523,7 @@ public class GameServer : FileServer
 						writer.Write(!string.IsNullOrEmpty(ch.password));
 						writer.Write(ch.persistent);
 						writer.Write(ch.level);
-						if (ch.data != null) writer.Write((byte[])ch.data);
-						else writer.WriteObject(null);
+						writer.Write(ch.dataNode);
 					}
 				}
 				EndSend(true, player);
@@ -1813,7 +1811,7 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestSetServerOption:
+			case Packet.RequestSetServerData:
 			{
 				if (player.isAdmin)
 				{
@@ -1823,13 +1821,11 @@ public class GameServer : FileServer
 					int origin = buffer.position - 5;
 
 					// Change the local configuration
-					string path = reader.ReadString();
-					object obj = reader.ReadObject();
-					mServerData.SetHierarchy(path, obj);
+					mServerData.SetHierarchy(reader.ReadString(), reader.ReadObject());
 					SaveData();
 
 					// Change the packet type to a response before sending it as-is
-					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerOption;
+					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerData;
 					buffer.position = origin;
 
 					// Forward the packet to everyone connected to the server
@@ -2443,14 +2439,25 @@ public class GameServer : FileServer
 				{
 					if (player.isAdmin || !ch.isLocked)
 					{
-						ch.persistent = true;
-						ch.data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
+						if (ch.players.size == 0) ch.persistent = true;
+						if (ch.dataNode == null) ch.dataNode = new DataNode("Version", Player.version);
 
-						BinaryWriter writer = BeginSend(Packet.ResponseSetChannelData);
-						writer.Write(ch.id);
-						if (ch.data != null) writer.Write((byte[])ch.data);
-						else writer.WriteObject(null);
-						EndSend(ch, null, true);
+						// 4 bytes for size, 1 byte for ID
+						int origin = buffer.position - 5;
+
+						// Set the local data
+						ch.dataNode.SetHierarchy(reader.ReadString(), reader.ReadObject());
+
+						// Change the packet type to a response before sending it as-is
+						buffer.buffer[origin + 4] = (byte)Packet.ResponseSetChannelData;
+						buffer.position = origin;
+
+						// Forward the packet to everyone connected to the server
+						for (int i = 0; i < mPlayerList.size; ++i)
+						{
+							TcpPlayer tp = mPlayerList[i];
+							tp.SendTcpPacket(buffer);
+						}
 					}
 					else
 					{

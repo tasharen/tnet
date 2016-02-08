@@ -152,13 +152,14 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Expanded the chat example to support /get and /set commands that change server configuration.
 - NEW: Added TNManager.GetChannelList().
 - NEW: Added a new example showing a simple car with a frequent input and an infrequent rigidbody sync.
+- NEW: TNManager.SetServerData, TNManager.SetChannelData and TNManager.SetPlayerData now all set only the path requested, not the entire thing.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
-- FIX: Player and channel data is now always stored as byte[] on the server, as it's much more efficient to not have to parse it (and the server doesn't care about the contents).
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
 - FIX: TNet's threads will now go into extended sleep while the application is paused.
 - FIX: DataNode with no name set should now be correctly text-serializable.
 - FIX: Prefabs no longer need to be brought into the scene to export them as DataNode.
+- DEL: Removed TNManager.SyncPlayerData(). Calling TNManager.SetPlayerData(...) will now sync automatically.
 
 2.1.1
 - NEW: DataNode now has limited Game Object serialization functionality. All MonoBehaviour script properties can be serialized, as well as common Unity types: collider, rigidbody, mesh, renderer. Optimal use: saving entire game objects into an easy to read/modify text format on disk.

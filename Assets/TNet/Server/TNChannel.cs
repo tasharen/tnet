@@ -13,7 +13,7 @@ namespace TNet
 /// All information broadcast by players is visible by others in the same channel.
 /// </summary>
 
-public class Channel
+public class Channel : DataNodeContainer
 {
 	/// <summary>
 	/// Remote function call entry stored within the channel.
@@ -75,7 +75,6 @@ public class Channel
 	public int id;
 	public string password = "";
 	public string level = "";
-	public object data; // Always stored as byte[] on the server
 	public bool persistent = false;
 	public bool closed = false;
 	public bool isLocked = false;
@@ -86,12 +85,6 @@ public class Channel
 	public List<uint> destroyed = new List<uint>();
 	public uint objectCounter = 0xFFFFFF;
 	public Player host;
-
-	/// <summary>
-	/// Cast the channel data to DataNode, if possible. Convenience method.
-	/// </summary>
-
-	public DataNode dataNode { get { return (data != null && data is DataNode) ? (DataNode)data : null; } }
 
 	// Key = Object ID. Value is 'true'. This dictionary is used for a quick lookup checking to see
 	// if the object actually exists. It's used to store RFCs. RFCs for objects that don't exist are not stored.
@@ -411,17 +404,7 @@ public class Channel
 	{
 		writer.Write(Player.version);
 		writer.Write(level);
-
-		// Server keeps the data as a byte array
-		byte[] bytes = data as byte[];
-		
-		if (bytes != null && bytes.Length > 0)
-		{
-			writer.Write(bytes.Length);
-			writer.Write(bytes);
-		}
-		else writer.Write(0);
-
+		writer.Write(dataNode);
 		writer.Write(objectCounter);
 		writer.Write(password);
 		writer.Write(persistent);
@@ -501,7 +484,7 @@ public class Channel
 	public bool LoadFrom (BinaryReader reader)
 	{
 		int version = reader.ReadInt32();
-		if (version < 20160128)
+		if (version < 20160207)
 		{
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("Incompatible data: " + version);
@@ -522,10 +505,7 @@ public class Channel
 		mCreatedObjectDictionary.Clear();
 
 		level = reader.ReadString();
-
-		int len = reader.ReadInt32();
-		data = (len > 0) ? reader.ReadBytes(len) : null;
-
+		dataNode = reader.ReadDataNode();
 		objectCounter = reader.ReadUInt32();
 		password = reader.ReadString();
 		persistent = reader.ReadBoolean();

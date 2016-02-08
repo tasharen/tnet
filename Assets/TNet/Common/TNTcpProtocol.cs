@@ -159,7 +159,6 @@ public class TcpProtocol : Player
 	public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 	{
 		Disconnect();
-		data = null;
 
 		lock (mIn) Buffer.Recycle(mIn);
 		lock (mOut) Buffer.Recycle(mOut);
@@ -305,13 +304,7 @@ public class TcpProtocol : Player
 				BinaryWriter writer = BeginSend(Packet.RequestID);
 				writer.Write(version);
 				writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-
-				if (data != null)
-				{
-					if (data.GetType() == typeof(byte[])) writer.Write((byte[])data);
-					else writer.WriteObject(data);
-				}
-				else writer.WriteObject(null);
+				writer.Write(dataNode);
 
 				EndSend();
 				StartReceiving();
@@ -426,11 +419,7 @@ public class TcpProtocol : Player
 	/// Release the buffers.
 	/// </summary>
 
-	public void Release ()
-	{
-		lock (mOut) CloseNotThreadSafe(false);
-		data = null;
-	}
+	public void Release () { lock (mOut) CloseNotThreadSafe(false); dataNode = null; }
 
 	/// <summary>
 	/// Begin sending a new packet to the server.
@@ -937,7 +926,7 @@ public class TcpProtocol : Player
 				if (uniqueID) lock (mLock) { id = ++mPlayerCounter; }
 				else id = 0;
 				name = reader.ReadString();
-				data = (buffer.size > 1) ? reader.ReadBytes(buffer.size) : null;
+				dataNode = reader.ReadDataNode();
 				stage = TcpProtocol.Stage.Connected;
 #if STANDALONE
 				if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");

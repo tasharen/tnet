@@ -92,12 +92,6 @@ public class GameClient
 	public delegate void OnPlayerLeft (int channelID, Player p);
 
 	/// <summary>
-	/// Notification sent when player data gets synchronized.
-	/// </summary>
-
-	public Action<Player> onPlayerSync;
-
-	/// <summary>
 	/// Notification of some player changing their name.
 	/// </summary>
 
@@ -111,10 +105,25 @@ public class GameClient
 	public Action<Channel> onHostChanged;
 
 	/// <summary>
-	/// Notification of the channel's custom data changing.
+	/// Notification sent when the server's data gets changed.
 	/// </summary>
 
-	public Action<Channel> onSetChannelData;
+	public OnSetServerData onSetServerData;
+	public delegate void OnSetServerData (string path, DataNode node);
+
+	/// <summary>
+	/// Notification sent when the channel's data gets changed.
+	/// </summary>
+
+	public OnSetChannelData onSetChannelData;
+	public delegate void OnSetChannelData (Channel ch, string path, DataNode node);
+
+	/// <summary>
+	/// Notification sent when player data gets changed.
+	/// </summary>
+
+	public OnSetPlayerData onSetPlayerData;
+	public delegate void OnSetPlayerData (Player p, string path, DataNode node);
 
 	/// <summary>
 	/// Notification of a new object being created.
@@ -136,19 +145,6 @@ public class GameClient
 
 	public OnTransfer onTransfer;
 	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
-
-	/// <summary>
-	/// Server configuration is stored separately from the game data and can be changed only by admins.
-	/// It's automatically sent to all players as soon as they join, and can be used for such things as MOTD.
-	/// </summary>
-
-	public Action<DataNode> onSetServerConfig;
-
-	/// <summary>
-	/// Notification sent when a specific server configuration node gets changed.
-	/// </summary>
-
-	public Action<string, DataNode> onSetServerOption;
 
 	/// <summary>
 	/// Callback triggered when the channel becomes locked or unlocked.
@@ -369,7 +365,7 @@ public class GameClient
 	/// Server data associated with the connected server. Don't try to change it manually.
 	/// </summary>
 
-	public DataNode serverConfig
+	public DataNode serverData
 	{
 		get
 		{
@@ -424,10 +420,10 @@ public class GameClient
 	}
 
 	/// <summary>
-	/// Get or set the player's data. Don't forget to call SyncPlayerData() afterwards.
+	/// Get or set the player's data. Read-only. Use SetPlayerData to change the contents.
 	/// </summary>
 
-	public object playerData { get { return mTcp.data; } set { mTcp.data = value; } }
+	public DataNode playerData { get { return mTcp.dataNode; } set { mTcp.dataNode = value; } }
 
 	/// <summary>
 	/// Direct access to the incoming queue to deposit messages in. Don't forget to lock it before using it.
@@ -442,16 +438,37 @@ public class GameClient
 	public Queue<Buffer> sendQueue { get { return mTcp.sendQueue; } set { mTcp.sendQueue = value; } }
 
 	/// <summary>
-	/// Immediately sync the player's data.
+	/// Get the player's data.
 	/// </summary>
 
-	public void SyncPlayerData ()
+	public DataNode GetPlayerData (string path) { return mTcp.Get(path); }
+
+	/// <summary>
+	/// Get the specified value from the player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string key) { return mTcp.Get<T>(key); }
+
+	/// <summary>
+	/// Get the specified value from the player.
+	/// </summary>
+
+	public T GetPlayerData<T> (string key, T defaultVal) { return mTcp.Get<T>(key, defaultVal); }
+
+	/// <summary>
+	/// Set the specified value on the player.
+	/// </summary>
+
+	public void SetPlayerData (string path, object val)
 	{
+		mTcp.Set(path, val);
+
 		if (isConnected)
 		{
 			BinaryWriter writer = BeginSend(Packet.RequestSetPlayerData);
 			writer.Write(mTcp.id);
-			writer.WriteObject(mTcp.data);
+			writer.Write(path);
+			writer.WriteObject(val);
 			EndSend();
 		}
 	}
@@ -680,7 +697,7 @@ public class GameClient
 			BinaryWriter writer = BeginSend(Packet.RequestID);
 			writer.Write(TcpProtocol.version);
 			writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name);
-			writer.WriteObject(mTcp.data);
+			writer.WriteObject(mTcp.dataNode);
 			EndSend();
 		}
 	}
@@ -1111,8 +1128,9 @@ public class GameClient
 
 				if (target != null)
 				{
-					target.data = reader.ReadObject();
-					if (onPlayerSync != null) onPlayerSync(target);
+					string path = reader.ReadString();
+					DataNode node = target.Set(path, reader.ReadObject());
+					if (onSetPlayerData != null) onSetPlayerData(target, path, node);
 				}
 				else UnityEngine.Debug.LogError("Not found: " + pid);
 				break;
@@ -1172,7 +1190,7 @@ public class GameClient
 					if (reader.ReadBoolean())
 					{
 						p.name = reader.ReadString();
-						p.data = reader.ReadObject();
+						p.dataNode = reader.ReadDataNode();
 					}
 					ch.players.Add(p);
 				}
@@ -1199,7 +1217,7 @@ public class GameClient
 					if (reader.ReadBoolean())
 					{
 						p.name = reader.ReadString();
-						p.data = reader.ReadObject();
+						p.dataNode = reader.ReadDataNode();
 					}
 
 					ch.players.Add(p);
@@ -1248,8 +1266,9 @@ public class GameClient
 
 				if (ch != null)
 				{
-					ch.data = reader.ReadObject();
-					if (onSetChannelData != null) onSetChannelData(ch);
+					string path = reader.ReadString();
+					DataNode node = ch.Set(path, reader.ReadObject());
+					if (onSetChannelData != null) onSetChannelData(ch, path, node);
 				}
 				break;
 			}
@@ -1462,10 +1481,10 @@ public class GameClient
 			case Packet.ResponseSetServerConfig:
 			{
 				mConfig = reader.ReadDataNode();
-				if (onSetServerConfig != null) onSetServerConfig(mConfig);
+				if (onSetServerData != null) onSetServerData(null, mConfig);
 				break;
 			}
-			case Packet.ResponseSetServerOption:
+			case Packet.ResponseSetServerData:
 			{
 				string path = reader.ReadString();
 				object obj = reader.ReadObject();
@@ -1473,12 +1492,12 @@ public class GameClient
 				if (obj != null)
 				{
 					DataNode node = mConfig.SetHierarchy(path, obj);
-					if (onSetServerOption != null) onSetServerOption(path, node);
+					if (onSetServerData != null) onSetServerData(path, node);
 				}
 				else
 				{
 					DataNode node = mConfig.RemoveHierarchy(path);
-					if (onSetServerOption != null) onSetServerOption(path, node);
+					if (onSetServerData != null) onSetServerData(path, node);
 				}
 				break;
 			}
@@ -1499,7 +1518,7 @@ public class GameClient
 						info.hasPassword = reader.ReadBoolean();
 						info.isPersistent = reader.ReadBoolean();
 						info.level = reader.ReadString();
-						info.data = reader.ReadObject() as DataNode;
+						info.data = reader.ReadDataNode();
 						channels.Add(info);
 					}
 
@@ -1544,27 +1563,27 @@ public class GameClient
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public DataNode GetServerOption (string key) { return (mConfig != null) ? mConfig.GetHierarchy(key) : null; }
+	public DataNode GetServerData (string key) { return (mConfig != null) ? mConfig.GetHierarchy(key) : null; }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetServerOption<T> (string key) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key) : default(T); }
+	public T GetServerData<T> (string key) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key) : default(T); }
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetServerOption<T> (string key, T def) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key, def) : def; }
+	public T GetServerData<T> (string key, T def) { return (mConfig != null) ? mConfig.GetHierarchy<T>(key, def) : def; }
 
 	/// <summary>
 	/// Set the specified server option.
 	/// </summary>
 
-	public void SetServerOption (string key, object val)
+	public void SetServerData (string key, object val)
 	{
-		BinaryWriter writer = BeginSend(Packet.RequestSetServerOption);
+		BinaryWriter writer = BeginSend(Packet.RequestSetServerData);
 		writer.Write(key);
 		writer.WriteObject(val);
 		EndSend();
@@ -1578,14 +1597,14 @@ public class GameClient
 	DataNode GetChannelData (int channelID)
 	{
 		Channel ch = GetChannel(channelID);
-		return (ch != null) ? ch.data as DataNode : null;
+		return (ch != null) ? ch.dataNode : null;
 	}
 
 	/// <summary>
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public DataNode GetChannelOption (int channelID, string key)
+	public DataNode GetChannelData (int channelID, string key)
 	{
 		DataNode data = GetChannelData(channelID);
 		return (data != null) ? data.GetHierarchy(key) : null;
@@ -1595,7 +1614,7 @@ public class GameClient
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetChannelOption<T> (int channelID, string key)
+	public T GetChannelData<T> (int channelID, string key)
 	{
 		DataNode data = GetChannelData(channelID);
 		return (data != null) ? data.GetHierarchy<T>(key) : default(T);
@@ -1605,7 +1624,7 @@ public class GameClient
 	/// Retrieve the specified server option.
 	/// </summary>
 
-	public T GetChannelOption<T> (int channelID, string key, T def)
+	public T GetChannelData<T> (int channelID, string key, T def)
 	{
 		DataNode data = GetChannelData(channelID);
 		return (data != null) ? data.GetHierarchy<T>(key, def) : def;
@@ -1615,7 +1634,7 @@ public class GameClient
 	/// Set the specified server option.
 	/// </summary>
 
-	public void SetChannelOption (int channelID, string key, object val)
+	public void SetChannelData (int channelID, string path, object val)
 	{
 		Channel ch = GetChannel(channelID);
 
@@ -1627,34 +1646,17 @@ public class GameClient
 
 				if (node == null)
 				{
+					if (val == null) return;
 					node = new DataNode("Version", Player.version);
-					ch.data = node;
 				}
 
-				node.SetHierarchy(key, val);
+				node.SetHierarchy(path, val);
 				BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
 				bw.Write(channelID);
-				bw.WriteObject(ch.data);
+				bw.Write(path);
+				bw.WriteObject(val);
 				EndSend();
 			}
-		}
-	}
-
-	/// <summary>
-	/// Set the specified server option.
-	/// </summary>
-
-	public void RemoveChannelOption (int channelID, string key)
-	{
-		DataNode data = GetChannelData(channelID);
-
-		if (data != null)
-		{
-			data.RemoveChild(key);
-			BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
-			bw.Write(channelID);
-			bw.Write(data);
-			EndSend();
 		}
 	}
 

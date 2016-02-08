@@ -84,12 +84,12 @@ public class TcpPlayer : TcpProtocol
 	/// Whether the specified player is already known to this one.
 	/// </summary>
 
-	public bool IsKnownTo (Player p, Channel currentChannel)
+	public bool IsKnownTo (Player p, Channel ignoreChannel = null)
 	{
 		for (int i = 0; i < channels.size; ++i)
 		{
 			Channel ch = channels[i];
-			if (ch == currentChannel) continue;
+			if (ch == ignoreChannel) continue;
 			if (ch.players.Contains(p)) return true;
 		}
 		return false;

@@ -149,7 +149,7 @@ public enum Packet
 	/// int32: Player ID.
 	/// bool: Whether player name and data follows. If a player is already known, it won't be sent.
 	/// string: Player Name.
-	/// object: Player data.
+	/// DataNode: Player data.
 	/// </summary>
 
 	ResponseJoiningChannel,
@@ -169,7 +169,7 @@ public enum Packet
 	/// int32: Player ID.
 	/// bool: Whether player name and data follows. If a player is already known, it won't be sent.
 	/// string: Player name.
-	/// object: Player data.
+	/// DataNode: Player data.
 	/// </summary>
 
 	ResponsePlayerJoined,
@@ -404,7 +404,8 @@ public enum Packet
 	/// <summary>
 	/// Set the channel's data field.
 	/// int32: Channel ID.
-	/// object: Custom data
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
 	RequestSetChannelData,
@@ -412,7 +413,8 @@ public enum Packet
 	/// <summary>
 	/// The channel's data has been changed.
 	/// int32: Channel ID.
-	/// object: Custom data
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
 	ResponseSetChannelData,
@@ -433,7 +435,7 @@ public enum Packet
 	///   bool: Has a password
 	///   bool: Is persistent
 	///   string: Level
-	///   object: Custom data
+	///   DataNode: Custom data
 	/// </summary>
 
 	ResponseChannelList,
@@ -559,7 +561,8 @@ public enum Packet
 	/// Set the player's 'data' property. When a client sends this packet to the server,
 	/// the same packet will be echoed to everyone except the sender.
 	/// int32: Player ID who's data should be synchronized. Must match the player that sent the request.
-	/// object: Player's data.
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
 	RequestSetPlayerData,
@@ -567,7 +570,8 @@ public enum Packet
 	/// <summary>
 	/// Set the player data associated with the specified player.
 	/// int32: Player ID who's data should be synchronized.
-	/// object: Player's data.
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
 	ResponseSetPlayerData,
@@ -667,19 +671,19 @@ public enum Packet
 
 	/// <summary>
 	/// Sets a server option. Only administrators can do this.
-	/// string: Hierarchy path.
-	/// object: Value.
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
-	RequestSetServerOption,
+	RequestSetServerData,
 
 	/// <summary>
 	/// Server option sent back from the server to all connected clients in response to RequestSetServerOption.
-	/// string: Hierarchy path.
-	/// object: Value.
+	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
+	/// object: Custom value. Can also be a DataNode to set that node.
 	/// </summary>
 
-	ResponseSetServerOption,
+	ResponseSetServerData,
 
 	/// <summary>
 	/// Response coming from the server for authenticated administrators.
@@ -730,6 +734,7 @@ public enum Packet
 	/// <summary>
 	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
 	/// string: Filename where the player data should be saved.
+	/// byte: Save type. 0 = Text. 1 = Binary. 2 = Compressed.
 	/// </summary>
 
 	RequestSavePlayerData,
