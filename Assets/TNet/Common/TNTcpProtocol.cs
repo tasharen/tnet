@@ -419,7 +419,11 @@ public class TcpProtocol : Player
 	/// Release the buffers.
 	/// </summary>
 
-	public void Release () { lock (mOut) CloseNotThreadSafe(false); dataNode = null; }
+	public void Release ()
+	{
+		lock (mOut) CloseNotThreadSafe(false);
+		dataNode = null;
+	}
 
 	/// <summary>
 	/// Begin sending a new packet to the server.

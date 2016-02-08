@@ -145,7 +145,6 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added an offline mode to TNet that still supports full functionality identical to that of playing alone on a local server.
 - NEW: DataNode now supports exporting prefabs using asset bundles export for situations when regular binary export is not suitable.
 - NEW: It's now possible to pass an empty string to TNManager.Create causing TNet to pass back a dummy object on creation, thus letting the game object's contents be procedurally set.
-- NEW: TNManager.LoadPlayerData and TNManager.SavePlayerData as a more efficient way of loading, setting and saving TNManager.playerDataNode.
 - NEW: Serialization.Convert<T>(value) will use TNet's serialization to convert types.
 - NEW: RCCs no longer require an ID and can be called by their function name.
 - NEW: It's no longer necessary to call TNManager.AddRCCs. TNet will find all RCCs automatically.
@@ -153,6 +152,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added TNManager.GetChannelList().
 - NEW: Added a new example showing a simple car with a frequent input and an infrequent rigidbody sync.
 - NEW: TNManager.SetServerData, TNManager.SetChannelData and TNManager.SetPlayerData now all set only the path requested, not the entire thing.
+- NEW: Calling TNManager.SetPlayerSave(filename) will now load previously saved player data and will auto-save the player's data into that file.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.

@@ -116,6 +116,7 @@ public class GameServer : FileServer
 #endif
 	TcpPlayer mLocalPlayer = null;
 	bool mIsActive = false;
+	bool mServerDataChanged = false;
 
 	/// <summary>
 	/// Add a new entry to the list. Returns 'true' if a new entry was added.
@@ -573,12 +574,14 @@ public class GameServer : FileServer
 	{
 		if (p != null)
 		{
+			SavePlayer(p);
 #if STANDALONE
 			if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
 			LeaveAllChannels(p);
 
 			p.Release();
+			p.savePath = null;
 			mPlayerList.Remove(p);
 
 			if (p.udpEndPoint != null)
@@ -1238,7 +1241,9 @@ public class GameServer : FileServer
 
 					if (mServerData != null)
 					{
-						player.BeginSend(Packet.ResponseSetServerConfig).Write(mServerData);
+						writer = player.BeginSend(Packet.ResponseSetServerData);
+						writer.Write("");
+						writer.WriteObject(mServerData);
 						player.EndSend();
 					}
 
@@ -1378,6 +1383,7 @@ public class GameServer : FileServer
 
 				// Set the local data
 				player.Set(reader.ReadString(), reader.ReadObject());
+				player.saveNeeded = true;
 
 				// Change the packet type to a response before sending it as-is
 				buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
@@ -1391,41 +1397,17 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestSavePlayerData:
+			case Packet.RequestSetPlayerSave:
 			{
-				// Save the player's data into the specified file
-				try
-				{
-					string fileName = reader.ReadString();
-					var saveType = (DataNode.SaveType)reader.ReadByte();
+				// Delete the previous save
+				if (!string.IsNullOrEmpty(player.savePath))
+					Tools.DeleteFile(player.savePath);
 
-					if (player.dataNode == null || player.dataNode.children.size == 0)
-					{
-						if (DeleteFile(fileName))
-							player.Log("Deleted " + fileName);
-					}
-					else
-					{
-						byte[] bytes = player.dataNode.ToArray(saveType);
-
-						if (SaveFile(fileName, bytes))
-						{
-							player.Log("Saved " + fileName + " (" + (bytes != null ? bytes.Length.ToString("N0") : "0") + " bytes)");
-						}
-						else player.LogError("Unable to save " + fileName);
-					}
-				}
-				catch (Exception ex)
-				{
-					player.LogError(ex.Message, ex.StackTrace);
-					RemovePlayer(player);
-				}
-				break;
-			}
-			case Packet.RequestLoadPlayerData:
-			{
 				// Load and set the player's data from the specified file
-				player.dataNode = DataNode.Read(reader.ReadString());
+				player.savePath = reader.ReadString();
+				player.saveType = (DataNode.SaveType)reader.ReadByte();
+				player.dataNode = DataNode.Read(player.savePath);
+				player.saveNeeded = false;
 
 				Buffer buff = Buffer.Create();
 				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
@@ -1762,7 +1744,9 @@ public class GameServer : FileServer
 					if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
 					Buffer buff = Buffer.Create();
-					buff.BeginPacket(Packet.ResponseSetServerConfig).Write(mServerData);
+					var writer = buff.BeginPacket(Packet.ResponseSetServerData);
+					writer.Write("");
+					writer.WriteObject(mServerData);
 					buff.EndPacket();
 
 					// Forward the packet to everyone connected to the server
@@ -1780,37 +1764,6 @@ public class GameServer : FileServer
 				}
 				break;
 			}
-			case Packet.RequestSetServerConfig:
-			{
-				if (player.isAdmin)
-				{
-					// 4 bytes for size, 1 byte for ID
-					int origin = buffer.position - 5;
-
-					// Read the configuration
-					mServerData = reader.ReadDataNode();
-
-					// Change the packet type to a response before sending it as-is
-					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerConfig;
-					buffer.position = origin;
-
-					// We want to forward the packet as-is
-					buffer.position = origin;
-
-					// Forward the packet to everyone connected to the server
-					for (int i = 0; i < mPlayerList.size; ++i)
-					{
-						TcpPlayer tp = mPlayerList[i];
-						tp.SendTcpPacket(buffer);
-					}
-				}
-				else
-				{
-					player.LogError("Tried to set the server data without authorization", null);
-					RemovePlayer(player);
-				}
-				break;
-			}
 			case Packet.RequestSetServerData:
 			{
 				if (player.isAdmin)
@@ -1822,7 +1775,7 @@ public class GameServer : FileServer
 
 					// Change the local configuration
 					mServerData.SetHierarchy(reader.ReadString(), reader.ReadObject());
-					SaveData();
+					mServerDataChanged = true;
 
 					// Change the packet type to a response before sending it as-is
 					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetServerData;
@@ -2526,23 +2479,48 @@ public class GameServer : FileServer
 		}
 
 		Tools.WriteFile(fileName, mWriteStream);
-		SaveData();
-#endif
-	}
 
-	/// <summary>
-	/// Save the server's human-readable data.
-	/// </summary>
-
-	void SaveData ()
-	{
-		if (mServerData != null && !string.IsNullOrEmpty(mFilename))
+		// Save the server configuration data
+		if (mServerDataChanged && mServerData != null && !string.IsNullOrEmpty(mFilename))
 		{
+			mServerDataChanged = false;
+
 			try
 			{
 				mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true);
 			}
 			catch (Exception) { }
+		}
+
+		// Save the player data
+		for (int i = 0; i < mPlayerList.size; ++i)
+			SavePlayer(mPlayerList[i]);
+#endif
+	}
+
+	/// <summary>
+	/// Save this player's data.
+	/// </summary>
+
+	void SavePlayer (TcpPlayer player)
+	{
+		if (player == null || !player.saveNeeded || string.IsNullOrEmpty(player.savePath)) return;
+		player.saveNeeded = false;
+
+		if (player.dataNode == null || player.dataNode.children.size == 0)
+		{
+			if (DeleteFile(player.savePath))
+				player.Log("Deleted " + player.savePath);
+		}
+		else
+		{
+			byte[] bytes = player.dataNode.ToArray(player.saveType);
+
+			if (SaveFile(player.savePath, bytes))
+			{
+				player.Log("Saved " + player.savePath + " (" + (bytes != null ? bytes.Length.ToString("N0") : "0") + " bytes)");
+			}
+			else player.LogError("Unable to save " + player.savePath);
 		}
 	}
 
@@ -2560,6 +2538,7 @@ public class GameServer : FileServer
 				mServerData = DataNode.Read(data, DataNode.SaveType.Text);
 			}
 			catch (Exception) { mServerData = null; }
+			mServerDataChanged = false;
 		}
 	}
 

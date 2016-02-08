@@ -376,7 +376,9 @@ public class GameClient
 			if (isAdmin)
 			{
 				mConfig = value;
-				BeginSend(Packet.RequestSetServerConfig).Write(value);
+				var writer = BeginSend(Packet.RequestSetServerData);
+				writer.Write("");
+				writer.WriteObject(value);
 				EndSend();
 			}
 		}
@@ -1458,12 +1460,6 @@ public class GameClient
 				Player p = GetPlayer(pid);
 				if (p == player) mIsAdmin = true;
 				if (onSetAdmin != null) onSetAdmin(p);
-				break;
-			}
-			case Packet.ResponseSetServerConfig:
-			{
-				mConfig = reader.ReadDataNode();
-				if (onSetServerData != null) onSetServerData(null, mConfig);
 				break;
 			}
 			case Packet.ResponseSetServerData:

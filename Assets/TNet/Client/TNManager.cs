@@ -602,25 +602,25 @@ public class TNManager : MonoBehaviour
 	/// Get our player's data.
 	/// </summary>
 
-	public DataNode GetPlayerData (string path) { return player.dataNode.GetHierarchy(path); }
+	static public DataNode GetPlayerData (string path) { return player.dataNode.GetHierarchy(path); }
 
 	/// <summary>
 	/// Convenience method: Get the specified value from our player.
 	/// </summary>
 
-	public T GetPlayerData<T> (string path) { return player.Get<T>(path); }
+	static public T GetPlayerData<T> (string path) { return player.Get<T>(path); }
 
 	/// <summary>
 	/// Convenience method: Get the specified value from our player.
 	/// </summary>
 
-	public T GetPlayerData<T> (string path, T defaultVal) { return player.Get<T>(path, defaultVal); }
+	static public T GetPlayerData<T> (string path, T defaultVal) { return player.Get<T>(path, defaultVal); }
 
 	/// <summary>
 	/// Set the specified value on our player.
 	/// </summary>
 
-	public void SetPlayerData (string path, object val)
+	static public void SetPlayerData (string path, object val)
 	{
 		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
 		else mPlayer.dataNode.SetHierarchy(path, val);
@@ -975,35 +975,24 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Load the specified filename and set it as the player's data.
-	/// TNManager.onPlayerSync will be called when the operation completes.
+	/// Specify where the player's data should be saved. You only need to call this function once and TNet
+	/// will automatically save the player file for you every time you use TNManager.SetPlayerData afterwards.
 	/// </summary>
 
-	static public void LoadPlayerData (string filename)
+	static public void SetPlayerSave (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
 	{
 		if (isConnected)
 		{
-			BeginSend(Packet.RequestLoadPlayerData).Write(filename);
+			var writer = BeginSend(Packet.RequestSetPlayerSave);
+			writer.Write(filename);
+			writer.Write((byte)type);
 			EndSend();
 		}
 		else
 		{
-			byte[] data = Tools.ReadFile(filename);
-			playerData = (data != null) ? DataNode.Read(data) : null;
+			playerData = DataNode.Read(filename);
 			if (onSetPlayerData != null) onSetPlayerData(player, "", playerData);
 		}
-	}
-
-	/// <summary>
-	/// Save the player data into the specified file.
-	/// </summary>
-
-	static public void SavePlayerData (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
-	{
-		var writer = BeginSend(Packet.RequestSavePlayerData);
-		writer.Write(filename);
-		writer.Write((byte)type);
-		EndSend();
 	}
 
 	/// <summary>
@@ -1800,6 +1789,12 @@ public class TNManager : MonoBehaviour
 	[Obsolete("Use TNManager.serverData instead")]
 	static public DataNode serverOptions { get { return serverData; } }
 
+	[System.Obsolete("Use TNManager.SetServerData instead")]
+	static public void SetServerOption (string text) { SetServerData(text); }
+
+	[Obsolete("Use TNManager.SetServerData instead")]
+	static public void SetServerOption (string key, object val) { SetServerData(key, val); }
+
 	[Obsolete("Use TNManager.SetServerData(key, value) instead")]
 	static public void SetServerOption (DataNode node) { SetServerData(node.name, node.value); }
 
@@ -1861,4 +1856,13 @@ public class TNManager : MonoBehaviour
 #endif
 		}
 	}
+
+	[System.Obsolete("Use TNManager.GetServerData instead")]
+	static public DataNode GetServerOption (string key) { return (mInstance != null) ? mInstance.mClient.GetServerData(key) : null; }
+
+	[System.Obsolete("Use TNManager.GetServerData instead")]
+	static public T GetServerOption<T> (string key) { return (mInstance != null) ? mInstance.mClient.GetServerData<T>(key) : default(T); }
+
+	[System.Obsolete("Use TNManager.GetServerData instead")]
+	static public T GetServerOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerData<T>(key, def) : def; }
 }

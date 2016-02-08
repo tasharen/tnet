@@ -656,20 +656,6 @@ public enum Packet
 	RequestReloadServerConfig,
 
 	/// <summary>
-	/// Sets the complete server's configuration data. Only administrators can do this.
-	/// DataNode: data. Note that some types may not be readable on the server side, such as Vector3 for example.
-	/// </summary>
-
-	RequestSetServerConfig,
-
-	/// <summary>
-	/// Complete server's configuration data. It's automatically sent to all clients when they get connected.
-	/// DataNode: data.
-	/// </summary>
-
-	ResponseSetServerConfig,
-
-	/// <summary>
 	/// Sets a server option. Only administrators can do this.
 	/// string: Path, such as "Unlocks/something". Can be an empty string to set the root node.
 	/// object: Custom value. Can also be a DataNode to set that node.
@@ -725,19 +711,14 @@ public enum Packet
 	RequestRenameServer,
 
 	/// <summary>
-	/// Request to load the specified filename as the player's data. SyncPlayerData will be sent back.
-	/// string: Filename to load.
-	/// </summary>
-
-	RequestLoadPlayerData,
-
-	/// <summary>
-	/// Sync the specified player's 'data' property. This packet will be echoed to everyone except the sender.
-	/// string: Filename where the player data should be saved.
+	/// Request to set the specified filename to be associated with player saves.
+	/// The data within the file will be loaded and a ResponseSetPlayerData will be sent back.
+	/// TNet will automatically save the player's data into this file from this moment onward.
+	/// string: Filename to use for player saves.
 	/// byte: Save type. 0 = Text. 1 = Binary. 2 = Compressed.
 	/// </summary>
 
-	RequestSavePlayerData,
+	RequestSetPlayerSave,
 
 	/// <summary>
 	/// Begin custom packets here.

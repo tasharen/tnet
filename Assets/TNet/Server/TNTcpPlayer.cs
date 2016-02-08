@@ -69,6 +69,24 @@ public class TcpPlayer : TcpProtocol
 	public bool isAdmin = false;
 
 	/// <summary>
+	/// Path where the player's data gets saved, if any.
+	/// </summary>
+
+	public string savePath;
+
+	/// <summary>
+	/// Next time the player data will be saved.
+	/// </summary>
+
+	public bool saveNeeded = false;
+
+	/// <summary>
+	/// Type of the saved data.
+	/// </summary>
+
+	public DataNode.SaveType saveType = DataNode.SaveType.Binary;
+
+	/// <summary>
 	/// Time of the next possible broadcast, used to catch spammers.
 	/// </summary>
 
