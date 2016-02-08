@@ -602,7 +602,7 @@ public class TNManager : MonoBehaviour
 	/// Get our player's data.
 	/// </summary>
 
-	static public DataNode GetPlayerData (string path) { return player.dataNode.GetHierarchy(path); }
+	static public DataNode GetPlayerData (string path) { return player.Get(path); }
 
 	/// <summary>
 	/// Convenience method: Get the specified value from our player.
@@ -623,7 +623,7 @@ public class TNManager : MonoBehaviour
 	static public void SetPlayerData (string path, object val)
 	{
 		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
-		else mPlayer.dataNode.SetHierarchy(path, val);
+		else mPlayer.Set(path, val);
 	}
 
 	/// <summary>
