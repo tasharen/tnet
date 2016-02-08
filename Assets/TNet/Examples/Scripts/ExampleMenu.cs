@@ -150,7 +150,7 @@ public class ExampleMenu : MonoBehaviour
 				if (GUILayout.Button("Stop the Server", button))
 				{
 					// Stop the server, saving all the data
-					TNServerInstance.Stop("server.dat");
+					TNServerInstance.Stop();
 					mMessage = "Server stopped";
 				}
 			}

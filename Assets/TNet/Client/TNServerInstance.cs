@@ -182,7 +182,7 @@ public class TNServerInstance : MonoBehaviour
 		{
 			if (!string.IsNullOrEmpty(fileName))
 			{
-				mGame.LoadFrom(fileName);
+				mGame.Load(fileName);
 #if SINGLE_THREADED
 				mGame.Update();
 #endif
@@ -239,7 +239,7 @@ public class TNServerInstance : MonoBehaviour
 				mUp.OpenTCP(tcpPort);
 				if (udpPort > 0) mUp.OpenUDP(udpPort);
 			}
-			if (!string.IsNullOrEmpty(fileName)) mGame.LoadFrom(fileName);
+			if (!string.IsNullOrEmpty(fileName)) mGame.Load(fileName);
 			return true;
 		}
 
@@ -281,7 +281,7 @@ public class TNServerInstance : MonoBehaviour
 				mUp.OpenTCP(tcpPort);
 				mUp.OpenUDP(udpPort);
 			}
-			if (!string.IsNullOrEmpty(fileName)) mGame.LoadFrom(fileName);
+			if (!string.IsNullOrEmpty(fileName)) mGame.Load(fileName);
 			return true;
 		}
 
@@ -294,33 +294,6 @@ public class TNServerInstance : MonoBehaviour
 	/// </summary>
 
 	static public void Stop () { if (mInstance != null) mInstance.Disconnect(); }
-
-	/// <summary>
-	/// Stop the server, saving the current state to the specified file.
-	/// </summary>
-
-	static public void Stop (string fileName)
-	{
-		if (mInstance != null && mInstance.mGame.isActive)
-		{
-			if (!string.IsNullOrEmpty(fileName))
-				mInstance.mGame.SaveTo(fileName);
-			Stop();
-		}
-	}
-
-	/// <summary>
-	/// Save the server's current state to the specified file.
-	/// </summary>
-
-	static public void SaveTo (string fileName)
-	{
-		if (mInstance != null && mInstance.mGame.isActive)
-		{
-			if (!string.IsNullOrEmpty(fileName))
-				mInstance.mGame.SaveTo(fileName);
-		}
-	}
 
 	/// <summary>
 	/// Make the server private by no longer accepting new connections.
@@ -357,4 +330,10 @@ public class TNServerInstance : MonoBehaviour
 #if SINGLE_THREADED
 	void Update () { if (mGame != null && mGame.isActive) mGame.Update(); }
 #endif
+
+	[System.Obsolete("Just call TNServerInstance.Stop() instead")]
+	static public void Stop (string fileName) { Stop(); }
+
+	[System.Obsolete("Calling this function is no longer necessary. The server will auto-save.")]
+	static public void SaveTo (string fileName) { }
 }

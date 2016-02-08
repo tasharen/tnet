@@ -111,6 +111,7 @@ public class GameServer : FileServer
 	object mLock = 0;
 	DataNode mServerData = null;
 	string mFilename = "world.dat";
+	long mNextSave = 0;
 #if !STANDALONE
 	GameClient mLocalClient = null;
 #endif
@@ -303,6 +304,8 @@ public class GameServer : FileServer
 
 	public void Stop ()
 	{
+		Save();
+
 		if (onShutdown != null) onShutdown();
 		if (lobbyLink != null) lobbyLink.Stop();
 
@@ -545,6 +548,9 @@ public class GameServer : FileServer
 					}
 					++i;
 				}
+
+				// Save periodically
+				if (mNextSave != 0 && mNextSave < mTime) Save();
 			}
 #if !SINGLE_THREADED
 			if (!received) Thread.Sleep(1);
@@ -1218,6 +1224,8 @@ public class GameServer : FileServer
 
 	bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 	{
+		// Save every 30 seconds
+		if (mNextSave == 0) mNextSave = mTime + 30000;
 		BinaryReader reader = buffer.BeginReading();
 
 		// If the player has not yet been verified, the first packet must be an ID request
@@ -1382,19 +1390,27 @@ public class GameServer : FileServer
 				int origin = buffer.position - 5;
 
 				// Set the local data
-				player.Set(reader.ReadString(), reader.ReadObject());
-				player.saveNeeded = true;
+				int playerID = reader.ReadInt32();
+				string str = reader.ReadString();
+				object obj = reader.ReadObject();
 
-				// Change the packet type to a response before sending it as-is
-				buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
-				buffer.position = origin;
-
-				// Forward the packet to everyone connected to the server
-				for (int i = 0; i < mPlayerList.size; ++i)
+				if (player.id == playerID)
 				{
-					TcpPlayer tp = mPlayerList[i];
-					if (tp != player && tp.IsKnownTo(player)) tp.SendTcpPacket(buffer);
+					player.Set(str, obj);
+					player.saveNeeded = true;
+
+					// Change the packet type to a response before sending it as-is
+					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
+					buffer.position = origin;
+
+					// Forward the packet to everyone connected to the server
+					for (int i = 0; i < mPlayerList.size; ++i)
+					{
+						TcpPlayer tp = mPlayerList[i];
+						if (tp != player && tp.IsKnownTo(player)) tp.SendTcpPacket(buffer);
+					}
 				}
+				else player.LogError("Players should only set their own data. Ignoring.", null, false);
 				break;
 			}
 			case Packet.RequestSetPlayerSave:
@@ -1413,7 +1429,7 @@ public class GameServer : FileServer
 				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 				writer.Write(player.id);
 				writer.Write("");
-				writer.Write(player.dataNode);
+				writer.WriteObject(player.dataNode);
 				buff.EndPacket();
 
 				player.SendTcpPacket(buff);
@@ -2430,15 +2446,15 @@ public class GameServer : FileServer
 #endif
 
 	/// <summary>
-	/// Save the server's current state into the specified file so it can be easily restored later.
+	/// Save the server's current state into the file that was loaded previously with Load().
 	/// </summary>
 
-	public void SaveTo (string fileName)
+	void Save ()
 	{
-		mFilename = fileName;
+		mNextSave = 0;
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
-		if (!isActive) return;
+		if (!isActive || string.IsNullOrEmpty(mFilename)) return;
 
 		Tools.SaveList("ServerConfig/ban.txt", mBan);
 		Tools.SaveList("ServerConfig/admin.txt", mAdmin);
@@ -2478,17 +2494,13 @@ public class GameServer : FileServer
 			}
 		}
 
-		Tools.WriteFile(fileName, mWriteStream);
+		Tools.WriteFile(mFilename, mWriteStream);
 
 		// Save the server configuration data
 		if (mServerDataChanged && mServerData != null && !string.IsNullOrEmpty(mFilename))
 		{
 			mServerDataChanged = false;
-
-			try
-			{
-				mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true);
-			}
+			try { mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true); }
 			catch (Exception) { }
 		}
 
@@ -2542,13 +2554,17 @@ public class GameServer : FileServer
 		}
 	}
 
+	[System.Obsolete("Use Load() instead")]
+	public bool LoadFrom (string fileName) { return Load(fileName); }
+
 	/// <summary>
 	/// Load a previously saved server from the specified file.
 	/// </summary>
 
-	public bool LoadFrom (string fileName)
+	public bool Load (string fileName)
 	{
 		mFilename = fileName;
+		mNextSave = 0;
 
 #if UNITY_WEBPLAYER || UNITY_FLASH
 		// There is no file access in the web player.

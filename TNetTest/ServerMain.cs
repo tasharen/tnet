@@ -1,6 +1,6 @@
 //----------------------------------------------
 //            Tasharen Network
-// Copyright © 2012-2014 Tasharen Entertainment
+// Copyright © 2012-2016 Tasharen Entertainment
 //----------------------------------------------
 
 // Note on the UDP lobby: Although it's a better choice than TCP (and plus it allows LAN broadcasts),
@@ -25,7 +25,6 @@ public class Application : IDisposable
 	UPnP mUPnP = null;
 	GameServer mGameServer = null;
 	LobbyServer mLobbyServer = null;
-	Thread mSaveThread = null;
 
 	public delegate bool HandlerRoutine (int type);
 	[System.Runtime.InteropServices.DllImport("Kernel32")]
@@ -99,7 +98,7 @@ public class Application : IDisposable
 
 				// Start the actual game server and load the save file
 				mGameServer.Start(tcpPort, udpPort);
-				mGameServer.LoadFrom(mFilename);
+				mGameServer.Load(mFilename);
 				Tools.Print("Loaded " + mFilename);
 			}
 			else if (lobbyPort > 0)
@@ -133,17 +132,6 @@ public class Application : IDisposable
 			try { SetConsoleCtrlHandler(new HandlerRoutine(OnExit), true); }
 			catch (Exception) { }
 
-			// Save periodically
-			mSaveThread = new Thread(delegate(object obj)
-			{
-				for (; ; )
-				{
-					Thread.Sleep(120000);
-					if (mGameServer != null) mGameServer.SaveTo(mFilename);
-				}
-			});
-			mSaveThread.Start();
-
 			for (; ; )
 			{
 				if (!service)
@@ -152,11 +140,6 @@ public class Application : IDisposable
 					string command = Console.ReadLine();
 					if (command == "q") break;
 					else if (command == "c") TNet.Buffer.ReleaseUnusedMemory();
-					else if (command == "s")
-					{
-						mGameServer.SaveTo(mFilename);
-						Tools.Print("Saved as " + mFilename);
-					}
 				}
 				else Thread.Sleep(10000);
 			}
@@ -177,17 +160,9 @@ public class Application : IDisposable
 
 	public void Dispose ()
 	{
-		if (mSaveThread != null)
-		{
-			mSaveThread.Abort();
-			mSaveThread = null;
-		}
-
 		// Stop the game server
 		if (mGameServer != null)
 		{
-			Tools.Print("Saved as " + mFilename);
-			mGameServer.SaveTo(mFilename);
 			mGameServer.Stop();
 			mGameServer = null;
 		}
