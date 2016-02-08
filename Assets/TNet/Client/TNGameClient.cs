@@ -445,7 +445,7 @@ public class GameClient
 
 	public void SetPlayerData (string path, object val)
 	{
-		mTcp.Set(path, val);
+		DataNode node = mTcp.Set(path, val);
 
 		if (isConnected)
 		{
@@ -455,6 +455,9 @@ public class GameClient
 			writer.WriteObject(val);
 			EndSend();
 		}
+
+		if (onSetPlayerData != null)
+			onSetPlayerData(mTcp, path, node);
 	}
 
 	/// <summary>
