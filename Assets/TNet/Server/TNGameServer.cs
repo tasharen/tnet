@@ -2401,6 +2401,9 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestSetChannelData:
 			{
+				// 4 bytes for size, 1 byte for ID
+				int origin = buffer.position - 5;
+
 				bool isNew;
 				Channel ch = CreateChannel(reader.ReadInt32(), out isNew);
 
@@ -2410,9 +2413,6 @@ public class GameServer : FileServer
 					{
 						if (ch.players.size == 0) ch.persistent = true;
 						if (ch.dataNode == null) ch.dataNode = new DataNode("Version", Player.version);
-
-						// 4 bytes for size, 1 byte for ID
-						int origin = buffer.position - 5;
 
 						// Set the local data
 						ch.dataNode.SetHierarchy(reader.ReadString(), reader.ReadObject());

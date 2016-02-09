@@ -508,7 +508,7 @@ public class TcpProtocol : Player
 			{
 				// Offline mode sends packets individually and they should not be reused
 #if UNITY_EDITOR
-				Debug.LogWarning("Packet's position is not 0. Potentially sending the same packet more than once. Ignoring...");
+				Debug.LogWarning("Packet's position is " + buffer.position + " instead of 0. Potentially sending the same packet more than once. Ignoring...");
 #endif
 				return;
 			}
