@@ -6,6 +6,58 @@
 namespace TNet
 {
 /// <summary>
+/// Simple container class holding a dataNode with convenient Get and Set functions.
+/// </summary>
+
+public class DataNodeContainer
+{
+	/// <summary>
+	/// Custom data easily accessible via Get and Set functions.
+	/// </summary>
+
+	public DataNode dataNode;
+
+	/// <summary>
+	/// Set the specified value.
+	/// Note that on the client side only the player's owner should be setting the values.
+	/// </summary>
+
+	public DataNode Set (string path, object val)
+	{
+		if (dataNode == null)
+		{
+			if (val == null) return null;
+			dataNode = new DataNode("Version", Player.version);
+		}
+		return dataNode.SetHierarchy(path, val);
+	}
+
+	/// <summary>
+	/// Get the specified child within the DataNode.
+	/// </summary>
+
+	public DataNode Get (string path) { return (dataNode != null) ? dataNode.GetHierarchy(path) : null; }
+
+	/// <summary>
+	/// Get the specified value from the DataNode.
+	/// </summary>
+
+	public T Get<T> (string path)
+	{
+		return (dataNode != null) ? dataNode.GetHierarchy<T>(path) : default(T);
+	}
+
+	/// <summary>
+	/// Get the specified value from the DataNode.
+	/// </summary>
+
+	public T Get<T> (string path, T defaultVal)
+	{
+		return (dataNode != null) ? dataNode.GetHierarchy<T>(path, defaultVal) : defaultVal;
+	}
+}
+
+/// <summary>
 /// Class containing basic information about a remote player.
 /// </summary>
 

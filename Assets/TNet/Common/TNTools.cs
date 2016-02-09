@@ -956,20 +956,6 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// Convenience function -- prints the specified message, prefixed with a timestamp.
-	/// </summary>
-
-	static public void Print (TcpPlayer p, string text, bool appendTime = true)
-	{
-#if STANDALONE
-		if (!appendTime) System.Console.WriteLine(p.name + " (" + p.address + "): " + text);
-		else System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + p.name + " (" + p.address + "): " + text);
-#elif UNITY_EDITOR
-		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(p.name + " (" + p.address + "): " + text);
-#endif
-	}
-
-	/// <summary>
 	/// Write a new log entry.
 	/// </summary>
 
@@ -1134,58 +1120,6 @@ static public class Tools
 			return text;
 		}
 		return version.ToString();
-	}
-}
-
-/// <summary>
-/// Simple container class holding a dataNode with conveient Get and Set functions.
-/// </summary>
-
-public class DataNodeContainer
-{
-	/// <summary>
-	/// Custom data easily accessible via Get and Set functions.
-	/// </summary>
-
-	public DataNode dataNode;
-
-	/// <summary>
-	/// Set the specified value.
-	/// Note that on the client side only the player's owner should be setting the values.
-	/// </summary>
-
-	public DataNode Set (string path, object val)
-	{
-		if (dataNode == null)
-		{
-			if (val == null) return null;
-			dataNode = new DataNode("Version", Player.version);
-		}
-		return dataNode.SetHierarchy(path, val);
-	}
-
-	/// <summary>
-	/// Get the specified child within the DataNode.
-	/// </summary>
-
-	public DataNode Get (string path) { return (dataNode != null) ? dataNode.GetHierarchy(path) : null; }
-
-	/// <summary>
-	/// Get the specified value from the DataNode.
-	/// </summary>
-
-	public T Get<T> (string path)
-	{
-		return (dataNode != null) ? dataNode.GetHierarchy<T>(path) : default(T);
-	}
-
-	/// <summary>
-	/// Get the specified value from the DataNode.
-	/// </summary>
-
-	public T Get<T> (string path, T defaultVal)
-	{
-		return (dataNode != null) ? dataNode.GetHierarchy<T>(path, defaultVal) : defaultVal;
 	}
 }
 }
