@@ -181,17 +181,23 @@ public class ExampleCar : TNBehaviour
 
 	void UpdateWheel (Wheel w, float turn, float move)
 	{
+		Transform wheelRenderer = w.t.GetChild(0);
 		float rpmFactor = Mathf.Clamp01(Mathf.Abs(w.col.rpm) / maxRPM);
-		w.col.motorTorque = move * motorTorque * mInput.y * (1f - rpmFactor * rpmFactor);
+		float torque = move * motorTorque * mInput.y * (1f - rpmFactor * rpmFactor);
 		w.col.brakeTorque = (1f - Mathf.Abs(mInput.y)) * motorTorque;
 
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
+		w.col.motorTorque = torque;
+#else
+		w.col.motorTorque = torque * 4f;
+#endif
 		// Turn the wheel
 		Vector3 euler = w.t.localEulerAngles;
 		euler.y = turn * 20f * mInput.x;
+#if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
 		w.t.localEulerAngles = euler;
 
 		// Spin the renderer
-		Transform wheelRenderer = w.t.GetChild(0);
 		w.rotation += w.col.rpm * Mathf.PI * 2f * Time.deltaTime;
 		wheelRenderer.localRotation = Quaternion.Euler(w.rotation, 0f, 0f);
 
@@ -212,6 +218,16 @@ public class ExampleCar : TNBehaviour
 
 			wheelRenderer.localPosition = new Vector3(0f, currentSuspension, 0f);
 		}
+#else
+		w.col.steerAngle = euler.y;
+
+		// Position the renderer
+		Vector3 pos;
+		Quaternion rot;
+		w.col.GetWorldPose(out pos, out rot);
+		wheelRenderer.position = pos;
+		wheelRenderer.rotation = rot;
+#endif
 	}
 
 	/// <summary>

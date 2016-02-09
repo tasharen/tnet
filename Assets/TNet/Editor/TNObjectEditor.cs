@@ -44,7 +44,7 @@ public class TNObjectEditor : Editor
 
 			if (obj.uid == 0)
 			{
-				EditorGUILayout.HelpBox("Object ID of '0' means this object must be dynamically instantiated via TNManager.Create.", MessageType.Info);
+				EditorGUILayout.HelpBox("Object ID of '0' means this object must be dynamically instantiated via TNManager.Instantiate.", MessageType.Info);
 			}
 			else
 			{
@@ -56,7 +56,7 @@ public class TNObjectEditor : Editor
 
 					if (o.uid == obj.uid)
 					{
-						EditorGUILayout.HelpBox("This ID is shared with other TNObjects. A unique ID is required in order for Remote Function Calls to function properly.", MessageType.Error);
+						EditorGUILayout.HelpBox("This ID is shared with other TNObjects. A unique ID is required in order for RFCs to function properly.", MessageType.Error);
 						break;
 					}
 				}
