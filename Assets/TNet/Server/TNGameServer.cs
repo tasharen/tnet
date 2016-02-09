@@ -1386,7 +1386,7 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestSetPlayerData:
 			{
-				// 4 bytes for size, 1 byte for ID
+				// 4 bytes for the size, 1 byte for the ID
 				int origin = buffer.position - 5;
 
 				// Set the local data
@@ -1403,7 +1403,7 @@ public class GameServer : FileServer
 					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
 					buffer.position = origin;
 
-					// Forward the packet to everyone connected to the server
+					// Forward the packet to everyone that knows this player
 					for (int i = 0; i < mPlayerList.size; ++i)
 					{
 						TcpPlayer tp = mPlayerList[i];
@@ -1577,7 +1577,7 @@ public class GameServer : FileServer
 			case Packet.BroadcastAdmin:
 			case Packet.Broadcast:
 			{
-				// 4 bytes for size, 1 byte for ID
+				// 4 bytes for the size, 1 byte for the ID
 				int origin = buffer.position - 5;
 
 				//Tools.Print("Broadcast: " + player.name + ", " + player.address);
@@ -2401,7 +2401,7 @@ public class GameServer : FileServer
 			}
 			case Packet.RequestSetChannelData:
 			{
-				// 4 bytes for size, 1 byte for ID
+				// 4 bytes for the size, 1 byte for the ID
 				int origin = buffer.position - 5;
 
 				bool isNew;
@@ -2421,7 +2421,7 @@ public class GameServer : FileServer
 						buffer.buffer[origin + 4] = (byte)Packet.ResponseSetChannelData;
 						buffer.position = origin;
 
-						// Forward the packet to everyone connected to the server
+						// Forward the packet to everyone in this channel
 						for (int i = 0; i < mPlayerList.size; ++i)
 						{
 							TcpPlayer tp = mPlayerList[i];
