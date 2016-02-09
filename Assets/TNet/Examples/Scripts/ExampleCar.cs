@@ -160,9 +160,9 @@ public class ExampleCar : TNBehaviour
 		// Keep the center of mass low to make it more difficult for the car to flip over
 		mRb.centerOfMass = centerOfMass.localPosition;
 
-		// Update the wheels: front wheels steer, rear wheels drive
-		UpdateWheel(mFL, 1f, 0f);
-		UpdateWheel(mFR, 1f, 0f);
+		// Update the wheels: front wheels steer, all wheels drive
+		UpdateWheel(mFL, 1f, 1f);
+		UpdateWheel(mFR, 1f, 1f);
 		UpdateWheel(mRL, 0f, 1f);
 		UpdateWheel(mRR, 0f, 1f);
 
@@ -179,21 +179,21 @@ public class ExampleCar : TNBehaviour
 	/// Update the specified wheel, applying torques and adjusting the renderer.
 	/// </summary>
 
-	void UpdateWheel (Wheel w, float turn, float move)
+	void UpdateWheel (Wheel w, float steer, float drive)
 	{
 		Transform wheelRenderer = w.t.GetChild(0);
 		float rpmFactor = Mathf.Clamp01(Mathf.Abs(w.col.rpm) / maxRPM);
-		float torque = move * motorTorque * mInput.y * (1f - rpmFactor * rpmFactor);
+		float torque = drive * motorTorque * mInput.y * (1f - rpmFactor * rpmFactor);
 		w.col.brakeTorque = (1f - Mathf.Abs(mInput.y)) * motorTorque;
 
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
 		w.col.motorTorque = torque;
 #else
-		w.col.motorTorque = torque * 4f;
+		w.col.motorTorque = torque * 3f;
 #endif
 		// Turn the wheel
 		Vector3 euler = w.t.localEulerAngles;
-		euler.y = turn * 20f * mInput.x;
+		euler.y = steer * 20f * mInput.x;
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
 		w.t.localEulerAngles = euler;
 
