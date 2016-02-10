@@ -154,6 +154,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: TNManager.SetServerData, TNManager.SetChannelData and TNManager.SetPlayerData now all set only the path requested, not the entire thing.
 - NEW: Calling TNManager.SetPlayerSave(filename) will now load previously saved player data and will auto-save the player's data into that file.
 - NEW: GameServer will now periodically auto-save on its own, and no longer requires you to call SaveTo().
+- NEW: Added DestroySelf(delay) functions to TNObject and TNBehaviour.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.

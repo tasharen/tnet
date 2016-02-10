@@ -764,16 +764,16 @@ public class DataNode
 	/// Merge the current data with the specified.
 	/// </summary>
 
-	public void Merge (DataNode other)
+	public void Merge (DataNode other, bool replaceExisting = true)
 	{
 		if (other != null)
 		{
-			value = other.value;
+			if (replaceExisting || value == null) value = other.value;
 
 			for (int i = 0; i < other.children.size; ++i)
 			{
 				DataNode child = other.children[i];
-				GetChild(child.name, true).Merge(child);
+				GetChild(child.name, true).Merge(child, replaceExisting);
 			}
 		}
 	}
