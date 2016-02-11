@@ -66,13 +66,13 @@ public abstract class TNBehaviour : MonoBehaviour
 	/// Destroy this game object.
 	/// </summary>
 
-	public virtual void DestroySelf () { if (mTNO != null) mTNO.DestroySelf(); }
+	public virtual void DestroySelf () { if (tno != null) mTNO.DestroySelf(); }
 
 	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>
 
-	public void DestroySelf (float delay) { Invoke("DestroySelf", delay); }
+	public void DestroySelf (float delay, bool onlyIfOwner = true) { if (tno != null) mTNO.DestroySelf(delay, onlyIfOwner); }
 
 	/// <summary>
 	/// Convenience method mirroring TNManager.Instantiate.

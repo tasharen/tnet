@@ -57,7 +57,7 @@ public class ExampleCreate : MonoBehaviour
 	static GameObject ColoredObject (GameObject prefab, Vector3 pos, Quaternion rot, Color c, float autoDestroyDelay)
 	{
 		// Instantiate the prefab
-		GameObject go = Object.Instantiate(prefab) as GameObject;
+		GameObject go = prefab.Instantiate();
 
 		// Set the position and rotation based on the passed values
 		Transform t = go.transform;
@@ -67,9 +67,8 @@ public class ExampleCreate : MonoBehaviour
 		// Set the renderer's color as well
 		go.GetComponentInChildren<Renderer>().material.color = c;
 
-		// Set the destroy delay timer
-		var ed = go.GetComponent<ExampleDestroy>();
-		if (ed != null) ed.autoDestroyDelay = autoDestroyDelay;
+		// Destroy the object after enough time has passed
+		if (autoDestroyDelay > 0f) go.DestroySelf(autoDestroyDelay);
 		return go;
 	}
 }

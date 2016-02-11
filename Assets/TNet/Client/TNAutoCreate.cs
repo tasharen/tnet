@@ -44,7 +44,7 @@ public class TNAutoCreate : MonoBehaviour
 	static GameObject CreateAtPosition (GameObject prefab, Vector3 pos, Quaternion rot)
 	{
 		// Instantiate the prefab
-		GameObject go = Object.Instantiate(prefab) as GameObject;
+		GameObject go = prefab.Instantiate();
 
 		// Set the position and rotation based on the passed values
 		Transform t = go.transform;

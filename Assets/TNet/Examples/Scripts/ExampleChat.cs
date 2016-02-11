@@ -37,8 +37,32 @@ public class ExampleChat : TNBehaviour
 		mChatEntries.Add(ent);
 	}
 
-	protected override void OnEnable () { base.OnEnable(); TNManager.onSetServerData += OnSetServerOption; }
-	void OnDisable () { TNManager.onSetServerData -= OnSetServerOption; }
+	/// <summary>
+	/// Register event delegates.
+	/// </summary>
+
+	protected override void OnEnable ()
+	{
+		TNManager.onJoinChannel += OnNetworkJoinChannel;
+		TNManager.onPlayerJoined += OnNetworkPlayerJoin;
+		TNManager.onPlayerLeft += OnNetworkPlayerLeave;
+		TNManager.onRenamePlayer += OnNetworkPlayerRenamed;
+		TNManager.onSetServerData += OnSetServerOption;
+	}
+
+	/// <summary>
+	/// Unregister event delegates.
+	/// </summary>
+
+	void OnDisable ()
+	{
+		TNManager.onJoinChannel -= OnNetworkJoinChannel;
+		TNManager.onPlayerJoined -= OnNetworkPlayerJoin;
+		TNManager.onPlayerLeft -= OnNetworkPlayerLeave;
+		TNManager.onRenamePlayer -= OnNetworkPlayerRenamed;
+		TNManager.onSetServerData -= OnSetServerOption;
+	}
+
 	void OnSetServerOption (string path, DataNode node) { PrintConfig(path, node); }
 
 	/// <summary>

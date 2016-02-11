@@ -40,17 +40,20 @@ TNManager.LeaveChannel(id);
 Q: How to instantiate a new object?
 --------------------------------------------------------------------------------------------------------------------
 
-TNManager.Create(gameObject, position, rotation);
+From a TNBehaviour-derived script:
+Instantiate("FunctionName", "prefab", persistent, <parameters>);
+
+Anywhere else:
+TNManager.Instantiate(channelID, "FunctionName", "prefab", persistent, <parameters>);
 
 --------------------------------------------------------------------------------------------------------------------
 Q: How to destroy an object?
 --------------------------------------------------------------------------------------------------------------------
 
-TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
-tno.DestroySelf();
+gameObject.DestroySelf();
 
 --------------------------------------------------------------------------------------------------------------------
-Q: How to send a remote function call?
+Q: How to call a function on all players?
 --------------------------------------------------------------------------------------------------------------------
 
 TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
@@ -62,26 +65,6 @@ Q: How does a simple remote function call (RFC) look like?
 
 [RFC]
 protected void FunctionName (<parameters>) {}
-
---------------------------------------------------------------------------------------------------------------------
-Q: TNManager.Create call doesn't return anything! How to set values on the instantiated object?
---------------------------------------------------------------------------------------------------------------------
-
-Add a custom creation function to the class that will be used:
-
-[RCC(#)]
-static GameObject CustomCreate (GameObject go, <parameters>)
-{
-	go = Instantiate(go) as GameObject;
-	go.SetActive(true);
-	// Do something with your parameters, such as GetComponent<type>() and set its values.
-	return go;
-}
-
-Make sure "#" is replaced with a unique ID between 3 to 254. Call TNManager.AddRCCs<ClassType>(); in an Awake()
-function of a script that will be present at startup in order to register your custom creation function.
-
-To create your object, call TNManager.CreateEx(#, isPersistent, <prefab>, <parameters>);
 
 --------------------------------------------------------------------------------------------------------------------
 Q: What built-in notifications are there?
@@ -97,8 +80,9 @@ OnNetworkPlayerRenamed (player, previousName)
 OnNetworkLockChannel(channelID, isLocked)
 OnNetworkError (error)
 
-TNManager.onPlayerSync(Player)
-TNManager.onObjectCreated(GameObject)
+TNManager.onSetServerData(path, data)
+TNManager.onSetChannelData(Channel, path, data)
+TNManager.onSetPlayerData(Player, path, data)
 
 --------------------------------------------------------------------------------------------------------------------
   Stand-Alone Server

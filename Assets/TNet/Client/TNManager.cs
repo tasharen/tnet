@@ -18,67 +18,113 @@ using System;
 [AddComponentMenu("TNet/Network Manager")]
 public class TNManager : MonoBehaviour
 {
-	[System.NonSerialized] static bool mDestroyed = false;
+	// Will be 'true' at play time unless the application is shutting down. 'false' at edit time.
+	static bool isPlaying { get { return !mDestroyed && Application.isPlaying; } }
+	static bool mDestroyed = false;
+
+#region Delegates
+	/// <summary>
+	/// Ping notification.
+	/// </summary>
+
+	static public NetworkDelegates.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
+
+	/// <summary>
+	/// Error notification.
+	/// </summary>
+
+	static public NetworkDelegates.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
+
+	/// <summary>
+	/// Connection attempt result indicating success or failure.
+	/// </summary>
+
+	static public NetworkDelegates.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
+
+	/// <summary>
+	/// Notification sent after the connection terminates for any reason.
+	/// </summary>
+
+	static public NetworkDelegates.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
+
+	/// <summary>
+	/// Notification sent when attempting to join a channel, indicating a success or failure.
+	/// </summary>
+
+	static public NetworkDelegates.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
+
+	/// <summary>
+	/// Notification sent when leaving a channel for any reason, including being disconnected.
+	/// </summary>
+
+	static public NetworkDelegates.OnLeftChannel onLeftChannel { get { return isPlaying ? instance.mClient.onLeftChannel : null; } set { if (isPlaying) instance.mClient.onLeftChannel = value; } }
+
+	/// <summary>
+	/// Notification sent when changing levels.
+	/// </summary>
+
+	static public NetworkDelegates.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
+
+	/// <summary>
+	/// Notification sent when a new player joins the channel.
+	/// </summary>
+
+	static public NetworkDelegates.OnPlayerJoined onPlayerJoined { get { return isPlaying ? instance.mClient.onPlayerJoined : null; } set { if (isPlaying) instance.mClient.onPlayerJoined = value; } }
+
+	/// <summary>
+	/// Notification sent when a player leaves the channel.
+	/// </summary>
+
+	static public NetworkDelegates.OnPlayerLeft onPlayerLeft { get { return isPlaying ? instance.mClient.onPlayerLeft : null; } set { if (isPlaying) instance.mClient.onPlayerLeft = value; } }
+
+	/// <summary>
+	/// Notification of some player changing their name.
+	/// </summary>
+
+	static public NetworkDelegates.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
+
+	/// <summary>
+	/// Notification sent when the channel's host changes.
+	/// </summary>
+
+	static public NetworkDelegates.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
+
+	/// <summary>
+	/// Notification sent when the server's data gets changed.
+	/// </summary>
+
+	static public NetworkDelegates.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
+
+	/// <summary>
+	/// Notification sent when the channel's data gets changed.
+	/// </summary>
+
+	static public NetworkDelegates.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
+
+	/// <summary>
+	/// Notification sent when player data gets changed.
+	/// </summary>
+
+	static public NetworkDelegates.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
+
+	/// <summary>
+	/// Callback triggered when the channel becomes locked or unlocked.
+	/// </summary>
+
+	static public NetworkDelegates.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
+
+	/// <summary>
+	/// Callback triggered when the player gets verified as an administrator.
+	/// </summary>
+
+	static public NetworkDelegates.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
+#endregion
 
 	/// <summary>
 	/// Whether the application is currently paused.
 	/// </summary>
 
 	static public bool isPaused = false;
-
-	/// <summary>
-	/// Custom callback that will be called every time any object gets instantiated.
-	/// </summary>
-
-	static public System.Action<GameObject> onObjectCreated;
-
-	/// <summary>
-	/// Notification sent when the server's data gets changed.
-	/// </summary>
-
-	static public GameClient.OnSetServerData onSetServerData
-	{
-		get
-		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetServerData : null;
-		}
-		set
-		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetServerData = value;
-		}
-	}
-
-	/// <summary>
-	/// Notification sent when the channel's data gets changed.
-	/// </summary>
-
-	static public GameClient.OnSetChannelData onSetChannelData
-	{
-		get
-		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetChannelData : null;
-		}
-		set
-		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetChannelData = value;
-		}
-	}
-
-	/// <summary>
-	/// Notification sent when player data gets changed.
-	/// </summary>
-
-	static public GameClient.OnSetPlayerData onSetPlayerData
-	{
-		get
-		{
-			return (Application.isPlaying && !mDestroyed) ? instance.mClient.onSetPlayerData : null;
-		}
-		set
-		{
-			if (!mDestroyed && Application.isPlaying) instance.mClient.onSetPlayerData = value;
-		}
-	}
 
 	/// <summary>
 	/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
@@ -642,7 +688,8 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (byte packetID, GameClient.OnPacket callback)
 	{
-		instance.mClient.packetHandlers[packetID] = callback;
+		if (!mDestroyed && Application.isPlaying)
+			instance.mClient.packetHandlers[packetID] = callback;
 	}
 
 	/// <summary>
@@ -651,7 +698,8 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (Packet packet, GameClient.OnPacket callback)
 	{
-		instance.mClient.packetHandlers[(byte)packet] = callback;
+		if (!mDestroyed && Application.isPlaying)
+			instance.mClient.packetHandlers[(byte)packet] = callback;
 	}
 
 	/// <summary>
@@ -715,7 +763,12 @@ public class TNManager : MonoBehaviour
 			else
 			{
 				IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
-				if (ip == null) instance.OnConnect(false, "Unable to resolve [" + address + "]");
+
+				if (ip == null)
+				{
+					if (onConnect != null)
+						onConnect(false, "Unable to resolve [" + address + "]");
+				}
 				else instance.mClient.Connect(ip, null);
 			}
 		}
@@ -1452,22 +1505,8 @@ public class TNManager : MonoBehaviour
 			DontDestroyOnLoad(gameObject);
 
 			AddRCCs<TNManager>();
-
-			mClient.onError				= OnError;
-			mClient.onConnect			= OnConnect;
-			mClient.onDisconnect		= OnDisconnect;
-			mClient.onJoinChannel		= OnJoinChannel;
-			mClient.onLeftChannel		= OnLeftChannel;
-			mClient.onLoadLevel			= OnLoadLevel;
-			mClient.onPlayerJoined		= OnPlayerJoined;
-			mClient.onPlayerLeft		= OnPlayerLeft;
-			mClient.onRenamePlayer		= OnRenamePlayer;
-			mClient.onCreate			= OnCreateObject;
-			mClient.onDestroy			= OnDestroyObject;
-			mClient.onTransfer			= OnTransferObject;
-			mClient.onForwardedPacket	= OnForwardedPacket;
-			mClient.onLockChannel		= OnLockChannel;
-
+			SetDefaultCallbacks();
+			
 #if UNITY_EDITOR
 			List<IPAddress> ips = TNet.Tools.localAddresses;
 
@@ -1484,6 +1523,40 @@ public class TNManager : MonoBehaviour
 			}
 #endif
 		}
+	}
+
+	/// <summary>
+	/// Set the built-in delegates.
+	/// </summary>
+
+	void SetDefaultCallbacks ()
+	{
+		mClient.onDisconnect = delegate() { mLoadingLevel.Clear(); };
+		mClient.onJoinChannel = delegate(int channelID, bool success, string message) { TNManager.lastChannelID = channelID; };
+		mClient.onLeftChannel = delegate(int channelID)
+		{
+			if (TNManager.lastChannelID == channelID)
+			{
+				List<Channel> chs = channels;
+				TNManager.lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
+			}
+		};
+
+		mClient.onLoadLevel = delegate(int channelID, string levelName)
+		{
+			TNManager.lastChannelID = channelID;
+
+			if (!string.IsNullOrEmpty(levelName))
+			{
+				mLoadingLevel.Add(channelID);
+				StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
+			}
+		};
+
+		mClient.onCreate = OnCreateObject;
+		mClient.onDestroy = OnDestroyObject;
+		mClient.onTransfer = OnTransferObject;
+		mClient.onForwardedPacket = OnForwardedPacket;
 	}
 
 	/// <summary>
@@ -1586,9 +1659,6 @@ public class TNManager : MonoBehaviour
 		}
 
 		currentObjectOwner = null;
-
-		if (onObjectCreated != null)
-			onObjectCreated(go);
 	}
 
 	/// <summary>
@@ -1658,68 +1728,6 @@ public class TNManager : MonoBehaviour
 #endregion
 #region Callbacks -- Modify these if you don't like the broadcast approach
 
-	/// <summary>
-	/// Error notification.
-	/// </summary>
-
-	void OnError (string err) { UnityTools.Broadcast("OnNetworkError", err); }
-
-	/// <summary>
-	/// Connection result notification.
-	/// </summary>
-
-	void OnConnect (bool success, string message) { UnityTools.Broadcast("OnNetworkConnect", success, message); }
-
-	/// <summary>
-	/// Notification that happens when the client gets disconnected from the server.
-	/// </summary>
-
-	void OnDisconnect ()
-	{
-		mLoadingLevel.Clear();
-		UnityTools.Broadcast("OnNetworkDisconnect");
-	}
-
-	/// <summary>
-	/// Notification sent when attempting to join a channel, indicating a success or failure.
-	/// </summary>
-
-	void OnJoinChannel (int channelID, bool success, string message)
-	{
-		TNManager.lastChannelID = channelID;
-		UnityTools.Broadcast("OnNetworkJoinChannel", channelID, success, message);
-	}
-
-	/// <summary>
-	/// Notification sent when leaving a channel.
-	/// Also sent just before a disconnect (if inside a channel when it happens).
-	/// </summary>
-
-	void OnLeftChannel (int channelID)
-	{
-		if (TNManager.lastChannelID == channelID)
-		{
-			List<Channel> chs = channels;
-			TNManager.lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
-		}
-		UnityTools.Broadcast("OnNetworkLeaveChannel", channelID);
-	}
-
-	/// <summary>
-	/// Notification sent when a level is changing.
-	/// </summary>
-
-	void OnLoadLevel (int channelID, string levelName)
-	{
-		TNManager.lastChannelID = channelID;
-
-		if (!string.IsNullOrEmpty(levelName))
-		{
-			mLoadingLevel.Add(channelID);
-			StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
-		}
-	}
-
 	System.Collections.IEnumerator LoadLevelCoroutine (System.Collections.Generic.KeyValuePair<int, string> pair)
 	{
 		yield return null;
@@ -1742,42 +1750,10 @@ public class TNManager : MonoBehaviour
 
 	/// <summary>
 	/// When a level is being loaded, this value will contain the async coroutine for the LoadLevel operation.
+	/// You can yield on it if you need.
 	/// </summary>
 
 	static public AsyncOperation loadLevelOperation = null;
-
-	/// <summary>
-	/// Notification of a new player joining the channel.
-	/// </summary>
-
-	void OnPlayerJoined (int channelID, Player p) { UnityTools.Broadcast("OnNetworkPlayerJoin", channelID, p); }
-
-	/// <summary>
-	/// Notification of another player leaving the channel.
-	/// </summary>
-
-	void OnPlayerLeft (int channelID, Player p) { UnityTools.Broadcast("OnNetworkPlayerLeave", channelID, p); }
-
-	/// <summary>
-	/// Notification of a player being renamed.
-	/// </summary>
-
-	void OnRenamePlayer (Player p, string previous) { UnityTools.Broadcast("OnNetworkPlayerRenamed", p, previous); }
-
-	/// <summary>
-	/// Notification of the channel being locked or unlocked.
-	/// </summary>
-
-	void OnLockChannel (int channelID, bool isLocked)
-	{
-#if UNITY_EDITOR
-		Debug.Log("Channel #" + channelID + " lock: " + isLocked);
-#endif
-		UnityTools.Broadcast("OnNetworkLockChannel", channelID, isLocked);
-	}
-
-	[ContextMenu("Lock channel")]
-	void LockChannel () { LockChannel(TNManager.lastChannelID, true); }
 #endregion
 
 	void OnApplicationPause (bool paused) { isPaused = paused; }
@@ -1877,4 +1853,7 @@ public class TNManager : MonoBehaviour
 
 	[System.Obsolete("Use TNManager.GetServerData instead")]
 	static public T GetServerOption<T> (string key, T def) { return (mInstance != null) ? mInstance.mClient.GetServerData<T>(key, def) : def; }
+
+	[System.Obsolete("Use gameObject.DestroySelf() instead")]
+	static public void Destroy (GameObject go) { go.DestroySelf(); }
 }

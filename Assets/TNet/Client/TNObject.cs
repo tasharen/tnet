@@ -155,7 +155,13 @@ public sealed class TNObject : MonoBehaviour
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>
 
-	public void DestroySelf (float delay) { Invoke("DestroySelf", delay); }
+	public void DestroySelf (float delay, bool onlyIfOwner = true)
+	{
+		if (onlyIfOwner) Invoke("DestroyIfMine", delay);
+		else Invoke("DestroySelf", delay);
+	}
+
+	void DestroyIfMine () { if (isMine) DestroySelf(); }
 
 	/// <summary>
 	/// If this function is still here in 5 seconds then something went wrong, so force-destroy the object.

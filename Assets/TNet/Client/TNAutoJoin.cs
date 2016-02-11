@@ -45,6 +45,28 @@ public class TNAutoJoin : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Register event delegates.
+	/// </summary>
+
+	void OnEnable ()
+	{
+		TNManager.onConnect += OnNetworkConnect;
+		TNManager.onDisconnect += OnNetworkDisconnect;
+		TNManager.onJoinChannel += OnNetworkJoinChannel;
+	}
+
+	/// <summary>
+	/// Unregister event delegates.
+	/// </summary>
+
+	void OnDisable ()
+	{
+		TNManager.onConnect -= OnNetworkConnect;
+		TNManager.onDisconnect -= OnNetworkDisconnect;
+		TNManager.onJoinChannel -= OnNetworkJoinChannel;
+	}
+
+	/// <summary>
 	/// Connect to the server if requested.
 	/// </summary>
 

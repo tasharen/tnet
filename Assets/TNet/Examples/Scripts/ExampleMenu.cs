@@ -59,6 +59,30 @@ public class ExampleMenu : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Register event delegates.
+	/// </summary>
+
+	void OnEnable ()
+	{
+		TNManager.onConnect += OnNetworkConnect;
+		TNManager.onDisconnect += OnNetworkDisconnect;
+		TNManager.onJoinChannel += OnNetworkJoinChannel;
+		TNManager.onLeftChannel += OnNetworkLeaveChannel;
+	}
+
+	/// <summary>
+	/// Unregister event delegates.
+	/// </summary>
+
+	void OnDisable ()
+	{
+		TNManager.onConnect -= OnNetworkConnect;
+		TNManager.onDisconnect -= OnNetworkDisconnect;
+		TNManager.onJoinChannel -= OnNetworkJoinChannel;
+		TNManager.onLeftChannel -= OnNetworkLeaveChannel;
+	}
+
+	/// <summary>
 	/// Start listening for incoming UDP packets right away.
 	/// </summary>
 

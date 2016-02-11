@@ -256,6 +256,39 @@ static public class UnityTools
 		return null;
 	}
 
+	/// <summary>
+	/// Clone this game object.
+	/// </summary>
+
+	static public GameObject Instantiate (this GameObject prefab)
+	{
+		var obj = Object.Instantiate(prefab) as GameObject;
+		obj.name = prefab.name;
+		return obj;
+	}
+
+	/// <summary>
+	/// Destroy the game object.
+	/// </summary>
+
+	static public void DestroySelf (this GameObject go)
+	{
+		var tno = go.GetComponent<TNObject>();
+		if (tno != null) tno.DestroySelf();
+		else Object.Destroy(go);
+	}
+
+	/// <summary>
+	/// Destroy the game object after the specified amount of seconds have passed.
+	/// </summary>
+
+	static public void DestroySelf (this GameObject go, float delay, bool onlyIfMine = true)
+	{
+		var tno = go.GetComponent<TNObject>();
+		if (tno != null) tno.DestroySelf(delay, onlyIfMine);
+		else Object.Destroy(go, delay);
+	}
+
 	public delegate System.Type GetTypeFunc (string name);
 	public delegate UnityEngine.Object LoadFunc (string path, System.Type type);
 	public delegate UnityEngine.Object LoadExFunc (string path, System.Type type, string name);
@@ -717,7 +750,7 @@ static public class UnityTools
 
 		if (prefab != null)
 		{
-			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			GameObject inst = prefab.Instantiate();
 			Transform t = inst.transform;
 			t.parent = go.transform;
 			t.localPosition = Vector3.zero;
@@ -741,7 +774,7 @@ static public class UnityTools
 
 		if (prefab != null)
 		{
-			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			GameObject inst = prefab.Instantiate();
 			Transform t = inst.transform;
 			t.parent = go.transform;
 			t.localPosition = Vector3.zero;
@@ -765,7 +798,7 @@ static public class UnityTools
 
 		if (prefab != null)
 		{
-			GameObject inst = Object.Instantiate(prefab) as GameObject;
+			GameObject inst = prefab.Instantiate();
 			Transform t = inst.transform;
 			t.parent = go.transform;
 			t.localPosition = Vector3.zero;

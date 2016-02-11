@@ -17,18 +17,11 @@ using UnityEngine;
 namespace TNet
 {
 /// <summary>
-/// Client-side logic.
+/// Interface containing all the possible network delegates used by TNet.
 /// </summary>
 
-public class GameClient
+public class NetworkDelegates
 {
-	/// <summary>
-	/// Custom packet listeners. You can set these to handle custom packets.
-	/// </summary>
-
-	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
-	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
-
 	/// <summary>
 	/// Ping notification.
 	/// </summary>
@@ -40,7 +33,8 @@ public class GameClient
 	/// Error notification.
 	/// </summary>
 
-	public Action<string> onError;
+	public OnError onError;
+	public delegate void OnError (string msg);
 
 	/// <summary>
 	/// Connection attempt result indicating success or failure.
@@ -53,7 +47,8 @@ public class GameClient
 	/// Notification sent after the connection terminates for any reason.
 	/// </summary>
 
-	public Action onDisconnect;
+	public OnDisconnect onDisconnect;
+	public delegate void OnDisconnect ();
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
@@ -102,7 +97,8 @@ public class GameClient
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
-	public Action<Channel> onHostChanged;
+	public OnHostChanged onHostChanged;
+	public delegate void OnHostChanged (Channel ch);
 
 	/// <summary>
 	/// Notification sent when the server's data gets changed.
@@ -157,7 +153,8 @@ public class GameClient
 	/// Callback triggered when the player gets verified as an administrator.
 	/// </summary>
 
-	public Action<Player> onSetAdmin;
+	public OnSetAdmin onSetAdmin;
+	public delegate void OnSetAdmin (Player p);
 
 	/// <summary>
 	/// Notification of a client packet arriving.
@@ -165,6 +162,20 @@ public class GameClient
 
 	public OnForwardedPacket onForwardedPacket;
 	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
+}
+
+/// <summary>
+/// Client-side logic.
+/// </summary>
+
+public class GameClient : NetworkDelegates
+{
+	/// <summary>
+	/// Custom packet listeners. You can set these to handle custom packets.
+	/// </summary>
+
+	public Dictionary<byte, OnPacket> packetHandlers = new Dictionary<byte, OnPacket>();
+	public delegate void OnPacket (Packet response, BinaryReader reader, IPEndPoint source);
 
 	/// <summary>
 	/// Whether the game client should be actively processing messages or not.
