@@ -1,6 +1,6 @@
 //------------------------------------------
-//            Tasharen Network
-// Copyright © 2012-2016 Tasharen Entertainment
+//                    TNet 3
+// Copyright © 2012-2016 Tasharen Entertainment Inc
 //------------------------------------------
 
 using UnityEngine;
@@ -22,7 +22,7 @@ using UnityTools = TNet.UnityTools;
 /// </summary>
 
 [ExecuteInEditMode]
-public class ExampleMenu : NetworkEventReceiver
+public class ExampleMenu : TNEventReceiver
 {
 	static ExampleMenu mInst = null;
 
