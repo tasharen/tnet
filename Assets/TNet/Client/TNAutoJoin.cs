@@ -14,22 +14,18 @@ using UnityTools = TNet.UnityTools;
 /// a "Connecting, please wait..." message.
 /// </summary>
 
-public class TNAutoJoin : NetworkEventReceiver
+public class TNAutoJoin : MonoBehaviour
 {
 	static public TNAutoJoin instance;
 
 	public string serverAddress = "127.0.0.1";
 	public int serverPort = 5127;
-	
 	public string firstLevel = "Example 1";
 	public int channelID = 1;
 	public bool persistent = false;
 	public string disconnectLevel;
-
 	public bool allowUDP = true;
 	public bool connectOnStart = true;
-	public string successFunctionName;
-	public string failureFunctionName;
 
 	/// <summary>
 	/// Set the instance so this script can be easily found.
@@ -42,6 +38,18 @@ public class TNAutoJoin : NetworkEventReceiver
 			instance = this;
 			DontDestroyOnLoad(gameObject);
 		}
+	}
+
+	void OnEnable ()
+	{
+		TNManager.onConnect += OnConnect;
+		TNManager.onDisconnect += OnDisconnect;
+	}
+
+	void OnDisable ()
+	{
+		TNManager.onConnect -= OnConnect;
+		TNManager.onDisconnect -= OnDisconnect;
 	}
 
 	/// <summary>
@@ -67,17 +75,13 @@ public class TNAutoJoin : NetworkEventReceiver
 	/// On success -- join a channel.
 	/// </summary>
 
-	protected override void OnConnect (bool result, string message)
+	void OnConnect (bool result, string message)
 	{
 		if (result)
 		{
 			// Make it possible to use UDP using a random port
 			if (allowUDP) TNManager.StartUDP(Random.Range(10000, 50000));
 			TNManager.JoinChannel(channelID, firstLevel, persistent, 10000, null);
-		}
-		else if (!string.IsNullOrEmpty(failureFunctionName))
-		{
-			UnityTools.Broadcast(failureFunctionName, message);
 		}
 		else Debug.LogError(message);
 	}
@@ -86,7 +90,7 @@ public class TNAutoJoin : NetworkEventReceiver
 	/// Disconnected? Go back to the menu.
 	/// </summary>
 
-	protected override void OnDisconnect ()
+	void OnDisconnect ()
 	{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 		if (!string.IsNullOrEmpty(disconnectLevel) && Application.loadedLevelName != disconnectLevel)
@@ -96,30 +100,5 @@ public class TNAutoJoin : NetworkEventReceiver
 			UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != disconnectLevel)
 			UnityEngine.SceneManagement.SceneManager.LoadScene(disconnectLevel);
 #endif
-	}
-
-	/// <summary>
-	/// Joined a channel (or failed to).
-	/// </summary>
-
-	protected override void OnJoinChannel (int channelID, bool result, string message)
-	{
-		if (result)
-		{
-			if (!string.IsNullOrEmpty(successFunctionName))
-			{
-				UnityTools.Broadcast(successFunctionName);
-			}
-		}
-		else
-		{
-			if (!string.IsNullOrEmpty(failureFunctionName))
-			{
-				UnityTools.Broadcast(failureFunctionName, message);
-			}
-			else Debug.LogError(message);
-
-			TNManager.Disconnect();
-		}
 	}
 }

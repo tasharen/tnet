@@ -1221,14 +1221,9 @@ public class GameClient : TNEvents
 			}
 			case Packet.Error:
 			{
-				if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null)
-				{
-					onConnect(false, reader.ReadString());
-				}
-				else if (onError != null)
-				{
-					onError(reader.ReadString());
-				}
+				string err = reader.ReadString();
+				if (onError != null) onError(err);
+				if (mTcp.stage != TcpProtocol.Stage.Connected && onConnect != null) onConnect(false, err);
 				break;
 			}
 			case Packet.Disconnect:
