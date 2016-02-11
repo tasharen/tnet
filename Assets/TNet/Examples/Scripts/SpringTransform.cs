@@ -10,7 +10,6 @@ using UnityEngine;
 /// smooth even at times of high network latency.
 /// </summary>
 
-[AddComponentMenu("Game/Spring Transform")]
 public class SpringTransform : MonoBehaviour
 {
 	/// <summary>

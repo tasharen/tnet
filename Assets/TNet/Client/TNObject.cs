@@ -16,7 +16,6 @@ using UnityTools = TNet.UnityTools;
 /// </summary>
 
 [ExecuteInEditMode]
-[AddComponentMenu("TNet/Network Object")]
 public sealed class TNObject : MonoBehaviour
 {
 	// List of network objs to iterate through

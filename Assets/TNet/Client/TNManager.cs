@@ -15,7 +15,6 @@ using System;
 /// Tasharen Network Manager tailored for Unity.
 /// </summary>
 
-[AddComponentMenu("TNet/Network Manager")]
 public class TNManager : MonoBehaviour
 {
 	// Will be 'true' at play time unless the application is shutting down. 'false' at edit time.
@@ -27,97 +26,97 @@ public class TNManager : MonoBehaviour
 	/// Ping notification.
 	/// </summary>
 
-	static public GameClient.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
+	static public TNEvents.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
 
 	/// <summary>
 	/// Error notification.
 	/// </summary>
 
-	static public GameClient.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
+	static public TNEvents.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
 
 	/// <summary>
 	/// Connection attempt result indicating success or failure.
 	/// </summary>
 
-	static public GameClient.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
+	static public TNEvents.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
 
 	/// <summary>
 	/// Notification sent after the connection terminates for any reason.
 	/// </summary>
 
-	static public GameClient.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
+	static public TNEvents.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	static public GameClient.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
+	static public TNEvents.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
 
 	/// <summary>
 	/// Notification sent when leaving a channel for any reason, including being disconnected.
 	/// </summary>
 
-	static public GameClient.OnLeaveChannel onLeaveChannel { get { return isPlaying ? instance.mClient.onLeaveChannel : null; } set { if (isPlaying) instance.mClient.onLeaveChannel = value; } }
+	static public TNEvents.OnLeaveChannel onLeaveChannel { get { return isPlaying ? instance.mClient.onLeaveChannel : null; } set { if (isPlaying) instance.mClient.onLeaveChannel = value; } }
 
 	/// <summary>
 	/// Notification sent when changing levels.
 	/// </summary>
 
-	static public GameClient.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
+	static public TNEvents.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
 
 	/// <summary>
 	/// Notification sent when a new player joins the channel.
 	/// </summary>
 
-	static public GameClient.OnPlayerJoin onPlayerJoin { get { return isPlaying ? instance.mClient.onPlayerJoin : null; } set { if (isPlaying) instance.mClient.onPlayerJoin = value; } }
+	static public TNEvents.OnPlayerJoin onPlayerJoin { get { return isPlaying ? instance.mClient.onPlayerJoin : null; } set { if (isPlaying) instance.mClient.onPlayerJoin = value; } }
 
 	/// <summary>
 	/// Notification sent when a player leaves the channel.
 	/// </summary>
 
-	static public GameClient.OnPlayerLeave onPlayerLeave { get { return isPlaying ? instance.mClient.onPlayerLeave : null; } set { if (isPlaying) instance.mClient.onPlayerLeave = value; } }
+	static public TNEvents.OnPlayerLeave onPlayerLeave { get { return isPlaying ? instance.mClient.onPlayerLeave : null; } set { if (isPlaying) instance.mClient.onPlayerLeave = value; } }
 
 	/// <summary>
 	/// Notification of some player changing their name.
 	/// </summary>
 
-	static public GameClient.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
+	static public TNEvents.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
 
 	/// <summary>
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
-	static public GameClient.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
+	static public TNEvents.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
 
 	/// <summary>
 	/// Notification sent when the server's data gets changed.
 	/// </summary>
 
-	static public GameClient.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
+	static public TNEvents.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
 
 	/// <summary>
 	/// Notification sent when the channel's data gets changed.
 	/// </summary>
 
-	static public GameClient.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
+	static public TNEvents.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
 
 	/// <summary>
 	/// Notification sent when player data gets changed.
 	/// </summary>
 
-	static public GameClient.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
+	static public TNEvents.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
 
 	/// <summary>
 	/// Callback triggered when the channel becomes locked or unlocked.
 	/// </summary>
 
-	static public GameClient.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
+	static public TNEvents.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
 
 	/// <summary>
 	/// Callback triggered when the player gets verified as an administrator.
 	/// </summary>
 
-	static public GameClient.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
+	static public TNEvents.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
 #endregion
 
 	/// <summary>
@@ -718,7 +717,7 @@ public class TNManager : MonoBehaviour
 	/// Send a remote ping request to the specified TNet server.
 	/// </summary>
 
-	static public void Ping (IPEndPoint udpEndPoint, GameClient.OnPing callback) { instance.mClient.Ping(udpEndPoint, callback); }
+	static public void Ping (IPEndPoint udpEndPoint, TNEvents.OnPing callback) { instance.mClient.Ping(udpEndPoint, callback); }
 
 	/// <summary>
 	/// Connect to a local server.

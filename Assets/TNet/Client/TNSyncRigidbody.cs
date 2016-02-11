@@ -15,7 +15,6 @@ using TNet;
 /// </summary>
 
 [RequireComponent(typeof(Rigidbody))]
-[AddComponentMenu("TNet/Sync Rigidbody")]
 public class TNSyncRigidbody : TNBehaviour
 {
 	/// <summary>

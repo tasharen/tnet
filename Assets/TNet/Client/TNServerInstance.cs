@@ -13,7 +13,6 @@ using System.Net;
 /// Tasharen Network server tailored for Unity.
 /// </summary>
 
-[AddComponentMenu("TNet/Network Server (internal)")]
 public class TNServerInstance : MonoBehaviour
 {
 	static TNServerInstance mInstance;
