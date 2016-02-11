@@ -204,7 +204,7 @@ public class ExampleChat : TNBehaviour
 		}
 
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
-		// Ridiculous Unity bug: http://forum.unity3d.com/threads/dest-m_multiframeguistate-m_namedkeycontrollist.158676/page-2
+		// Unity bug: http://forum.unity3d.com/threads/dest-m_multiframeguistate-m_namedkeycontrollist.158676/page-2
 		GUI.SetNextControlName(gameObject.GetHashCode().ToString());
 		Rect bounds = new Rect(-10, -10, 0, 0);
 		GUI.TextField(bounds, "", 0);

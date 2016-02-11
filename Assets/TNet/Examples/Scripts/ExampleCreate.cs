@@ -23,7 +23,7 @@ public class ExampleCreate : MonoBehaviour
 	/// multiple channels, you will want to pass which channel you want the object to be created in.
 	/// </summary>
 
-	void Start () { if (channelID < 0) channelID = TNManager.lastChannelID; }
+	void Start () { if (channelID < 1) channelID = TNManager.lastChannelID; }
 
 	/// <summary>
 	/// Create a new object above the clicked position
