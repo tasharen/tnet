@@ -70,22 +70,26 @@ protected void FunctionName (<parameters>) {}
 Q: What built-in notifications are there?
 --------------------------------------------------------------------------------------------------------------------
 
-OnNetworkConnect (success, error);
-OnNetworkDisconnect()
-OnNetworkJoinChannel (channelID, success, error)
-OnNetworkLeaveChannel(channelID)
-OnNetworkPlayerJoin (channelID, player)
-OnNetworkPlayerLeave (channelID, player)
-OnNetworkPlayerRenamed (player, previousName)
-OnNetworkLockChannel(channelID, isLocked)
-OnNetworkError (error)
+TNManager.onError (error)
+TNManager.onConnect (success, error);
+TNManager.onDisconnect()
+TNManager.onJoinChannel (channelID, success, error)
+TNManager.onLeaveChannel (channelID)
+TNManager.onLoadLevel (channelID, levelName)
+TNManager.onPlayerJoin (channelID, player)
+TNManager.onPlayerLeave (channelID, player)
+TNManager.onRenamePlayer (player, previousName)
+TNManager.onHostChanged (channel)
+TNManager.onLockChannel (channelID, isLocked)
+TNManager.onSetAdmin (player)
+TNManager.onSetServerData (path, data)
+TNManager.onSetChannelData (Channel, path, data)
+TNManager.onSetPlayerData (Player, path, data)
 
-TNManager.onSetServerData(path, data)
-TNManager.onSetChannelData(Channel, path, data)
-TNManager.onSetPlayerData(Player, path, data)
+If you want an example of how to subscribe to these events, have a look at the NetworkEventReceiver class.
 
 --------------------------------------------------------------------------------------------------------------------
-  Stand-Alone Server
+ Stand-Alone Server
 --------------------------------------------------------------------------------------------------------------------
 
 You can build a stand-alone server by extracting the contents of the "TNetServer.zip" file
@@ -139,6 +143,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Calling TNManager.SetPlayerSave(filename) will now load previously saved player data and will auto-save the player's data into that file.
 - NEW: GameServer will now periodically auto-save on its own, and no longer requires you to call SaveTo().
 - NEW: Added DestroySelf(delay) functions to TNObject and TNBehaviour.
+- NEW: TNManager will no longer send out expensive broadcasts such as OnNetworkConnect. Subscribe to an appropriate delegate instead, such as TNManager.onConnect. Examine NetworkEventReceiver for more details.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.

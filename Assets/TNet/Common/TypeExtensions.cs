@@ -218,12 +218,31 @@ static public class TypeExtensions
 	}
 
 	/// <summary>
-	/// Convenience function that retrieves a public or private non-static method with specified parameters.
+	/// Convenience function that retrieves a public or private method with specified parameters.
 	/// </summary>
 
 	static public MethodInfo GetMethod (this Type type, string name, params Type[] paramTypes)
 	{
-		return type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic, null, paramTypes, null);
+		return type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+	}
+
+	/// <summary>
+	/// Get the specified method converted into a delegate.
+	/// </summary>
+
+	static public T GetMethod<T> (this object target, string methodName)
+	{
+		try
+		{
+			var del = Delegate.CreateDelegate(typeof(T), target, methodName);
+			if (del != null) return (T)Convert.ChangeType(del, typeof(T));
+		}
+#if UNITY_EDITOR
+		catch (Exception ex) { UnityEngine.Debug.LogError(ex.GetType() + ": " + ex.Message); }
+#else
+		catch (Exception) {}
+#endif
+		return default(T);
 	}
 
 	/// <summary>

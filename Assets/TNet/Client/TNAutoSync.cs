@@ -183,13 +183,16 @@ public class TNAutoSync : TNBehaviour
 		}
 	}
 
+	protected override void OnEnable () { base.OnEnable(); if (!isSavedOnServer) TNManager.onPlayerJoin += OnPlayerJoin; }
+	void OnDisable () { if (!isSavedOnServer) TNManager.onPlayerJoin -= OnPlayerJoin; }
+
 	/// <summary>
 	/// If this values are not saved on the server, at least send them to the newly joined player.
 	/// </summary>
 
-	void OnNetworkPlayerJoin (Channel channel, Player p)
+	void OnPlayerJoin (int channelID, Player p)
 	{
-		if (mList.size != 0 && !isSavedOnServer && tno.isMine && tno.channelID == channel.id)
+		if (mList.size != 0 && !isSavedOnServer && tno.isMine && tno.channelID == channelID)
 		{
 			if (Cache()) Sync();
 			else tno.Send(255, p, mCached);

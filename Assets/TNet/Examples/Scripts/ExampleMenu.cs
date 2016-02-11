@@ -22,7 +22,7 @@ using UnityTools = TNet.UnityTools;
 /// </summary>
 
 [ExecuteInEditMode]
-public class ExampleMenu : MonoBehaviour
+public class ExampleMenu : NetworkEventReceiver
 {
 	static ExampleMenu mInst = null;
 
@@ -56,30 +56,6 @@ public class ExampleMenu : MonoBehaviour
 			}
 			else Destroy(gameObject);
 		}
-	}
-
-	/// <summary>
-	/// Register event delegates.
-	/// </summary>
-
-	void OnEnable ()
-	{
-		TNManager.onConnect += OnNetworkConnect;
-		TNManager.onDisconnect += OnNetworkDisconnect;
-		TNManager.onJoinChannel += OnNetworkJoinChannel;
-		TNManager.onLeftChannel += OnNetworkLeaveChannel;
-	}
-
-	/// <summary>
-	/// Unregister event delegates.
-	/// </summary>
-
-	void OnDisable ()
-	{
-		TNManager.onConnect -= OnNetworkConnect;
-		TNManager.onDisconnect -= OnNetworkDisconnect;
-		TNManager.onJoinChannel -= OnNetworkJoinChannel;
-		TNManager.onLeftChannel -= OnNetworkLeaveChannel;
 	}
 
 	/// <summary>
@@ -162,7 +138,7 @@ public class ExampleMenu : MonoBehaviour
 			if (GUILayout.Button("Connect", button))
 			{
 				// We want to connect to the specified destination when the button is clicked on.
-				// "OnNetworkConnect" function will be called sometime later with the result.
+				// "OnConnect" function will be called sometime later with the result.
 				TNManager.Connect(mAddress);
 				mMessage = "Connecting...";
 			}
@@ -232,23 +208,6 @@ public class ExampleMenu : MonoBehaviour
 	}
 
 	/// <summary>
-	/// This function is called when a connection is either established or it fails to connect.
-	/// Connecting to a server doesn't mean that the connected players are now immediately able
-	/// to see each other, as they have not yet joined a channel. Only players that have joined
-	/// some channel are able to see and interact with other players in the same channel.
-	/// You can call TNManager.JoinChannel here if you like, but in this example we let the player choose.
-	/// </summary>
-
-	void OnNetworkConnect (bool success, string message)
-	{
-		Debug.Log("OnNetworkConnect: " + success + " " + message + " (Player ID #" + TNManager.playerID + ")");
-		mMessage = message;
-
-		// Make it possible to use UDP using a random port
-		if (!TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
-	}
-
-	/// <summary>
 	/// This menu is shown when a connection has been established and the player has not yet joined any channel.
 	/// </summary>
 
@@ -287,28 +246,54 @@ public class ExampleMenu : MonoBehaviour
 
 		if (GUI.Button(rect, "Main Menu", button))
 		{
-			// Leaving the channel will cause the "OnNetworkLeaveChannel" to be sent out.
+			// Leaving the channel will cause the "OnLeaveChannel" to be sent out.
 			TNManager.LeaveAllChannels();
 		}
 	}
 
 	/// <summary>
-	/// OnNetworkJoinChannel notification is broadcast whenever we join a channel, successfully or not.
+	/// This function is called when a connection is either established or it fails to connect.
+	/// Connecting to a server doesn't mean that the connected players are now immediately able
+	/// to see each other, as they have not yet joined a channel. Only players that have joined
+	/// some channel are able to see and interact with other players in the same channel.
+	/// You can call TNManager.JoinChannel here if you like, but in this example we let the player choose.
 	/// </summary>
 
-	void OnNetworkJoinChannel (int channelID, bool success, string msg)
+	protected override void OnConnect (bool success, string message)
 	{
-		Debug.Log("OnNetworkJoinChannel #" + channelID + " " + success + " " + msg);
+		Debug.Log("Connected: " + success + " " + message + " (Player ID #" + TNManager.playerID + ")");
+		mMessage = message;
+
+		// Make it possible to use UDP using a random port
+		if (!TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
 	}
 
 	/// <summary>
-	/// OnNetworkLeaveChannel notification is broadcast whenever we leave a channel.
-	/// It's also sent prior to OnNetworkDisconnect() when the player gets disconnected
+	/// Simply print a message when disconnected. If you have a "disconnected" scene, you would load it in OnDisconnect.
 	/// </summary>
 
-	void OnNetworkLeaveChannel (int channelID)
+	protected override void OnDisconnect ()
 	{
-		Debug.Log("OnNetworkLeaveChannel #" + channelID);
+		Debug.Log("Disconnected");
+	}
+
+	/// <summary>
+	/// OnJoinChannel notification is broadcast whenever we join a channel, successfully or not.
+	/// </summary>
+
+	protected override void OnJoinChannel (int channelID, bool success, string msg)
+	{
+		Debug.Log("Joined channel #" + channelID + " " + success + " " + msg);
+	}
+
+	/// <summary>
+	/// OnLeaveChannel notification is broadcast whenever we leave a channel.
+	/// It's also sent prior to OnDisconnect() when the player gets disconnected
+	/// </summary>
+
+	protected override void OnLeaveChannel (int channelID)
+	{
+		Debug.Log("Left channel #" + channelID);
 
 		if (TNManager.channels.size == 0)
 		{
@@ -321,15 +306,6 @@ public class ExampleMenu : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Simply print a message when disconnected. If you have a "disconnected" scene, you would load it in OnNetworkDisconnect.
-	/// </summary>
-
-	void OnNetworkDisconnect ()
-	{
-		Debug.Log("OnNetworkDisconnect");
-	}
-
-	/// <summary>
 	/// The disconnect button is only shown if we are currently connected.
 	/// </summary>
 
@@ -339,9 +315,9 @@ public class ExampleMenu : MonoBehaviour
 
 		if (GUI.Button(rect, "Disconnect", button))
 		{
-			// Disconnecting while in some channel will cause "OnNetworkLeaveChannel" to be sent out first,
-			// followed by "OnNetworkDisconnect". Disconnecting while not in a channel will only trigger
-			// "OnNetworkDisconnect".
+			// Disconnecting while in some channel will cause "OnLeaveChannel" to be sent out first,
+			// followed by "OnDisconnect". Disconnecting while not in a channel will only trigger
+			// "OnDisconnect".
 			TNManager.Disconnect();
 		}
 	}

@@ -109,47 +109,6 @@ static public class UnityTools
 				}
 				catch (System.Exception ex)
 				{
-					// For backwards compatibility
-					if (ex.GetType() == typeof(System.Reflection.TargetParameterCountException))
-					{
-						if (methodName == "OnNetworkJoinChannel")
-						{
-							if (method.GetParameters().Length == 2)
-							{
-								Debug.LogWarning(methodName + " now has 3 parameters: (int channelID, bool success, string errorMsg)");
-								method.Invoke(mb, new object[] { parameters[1], parameters[2] });
-								return;
-							}
-						}
-						else if (methodName == "OnNetworkLeaveChannel")
-						{
-							if (method.GetParameters().Length == 0)
-							{
-								Debug.LogWarning(methodName + " now has a parameter: (int channelID)");
-								method.Invoke(mb, null);
-								return;
-							}
-						}
-						else if (methodName == "OnNetworkPlayerJoin" || methodName == "OnNetworkPlayerLeave")
-						{
-							if (method.GetParameters().Length == 1)
-							{
-								Debug.LogWarning(methodName + " now has 2 parameters: (int channelID, Player p)");
-								method.Invoke(mb, new object[] { parameters[1] });
-								return;
-							}
-						}
-						else if (methodName == "OnNetworkLockChannel")
-						{
-							if (method.GetParameters().Length == 1)
-							{
-								Debug.LogWarning(methodName + " now has 2 parameters: (int channelID, bool isLocked)");
-								method.Invoke(mb, new object[] { parameters[1] });
-								return;
-							}
-						}
-					}
-
 					Debug.LogError((ex.InnerException ?? ex).Message + " (" + mb.GetType() + "." + methodName + ")\n" +
 						(ex.InnerException ?? ex).StackTrace + "\n", mb);
 				}

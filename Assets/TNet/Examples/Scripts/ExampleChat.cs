@@ -43,10 +43,10 @@ public class ExampleChat : TNBehaviour
 
 	protected override void OnEnable ()
 	{
-		TNManager.onJoinChannel += OnNetworkJoinChannel;
-		TNManager.onPlayerJoined += OnNetworkPlayerJoin;
-		TNManager.onPlayerLeft += OnNetworkPlayerLeave;
-		TNManager.onRenamePlayer += OnNetworkPlayerRenamed;
+		TNManager.onJoinChannel += OnJoinChannel;
+		TNManager.onPlayerJoin += OnPlayerJoin;
+		TNManager.onPlayerLeave += OnPlayerLeave;
+		TNManager.onRenamePlayer += OnRenamePlayer;
 		TNManager.onSetServerData += OnSetServerOption;
 	}
 
@@ -56,10 +56,10 @@ public class ExampleChat : TNBehaviour
 
 	void OnDisable ()
 	{
-		TNManager.onJoinChannel -= OnNetworkJoinChannel;
-		TNManager.onPlayerJoined -= OnNetworkPlayerJoin;
-		TNManager.onPlayerLeft -= OnNetworkPlayerLeave;
-		TNManager.onRenamePlayer -= OnNetworkPlayerRenamed;
+		TNManager.onJoinChannel -= OnJoinChannel;
+		TNManager.onPlayerJoin -= OnPlayerJoin;
+		TNManager.onPlayerLeave -= OnPlayerLeave;
+		TNManager.onRenamePlayer -= OnRenamePlayer;
 		TNManager.onSetServerData -= OnSetServerOption;
 	}
 
@@ -69,7 +69,7 @@ public class ExampleChat : TNBehaviour
 	/// The list of players in the channel is immediately available upon joining a room.
 	/// </summary>
 
-	void OnNetworkJoinChannel (int channelID, bool success, string error)
+	void OnJoinChannel (int channelID, bool success, string error)
 	{
 		mName = TNManager.playerName;
 
@@ -92,7 +92,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a new player joining the channel.
 	/// </summary>
 
-	void OnNetworkPlayerJoin (int channelID, Player p)
+	void OnPlayerJoin (int channelID, Player p)
 	{
 		AddToChat(p.name + " has joined channel " + channelID, Color.black);
 	}
@@ -101,7 +101,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of another player leaving the channel.
 	/// </summary>
 
-	void OnNetworkPlayerLeave (int channelID, Player p)
+	void OnPlayerLeave (int channelID, Player p)
 	{
 		AddToChat(p.name + " has left channel " + channelID, Color.black);
 	}
@@ -110,7 +110,7 @@ public class ExampleChat : TNBehaviour
 	/// Notification of a player changing their name.
 	/// </summary>
 
-	void OnNetworkPlayerRenamed (Player p, string previous)
+	void OnRenamePlayer (Player p, string previous)
 	{
 		AddToChat(previous + " is now known as " + p.name, Color.black);
 	}

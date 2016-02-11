@@ -52,9 +52,15 @@ public class SpringTransform : MonoBehaviour
 		else Destroy(this);
 	}
 
-	void OnEnable () { if (mStarted) Reset(); }
+	void OnEnable ()
+	{
+		if (mStarted) Reset();
+		TNManager.onJoinChannel += OnJoinChannel;
+	}
+
+	void OnDisable () { TNManager.onJoinChannel -= OnJoinChannel; }
 	void Start () { Reset(); }
-	void OnNetworkJoinChannel (int channelID, bool success, string error) { Reset(); }
+	void OnJoinChannel (int channelID, bool success, string error) { Reset(); }
 
 	/// <summary>
 	/// Update the position and rotation, smoothly interpolating it to the target destination using spring logic.

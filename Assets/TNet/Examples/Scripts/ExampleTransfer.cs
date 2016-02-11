@@ -63,12 +63,24 @@ public class ExampleTransfer : MonoBehaviour
 		}
 	}
 
-	void OnNetworkJoinChannel (int channelID, bool success, string msg)
+	void OnEnable ()
+	{
+		TNManager.onJoinChannel += OnJoinChannel;
+		TNManager.onLeaveChannel += OnLeaveChannel;
+	}
+
+	void OnDisable ()
+	{
+		TNManager.onJoinChannel -= OnJoinChannel;
+		TNManager.onLeaveChannel -= OnLeaveChannel;
+	}
+
+	void OnJoinChannel (int channelID, bool success, string msg)
 	{
 		if (channelID == this.channelID) UpdateRenderer();
 	}
 
-	void OnNetworkLeaveChannel (int channelID)
+	void OnLeaveChannel (int channelID)
 	{
 		if (channelID == this.channelID) UpdateRenderer();
 	}

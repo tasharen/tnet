@@ -27,7 +27,19 @@ public class ImproveLatency : MonoBehaviour
 
 	public Target target = Target.OnlyOnMobiles;
 
-	void OnNetworkJoinChannel (int channelID, bool success, string error)
+	void OnEnable ()
+	{
+		TNManager.onJoinChannel += OnJoinChannel;
+		TNManager.onLeaveChannel += OnLeaveChannel;
+	}
+
+	void OnDisable ()
+	{
+		TNManager.onJoinChannel -= OnJoinChannel;
+		TNManager.onLeaveChannel -= OnLeaveChannel;
+	}
+
+	void OnJoinChannel (int channelID, bool success, string error)
 	{
 		if (enabled && success && !TNManager.canUseUDP)
 		{
@@ -40,7 +52,7 @@ public class ImproveLatency : MonoBehaviour
 		}
 	}
 
-	void OnNetworkLeaveChannel (int channelID)
+	void OnLeaveChannel (int channelID)
 	{
 		TNManager.noDelay = false;
 	}

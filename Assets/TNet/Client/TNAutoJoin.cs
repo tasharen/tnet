@@ -14,7 +14,7 @@ using UnityTools = TNet.UnityTools;
 /// a "Connecting, please wait..." message.
 /// </summary>
 
-public class TNAutoJoin : MonoBehaviour
+public class TNAutoJoin : NetworkEventReceiver
 {
 	static public TNAutoJoin instance;
 
@@ -45,28 +45,6 @@ public class TNAutoJoin : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Register event delegates.
-	/// </summary>
-
-	void OnEnable ()
-	{
-		TNManager.onConnect += OnNetworkConnect;
-		TNManager.onDisconnect += OnNetworkDisconnect;
-		TNManager.onJoinChannel += OnNetworkJoinChannel;
-	}
-
-	/// <summary>
-	/// Unregister event delegates.
-	/// </summary>
-
-	void OnDisable ()
-	{
-		TNManager.onConnect -= OnNetworkConnect;
-		TNManager.onDisconnect -= OnNetworkDisconnect;
-		TNManager.onJoinChannel -= OnNetworkJoinChannel;
-	}
-
-	/// <summary>
 	/// Connect to the server if requested.
 	/// </summary>
 
@@ -89,7 +67,7 @@ public class TNAutoJoin : MonoBehaviour
 	/// On success -- join a channel.
 	/// </summary>
 
-	void OnNetworkConnect (bool result, string message)
+	protected override void OnConnect (bool result, string message)
 	{
 		if (result)
 		{
@@ -108,7 +86,7 @@ public class TNAutoJoin : MonoBehaviour
 	/// Disconnected? Go back to the menu.
 	/// </summary>
 
-	void OnNetworkDisconnect ()
+	protected override void OnDisconnect ()
 	{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
 		if (!string.IsNullOrEmpty(disconnectLevel) && Application.loadedLevelName != disconnectLevel)
@@ -124,7 +102,7 @@ public class TNAutoJoin : MonoBehaviour
 	/// Joined a channel (or failed to).
 	/// </summary>
 
-	void OnNetworkJoinChannel (int channelID, bool result, string message)
+	protected override void OnJoinChannel (int channelID, bool result, string message)
 	{
 		if (result)
 		{

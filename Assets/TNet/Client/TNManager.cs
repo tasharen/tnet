@@ -27,97 +27,97 @@ public class TNManager : MonoBehaviour
 	/// Ping notification.
 	/// </summary>
 
-	static public NetworkDelegates.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
+	static public GameClient.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
 
 	/// <summary>
 	/// Error notification.
 	/// </summary>
 
-	static public NetworkDelegates.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
+	static public GameClient.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
 
 	/// <summary>
 	/// Connection attempt result indicating success or failure.
 	/// </summary>
 
-	static public NetworkDelegates.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
+	static public GameClient.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
 
 	/// <summary>
 	/// Notification sent after the connection terminates for any reason.
 	/// </summary>
 
-	static public NetworkDelegates.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
+	static public GameClient.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
 
 	/// <summary>
 	/// Notification sent when attempting to join a channel, indicating a success or failure.
 	/// </summary>
 
-	static public NetworkDelegates.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
+	static public GameClient.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
 
 	/// <summary>
 	/// Notification sent when leaving a channel for any reason, including being disconnected.
 	/// </summary>
 
-	static public NetworkDelegates.OnLeftChannel onLeftChannel { get { return isPlaying ? instance.mClient.onLeftChannel : null; } set { if (isPlaying) instance.mClient.onLeftChannel = value; } }
+	static public GameClient.OnLeaveChannel onLeaveChannel { get { return isPlaying ? instance.mClient.onLeaveChannel : null; } set { if (isPlaying) instance.mClient.onLeaveChannel = value; } }
 
 	/// <summary>
 	/// Notification sent when changing levels.
 	/// </summary>
 
-	static public NetworkDelegates.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
+	static public GameClient.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
 
 	/// <summary>
 	/// Notification sent when a new player joins the channel.
 	/// </summary>
 
-	static public NetworkDelegates.OnPlayerJoined onPlayerJoined { get { return isPlaying ? instance.mClient.onPlayerJoined : null; } set { if (isPlaying) instance.mClient.onPlayerJoined = value; } }
+	static public GameClient.OnPlayerJoin onPlayerJoin { get { return isPlaying ? instance.mClient.onPlayerJoin : null; } set { if (isPlaying) instance.mClient.onPlayerJoin = value; } }
 
 	/// <summary>
 	/// Notification sent when a player leaves the channel.
 	/// </summary>
 
-	static public NetworkDelegates.OnPlayerLeft onPlayerLeft { get { return isPlaying ? instance.mClient.onPlayerLeft : null; } set { if (isPlaying) instance.mClient.onPlayerLeft = value; } }
+	static public GameClient.OnPlayerLeave onPlayerLeave { get { return isPlaying ? instance.mClient.onPlayerLeave : null; } set { if (isPlaying) instance.mClient.onPlayerLeave = value; } }
 
 	/// <summary>
 	/// Notification of some player changing their name.
 	/// </summary>
 
-	static public NetworkDelegates.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
+	static public GameClient.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
 
 	/// <summary>
 	/// Notification sent when the channel's host changes.
 	/// </summary>
 
-	static public NetworkDelegates.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
+	static public GameClient.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
 
 	/// <summary>
 	/// Notification sent when the server's data gets changed.
 	/// </summary>
 
-	static public NetworkDelegates.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
+	static public GameClient.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
 
 	/// <summary>
 	/// Notification sent when the channel's data gets changed.
 	/// </summary>
 
-	static public NetworkDelegates.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
+	static public GameClient.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
 
 	/// <summary>
 	/// Notification sent when player data gets changed.
 	/// </summary>
 
-	static public NetworkDelegates.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
+	static public GameClient.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
 
 	/// <summary>
 	/// Callback triggered when the channel becomes locked or unlocked.
 	/// </summary>
 
-	static public NetworkDelegates.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
+	static public GameClient.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
 
 	/// <summary>
 	/// Callback triggered when the player gets verified as an administrator.
 	/// </summary>
 
-	static public NetworkDelegates.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
+	static public GameClient.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
 #endregion
 
 	/// <summary>
@@ -1533,7 +1533,7 @@ public class TNManager : MonoBehaviour
 	{
 		mClient.onDisconnect = delegate() { mLoadingLevel.Clear(); };
 		mClient.onJoinChannel = delegate(int channelID, bool success, string message) { TNManager.lastChannelID = channelID; };
-		mClient.onLeftChannel = delegate(int channelID)
+		mClient.onLeaveChannel = delegate(int channelID)
 		{
 			if (TNManager.lastChannelID == channelID)
 			{

@@ -183,14 +183,45 @@ public sealed class TNObject : MonoBehaviour
 		channelID = TNManager.lastChannelID;
 	}
 
+	void OnEnable ()
+	{
+#if UNITY_EDITOR
+		// This usually happens after scripts get recompiled.
+		// When this happens, static variables are erased, so the list of objects has to be rebuilt.
+		if (!Application.isPlaying && id != 0)
+		{
+			Unregister();
+			Register();
+		}
+#endif
+		TNManager.onPlayerLeave += OnPlayerLeave;
+		TNManager.onLeaveChannel += OnLeaveChannel;
+	}
+
+	void OnDisable ()
+	{
+		TNManager.onPlayerLeave -= OnPlayerLeave;
+		TNManager.onLeaveChannel -= OnLeaveChannel;
+	}
+
 	/// <summary>
 	/// Automatically transfer the ownership. The same action happens on the server.
 	/// </summary>
 
-	void OnNetworkPlayerLeave (int channelID, Player p)
+	void OnPlayerLeave (int channelID, Player p)
 	{
 		if (channelID == this.channelID && p != null && mOwner == p)
 			mOwner = TNManager.GetHost(channelID);
+	}
+
+	/// <summary>
+	/// Destroy this object when leaving the scene it belongs to, but only if this is a dynamic object.
+	/// </summary>
+
+	void OnLeaveChannel (int channelID)
+	{
+		if (this.channelID == channelID && uid > 32767)
+			Object.Destroy(gameObject);
 	}
 
 	/// <summary>
@@ -298,20 +329,6 @@ public sealed class TNObject : MonoBehaviour
 				}
 				uid = GetUniqueID();
 			}
-		}
-	}
-
-	/// <summary>
-	/// This usually happens after scripts get recompiled.
-	/// When this happens, static variables are erased, so the list of objects has to be rebuilt.
-	/// </summary>
-
-	void OnEnable ()
-	{
-		if (!Application.isPlaying && id != 0)
-		{
-			Unregister();
-			Register();
 		}
 	}
 #endif
@@ -922,16 +939,6 @@ public sealed class TNObject : MonoBehaviour
 			writer.Write(uid);
 			TNManager.EndSend(channelID, true);
 		}
-	}
-
-	/// <summary>
-	/// Destroy this object when leaving the scene it belongs to, but only if this is a dynamic object.
-	/// </summary>
-
-	void OnNetworkLeaveChannel (int channelID)
-	{
-		if (this.channelID == channelID && uid > 32767)
-			Object.Destroy(gameObject);
 	}
 
 	/// <summary>
