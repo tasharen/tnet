@@ -109,7 +109,7 @@ http://www.tasharen.com/?page_id=4518
 
 3.0.0
 - NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
-- NEW: TNet now seamlessly supports instantiation of DataNode-exported objects as if they were prefabs both via TNManager.Create as well as manually via DataNode.Instantiate().
+- NEW: TNet now seamlessly supports instantiation of DataNode-exported objects as if they were prefabs both via TNManager.Instantiate as well as manually via DataNode.Instantiate().
 - NEW: Added support for multiple simultaneous channel subscriptions. You can now enter and leave multiple channels at will, effectively creating streamed content.
 - NEW: Added the ability to seamlessly transfer instantiated objects from one channel to another.
 - NEW: Added a new example showing multiple channel support and the ability to transfer objects.
@@ -132,7 +132,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added TNManager.packetSourceID that identifies the last Forward and Create type packet's source player ID.
 - NEW: Added an offline mode to TNet that still supports full functionality identical to that of playing alone on a local server.
 - NEW: DataNode now supports exporting prefabs using asset bundles export for situations when regular binary export is not suitable.
-- NEW: It's now possible to pass an empty string to TNManager.Create causing TNet to pass back a dummy object on creation, thus letting the game object's contents be procedurally set.
+- NEW: It's now possible to pass an empty string to TNManager.Instantiate causing TNet to pass back a dummy object on creation, thus letting the game object's contents be procedurally set.
 - NEW: Serialization.Convert<T>(value) will use TNet's serialization to convert types.
 - NEW: RCCs no longer require an ID and can be called by their function name.
 - NEW: It's no longer necessary to call TNManager.AddRCCs. TNet will find all RCCs automatically.
@@ -143,7 +143,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Calling TNManager.SetPlayerSave(filename) will now load previously saved player data and will auto-save the player's data into that file.
 - NEW: GameServer will now periodically auto-save on its own, and no longer requires you to call SaveTo().
 - NEW: Added DestroySelf(delay) functions to TNObject and TNBehaviour.
-- NEW: TNManager will no longer send out expensive broadcasts such as OnNetworkConnect. Subscribe to an appropriate delegate instead, such as TNManager.onConnect. Examine NetworkEventReceiver for more details.
+- NEW: TNManager will no longer send out expensive broadcasts such as OnNetworkConnect. Subscribe to an appropriate delegate instead, such as TNManager.onConnect. Examine TNEventReceiver for more details: http://pastebin.com/qE3xqG9h
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.
