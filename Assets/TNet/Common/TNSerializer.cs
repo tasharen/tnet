@@ -525,7 +525,7 @@ public static class Serialization
 	/// </summary>
 
 #if STANDALONE
-	static public object ConvertObject (object value, Type desiredType)
+	static public object ConvertObject (object value, Type desiredType, object go = null)
 #else
 	static public object ConvertObject (object value, Type desiredType, GameObject go = null)
 #endif
@@ -1377,120 +1377,6 @@ public static class Serialization
 		byte a = (byte)((offset + 8 <= text.Length) ? (HexToDecimal(text[offset + 6]) << 4) | HexToDecimal(text[offset + 7]) : 255);
 		return new Color32(r, g, b, a);
 	}
-
-#if !REFLECTION_SUPPORT
-	/// <summary>
-	/// Set the specified field's value using reflection.
-	/// </summary>
-
-	static public bool SetValue (this object obj, string name, object value)
-	{
-		Debug.LogError("Can't assign " + obj.GetType() + "." + name + " (reflection is not supported on this platform)");
-		return false;
-	}
-#elif STANDALONE
-
-	/// <summary>
-	/// Sets the value of a field or property of specified name.
-	/// </summary>
-
-	static public bool SetValue (this object obj, string name, object value)
-	{
-		if (obj == null) return false;
-		System.Type type = obj.GetType();
-
-		PropertyInfo pro = type.GetSerializableProperty(name);
-
-		if (pro != null)
-		{
-			try
-			{
-				object val = ConvertObject(value, pro.PropertyType);
-				pro.SetValue(obj, val, null);
-				return true;
-			}
-			catch (Exception ex)
-			{
-				Tools.LogError(ex.Message);
-				return false;
-			}
-		}
-
-		FieldInfo fi = type.GetSerializableField(name);
-
-		if (fi != null)
-		{
-			try
-			{
-				object val = ConvertObject(value, fi.FieldType);
-				fi.SetValue(obj, val);
-			}
-			catch (Exception ex)
-			{
-				Tools.LogError(ex.Message);
-				return false;
-			}
-		}
-		return false;
-	}
-
-#else // STANDALONE
-
-	/// <summary>
-	/// Sets the value of a field or property of specified name.
-	/// </summary>
-
-	static public bool SetValue (this object obj, string name, object value, GameObject go = null)
-	{
-		if (obj == null) return false;
-		System.Type type = obj.GetType();
-
-		FieldInfo fi = type.GetSerializableField(name);
-
-		if (fi != null)
-		{
- #if UNITY_EDITOR
-			object val = ConvertObject(value, fi.FieldType, go);
-			fi.SetValue(obj, val);
- #else
-			try
-			{
-				object val = ConvertObject(value, fi.FieldType, go);
-				fi.SetValue(obj, val);
-			}
-			catch (Exception ex)
-			{
-				Tools.LogError(ex.Message);
-				return false;
-			}
- #endif // UNITY_EDITOR
-		}
-
-		PropertyInfo pro = type.GetSerializableProperty(name);
-
-		if (pro != null)
-		{
- #if UNITY_EDITOR
-			object val = ConvertObject(value, pro.PropertyType, go);
-			pro.SetValue(obj, val, null);
-			return true;
- #else
-			try
-			{
-				object val = ConvertObject(value, pro.PropertyType, go);
-				pro.SetValue(obj, val, null);
-				return true;
-			}
-			catch (Exception ex)
-			{
-				Tools.LogError(ex.Message);
-				return false;
-			}
- #endif // UNITY_EDITOR
-		}
-		return false;
-	}
-#endif // STANDALONE
 
 	/// <summary>
 	/// Extension function that deserializes the specified object into the chosen file using binary format.
@@ -2814,7 +2700,7 @@ public static class Serialization
 						}
 
 						// Read the value
-						obj.SetValue(fieldName, reader.ReadObject());
+						obj.SetPropertyValue(fieldName, reader.ReadObject());
 					}
 				}
 				return obj;

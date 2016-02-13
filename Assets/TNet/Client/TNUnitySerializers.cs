@@ -131,7 +131,7 @@ public static class ComponentSerialization
 		for (int i = 0; i < node.children.size; ++i)
 		{
 			DataNode child = node.children[i];
-			if (child.value != null) c.SetValue(child.name, child.value, go);
+			if (child.value != null) c.SetPropertyValue(child.name, child.value, go);
 		}
 	}
 

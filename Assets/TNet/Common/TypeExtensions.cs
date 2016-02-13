@@ -470,6 +470,12 @@ static public class TypeExtensions
 		}
 		return prop;
 	}
+
+#if NETFX_CORE
+	// I have no idea why Microsoft decided to rename these...
+	static public FieldInfo GetField (this Type type, string name) { return type.GetRuntimeField(name); }
+	static public PropertyInfo GetProperty (this Type type, string name) { return type.GetRuntimeProperty(name); }
+#endif
 #endif
 }
 }

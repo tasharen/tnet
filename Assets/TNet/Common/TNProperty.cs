@@ -1,0 +1,286 @@
+using System;
+using System.Reflection;
+using System.Collections.Generic;
+
+#if !STANDALONE
+using UnityEngine;
+#endif
+
+namespace TNet
+{
+/// <summary>
+/// Convenient wrapper for a getter and setter of a field or property on the chosen object.
+/// </summary>
+
+public class Property
+{
+	[NonSerialized] public FieldInfo field;
+	[NonSerialized] public PropertyInfo property;
+
+	/// <summary>
+	/// Field or property's name.
+	/// </summary>
+
+	public string name
+	{
+		get
+		{
+			if (field != null) return field.Name;
+			if (property != null) return property.Name;
+			return "Unnamed";
+		}
+	}
+
+	/// <summary>
+	/// Whether this option is writable or read-only.
+	/// </summary>
+
+	public bool canWrite
+	{
+		get
+		{
+			if (field != null) return true;
+			if (property != null && property.CanWrite) return true;
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Field or property time.
+	/// </summary>
+
+	public Type type
+	{
+		get
+		{
+			if (field != null) return field.FieldType;
+			if (property != null) return property.PropertyType;
+			return typeof(void);
+		}
+	}
+
+	/// <summary>
+	/// Get the field or property's value.
+	/// </summary>
+
+	public object GetValue (object target)
+	{
+		if (field != null) return field.GetValue(target);
+		if (property != null) return property.GetValue(target, null);
+		return null;
+	}
+
+	/// <summary>
+	/// Get the field or property's value.
+	/// </summary>
+
+	public T GetValue<T> (object target) { return Serialization.Convert<T>(GetValue(target)); }
+
+	/// <summary>
+	/// Set the field or property's value.
+	/// </summary>
+
+#if UNITY_EDITOR
+	public void SetValue (object target, object value, GameObject go = null)
+	{
+		if (field != null)
+		{
+			value = Serialization.ConvertObject(value, field.FieldType, go);
+			field.SetValue(target, value);
+		}
+		else if (property != null && property.CanWrite)
+		{
+			value = Serialization.ConvertObject(value, property.PropertyType, go);
+			property.SetValue(target, value, null);
+		}
+		else Debug.LogError("No property or field to set");
+	}
+#else
+ #if STANDALONE
+	public void SetValue (object target, object value, object go = null)
+ #else
+	public void SetValue (object target, object value, GameObject go = null)
+ #endif
+	{
+		try
+		{
+			if (field != null)
+			{
+				value = Serialization.ConvertObject(value, field.FieldType, go);
+				field.SetValue(target, value);
+			}
+			else if (property != null && property.CanWrite)
+			{
+				value = Serialization.ConvertObject(value, property.PropertyType, go);
+				property.SetValue(target, value, null);
+			}
+		}
+		catch (Exception ex) { Tools.LogError(ex.GetType() + ": " + ex.Message); }
+	}
+#endif
+
+	/// <summary>
+	/// Whether the specified attribute is present.
+	/// </summary>
+
+	public bool HasAttribute<T> () where T : Attribute
+	{
+		if (field != null)
+		{
+			return field.IsDefined(typeof(T), true);
+		}
+		else if (property != null)
+		{
+			return property.IsDefined(typeof(T), true);
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Retrieve the specified attribute on the field or property.
+	/// </summary>
+
+	public T GetAttribute<T> () where T : Attribute
+	{
+		if (field != null)
+		{
+			if (field.IsDefined(typeof(T), true))
+				return (T)field.GetCustomAttributes(typeof(T), true)[0];
+		}
+		else if (property != null)
+		{
+			if (property.IsDefined(typeof(T), true))
+				return (T)property.GetCustomAttributes(typeof(T), true)[0];
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Create a new field or property reference of specified name.
+	/// </summary>
+
+	static public Property Create (Type type, string name)
+	{
+		const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+		var field = type.GetField(name, flags);
+
+		if (field != null)
+		{
+			var fp = new Property();
+			fp.field = field;
+			return fp;
+		}
+
+		var property = type.GetProperty(name, flags);
+
+		if (property != null)
+		{
+			var fp = new Property();
+			fp.property = property;
+			return fp;
+		}
+
+#if UNITY_EDITOR
+		Debug.LogError("Unable to find " + type + "." + name);
+#endif
+		return null;
+	}
+}
+
+/// <summary>
+/// Convenience extension methods for the TNet.Property.
+/// </summary>
+
+static public class FieldOrPropertyExtensions
+{
+	static Dictionary<Type, Dictionary<string, Property>> mFoPs = new Dictionary<Type, Dictionary<string, Property>>();
+
+	/// <summary>
+	/// Get the specified field or property. The result is cached in a lookup table.
+	/// </summary>
+
+	static public Property GetProperty (this object obj, string name)
+	{
+		var type = obj.GetType();
+		Dictionary<string, Property> dict;
+
+		if (!mFoPs.TryGetValue(type, out dict))
+		{
+			dict = new Dictionary<string, Property>();
+			mFoPs[type] = dict;
+		}
+
+		Property fp = null;
+
+		if (!dict.TryGetValue(name, out fp))
+		{
+			fp = Property.Create(type, name);
+			dict[name] = fp;
+		}
+		return fp;
+	}
+
+	/// <summary>
+	/// Get the value of a field or property of an object.
+	/// </summary>
+
+	static public object GetPropertyValue (this object obj, string name)
+	{
+		var fp = obj.GetProperty(name);
+		return (fp != null) ? fp.GetValue(obj) : null;
+	}
+
+	/// <summary>
+	/// Get the value of a field or property of an object.
+	/// </summary>
+
+	static public object GetPropertyValue (this object obj, string name, object defaultVal)
+	{
+		var fp = obj.GetProperty(name);
+		return (fp != null) ? fp.GetValue(obj) : defaultVal;
+	}
+
+	/// <summary>
+	/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
+	/// </summary>
+
+	static public T GetPropertyValue<T> (this object obj, string name)
+	{
+		return Serialization.Convert<T>(obj.GetPropertyValue(name));
+	}
+
+	/// <summary>
+	/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
+	/// </summary>
+
+	static public T GetPropertyValue<T> (this object obj, string name, T defaultVal)
+	{
+		var fp = obj.GetProperty(name);
+
+		if (fp != null)
+		{
+			object val = fp.GetValue(obj);
+			return Serialization.Convert<T>(val);
+		}
+		return defaultVal;
+	}
+
+	/// <summary>
+	/// Set the value of a field or property of an object.
+	/// </summary>
+
+#if STANDALONE
+	static public void SetPropertyValue (this object obj, string name, object val, object go = null)
+	{
+		var fp = obj.GetProperty(name);
+		if (fp != null) fp.SetValue(obj, val);
+	}
+#else
+	static public void SetPropertyValue (this object obj, string name, object val, GameObject go = null)
+	{
+		var fp = obj.GetProperty(name);
+		if (fp != null) fp.SetValue(obj, val, go);
+	}
+#endif
+}
+}
