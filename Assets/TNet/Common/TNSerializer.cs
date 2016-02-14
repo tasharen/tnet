@@ -2700,7 +2700,7 @@ public static class Serialization
 						}
 
 						// Read the value
-						obj.SetPropertyValue(fieldName, reader.ReadObject());
+						obj.SetFieldOrPropertyValue(fieldName, reader.ReadObject());
 					}
 				}
 				return obj;

@@ -227,6 +227,15 @@ static public class TypeExtensions
 	}
 
 	/// <summary>
+	/// Convenience function that retrieves a public or private method with specified parameters.
+	/// </summary>
+
+	static public MethodInfo GetMethod (this object target, string name, params Type[] paramTypes)
+	{
+		return target.GetType().GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+	}
+
+	/// <summary>
 	/// Get the specified method converted into a delegate.
 	/// </summary>
 

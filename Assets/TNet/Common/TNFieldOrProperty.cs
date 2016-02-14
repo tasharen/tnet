@@ -12,7 +12,7 @@ namespace TNet
 /// Convenient wrapper for a getter and setter of a field or property on the chosen object.
 /// </summary>
 
-public class Property
+public class FieldOrProperty
 {
 	[NonSerialized] public FieldInfo field;
 	[NonSerialized] public PropertyInfo property;
@@ -159,14 +159,14 @@ public class Property
 	/// Create a new field or property reference of specified name.
 	/// </summary>
 
-	static public Property Create (Type type, string name)
+	static public FieldOrProperty Create (Type type, string name)
 	{
 		const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 		var field = type.GetField(name, flags);
 
 		if (field != null)
 		{
-			var fp = new Property();
+			var fp = new FieldOrProperty();
 			fp.field = field;
 			return fp;
 		}
@@ -175,7 +175,7 @@ public class Property
 
 		if (property != null)
 		{
-			var fp = new Property();
+			var fp = new FieldOrProperty();
 			fp.property = property;
 			return fp;
 		}
@@ -183,6 +183,36 @@ public class Property
 #if UNITY_EDITOR
 		Debug.LogError("Unable to find " + type + "." + name);
 #endif
+		return null;
+	}
+
+	/// <summary>
+	/// Create a new field or property reference of specified name.
+	/// </summary>
+
+	static public FieldOrProperty Create (Type type, FieldInfo field)
+	{
+		if (field != null)
+		{
+			var fp = new FieldOrProperty();
+			fp.field = field;
+			return fp;
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Create a new field or property reference of specified name.
+	/// </summary>
+
+	static public FieldOrProperty Create (Type type, PropertyInfo property)
+	{
+		if (property != null)
+		{
+			var fp = new FieldOrProperty();
+			fp.property = property;
+			return fp;
+		}
 		return null;
 	}
 }
@@ -193,28 +223,52 @@ public class Property
 
 static public class FieldOrPropertyExtensions
 {
-	static Dictionary<Type, Dictionary<string, Property>> mFoPs = new Dictionary<Type, Dictionary<string, Property>>();
+	static Dictionary<Type, Dictionary<string, FieldOrProperty>> mFoPs = new Dictionary<Type, Dictionary<string, FieldOrProperty>>();
 
 	/// <summary>
 	/// Get the specified field or property. The result is cached in a lookup table.
 	/// </summary>
 
-	static public Property GetProperty (this object obj, string name)
+	static public FieldOrProperty GetFieldOrProperty (this object obj, string name)
 	{
 		var type = obj.GetType();
-		Dictionary<string, Property> dict;
+		Dictionary<string, FieldOrProperty> dict;
 
 		if (!mFoPs.TryGetValue(type, out dict))
 		{
-			dict = new Dictionary<string, Property>();
+			dict = new Dictionary<string, FieldOrProperty>();
 			mFoPs[type] = dict;
 		}
 
-		Property fp = null;
+		FieldOrProperty fp = null;
 
 		if (!dict.TryGetValue(name, out fp))
 		{
-			fp = Property.Create(type, name);
+			fp = FieldOrProperty.Create(type, name);
+			dict[name] = fp;
+		}
+		return fp;
+	}
+
+	/// <summary>
+	/// Get the specified field or property. The result is cached in a lookup table.
+	/// </summary>
+
+	static public FieldOrProperty GetFieldOrProperty (this Type type, string name)
+	{
+		Dictionary<string, FieldOrProperty> dict;
+
+		if (!mFoPs.TryGetValue(type, out dict))
+		{
+			dict = new Dictionary<string, FieldOrProperty>();
+			mFoPs[type] = dict;
+		}
+
+		FieldOrProperty fp = null;
+
+		if (!dict.TryGetValue(name, out fp))
+		{
+			fp = FieldOrProperty.Create(type, name);
 			dict[name] = fp;
 		}
 		return fp;
@@ -224,9 +278,9 @@ static public class FieldOrPropertyExtensions
 	/// Get the value of a field or property of an object.
 	/// </summary>
 
-	static public object GetPropertyValue (this object obj, string name)
+	static public object GetFieldOrPropertyValue (this object obj, string name)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 		return (fp != null) ? fp.GetValue(obj) : null;
 	}
 
@@ -234,9 +288,9 @@ static public class FieldOrPropertyExtensions
 	/// Get the value of a field or property of an object.
 	/// </summary>
 
-	static public object GetPropertyValue (this object obj, string name, object defaultVal)
+	static public object GetFieldOrPropertyValue (this object obj, string name, object defaultVal)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 		return (fp != null) ? fp.GetValue(obj) : defaultVal;
 	}
 
@@ -244,18 +298,18 @@ static public class FieldOrPropertyExtensions
 	/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
 	/// </summary>
 
-	static public T GetPropertyValue<T> (this object obj, string name)
+	static public T GetFieldOrPropertyValue<T> (this object obj, string name)
 	{
-		return Serialization.Convert<T>(obj.GetPropertyValue(name));
+		return Serialization.Convert<T>(obj.GetFieldOrPropertyValue(name));
 	}
 
 	/// <summary>
 	/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
 	/// </summary>
 
-	static public T GetPropertyValue<T> (this object obj, string name, T defaultVal)
+	static public T GetFieldOrPropertyValue<T> (this object obj, string name, T defaultVal)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 
 		if (fp != null)
 		{
@@ -270,15 +324,15 @@ static public class FieldOrPropertyExtensions
 	/// </summary>
 
 #if STANDALONE
-	static public void SetPropertyValue (this object obj, string name, object val, object go = null)
+	static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
 	{
 		var fp = obj.GetProperty(name);
 		if (fp != null) fp.SetValue(obj, val);
 	}
 #else
-	static public void SetPropertyValue (this object obj, string name, object val, GameObject go = null)
+	static public void SetFieldOrPropertyValue (this object obj, string name, object val, GameObject go = null)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 		if (fp != null) fp.SetValue(obj, val, go);
 	}
 #endif

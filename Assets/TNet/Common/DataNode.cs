@@ -1029,7 +1029,7 @@ public class DataNode
 					for (int i = 0; i < children.size; ++i)
 					{
 						DataNode child = children[i];
-						mValue.SetPropertyValue(child.name, child.value);
+						mValue.SetFieldOrPropertyValue(child.name, child.value);
 					}
 					return false;
 				}
