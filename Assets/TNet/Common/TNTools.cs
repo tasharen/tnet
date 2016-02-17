@@ -1121,5 +1121,19 @@ static public class Tools
 		}
 		return version.ToString();
 	}
+
+	/// <summary>
+	/// Handy function that checks to see if the two float values have actually changed.
+	/// </summary>
+
+	static public bool IsNotEqual (float before, float after, float threshold)
+	{
+		if (before == after) return false;
+		if (after == 0f || after == 1f) return true;
+		float diff = before - after;
+		if (diff < 0f) diff = -diff;
+		if (diff > threshold) return true;
+		return false;
+	}
 }
 }

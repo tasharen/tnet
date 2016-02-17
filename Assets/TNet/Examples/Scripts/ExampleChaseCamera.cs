@@ -11,15 +11,16 @@ using UnityEngine;
 
 public class ExampleChaseCamera : MonoBehaviour
 {
+	static public Transform target;
+
 	Transform mTrans;
 
 	void Awake () { mTrans = transform; }
 
 	void FixedUpdate ()
 	{
-		if (ExampleCar.mine != null)
+		if (target)
 		{
-			Transform target = ExampleCar.mine.transform;
 			Vector3 forward = target.forward;
 			forward.y = 0f;
 			forward.Normalize();
