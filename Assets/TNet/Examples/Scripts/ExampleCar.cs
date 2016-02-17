@@ -33,6 +33,7 @@ public class ExampleCar : ExampleCarNoNetworking
 	/// If the script was derived from TNBehaviour, this wouldn't have been necessary.
 	/// </summary>
 
+	[System.NonSerialized]
 	public TNObject tno;
 
 	protected Vector2 mLastInput;
