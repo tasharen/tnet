@@ -215,23 +215,24 @@ public class TNManager : MonoBehaviour
 	/// To find out whether we are joining a specific channel, use the "IsJoiningChannel(id)" function.
 	/// </summary>
 
-	static public bool isJoiningChannel
-	{
-		get
-		{
-			return (mInstance != null && (mInstance.mLoadingLevel.size != 0 || mInstance.mClient.isJoiningChannel));
-		}
-	}
+	static public bool isJoiningChannel { get { return IsJoiningChannel(-1); } }
 
 	/// <summary>
 	/// Whether we are currently trying to join the specified channel.
 	/// </summary>
 
-	static public bool IsJoiningChannel (int channelID)
+	static public IsJoiningChannelFunc IsJoiningChannel = delegate(int channelID)
 	{
 		if (mInstance == null) return false;
+		
+		if (channelID < 0)
+		{
+			return (mInstance.mLoadingLevel.size != 0 || mInstance.mClient.isJoiningChannel);
+		}
 		return mInstance.mLoadingLevel.Contains(channelID) || mInstance.mClient.IsJoiningChannel(channelID);
-	}
+	};
+
+	public delegate bool IsJoiningChannelFunc (int channelID);
 
 	/// <summary>
 	/// Whether we are currently trying to establish a new connection.
@@ -476,7 +477,16 @@ public class TNManager : MonoBehaviour
 		}
 	}
 
-	static DataNode mDummyNode = new DataNode("Version", Player.version);
+	/// <summary>
+	/// If you want to do custom logic for when packets can be processed and when they can't be, overwrite this delegate.
+	/// </summary>
+
+	static public ProcessPacketsFunc ProcessPackets = delegate()
+	{
+		if (mInstance != null && mInstance.mLoadingLevel.size == 0)
+			mInstance.mClient.ProcessPackets();
+	};
+	public delegate void ProcessPacketsFunc ();
 
 	/// <summary>
 	/// Server configuration is set by administrators.
@@ -495,6 +505,8 @@ public class TNManager : MonoBehaviour
 				mInstance.mClient.serverData = value;
 		}
 	}
+
+	static DataNode mDummyNode = new DataNode("Version", Player.version);
 
 	/// <summary>
 	/// Retrieve the specified server option.
@@ -1531,19 +1543,19 @@ public class TNManager : MonoBehaviour
 	void SetDefaultCallbacks ()
 	{
 		mClient.onDisconnect = delegate() { mLoadingLevel.Clear(); };
-		mClient.onJoinChannel = delegate(int channelID, bool success, string message) { TNManager.lastChannelID = channelID; };
+		mClient.onJoinChannel = delegate(int channelID, bool success, string message) { lastChannelID = channelID; };
 		mClient.onLeaveChannel = delegate(int channelID)
 		{
-			if (TNManager.lastChannelID == channelID)
+			if (lastChannelID == channelID)
 			{
 				List<Channel> chs = channels;
-				TNManager.lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
+				lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
 			}
 		};
 
 		mClient.onLoadLevel = delegate(int channelID, string levelName)
 		{
-			TNManager.lastChannelID = channelID;
+			lastChannelID = channelID;
 
 			if (!string.IsNullOrEmpty(levelName))
 			{
@@ -1722,10 +1734,13 @@ public class TNManager : MonoBehaviour
 	/// Process incoming packets in the update function.
 	/// </summary>
 
-	void Update () { if (mLoadingLevel.size == 0) mClient.ProcessPackets(); }
+	void Update () { ProcessPackets(); }
 
 #endregion
-#region Callbacks -- Modify these if you don't like the broadcast approach
+
+	/// <summary>
+	/// Load level coroutine handling asynchronous loading of levels.
+	/// </summary>
 
 	System.Collections.IEnumerator LoadLevelCoroutine (System.Collections.Generic.KeyValuePair<int, string> pair)
 	{
@@ -1753,7 +1768,6 @@ public class TNManager : MonoBehaviour
 	/// </summary>
 
 	static public AsyncOperation loadLevelOperation = null;
-#endregion
 
 	void OnApplicationPause (bool paused) { isPaused = paused; }
 
