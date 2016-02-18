@@ -1424,6 +1424,18 @@ public class GameClient : TNEvents
 	/// Set the specified server option.
 	/// </summary>
 
+	public void SetServerData (DataNode node)
+	{
+		BinaryWriter writer = BeginSend(Packet.RequestSetServerData);
+		writer.Write(node.name);
+		writer.WriteObject(node);
+		EndSend();
+	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
 	public void SetServerData (string key, object val)
 	{
 		BinaryWriter writer = BeginSend(Packet.RequestSetServerData);

@@ -174,7 +174,33 @@ public class TNManager : MonoBehaviour
 	/// Set administrator privileges. Note that failing the password test will cause a disconnect.
 	/// </summary>
 
-	static public void SetAdmin (string pass) { if (mInstance) mInstance.mClient.SetAdmin(pass); }
+	static public void SetAdmin (string passKey) { if (mInstance) mInstance.mClient.SetAdmin(passKey); }
+
+	/// <summary>
+	/// Add a new pass key to the admin file.
+	/// </summary>
+
+	static public void AddAdmin (string passKey)
+	{
+		if (TNManager.isAdmin)
+		{
+			TNManager.BeginSend(Packet.RequestCreateAdmin).Write(passKey);
+			TNManager.EndSend();
+		}
+	}
+
+	/// <summary>
+	/// Remove the specified pass key from the admin file.
+	/// </summary>
+
+	static public void RemoveAdmin (string passKey)
+	{
+		if (TNManager.isAdmin)
+		{
+			TNManager.BeginSend(Packet.RequestRemoveAdmin).Write(passKey);
+			TNManager.EndSend();
+		}
+	}
 
 	/// <summary>
 	/// Set a player alias. Player aliases can be used to store useful player-associated data such as Steam usernames,
@@ -546,6 +572,12 @@ public class TNManager : MonoBehaviour
 			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
 		}
 	}
+
+	/// <summary>
+	/// Set the specified server option.
+	/// </summary>
+
+	static public void SetServerData (DataNode node) { if (mInstance != null && isAdmin) mInstance.mClient.SetServerData(node); }
 
 	/// <summary>
 	/// Set the specified server option.
