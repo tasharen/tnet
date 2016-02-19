@@ -685,7 +685,7 @@ public static class Serialization
 				{
 					float f;
 
-					if (float.TryParse(line, NumberStyles.Float, CultureInfo.InvariantCulture, out f))
+					if (float.TryParse(line, NumberStyles.Float, Tools.englishUSCulture, out f))
 					{
 						obj = f;
 						return true;
@@ -805,12 +805,12 @@ public static class Serialization
 		else if (type == typeof(float))
 		{
 			float b;
-			if (float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) return b;
+			if (float.TryParse(text, NumberStyles.Float, Tools.englishUSCulture, out b)) return b;
 		}
 		else if (type == typeof(double))
 		{
 			double b;
-			if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out b)) return b;
+			if (double.TryParse(text, NumberStyles.Float, Tools.englishUSCulture, out b)) return b;
 		}
 		else if (type == typeof(ObsInt))
 		{
@@ -847,8 +847,8 @@ public static class Serialization
 				if (parts.Length == 2)
 				{
 					Vector2 v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y))
 						return v;
 				}
 			}
@@ -857,9 +857,9 @@ public static class Serialization
 				if (parts.Length == 3)
 				{
 					Vector3 v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z))
 						return v;
 				}
 			}
@@ -868,10 +868,10 @@ public static class Serialization
 				if (parts.Length == 4)
 				{
 					Vector4 v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out v.w))
 						return v;
 				}
 			}
@@ -881,9 +881,9 @@ public static class Serialization
 				if (parts.Length == 3)
 				{
 					Vector3 v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z))
 						return Quaternion.Euler(v);
 				}
 				else
@@ -891,10 +891,10 @@ public static class Serialization
 					if (parts.Length == 4)
 					{
 						Quaternion v;
-						if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-							float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-							float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-							float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+						if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+							float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+							float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z) &&
+							float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out v.w))
 							return v;
 					}
 			}
@@ -903,10 +903,10 @@ public static class Serialization
 				if (parts.Length == 4)
 				{
 					Color v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.r) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.g) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.b) &&
-						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.a))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.r) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.g) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.b) &&
+						float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out v.a))
 						return v;
 				}
 			}
@@ -915,10 +915,10 @@ public static class Serialization
 				if (parts.Length == 4)
 				{
 					Vector4 v;
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out v.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v.y) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out v.z) &&
-						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out v.w))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out v.w))
 						return new Rect(v.x, v.y, v.z, v.w);
 				}
 			}
@@ -931,16 +931,16 @@ public static class Serialization
 					BoneWeight w = new BoneWeight();
 
 					if (int.TryParse(parts[0], out i)) w.boneIndex0 = i;
-					if (float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight0 = f;
+					if (float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out f)) w.weight0 = f;
 
 					if (int.TryParse(parts[2], out i)) w.boneIndex1 = i;
-					if (float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight1 = f;
+					if (float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out f)) w.weight1 = f;
 
 					if (int.TryParse(parts[4], out i)) w.boneIndex2 = i;
-					if (float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight2 = f;
+					if (float.TryParse(parts[5], NumberStyles.Float, Tools.englishUSCulture, out f)) w.weight2 = f;
 
 					if (int.TryParse(parts[6], out i)) w.boneIndex3 = i;
-					if (float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out f)) w.weight3 = f;
+					if (float.TryParse(parts[7], NumberStyles.Float, Tools.englishUSCulture, out f)) w.weight3 = f;
 
 					return w;
 				}
@@ -950,22 +950,22 @@ public static class Serialization
 				if (parts.Length == 16)
 				{
 					Matrix4x4 m;
-					float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m00);
-					float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m10);
-					float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m20);
-					float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m30);
-					float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m01);
-					float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m11);
-					float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m21);
-					float.TryParse(parts[7], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m31);
-					float.TryParse(parts[8], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m02);
-					float.TryParse(parts[9], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m12);
-					float.TryParse(parts[10], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m22);
-					float.TryParse(parts[11], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m32);
-					float.TryParse(parts[12], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m03);
-					float.TryParse(parts[13], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m13);
-					float.TryParse(parts[14], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m23);
-					float.TryParse(parts[15], NumberStyles.Float, CultureInfo.InvariantCulture, out m.m33);
+					float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out m.m00);
+					float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out m.m10);
+					float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out m.m20);
+					float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out m.m30);
+					float.TryParse(parts[4], NumberStyles.Float, Tools.englishUSCulture, out m.m01);
+					float.TryParse(parts[5], NumberStyles.Float, Tools.englishUSCulture, out m.m11);
+					float.TryParse(parts[6], NumberStyles.Float, Tools.englishUSCulture, out m.m21);
+					float.TryParse(parts[7], NumberStyles.Float, Tools.englishUSCulture, out m.m31);
+					float.TryParse(parts[8], NumberStyles.Float, Tools.englishUSCulture, out m.m02);
+					float.TryParse(parts[9], NumberStyles.Float, Tools.englishUSCulture, out m.m12);
+					float.TryParse(parts[10], NumberStyles.Float, Tools.englishUSCulture, out m.m22);
+					float.TryParse(parts[11], NumberStyles.Float, Tools.englishUSCulture, out m.m32);
+					float.TryParse(parts[12], NumberStyles.Float, Tools.englishUSCulture, out m.m03);
+					float.TryParse(parts[13], NumberStyles.Float, Tools.englishUSCulture, out m.m13);
+					float.TryParse(parts[14], NumberStyles.Float, Tools.englishUSCulture, out m.m23);
+					float.TryParse(parts[15], NumberStyles.Float, Tools.englishUSCulture, out m.m33);
 					return m;
 				}
 			}
@@ -976,12 +976,12 @@ public static class Serialization
 					Vector3 center;
 					Vector3 size;
 
-					if (float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out center.x) &&
-						float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out center.y) &&
-						float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out center.z) &&
-						float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out size.x) &&
-						float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out size.y) &&
-						float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out size.z))
+					if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out center.x) &&
+						float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out center.y) &&
+						float.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out center.z) &&
+						float.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out size.x) &&
+						float.TryParse(parts[4], NumberStyles.Float, Tools.englishUSCulture, out size.y) &&
+						float.TryParse(parts[5], NumberStyles.Float, Tools.englishUSCulture, out size.z))
 						return new Bounds(center, size);
 				}
 			}
@@ -1706,7 +1706,7 @@ public static class Serialization
 	[System.Diagnostics.DebuggerStepThrough]
 	static public void WriteFloat (this StreamWriter writer, float f)
 	{
-		writer.Write(((f > -0.0001f && f < 0.0001f) ? 0f : f).ToString(CultureInfo.InvariantCulture));
+		writer.Write(((f > -0.0001f && f < 0.0001f) ? 0f : f).ToString(Tools.englishUSCulture));
 	}
 
 	/// <summary>

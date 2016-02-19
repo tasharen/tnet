@@ -1,4 +1,4 @@
-﻿//-------------------------------------------------
+//-------------------------------------------------
 //                    TNet 3
 // Copyright © 2012-2016 Tasharen Entertainment Inc
 //-------------------------------------------------
@@ -1134,6 +1134,30 @@ static public class Tools
 		if (diff < 0f) diff = -diff;
 		if (diff > threshold) return true;
 		return false;
+	}
+
+	/// <summary>
+	/// Culture info that forces North American syntax for floating point numbers that using dot as a decimal separator.
+	/// </summary>
+
+	static public System.Globalization.CultureInfo englishUSCulture = GetEnUsCulture();
+
+	static System.Globalization.CultureInfo GetEnUsCulture ()
+	{
+		var thread = Thread.CurrentThread;
+		var culture = System.Globalization.CultureInfo.CreateSpecificCulture("en-US");
+		culture.NumberFormat.CurrencyDecimalSeparator = ".";
+		if (thread != null) thread.CurrentCulture = culture;
+		return culture;
+	}
+
+	/// <summary>
+	/// Parse the string as a float using North American syntax for floating point numbers that uses dot as a decimal separator.
+	/// </summary>
+
+	static public bool TryParseFloat (string s, out float f)
+	{
+		return float.TryParse(s, System.Globalization.NumberStyles.Float, Tools.englishUSCulture, out f);
 	}
 }
 }
