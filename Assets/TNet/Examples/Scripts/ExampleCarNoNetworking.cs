@@ -54,12 +54,6 @@ public class ExampleCarNoNetworking : MonoBehaviour
 	}
 
 	/// <summary>
-	/// Make the chase camera follow this car.
-	/// </summary>
-
-	protected virtual void Start () { ExampleChaseCamera.target = transform; }
-
-	/// <summary>
 	/// Update the movement axes based on user input.
 	/// </summary>
 

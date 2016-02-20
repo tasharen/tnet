@@ -47,12 +47,6 @@ public class ExampleCar : ExampleCarNoNetworking
 	}
 
 	/// <summary>
-	/// We only want the camera to follow this car if it's actually ours.
-	/// </summary>
-
-	protected override void Start () { if (tno.isMine) base.Start(); }
-
-	/// <summary>
 	/// Only the car's owner should be updating the movement axes, and the result should be sync'd with other players.
 	/// </summary>
 
