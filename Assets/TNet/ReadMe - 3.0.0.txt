@@ -147,6 +147,7 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added DestroySelf(delay) functions to TNObject and TNBehaviour.
 - NEW: TNManager will no longer send out expensive broadcasts such as OnNetworkConnect. Subscribe to an appropriate delegate instead, such as TNManager.onConnect. Examine TNEventReceiver for more details: http://pastebin.com/qE3xqG9h
 - NEW: Added FieldOrProperty: a convenience class that's able to get/set values of both fields and properties with the same code, and with automatic type conversion via TNet's serialization. Example: transform.SetFieldOrPropertyValue("position", "(1, 2, 3)");
+- NEW: Added an optional RuntimeCode extension package that makes executing run-time C# code trivial.
 - FIX: Player connecting to the TNServerInstance will now be its admin by default.
 - FIX: Changing server options now immediately saves the server's configuration.
 - FIX: TNet will no longer store RFCs for objects that have been deleted.

@@ -140,6 +140,16 @@ public class ExampleChat : TNBehaviour
 			if (mInput == "/get") PrintConfig(TNManager.serverData);
 			else if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
 			else if (mInput.StartsWith("/set ")) TNManager.SetServerData(mInput.Substring(5));
+			else if (mInput.StartsWith("/exe "))
+			{
+				// Longer version, won't cause compile errors if RuntimeCode is not imported
+				var type = System.Type.GetType("TNet.RuntimeCode");
+				if (type != null) type.Invoke("Execute", mInput.Substring(5));
+				else Debug.LogError("You need to import the RuntimeCode package first");
+
+				// Shorter version:
+				//RuntimeCode.Execute(mInput.Substring(5));
+			}
 			else tno.Send("OnChat", Target.All, TNManager.playerID, mInput);
 
 			mInput = "";

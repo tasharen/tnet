@@ -136,7 +136,7 @@ static public class TypeExtensions
 		}
 		
 		CacheItem ci = new CacheItem();
-		ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, paramTypes, null);
+		ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
 		if (ci.method == null) ci.method = type.GetExtensionMethod(name, paramTypes);
 		ci.parameters = paramTypes;
 		cachedList.Add(ci);
@@ -292,6 +292,38 @@ static public class TypeExtensions
 			}
 		}
 		return null;
+	}
+
+	/// <summary>
+	/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+	/// </summary>
+
+	static public bool Invoke (this Type type, string methodName, params object[] parameters)
+	{
+		Type[] types = new Type[parameters.Length];
+		for (int i = 0, imax = parameters.Length; i < imax; ++i)
+			types[i] = parameters[i].GetType();
+
+		MethodInfo mi = type.GetMethodOrExtension(methodName, types);
+		if (mi == null) return false;
+
+		// Extension methods need to pass the object as the first parameter ('this' reference)
+		if (mi.IsStatic && mi.ReflectedType != type)
+		{
+			object[] extended = new object[parameters.Length + 1];
+			extended[0] = null;
+			for (int i = 0, imax = parameters.Length; i < imax; ++i)
+				extended[i + 1] = parameters[i];
+
+			// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
+			// will not propagate outside that function. It seems to be a limitation of how the variable
+			// is passed to the extension function (as a part of the 'extended array').
+			mi.Invoke(null, extended);
+			return true;
+		}
+
+		mi.Invoke(null, parameters);
+		return true;
 	}
 
 	/// <summary>
