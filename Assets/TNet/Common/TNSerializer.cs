@@ -7,7 +7,8 @@
 #define REFLECTION_SUPPORT
 #endif
 
-//#define IGNORE_ERRORS
+// If you want to see exceptions instead of error messages, comment this out
+#define IGNORE_ERRORS
 
 #if !STANDALONE
 using UnityEngine;

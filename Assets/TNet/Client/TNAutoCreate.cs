@@ -5,8 +5,9 @@
 
 using UnityEngine;
 using System.Collections;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// Instantiate the specified prefab at the game object's position.
 /// </summary>
@@ -52,4 +53,5 @@ public class TNAutoCreate : MonoBehaviour
 		t.rotation = rot;
 		return go;
 	}
+}
 }

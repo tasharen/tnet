@@ -4,8 +4,9 @@
 //-------------------------------------------------
 
 using UnityEngine;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// If your MonoBehaviour will need to use a TNObject, deriving from this class will make it easier.
 /// </summary>
@@ -93,4 +94,5 @@ public abstract class TNBehaviour : MonoBehaviour
 	{
 		TNManager.Instantiate(tno.channelID, 0, funcName, path, persistent, objs);
 	}
+}
 }

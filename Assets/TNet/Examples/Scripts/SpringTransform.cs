@@ -1,9 +1,10 @@
-//------------------------------------------
+//-------------------------------------------------
 //                    TNet 3
 // Copyright © 2012-2016 Tasharen Entertainment Inc
-//------------------------------------------
+//-------------------------------------------------
 
 using UnityEngine;
+using TNet;
 
 /// <summary>
 /// Attach this script to a renderer that's a child of a rigidbody in order to make its update

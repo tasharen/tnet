@@ -4,9 +4,10 @@
 //-------------------------------------------------
 
 using UnityEngine;
-using TNet;
 using UnityTools = TNet.UnityTools;
 
+namespace TNet
+{
 /// <summary>
 /// Extremely simplified "join a server" functionality. Attaching this script will
 /// make it possible to automatically join a remote server when the game starts.
@@ -101,4 +102,5 @@ public class TNAutoJoin : MonoBehaviour
 			UnityEngine.SceneManagement.SceneManager.LoadScene(disconnectLevel);
 #endif
 	}
+}
 }

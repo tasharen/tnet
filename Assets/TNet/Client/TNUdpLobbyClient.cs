@@ -8,8 +8,9 @@ using System.IO;
 using System.Collections;
 using System.Threading;
 using UnityEngine;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// UDP-based lobby client, designed to communicate with the UdpLobbyServer.
 /// </summary>
@@ -149,4 +150,5 @@ public class TNUdpLobbyClient : TNLobbyClient
 			mUdp.Send(mRequest, mRemoteAddress);
 		}
 	}
+}
 }

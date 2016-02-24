@@ -7,6 +7,8 @@
 
 Thank you for buying TNet!
 
+Tutorials can be found here: http://www.tasharen.com/forum/index.php?topic=13953.0
+
 If you have any questions, suggestions, comments or feature requests, please
 drop by the TNet forum, found here: http://www.tasharen.com/forum/index.php?board=9.0
 
@@ -86,7 +88,7 @@ TNManager.onSetServerData (path, data)
 TNManager.onSetChannelData (Channel, path, data)
 TNManager.onSetPlayerData (Player, path, data)
 
-If you want an example of how to subscribe to these events, have a look at the NetworkEventReceiver class.
+If you want an example of how to subscribe to these events, have a look at the TNEventReceiver class.
 
 --------------------------------------------------------------------------------------------------------------------
  Stand-Alone Server

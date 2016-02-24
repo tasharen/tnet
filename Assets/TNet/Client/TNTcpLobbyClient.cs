@@ -8,8 +8,9 @@ using System.IO;
 using System.Collections;
 using System.Threading;
 using UnityEngine;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// TCP-based lobby client, designed to communicate with the TcpLobbyServer.
 /// </summary>
@@ -111,4 +112,5 @@ public class TNTcpLobbyClient : TNLobbyClient
 		// Trigger the listener callback
 		if (changed && onChange != null) onChange();
 	}
+}
 }

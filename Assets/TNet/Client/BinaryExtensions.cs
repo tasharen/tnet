@@ -4,8 +4,9 @@
 //-------------------------------------------------
 
 using System.IO;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// BinaryReader and BinaryWriter extension methods.
 /// </summary>
@@ -93,4 +94,5 @@ static public class BinaryExtensions
 
 		return temp;
 	}
+}
 }

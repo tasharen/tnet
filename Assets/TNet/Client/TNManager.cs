@@ -5,12 +5,13 @@
 
 using System.IO;
 using UnityEngine;
-using TNet;
 using System.Net;
 using System.Reflection;
 using UnityTools = TNet.UnityTools;
 using System;
 
+namespace TNet
+{
 /// <summary>
 /// Tasharen Network Manager tailored for Unity.
 /// </summary>
@@ -1901,4 +1902,5 @@ public class TNManager : MonoBehaviour
 
 	[System.Obsolete("Use gameObject.DestroySelf() instead")]
 	static public void Destroy (GameObject go) { go.DestroySelf(); }
+}
 }

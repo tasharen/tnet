@@ -4,6 +4,7 @@
 //-------------------------------------------------
 
 using UnityEngine;
+using TNet;
 
 /// <summary>
 /// Very simple chase camera used on the Car example.

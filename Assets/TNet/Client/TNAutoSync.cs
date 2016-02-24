@@ -4,11 +4,12 @@
 //-------------------------------------------------
 
 using UnityEngine;
-using TNet;
 using System.Collections;
 using System.Reflection;
 using System.IO;
 
+namespace TNet
+{
 /// <summary>
 /// This script makes it really easy to sync some value across all connected clients.
 /// Keep in mind that this script should ideally only be used for rapid prototyping.
@@ -271,4 +272,5 @@ public class TNAutoSync : TNBehaviour
 			else Debug.LogError("Mismatched number of parameters sent via TNAutoSync!");
 		}
 	}
+}
 }

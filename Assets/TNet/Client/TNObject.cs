@@ -6,10 +6,11 @@
 using System.IO;
 using System.Reflection;
 using UnityEngine;
-using TNet;
 using System.Collections.Generic;
 using UnityTools = TNet.UnityTools;
 
+namespace TNet
+{
 /// <summary>
 /// Tasharen Network Object makes it possible to easily send and receive remote function calls.
 /// Unity networking calls this type of object a "Network View".
@@ -952,4 +953,5 @@ public sealed class TNObject : MonoBehaviour
 		Register();
 		mDestroyed = false;
 	}
+}
 }

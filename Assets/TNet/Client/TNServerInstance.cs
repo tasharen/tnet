@@ -4,11 +4,12 @@
 //-------------------------------------------------
 
 using UnityEngine;
-using TNet;
 using System.IO;
 using System.Collections;
 using System.Net;
 
+namespace TNet
+{
 /// <summary>
 /// Tasharen Network server tailored for Unity.
 /// </summary>
@@ -335,4 +336,5 @@ public class TNServerInstance : MonoBehaviour
 
 	[System.Obsolete("Calling this function is no longer necessary. The server will auto-save.")]
 	static public void SaveTo (string fileName) { }
+}
 }

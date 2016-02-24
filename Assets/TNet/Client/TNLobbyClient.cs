@@ -5,8 +5,9 @@
 
 using UnityEngine;
 using System.Net;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// Server Lobby Client is an abstract class designed to communicate with the Lobby Server.
 /// You should instantiate protocol-specific versions: TNTcpLobbyClient or TNUdpLobbyClient,
@@ -62,4 +63,5 @@ public abstract class TNLobbyClient : MonoBehaviour
 		errorString = "";
 		knownServers.Clear();
 	}
+}
 }

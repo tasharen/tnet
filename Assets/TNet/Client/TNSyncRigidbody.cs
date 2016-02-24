@@ -4,8 +4,9 @@
 //-------------------------------------------------
 
 using UnityEngine;
-using TNet;
 
+namespace TNet
+{
 /// <summary>
 /// This script makes it easy to sync rigidbodies across the network.
 /// Use this script on all the objects in your scene that have a rigidbody
@@ -143,4 +144,5 @@ public class TNSyncRigidbody : TNBehaviour
 			tno.Send(1, Target.OthersSaved, mLastPos, mLastRot, mRb.velocity, mRb.angularVelocity);
 		}
 	}
+}
 }
