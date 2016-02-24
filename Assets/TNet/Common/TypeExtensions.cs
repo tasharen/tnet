@@ -136,7 +136,7 @@ static public class TypeExtensions
 		}
 		
 		CacheItem ci = new CacheItem();
-		ci.method = type.GetMethod(name, paramTypes);
+		ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, paramTypes, null);
 		if (ci.method == null) ci.method = type.GetExtensionMethod(name, paramTypes);
 		ci.parameters = paramTypes;
 		cachedList.Add(ci);

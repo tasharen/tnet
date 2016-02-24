@@ -137,7 +137,7 @@ public class FieldOrProperty
 	}
 
 	/// <summary>
-	/// Retrieve the specified attribute on the field or property.
+	/// Retrieve the attribute of specified type on the field or property.
 	/// </summary>
 
 	public T GetAttribute<T> () where T : Attribute
@@ -151,6 +151,25 @@ public class FieldOrProperty
 		{
 			if (property.IsDefined(typeof(T), true))
 				return (T)property.GetCustomAttributes(typeof(T), true)[0];
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Retrieve the attributes of specified type on the field or property.
+	/// </summary>
+
+	public T[] GetAttributes<T> () where T : Attribute
+	{
+		if (field != null)
+		{
+			if (field.IsDefined(typeof(T), true))
+				return (T[])field.GetCustomAttributes(typeof(T), true);
+		}
+		else if (property != null)
+		{
+			if (property.IsDefined(typeof(T), true))
+				return (T[])property.GetCustomAttributes(typeof(T), true);
 		}
 		return null;
 	}
