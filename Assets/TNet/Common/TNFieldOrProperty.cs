@@ -345,7 +345,7 @@ static public class FieldOrPropertyExtensions
 #if STANDALONE
 	static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 		if (fp != null) fp.SetValue(obj, val);
 	}
 #else

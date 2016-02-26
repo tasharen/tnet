@@ -64,7 +64,7 @@
     <Compile Include="Assets\TNet\Common\TNList.cs" />
     <Compile Include="Assets\TNet\Common\TNPacket.cs" />
     <Compile Include="Assets\TNet\Common\TNPlayer.cs" />
-    <Compile Include="Assets\TNet\Common\TNProperty.cs" />
+    <Compile Include="Assets\TNet\Common\TNFieldOrProperty.cs" />
     <Compile Include="Assets\TNet\Common\TNSerializer.cs" />
     <Compile Include="Assets\TNet\Common\TNServerList.cs" />
     <Compile Include="Assets\TNet\Common\TNTcpProtocol.cs" />
