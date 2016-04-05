@@ -761,21 +761,28 @@ public class DataNode
 	}
 
 	/// <summary>
-	/// Merge the current data with the specified.
+	/// Merge the current data with the specified. Returns whether some node's value was replaced.
 	/// </summary>
 
-	public void Merge (DataNode other, bool replaceExisting = true)
+	public bool Merge (DataNode other, bool replaceExisting = true)
 	{
+		bool replaced = false;
+
 		if (other != null)
 		{
-			if (replaceExisting || value == null) value = other.value;
+			if (replaceExisting || value == null)
+			{
+				if (value != null && other.value != null) replaced = true;
+				value = other.value;
+			}
 
 			for (int i = 0; i < other.children.size; ++i)
 			{
 				DataNode child = other.children[i];
-				GetChild(child.name, true).Merge(child, replaceExisting);
+				replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
 			}
 		}
+		return replaced;
 	}
 
 	/// <summary>

@@ -81,7 +81,7 @@ public class List<T> : TList
 	/// Helper function that expands the size of the array, maintaining the content.
 	/// </summary>
 
-	void AllocateMore ()
+	public void AllocateMore ()
 	{
 		int max = (buffer == null) ? 0 : (buffer.Length << 1);
 		if (max < 32) max = 32;
@@ -95,7 +95,7 @@ public class List<T> : TList
 	/// Call this function only if you are sure that the buffer won't need to resize anytime soon.
 	/// </summary>
 
-	void Trim ()
+	public void Trim ()
 	{
 		if (size > 0)
 		{

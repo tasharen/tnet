@@ -314,11 +314,8 @@ public class GameServer : FileServer
 		// Stop the worker thread
 		if (mThread != null)
 		{
-#if UNITY_IPHONE
 			mThread.Interrupt();
-#else
-			mThread.Abort();
-#endif
+			mThread.Join();
 			mThread = null;
 		}
 
@@ -1547,30 +1544,38 @@ public class GameServer : FileServer
 			{
 				// Forward this packet to the specified player
 				int start = buffer.position - 5;
-				TcpPlayer target = GetPlayer(reader.ReadInt32());
 
-				if (target != null && target.isConnected)
+				if (reader.ReadInt32() == player.id) // Validate the packet's source
 				{
-					buffer.position = start;
-					target.SendTcpPacket(buffer);
+					TcpPlayer target = GetPlayer(reader.ReadInt32());
+
+					if (target != null && target.isConnected)
+					{
+						buffer.position = start;
+						target.SendTcpPacket(buffer);
+					}
 				}
 				break;
 			}
 			case Packet.ForwardByName:
 			{
 				int start = buffer.position - 5;
-				string name = reader.ReadString();
-				TcpPlayer target = GetPlayer(name);
 
-				if (target != null && target.isConnected)
+				if (reader.ReadInt32() == player.id) // Validate the packet's source
 				{
-					buffer.position = start;
-					target.SendTcpPacket(buffer);
-				}
-				else if (reliable)
-				{
-					BeginSend(Packet.ForwardTargetNotFound).Write(name);
-					EndSend(true, player);
+					string name = reader.ReadString();
+					TcpPlayer target = GetPlayer(name);
+
+					if (target != null && target.isConnected)
+					{
+						buffer.position = start;
+						target.SendTcpPacket(buffer);
+					}
+					else if (reliable)
+					{
+						BeginSend(Packet.ForwardTargetNotFound).Write(name);
+						EndSend(true, player);
+					}
 				}
 				break;
 			}

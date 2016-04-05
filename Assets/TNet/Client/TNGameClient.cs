@@ -962,16 +962,16 @@ public class GameClient : TNEvents
 			case Packet.ForwardToPlayer:
 			{
 				packetSourceID = reader.ReadInt32();
+				reader.ReadInt32(); // Skip the target player ID
 				int channelID = reader.ReadInt32();
-				reader.ReadInt32(); // Skip the player ID
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
 			case Packet.ForwardByName:
 			{
 				packetSourceID = reader.ReadInt32();
-				int channelID = reader.ReadInt32();
 				reader.ReadString(); // Skip the player name
+				int channelID = reader.ReadInt32();
 				if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
 				break;
 			}
