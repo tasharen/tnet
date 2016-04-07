@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
   Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.0
+                  Version 3.0.1
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -108,6 +108,13 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.1
+- NEW: Added 2 new tutorial PDFs: executing runtime code and runtime C# behaviours.
+- NEW: DataNode's Merge() function now returns 'true' if any existing node's values were actually altered.
+- FIX: Replaced Thread.Abort() calls with Interrupt() and Join() combos. This aids iOS compatibility.
+- FIX: Fix for ForwardToPlayer and ForwardByName not parsing the packets properly.
+- FIX: Updated the stand-alone server solution to compile with the latest changes.
 
 3.0.0
 - NEW: DataNode is now fully capable of serializing entire hierarchies of game objects, making it trivial to export and save entire game objects, complete with mesh and texture information embedded in the data. TNet will keep references to items in the Resources folder and will include the raw data of those that aren't. Example usage: where you were using prefabs before you can now use exported DataNode binaries, making this data easily moddable (remember, Resources.Load only works on internal content!)
