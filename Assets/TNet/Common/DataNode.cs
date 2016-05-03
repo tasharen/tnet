@@ -727,19 +727,38 @@ public class DataNode
 #if REFLECTION_SUPPORT
 			if (prefix) writer.Write(" = ");
 			writer.Write(Serialization.TypeToName(type));
-			List<FieldInfo> fields = type.GetSerializableFields();
+			var fields = type.GetSerializableFields();
 
-			if (fields.size > 0)
+			// We have fields to serialize
+			for (int i = 0; i < fields.size; ++i)
 			{
-				for (int i = 0; i < fields.size; ++i)
-				{
-					FieldInfo field = fields[i];
-					object val = field.GetValue(value);
+				FieldInfo field = fields[i];
+				object val = field.GetValue(value);
 
-					if (val != null)
+				if (val != null)
+				{
+					writer.Write('\n');
+					Write(writer, field.Name, val, tab + 1);
+				}
+			}
+
+			if (fields.size == 0 || type.IsDefined(typeof(SerializeProperties), true))
+			{
+				// We don't have fields to serialize, but we may have properties
+				var props = type.GetSerializableProperties();
+
+				if (props.size > 0)
+				{
+					for (int i = 0; i < props.size; ++i)
 					{
-						writer.Write('\n');
-						Write(writer, field.Name, val, tab + 1);
+						var prop = props[i];
+						object val = prop.GetValue(value, null);
+
+						if (val != null)
+						{
+							writer.Write('\n');
+							Write(writer, prop.Name, val, tab + 1);
+						}
 					}
 				}
 			}
@@ -1031,7 +1050,7 @@ public class DataNode
 					}
 					else Tools.LogError("Unable to determine the element type of " + type);
 				}
-				else if (type.IsClass)
+				else
 				{
 					for (int i = 0; i < children.size; ++i)
 					{
@@ -1040,11 +1059,6 @@ public class DataNode
 					}
 					return false;
 				}
-#if UNITY_EDITOR
-				else Debug.LogError("Unhandled type: " + type);
-#else
-				else Tools.LogError("Unhandled type: " + type);
-#endif
 			}
 			return true;
 		}

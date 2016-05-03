@@ -561,11 +561,14 @@ static public class Tools
 	static public string GetFilePathWithoutExtension (string path)
 	{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-		try
+		if (!string.IsNullOrEmpty(path))
 		{
-			return Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path));
+			try
+			{
+				return Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path));
+			}
+			catch (System.Exception) { }
 		}
-		catch (System.Exception) { }
 #endif
 		return null;
 	}

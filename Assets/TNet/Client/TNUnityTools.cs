@@ -275,7 +275,8 @@ static public class UnityTools
 
 		if (t == null)
 		{
-			t = System.Type.GetType("UnityEngine." + name + ", UnityEngine");
+			var s = "UnityEngine." + name + ", UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null";
+			t = System.Type.GetType(s);
 
 			if (t == null)
 			{

@@ -20,12 +20,21 @@ namespace TNet
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
 public sealed class IgnoredByTNet : Attribute { public IgnoredByTNet () { } }
 
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
+public sealed class SerializeProperties : Attribute { public SerializeProperties () { } }
+
 /// <summary>
 /// Static helper class containing useful extensions for the System.Type class.
 /// </summary>
 
 static public class TypeExtensions
 {
+	/// <summary>
+	/// Not sure why this isn't already present...
+	/// </summary>
+
+	static public bool IsStruct (this Type type) { return type.IsValueType && !type.IsEnum; }
+
 	/// <summary>
 	/// Helper extension that returns 'true' if the type implements the specified interface.
 	/// </summary>

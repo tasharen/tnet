@@ -147,6 +147,15 @@ public struct Bounds
 
 	public Bounds (Vector3 c, Vector3 s) { center = c; size = s; }
 }
+
+public struct WheelFrictionCurve
+{
+	public float asymptoteSlip;
+	public float asymptoteValue;
+	public float extremumSlip;
+	public float extremumValue;
+	public float stiffness;
+}
 #endif
 
 namespace TNet
@@ -2114,7 +2123,7 @@ public static class Serialization
 	static void FilterFields (object obj)
 	{
 		Type type = obj.GetType();
-		List<FieldInfo> fields = type.GetSerializableFields();
+		var fields = type.GetSerializableFields();
 
 		mFieldNames.Clear();
 		mFieldValues.Clear();
@@ -2128,6 +2137,27 @@ public static class Serialization
 			{
 				mFieldNames.Add(f.Name);
 				mFieldValues.Add(val);
+			}
+		}
+		
+		if (fields.size == 0 || type.IsDefined(typeof(SerializeProperties), true))
+		{
+			// We don't have fields to serialize, but we may have properties
+			var props = type.GetSerializableProperties();
+
+			if (props.size > 0)
+			{
+				for (int i = 0; i < props.size; ++i)
+				{
+					var prop = props[i];
+					object val = prop.GetValue(obj, null);
+
+					if (val != null)
+					{
+						mFieldNames.Add(prop.Name);
+						mFieldValues.Add(val);
+					}
+				}
 			}
 		}
 	}

@@ -32,13 +32,13 @@ public class List<T> : TList
 	/// Direct access to the buffer. Note that you should not use its 'Length' parameter, but instead use List.size.
 	/// </summary>
 
-	public volatile T[] buffer;
+	public T[] buffer;
 
 	/// <summary>
 	/// Direct access to the buffer's size. Note that it's only public for speed and efficiency. You shouldn't modify it.
 	/// </summary>
 
-	public volatile int size = 0;
+	public int size = 0;
 
 	/// <summary>
 	/// For 'foreach' functionality.
@@ -78,6 +78,21 @@ public class List<T> : TList
 	public object Get (int index) { return buffer[index]; }
 
 	/// <summary>
+	/// Ensure that the list has allocated at least the specified number of elements.
+	/// Note that this will not resize the array or actually add the said elements. It only allocates memory upfront.
+	/// </summary>
+
+	public void Allocate (int newSize)
+	{
+		if (buffer == null || buffer.Length < newSize)
+		{
+			T[] newList = new T[newSize];
+			if (buffer != null && this.size > 0) buffer.CopyTo(newList, 0);
+			buffer = newList;
+		}
+	}
+
+	/// <summary>
 	/// Helper function that expands the size of the array, maintaining the content.
 	/// </summary>
 
@@ -88,6 +103,20 @@ public class List<T> : TList
 		T[] newList = new T[max];
 		if (buffer != null && size > 0) buffer.CopyTo(newList, 0);
 		buffer = newList;
+	}
+
+	/// <summary>
+	/// Resize the array to the specified size, keeping the existing elements.
+	/// </summary>
+
+	public void Resize (int newSize)
+	{
+		if (size != newSize)
+		{
+			if (buffer == null) buffer = new T[newSize];
+			else System.Array.Resize(ref buffer, newSize);
+			size = newSize;
+		}
 	}
 
 	/// <summary>
@@ -114,6 +143,12 @@ public class List<T> : TList
 	/// </summary>
 
 	public void Clear () { size = 0; }
+
+	/// <summary>
+	/// Clear the array by resetting its size to zero and reserve memory for the specified number of entries.
+	/// </summary>
+
+	public void Clear (int allocateSize) { size = 0; Allocate(allocateSize); }
 
 	/// <summary>
 	/// Clear the array and release the used memory.

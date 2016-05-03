@@ -17,13 +17,13 @@ static internal class DataNodeExporter
 	/// Show a file export dialog.
 	/// </summary>
 
-	static public string ShowExportDialog (string name, string fileName)
+	static public string ShowExportDialog (string name, string fileName, string prefsName = "TNet Path")
 	{
-		string currentPath = EditorPrefs.GetString("TNet Path", "Assets/");
+		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
 		string path = EditorUtility.SaveFilePanel(name, currentPath, fileName + ".bytes", "bytes");
 
 		if (!string.IsNullOrEmpty(path))
-			EditorPrefs.SetString("TNet Path", System.IO.Path.GetDirectoryName(path));
+			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
 
 		return path;
 	}
@@ -32,13 +32,13 @@ static internal class DataNodeExporter
 	/// Show a file import dialog.
 	/// </summary>
 
-	static public string ShowImportDialog (string name)
+	static public string ShowImportDialog (string name, string prefsName = "TNet Path")
 	{
-		string currentPath = EditorPrefs.GetString("TNet Path", "Assets/");
+		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
 		string path = EditorUtility.OpenFilePanel(name, currentPath, "bytes");
 
 		if (!string.IsNullOrEmpty(path))
-			EditorPrefs.SetString("TNet Path", System.IO.Path.GetDirectoryName(path));
+			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
 
 		return path;
 	}
@@ -47,7 +47,7 @@ static internal class DataNodeExporter
 	/// Save the data under the specified filename.
 	/// </summary>
 
-	static void Save (DataNode data, string path, DataNode.SaveType type)
+	static public void Save (DataNode data, string path, DataNode.SaveType type)
 	{
 		if (data == null || string.IsNullOrEmpty(path)) return;
 
