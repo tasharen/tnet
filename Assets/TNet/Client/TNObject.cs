@@ -103,7 +103,14 @@ public sealed class TNObject : MonoBehaviour
 	/// Whether this object belongs to the player.
 	/// </summary>
 
-	public bool isMine { get { return (mOwner != null) ? mOwner == TNManager.player : TNManager.isHosting; } }
+	public bool isMine
+	{
+		get
+		{
+			var owner = this.owner;
+			return (owner != null) ? owner == TNManager.player : TNManager.isHosting;
+		}
+	}
 
 	/// <summary>
 	/// ID of the player that owns this object.

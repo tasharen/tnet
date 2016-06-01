@@ -35,7 +35,7 @@ public class UPnP
 	}
 
 	Status mStatus = Status.Inactive;
-	IPAddress mGatewayAddress = IPAddress.None;
+	IPAddress mGatewayAddress = IPAddress.IPv6None;
 	Thread mDiscover = null;
 	
 	string mGatewayURL = null;
@@ -168,7 +168,7 @@ public class UPnP
 
 				for (; ; )
 				{
-					IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+					IPEndPoint sourceAddress = new IPEndPoint(IPAddress.IPv6Any, 0);
 					byte[] data = sender.Receive(ref sourceAddress);
 
 					if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))

@@ -524,7 +524,7 @@ public class DataNode
 		for (int i = 0; i < 4; ++i)
 		{
 			byte ch = data[i];
-			if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) continue;
+			if (ch >= '!' && ch <= '~') continue;
 			return SaveType.Binary;
 		}
 		return SaveType.Text;

@@ -131,9 +131,9 @@ public class UdpProtocol
 		{
 			// Use the default network interface if one wasn't explicitly chosen
  #if (UNITY_IPHONE && !UNITY_EDITOR) //|| UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-			IPAddress networkInterface = useMulticasting ? multicastIP : (defaultNetworkInterface ?? IPAddress.Any);
- #else
-			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.Any;
+			IPAddress networkInterface = useMulticasting ? multicastIP : (defaultNetworkInterface ?? IPAddress.IPv6Any);
+#else
+			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.IPv6Any;
  #endif
 			mEndPoint = new IPEndPoint(networkInterface, 0);
 			mDefaultEndPoint = new IPEndPoint(networkInterface, 0);

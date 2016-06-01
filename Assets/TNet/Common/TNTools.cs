@@ -371,9 +371,9 @@ static public class Tools
 	static public bool IsValidAddress (IPAddress address)
 	{
 		if (address.AddressFamily != AddressFamily.InterNetwork) return false;
-		if (address.Equals(IPAddress.Loopback)) return false;
-		if (address.Equals(IPAddress.None)) return false;
-		if (address.Equals(IPAddress.Any)) return false;
+		if (address.Equals(IPAddress.Loopback) || address.Equals(IPAddress.IPv6Loopback)) return false;
+		if (address.Equals(IPAddress.None) || address.Equals(IPAddress.IPv6None)) return false;
+		if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any)) return false;
 		if (address.ToString().StartsWith("169.")) return false;
 		return true;
 	}
@@ -448,7 +448,7 @@ static public class Tools
 		string[] split = address.Split(':');
 
 		// Automatically try to parse the port
-		if (split.Length > 1)
+		if (split.Length == 1)
 		{
 			address = split[0];
 			int.TryParse(split[1], out port);

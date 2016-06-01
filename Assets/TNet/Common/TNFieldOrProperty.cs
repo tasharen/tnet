@@ -342,18 +342,10 @@ static public class FieldOrPropertyExtensions
 	/// Set the value of a field or property of an object.
 	/// </summary>
 
-#if STANDALONE
 	static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
 	{
-		var fp = obj.GetProperty(name);
+		var fp = obj.GetFieldOrProperty(name);
 		if (fp != null) fp.SetValue(obj, val);
 	}
-#else
-	static public void SetFieldOrPropertyValue (this object obj, string name, object val, GameObject go = null)
-	{
-		var fp = obj.GetFieldOrProperty(name);
-		if (fp != null) fp.SetValue(obj, val, go);
-	}
-#endif
 }
 }

@@ -139,7 +139,8 @@ public class UdpLobbyServer : LobbyServer
 				ServerList.Entry ent = new ServerList.Entry();
 				ent.ReadFrom(reader);
 
-				if (ent.externalAddress.Address.Equals(IPAddress.None))
+				if (ent.externalAddress.Address.Equals(IPAddress.None) ||
+					ent.externalAddress.Address.Equals(IPAddress.IPv6None))
 					ent.externalAddress = ip;
 
 				mList.Add(ent, mTime);
@@ -155,7 +156,8 @@ public class UdpLobbyServer : LobbyServer
 				Tools.Serialize(reader, out internalAddress);
 				Tools.Serialize(reader, out externalAddress);
 
-				if (externalAddress.Address.Equals(IPAddress.None))
+				if (externalAddress.Address.Equals(IPAddress.None) ||
+					externalAddress.Address.Equals(IPAddress.IPv6None))
 					externalAddress = ip;
 
 				RemoveServer(internalAddress, externalAddress);

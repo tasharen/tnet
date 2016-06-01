@@ -217,6 +217,7 @@ public class Application : IDisposable
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
 			Console.WriteLine("   -service                    <-- Run it as a service");
 			Console.WriteLine("   -http	                      <-- Respond to HTTP requests");
+			Console.WriteLine("   -app [name]                 <-- Set the application name");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
 
@@ -299,6 +300,10 @@ public class Application : IDisposable
 			else if (param == "-http")
 			{
 				http = true;
+			}
+			else if (param == "-app")
+			{
+				Tools.applicationDirectory = val1;
 			}
 
 			if (val1 != null) i += 3;

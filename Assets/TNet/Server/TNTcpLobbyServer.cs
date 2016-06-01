@@ -60,7 +60,7 @@ public class TcpLobbyServer : LobbyServer
 
 		try
 		{
-			mListener = new TcpListener(IPAddress.Any, listenPort);
+			mListener = new TcpListener(IPAddress.IPv6Any, listenPort);
 			mListener.Start(50);
 			mPort = listenPort;
 		}
@@ -336,7 +336,8 @@ public class TcpLobbyServer : LobbyServer
 				ServerList.Entry ent = new ServerList.Entry();
 				ent.ReadFrom(reader);
 
-				if (ent.externalAddress.Address.Equals(IPAddress.None))
+				if (ent.externalAddress.Address.Equals(IPAddress.None) ||
+					ent.externalAddress.Address.Equals(IPAddress.IPv6None))
 					ent.externalAddress = tc.tcpEndPoint;
 
 				AddServer(ent, tc);

@@ -222,7 +222,7 @@ public class GameServer : FileServer
 			{
 				try
 				{
-					mListener = new TcpListener(IPAddress.Any, port);
+					mListener = new TcpListener(IPAddress.IPv6Any, port);
 					mListener.Start(50);
 					//mListener.BeginAcceptSocket(OnAccept, null);
 					return true;
@@ -1035,14 +1035,7 @@ public class GameServer : FileServer
 			}
 			else if (string.IsNullOrEmpty(channel.password) || (channel.password == pass))
 			{
-				if (string.IsNullOrEmpty(channel.level))
-				{
-					channel.persistent = persist;
-					channel.level = levelName;
-					channel.playerLimit = playerLimit;
-				}
-
-				SendJoinChannel(player, channel, levelName);
+				SendJoinChannel(player, channel, channel.level);
 			}
 			else
 			{

@@ -484,7 +484,7 @@ static public class UnityTools
 
 	static public System.Type FindType (string name)
 	{
-		System.Type t = System.Type.GetType(name);
+		System.Type t = GetTypeEx(name);
 		if (t != null) return t;
 
 		List<System.Type> types = TypeExtensions.GetTypes();
