@@ -448,7 +448,7 @@ static public class Tools
 		string[] split = address.Split(':');
 
 		// Automatically try to parse the port
-		if (split.Length == 1)
+		if (split.Length == 2)
 		{
 			address = split[0];
 			int.TryParse(split[1], out port);
