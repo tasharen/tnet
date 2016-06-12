@@ -110,7 +110,7 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
 
 3.0.2
-- NEW: Full IPv6 support. Turn
+- NEW: Full IPv6 support.
 - NEW: Serialization of structs without public fields now defaults to serializing properties.
 - NEW: Added Type.IsStruct() extension method.
 - NEW: Added [SerializeProperties] attribute that makes TNet serialize get/set properties, not just fields.
