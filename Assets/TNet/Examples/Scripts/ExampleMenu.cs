@@ -53,8 +53,8 @@ public class ExampleMenu : TNEventReceiver
 			// Choose IPv6 or IPv4
 			TcpProtocol.defaultListenerInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
 
-			// TNet will automatically switch UDP to IPv6 if TCP uses it, but you can set the values below explicitly as well
-			UdpProtocol.defaultNetworkInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
+			// TNet will automatically switch UDP to IPv6 if TCP uses it, but you can specify an explicit one if you like
+			//UdpProtocol.defaultNetworkInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
 
 			if (mInst == null)
 			{
