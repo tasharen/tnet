@@ -222,7 +222,7 @@ public class GameServer : FileServer
 			{
 				try
 				{
-					mListener = new TcpListener(IPAddress.IPv6Any, port);
+					mListener = new TcpListener(IPAddress.Any, port);
 					mListener.Start(50);
 					//mListener.BeginAcceptSocket(OnAccept, null);
 					return true;
