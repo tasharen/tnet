@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
   Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.1
+                  Version 3.0.2
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -108,6 +108,13 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.2
+- NEW: Full IPv6 support. Turn
+- NEW: Serialization of structs without public fields now defaults to serializing properties.
+- NEW: Added Type.IsStruct() extension method.
+- NEW: Added [SerializeProperties] attribute that makes TNet serialize get/set properties, not just fields.
+- FIX: Now explicitly specifying Unity's full library name for better type retrieval in Unity 5.
 
 3.0.1
 - NEW: Added 2 new tutorial PDFs: executing runtime code and runtime C# behaviours.
