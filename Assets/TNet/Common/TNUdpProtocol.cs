@@ -18,6 +18,15 @@ namespace TNet
 
 public class UdpProtocol
 {
+	public UdpProtocol () { }
+	public UdpProtocol (string name) { this.name = name; }
+
+	/// <summary>
+	/// Unique name, in case you need to differentiate between protocols.
+	/// </summary>
+
+	public string name = "UDP Protocol";
+
 	/// <summary>
 	/// If 'true', TNet will use multicasting with new UDP sockets. If 'false', TNet will use broadcasting instead.
 	/// Multicasting is the suggested way to go as it supports multiple network interfaces properly.
@@ -37,7 +46,13 @@ public class UdpProtocol
 	/// It's important to set this prior to calling StartUDP or the change won't have any effect.
 	/// </summary>
 
-	static public IPAddress defaultNetworkInterface = null;
+	static public IPAddress defaultNetworkInterface = IPAddress.Any;
+
+	/// <summary>
+	/// Network interface used for broadcasts and multicasts (UDP lobby communication only).
+	/// </summary>
+
+	static public IPAddress defaultBroadcastInterface = IPAddress.Any;
 
 	// Port used to listen and socket used to send and receive
 	int mPort = -1;
@@ -53,7 +68,7 @@ public class UdpProtocol
 	bool mMulticast = true;
 
 	// Default end point -- mEndPoint is reset to this value after every receive operation.
-	static EndPoint mDefaultEndPoint;
+	EndPoint mDefaultEndPoint;
 
 	// Cached broadcast end-point
 	static IPAddress multicastIP = IPAddress.Parse("224.168.100.17");
@@ -83,10 +98,6 @@ public class UdpProtocol
 
 	public bool Start () { return Start(0); }
 
-	/// <summary>
-	/// Start listening for incoming messages on the specified port.
-	/// </summary>
-
 #if UNITY_FLASH || UNITY_WEBPLAYER
 	// UDP is not supported by Flash.
 	public bool Start (int port)
@@ -96,13 +107,28 @@ public class UdpProtocol
 #endif
 		return false;
 	}
+
+	// UDP is not supported by Flash.
+	public bool Start (int port, IPAddress defaultNetworkInterface) { return Start(port); }
 #else
-	public bool Start (int port)
+
+	/// <summary>
+	/// Start listening for incoming messages on the specified port.
+	/// </summary>
+
+	public bool Start (int port) { return Start(port, defaultNetworkInterface); }
+
+	/// <summary>
+	/// Start listening for incoming messages on the specified port and network interface.
+	/// </summary>
+
+	public bool Start (int port, IPAddress ni)
 	{
 		Stop();
 
 		mPort = port;
-		mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+		mSocket = new Socket(ni.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+
 #if !UNITY_WEBPLAYER
 		// Web player doesn't seem to support broadcasts
 		mSocket.MulticastLoopback = true;
@@ -117,7 +143,8 @@ public class UdpProtocol
 				foreach (IPAddress ip in ips)
 				{
 					MulticastOption opt = new MulticastOption(multicastIP, ip);
-					mSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
+					mSocket.SetSocketOption(ni.AddressFamily == AddressFamily.InterNetworkV6 ?
+						SocketOptionLevel.IPv6 : SocketOptionLevel.IP, SocketOptionName.AddMembership, opt);
 				}
 			}
 			else mSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
@@ -131,9 +158,9 @@ public class UdpProtocol
 		{
 			// Use the default network interface if one wasn't explicitly chosen
  #if (UNITY_IPHONE && !UNITY_EDITOR) //|| UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-			IPAddress networkInterface = useMulticasting ? multicastIP : (defaultNetworkInterface ?? IPAddress.Any);
+			IPAddress networkInterface = useMulticasting ? multicastIP : ni;
 #else
-			IPAddress networkInterface = defaultNetworkInterface ?? IPAddress.Any;
+			IPAddress networkInterface = ni;
  #endif
 			mEndPoint = new IPEndPoint(networkInterface, 0);
 			mDefaultEndPoint = new IPEndPoint(networkInterface, 0);
@@ -192,7 +219,7 @@ public class UdpProtocol
 		}
 		catch (System.Exception ex)
 		{
-			Error(new IPEndPoint(Tools.localAddress, 0), ex.Message);
+			Error(new IPEndPoint(Tools.localAddress, 0), ex.Message.Trim() + " (" + name + ")");
 		}
 
 		if (bytes > 4)
@@ -307,6 +334,18 @@ public class UdpProtocol
 		}
 		else if (mSocket != null)
 		{
+			if (mSocket.AddressFamily != ip.AddressFamily)
+			{
+#if UNITY_EDITOR
+				UnityEngine.Debug.LogError("UDP socket " + name + " (" + mSocket.AddressFamily + ") and the desired address " + ip.Address +
+					" (" + ip.AddressFamily + ") were started with different address families");
+#else
+				Tools.LogError("UDP socket " + name + " (" + mSocket.AddressFamily + ") and the desired address " + ip.Address +
+					" (" + ip.AddressFamily + ") were started with different address families");
+#endif
+				return;
+			}
+
 			buffer.MarkAsUsed();
 			buffer.BeginReading();
 
@@ -322,8 +361,7 @@ public class UdpProtocol
 					try
 					{
 						// If it's the first datagram, begin the sending process
-						mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size,
-							SocketFlags.None, ip, OnSend, null);
+						mSocket.BeginSendTo(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, ip, OnSend, null);
 					}
 					catch (Exception ex)
 					{
@@ -351,11 +389,11 @@ public class UdpProtocol
 		}
 		catch (System.Exception ex)
 		{
-			bytes = 1;
+			bytes = -1;
 #if STANDALONE
-			Tools.Print(ex.Message);
+			Tools.Print(ex.Message.Trim() + " (" + name + ")");
 #else
-			UnityEngine.Debug.Log("[TNet] OnSend: " + ex.Message);
+			UnityEngine.Debug.Log("[TNet] OnSend (" + mSocket.AddressFamily + "): " + ex.Message.Trim() + " (" + name + ")");
 #endif
 		}
 
@@ -367,8 +405,7 @@ public class UdpProtocol
 			{
 				// If there is another packet to send out, let's send it
 				Datagram dg = mOut.Peek();
-				mSocket.BeginSendTo(dg.buffer.buffer, dg.buffer.position, dg.buffer.size,
-					SocketFlags.None, dg.ip, OnSend, null);
+				mSocket.BeginSendTo(dg.buffer.buffer, dg.buffer.position, dg.buffer.size, SocketFlags.None, dg.ip, OnSend, null);
 			}
 		}
 	}
@@ -379,6 +416,9 @@ public class UdpProtocol
 
 	public void Error (IPEndPoint ip, string error)
 	{
+#if UNITY_EDITOR
+		UnityEngine.Debug.LogError(error);
+#endif
 		Buffer buffer = Buffer.Create();
 		buffer.BeginPacket(Packet.Error).Write(error);
 		buffer.EndTcpPacketWithOffset(4);

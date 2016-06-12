@@ -30,6 +30,7 @@ public class ExampleMenu : TNEventReceiver
 	const float buttonHeight = 40f;
 
 	public int serverTcpPort = 5127;
+	public bool useIPv6 = false;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
 	public GUIStyle button;
@@ -49,6 +50,12 @@ public class ExampleMenu : TNEventReceiver
 	{
 		if (Application.isPlaying)
 		{
+			// Choose IPv6 or IPv4
+			TcpProtocol.defaultListenerInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
+
+			// TNet will automatically switch UDP to IPv6 if TCP uses it, but you can set the values below explicitly as well
+			UdpProtocol.defaultNetworkInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
+
 			if (mInst == null)
 			{
 				mInst = this;
@@ -265,7 +272,7 @@ public class ExampleMenu : TNEventReceiver
 		mMessage = message;
 
 		// Make it possible to use UDP using a random port
-		if (!TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
+		if (success && !TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
 	}
 
 	/// <summary>

@@ -153,6 +153,7 @@ public class UPnP
 		for (int i = 0; i < ips.size; ++i)
 		{
 			IPAddress ip = ips[i];
+			if (ip.AddressFamily == AddressFamily.InterNetworkV6) continue;
 			UdpClient sender = null;
 
 			try
@@ -168,7 +169,7 @@ public class UPnP
 
 				for (; ; )
 				{
-					IPEndPoint sourceAddress = new IPEndPoint(IPAddress.Any, 0);
+					IPEndPoint sourceAddress = new IPEndPoint(UdpProtocol.defaultNetworkInterface, 0);
 					byte[] data = sender.Receive(ref sourceAddress);
 
 					if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
@@ -186,8 +187,15 @@ public class UPnP
 					}
 				}
 			}
+#if UNITY_EDITOR
+			catch (System.Exception ex)
+			{
+				UnityEngine.Debug.LogError("UPnP: " + ex.Message.Trim());
+				if (sender != null) sender.Close();
+			}
+#else
 			catch (System.Exception) { if (sender != null) sender.Close(); }
-
+#endif
 			mStatus = Status.Failure;
 #if STANDALONE
 			Tools.Print("UPnP Gateway: Not found");
@@ -366,7 +374,7 @@ public class UPnP
 				if (addr == "127.0.0.1") return;
 
 #if UNITY_EDITOR
-				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port);
+				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port  + " on " + addr);
 #endif
 				mPorts.Add(id);
 
@@ -479,6 +487,7 @@ public class UPnP
 	void SendRequest (ExtraParams xp)
 	{
 		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000, 3) : null;
+		UnityEngine.Debug.Log(mStatus + "\n" + response);
 		if (xp.callback != null)
 			xp.callback(this, xp.port, xp.protocol, !string.IsNullOrEmpty(response));
 		if (xp.th != null) lock (mThreads) mThreads.Remove(xp.th);

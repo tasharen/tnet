@@ -45,11 +45,10 @@ public class UdpLobbyServer : LobbyServer
 	public override bool Start (int listenPort)
 	{
 		Stop();
-		mUdp = new UdpProtocol();
-		if (!mUdp.Start(listenPort)) return false;
+		mUdp = new UdpProtocol("Lobby Server");
+		if (!mUdp.Start(listenPort, UdpProtocol.defaultBroadcastInterface)) return false;
 #if STANDALONE
-		Tools.Print("UDP Lobby Server started on port " + listenPort + " using interface " + 
-			(UdpProtocol.defaultNetworkInterface ?? IPAddress.Any));
+		Tools.Print("UDP Lobby Server started on port " + listenPort + " using interface " + UdpProtocol.defaultNetworkInterface);
 #endif
 		mThread = new Thread(ThreadFunction);
 		mThread.Start();

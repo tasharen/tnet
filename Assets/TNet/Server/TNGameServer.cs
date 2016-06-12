@@ -106,7 +106,7 @@ public class GameServer : FileServer
 	Thread mThread;
 	int mListenerPort = 0;
 	long mTime = 0;
-	UdpProtocol mUdp = new UdpProtocol();
+	UdpProtocol mUdp = new UdpProtocol("Game Server");
 	bool mAllowUdp = false;
 	object mLock = 0;
 	DataNode mServerData = null;
@@ -222,7 +222,8 @@ public class GameServer : FileServer
 			{
 				try
 				{
-					mListener = new TcpListener(IPAddress.Any, port);
+					var addr = TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any;
+					mListener = new TcpListener(addr, port);
 					mListener.Start(50);
 					//mListener.BeginAcceptSocket(OnAccept, null);
 					return true;
@@ -263,11 +264,25 @@ public class GameServer : FileServer
 #if STANDALONE
 		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
-		if (udpPort > 0 && !mUdp.Start(udpPort))
+		if (udpPort > 0)
 		{
-			Tools.LogError("Unable to listen to UDP port " + udpPort, null);
-			Stop();
-			return false;
+			// Twice just in case the first try falls on a taken port
+			if (TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6 &&
+				UdpProtocol.defaultNetworkInterface.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+			{
+				if (!mUdp.Start(udpPort, IPAddress.IPv6Any))
+				{
+					Tools.LogError("Unable to listen to UDP port " + udpPort, null);
+					Stop();
+					return false;
+				}
+			}
+			else if (!mUdp.Start(udpPort))
+			{
+				Tools.LogError("Unable to listen to UDP port " + udpPort, null);
+				Stop();
+				return false;
+			}
 		}
 
 		mAllowUdp = (udpPort > 0);

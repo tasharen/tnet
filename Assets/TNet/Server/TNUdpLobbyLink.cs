@@ -56,7 +56,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 		if (mUdp == null)
 		{
-			mUdp = new UdpProtocol();
+			mUdp = new UdpProtocol("Lobby Link");
 			mUdp.Start();
 		}
 	}

@@ -772,7 +772,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (TNServerInstance.isActive)
 		{
-			Connect("127.0.0.1", TNServerInstance.listeningPort);
+			Connect(Tools.localAddress.ToString(), TNServerInstance.listeningPort);
 		}
 		else Debug.LogError("Expecting an address to connect to or a local server to be started first.");
 	}

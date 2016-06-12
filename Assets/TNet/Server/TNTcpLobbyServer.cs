@@ -60,7 +60,7 @@ public class TcpLobbyServer : LobbyServer
 
 		try
 		{
-			mListener = new TcpListener(IPAddress.Any, listenPort);
+			mListener = new TcpListener(TNet.TcpProtocol.defaultListenerInterface, listenPort);
 			mListener.Start(50);
 			mPort = listenPort;
 		}

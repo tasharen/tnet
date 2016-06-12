@@ -17,7 +17,7 @@ namespace TNet
 
 public class TNUdpLobbyClient : TNLobbyClient
 {
-	UdpProtocol mUdp = new UdpProtocol();
+	UdpProtocol mUdp = new UdpProtocol("Lobby Client");
 	Buffer mRequest;
 	long mNextSend = 0;
 	IPEndPoint mRemoteAddress;
@@ -54,7 +54,8 @@ public class TNUdpLobbyClient : TNLobbyClient
 		}
 
 		// Twice just in case the first try falls on a taken port
-		if (!mUdp.Start(Tools.randomPort)) mUdp.Start(Tools.randomPort);
+		if (!mUdp.Start(Tools.randomPort, UdpProtocol.defaultBroadcastInterface))
+			mUdp.Start(Tools.randomPort, UdpProtocol.defaultBroadcastInterface);
 	}
 
 	protected override void OnDisable ()

@@ -370,7 +370,7 @@ static public class Tools
 
 	static public bool IsValidAddress (IPAddress address)
 	{
-		if (address.AddressFamily != AddressFamily.InterNetwork) return false;
+		if (address.AddressFamily != TcpProtocol.defaultListenerInterface.AddressFamily) return false;
 		if (address.Equals(IPAddress.Loopback) || address.Equals(IPAddress.IPv6Loopback)) return false;
 		if (address.Equals(IPAddress.None) || address.Equals(IPAddress.IPv6None)) return false;
 		if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any)) return false;

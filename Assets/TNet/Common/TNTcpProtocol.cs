@@ -29,6 +29,13 @@ public class TcpProtocol : Player
 
 	static public bool httpGetSupport = false;
 
+	/// <summary>
+	/// When you have multiple network interfaces, it's often important to be able to specify
+	/// which interface will actually be listened to messages. You can change it to IPv6, for example.
+	/// </summary>
+
+	static public IPAddress defaultListenerInterface = IPAddress.Any;
+
 	public enum Stage
 	{
 		NotConnected,
@@ -195,7 +202,7 @@ public class TcpProtocol : Player
 			{
 				lock (mConnecting)
 				{
-					mSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+					mSocket = new Socket(tcpEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 					mConnecting.Add(mSocket);
 				}
 
@@ -898,7 +905,11 @@ public class TcpProtocol : Player
 #if UNITY_EDITOR
 		Debug.LogError(ex.Message + "\n" + ex.StackTrace);
 #endif
-		RespondWithError(Buffer.Create(), ex.Message);
+		var buffer = Buffer.Create();
+		var error = ex.Message;
+		buffer.BeginPacket(Packet.Error).Write(error);
+		buffer.EndTcpPacketWithOffset(4);
+		lock (mIn) mIn.Enqueue(buffer);
 		LogError(ex.Message, ex.StackTrace, true);
 	}
 
@@ -908,6 +919,9 @@ public class TcpProtocol : Player
 
 	void RespondWithError (Buffer buffer, string error)
 	{
+#if UNITY_EDITOR
+		Debug.LogError(error);
+#endif
 		buffer.BeginPacket(Packet.Error).Write(error);
 		buffer.EndTcpPacketWithOffset(4);
 		lock (mIn) mIn.Enqueue(buffer);

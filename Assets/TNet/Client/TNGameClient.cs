@@ -45,7 +45,7 @@ public class GameClient : TNEvents
 	// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 	// UDP is not available in the Unity web player because using UDP packets makes Unity request the
 	// policy file every time the packet gets sent... which is obviously quite retarded.
-	UdpProtocol mUdp = new UdpProtocol();
+	UdpProtocol mUdp = new UdpProtocol("Game Client");
 	bool mUdpIsUsable = false;
 #endif
 
@@ -588,14 +588,30 @@ public class GameClient : TNEvents
 	public bool StartUDP (int udpPort)
 	{
 #if !UNITY_WEBPLAYER
-		if (mLocalServer == null && mUdp.Start(udpPort))
+		if (mLocalServer == null)
 		{
-			if (isConnected)
+			if (TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6 &&
+				UdpProtocol.defaultNetworkInterface.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
 			{
-				BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
-				EndSend();
+				if (mUdp.Start(udpPort, IPAddress.IPv6Any))
+				{
+					if (isConnected)
+					{
+						BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
+						EndSend();
+					}
+					return true;
+				}
 			}
-			return true;
+			else if (mUdp.Start(udpPort))
+			{
+				if (isConnected)
+				{
+					BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
+					EndSend();
+				}
+				return true;
+			}
 		}
 #endif
 		return false;
@@ -1254,6 +1270,9 @@ public class GameClient : TNEvents
 					mLocalServer = null;
 				}
 
+#if !UNITY_WEBPLAYER
+				mUdp.Stop();
+#endif
 				if (onDisconnect != null) onDisconnect();
 				mConfig = new DataNode("Version", Player.version);
 				break;
