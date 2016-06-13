@@ -111,7 +111,9 @@ public class UdpLobbyServer : LobbyServer
 					buffer = null;
 				}
 			}
-			Thread.Sleep(1);
+
+			try { Thread.Sleep(1); }
+			catch (System.Threading.ThreadInterruptedException) { return; }
 		}
 	}
 

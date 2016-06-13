@@ -565,7 +565,11 @@ public class GameServer : FileServer
 				if (mNextSave != 0 && mNextSave < mTime) Save();
 			}
 #if !SINGLE_THREADED
-			if (!received) Thread.Sleep(1);
+			if (!received)
+			{
+				try { Thread.Sleep(1); }
+				catch (System.Threading.ThreadInterruptedException) { return; }
+			}
 #endif
 		}
 	}

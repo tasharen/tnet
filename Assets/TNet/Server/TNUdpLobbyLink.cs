@@ -128,7 +128,9 @@ public class UdpLobbyServerLink : LobbyServerLink
 				mUdp.Send(buffer, mRemoteAddress);
 				buffer.Recycle();
 			}
-			Thread.Sleep(10);
+
+			try { Thread.Sleep(10); }
+			catch (System.Threading.ThreadInterruptedException) { return; }
 		}
 	}
 }

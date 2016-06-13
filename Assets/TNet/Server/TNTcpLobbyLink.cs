@@ -177,7 +177,9 @@ public class TcpLobbyServerLink : LobbyServerLink
 				mTcp.SendTcpPacket(buff);
 				buff.Recycle();
 			}
-			Thread.Sleep(10);
+
+			try { Thread.Sleep(10); }
+			catch (System.Threading.ThreadInterruptedException) { return; }
 		}
 	}
 }

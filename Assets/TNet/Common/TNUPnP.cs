@@ -470,7 +470,11 @@ public class UPnP
 
 	void OpenRequest (object obj)
 	{
-		while (mStatus == Status.Searching) Thread.Sleep(1);
+		while (mStatus == Status.Searching)
+		{
+			try { Thread.Sleep(1); }
+			catch (System.Threading.ThreadInterruptedException) { return; }
+		}
 		SendRequest((ExtraParams)obj);
 	}
 
@@ -487,7 +491,6 @@ public class UPnP
 	void SendRequest (ExtraParams xp)
 	{
 		string response = (mStatus == Status.Success) ? SendRequest(xp.action, xp.request, 10000, 3) : null;
-		UnityEngine.Debug.Log(mStatus + "\n" + response);
 		if (xp.callback != null)
 			xp.callback(this, xp.port, xp.protocol, !string.IsNullOrEmpty(response));
 		if (xp.th != null) lock (mThreads) mThreads.Remove(xp.th);

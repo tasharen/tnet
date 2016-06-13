@@ -286,7 +286,9 @@ public class TcpLobbyServer : LobbyServer
 				buffer.Recycle();
 				buffer = null;
 			}
-			Thread.Sleep(1);
+
+			try { Thread.Sleep(1); }
+			catch (System.Threading.ThreadInterruptedException) { return; }
 		}
 	}
 

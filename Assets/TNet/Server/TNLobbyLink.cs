@@ -112,7 +112,9 @@ public class LobbyServerLink
 					mNextSend = time + 3000;
 					mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
 				}
-				Thread.Sleep(10);
+
+				try { Thread.Sleep(10); }
+				catch (System.Threading.ThreadInterruptedException) { return; }
 			}
 		}
 		else mLobby.AddServer(mGameServer.name, mGameServer.playerCount, mInternal, mExternal);
