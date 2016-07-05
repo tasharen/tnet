@@ -1010,8 +1010,6 @@ public static class ComponentSerialization
 		}
 	}
 
-	static Dictionary<byte[], GameObject> mCachedBundles = new Dictionary<byte[], GameObject>();
-
 	/// <summary>
 	/// Instantiate a new game object given its previously serialized DataNode.
 	/// You can serialize game objects by using GameObject.Serialize(), but be aware that serializing only
@@ -1025,22 +1023,18 @@ public static class ComponentSerialization
 
 		if (assetBytes != null)
 		{
-			GameObject prefab;
+			AssetBundle ab = UnityTools.LoadAssetBundle(assetBytes);
 
-			if (!mCachedBundles.TryGetValue(assetBytes, out prefab))
+			if (ab != null)
 			{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-				AssetBundle qr = AssetBundle.CreateFromMemoryImmediate(assetBytes);
-#else
-				AssetBundle qr = AssetBundle.LoadFromMemory(assetBytes);
-#endif
-				if (qr != null) prefab = qr.mainAsset as GameObject;
-				if (prefab == null) prefab = new GameObject(data.name);
-				mCachedBundles[assetBytes] = prefab;
-			}
+				var go = ab.mainAsset as GameObject;
 
-			child = GameObject.Instantiate(prefab) as GameObject;
-			child.name = data.name;
+				if (go != null)
+				{
+					child = GameObject.Instantiate(go) as GameObject;
+					child.name = data.name;
+				}
+			}
 		}
 		else
 		{

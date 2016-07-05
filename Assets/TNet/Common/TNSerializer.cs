@@ -553,7 +553,7 @@ public static class Serialization
 		if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
 		{
 			if (go != null) return go.StringToReference((string)value);
-			else Debug.LogWarning("Game object reference is needed for a path-based reference");
+			else Debug.LogWarning("Game object reference is needed for a path-based reference (" + (string)value + ")");
 		}
  #if REFLECTION_SUPPORT
 		else if (valueType == typeof(string[]) && desiredType.IsArray)

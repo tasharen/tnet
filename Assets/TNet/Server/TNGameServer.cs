@@ -143,7 +143,31 @@ public class GameServer : FileServer
 	/// Whether the server is listening for incoming connections.
 	/// </summary>
 
-	public bool isListening { get { return (mListener != null); } set { Listen(value ? mListenerPort : 0); } }
+	public bool isListening
+	{
+		get
+		{
+			return (mListener != null);
+		}
+		set
+		{
+			if (isListening != value)
+			{
+				if (Listen(value ? mListenerPort : 0))
+				{
+					if (lobbyLink != null)
+					{
+						lobbyLink.Start();
+						lobbyLink.SendUpdate(this);
+					}
+				}
+				else if (lobbyLink != null)
+				{
+					lock (mLock) { if (lobbyLink != null) lobbyLink.Stop(); }
+				}
+			}
+		}
+	}
 
 	/// <summary>
 	/// Port used for listening to incoming connections. Set when the server is started.
@@ -357,12 +381,6 @@ public class GameServer : FileServer
 	}
 
 	/// <summary>
-	/// Stop listening to incoming connections but keep the server running.
-	/// </summary>
-
-	public void MakePrivate () { mListenerPort = 0; }
-
-	/// <summary>
 	/// Thread that will be processing incoming data.
 	/// </summary>
 
@@ -388,43 +406,30 @@ public class GameServer : FileServer
 				mTime = DateTime.UtcNow.Ticks / 10000;
 				IPEndPoint ip;
 
-				// Stop the listener if the port is 0 (MakePrivate() was called)
-				if (mListenerPort == 0)
+				// Add all pending connections
+				while (mListener != null && mListener.Pending())
 				{
-					if (mListener != null)
-					{
-						mListener.Stop();
-						mListener = null;
-						if (lobbyLink != null) lobbyLink.Stop();
-					}
-				}
-				else
-				{
-					// Add all pending connections
-					while (mListener != null && mListener.Pending())
-					{
-						Socket socket = mListener.AcceptSocket();
+					Socket socket = mListener.AcceptSocket();
 
-						try
+					try
+					{
+						if (socket != null && socket.Connected)
 						{
-							if (socket != null && socket.Connected)
-							{
-								IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
+							IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
 
-								if (remote == null || mBan.Contains(remote.Address.ToString()))
-								{
-									socket.Close();
-								}
-								else AddPlayer(socket);
+							if (remote == null || mBan.Contains(remote.Address.ToString()))
+							{
+								socket.Close();
 							}
+							else AddPlayer(socket);
 						}
-						catch (Exception)
+					}
+					catch (Exception)
+					{
+						if (socket != null)
 						{
-							if (socket != null)
-							{
-								try { socket.Close(); }
-								catch (Exception) { }
-							}
+							try { socket.Close(); }
+							catch (Exception) { }
 						}
 					}
 				}

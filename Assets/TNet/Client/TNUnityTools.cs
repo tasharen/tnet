@@ -825,5 +825,28 @@ static public class UnityTools
 		byte[] hash = md5.ComputeHash(bytes);
 		return System.BitConverter.ToString(hash).Replace("-", "").ToLower();
 	}
+
+	static System.Collections.Generic.Dictionary<byte[], AssetBundle> mCachedBundles =
+		new System.Collections.Generic.Dictionary<byte[], AssetBundle>();
+
+	/// <summary>
+	/// Load an asset bundle, given its bytes. The value gets cached so that it's reused.
+	/// </summary>
+
+	static public AssetBundle LoadAssetBundle (byte[] assetBytes)
+	{
+		AssetBundle ab;
+
+		if (!mCachedBundles.TryGetValue(assetBytes, out ab))
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
+			ab = AssetBundle.CreateFromMemoryImmediate(assetBytes);
+#else
+			ab = AssetBundle.LoadFromMemory(assetBytes);
+#endif
+			mCachedBundles[assetBytes] = ab;
+		}
+		return ab;
+	}
 }
 }

@@ -346,7 +346,7 @@ static public class FieldOrPropertyExtensions
 	static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
 	{
 		var fp = obj.GetProperty(name);
-		if (fp != null) fp.SetValue(obj, val, go);
+		if (fp != null) fp.SetValue(obj, val);
 	}
 #else
 	static public void SetFieldOrPropertyValue (this object obj, string name, object val, GameObject go = null)

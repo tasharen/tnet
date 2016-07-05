@@ -64,7 +64,7 @@ public class TNServerInstance : MonoBehaviour
 	/// Whether the server is currently listening for incoming connections.
 	/// </summary>
 
-	static public bool isListening { get { return (mInstance != null) && mInstance.mGame.isListening; } }
+	static public bool isListening { get { return (mInstance != null) && mInstance.mGame.isListening; } set { if (mInstance != null) mInstance.mGame.isListening = value; } }
 
 	/// <summary>
 	/// Local server instance -- doesn't use sockets.
@@ -299,7 +299,8 @@ public class TNServerInstance : MonoBehaviour
 	/// Make the server private by no longer accepting new connections.
 	/// </summary>
 
-	static public void MakePrivate () { if (mInstance != null) mInstance.mGame.MakePrivate(); }
+	[System.Obsolete("Use 'isListening = false' instead")]
+	static public void MakePrivate () { if (mInstance != null) mInstance.mGame.isListening = false; }
 
 	/// <summary>
 	/// Stop everything.

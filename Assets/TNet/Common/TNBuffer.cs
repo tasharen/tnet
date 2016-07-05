@@ -460,14 +460,14 @@ public class Buffer
 	/// Peek at the first byte at the specified offset.
 	/// </summary>
 
-	public int PeekByte (int offset)
+	public int PeekByte (int pos)
 	{
 		int val = 0;
-		long pos = mStream.Position;
-		if (offset < 0 || offset + 1 > size) return -1;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		val = mReader.ReadByte();
+		long oldPos = mStream.Position;
+		if (pos < 0 || pos + 1 > size) return -1;
 		mStream.Seek(pos, SeekOrigin.Begin);
+		val = mReader.ReadByte();
+		mStream.Seek(oldPos, SeekOrigin.Begin);
 		return val;
 	}
 
@@ -475,14 +475,14 @@ public class Buffer
 	/// Peek at the first integer at the specified offset.
 	/// </summary>
 
-	public int PeekInt (int offset)
+	public int PeekInt (int pos)
 	{
 		int val = 0;
-		long pos = mStream.Position;
-		if (offset < 0 || offset + 4 > size) return -1;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		val = mReader.ReadInt32();
+		long oldPos = mStream.Position;
+		if (pos < 0 || pos + 4 > size) return -1;
 		mStream.Seek(pos, SeekOrigin.Begin);
+		val = mReader.ReadInt32();
+		mStream.Seek(oldPos, SeekOrigin.Begin);
 		return val;
 	}
 
@@ -490,14 +490,14 @@ public class Buffer
 	/// Peek-read the specified number of bytes.
 	/// </summary>
 
-	public byte[] PeekBytes (int offset, int length)
+	public byte[] PeekBytes (int pos, int length)
 	{
 		byte[] bytes = null;
-		long pos = mStream.Position;
-		if (offset < 0 || offset + length > pos) return null;
-		mStream.Seek(offset, SeekOrigin.Begin);
-		bytes = mReader.ReadBytes(length);
+		long oldPos = mStream.Position;
+		if (pos < 0 || pos + length > size) return null;
 		mStream.Seek(pos, SeekOrigin.Begin);
+		bytes = mReader.ReadBytes(length);
+		mStream.Seek(oldPos, SeekOrigin.Begin);
 		return bytes;
 	}
 
