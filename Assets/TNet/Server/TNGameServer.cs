@@ -280,13 +280,12 @@ public class GameServer : FileServer
 				mBan.RemoveAt(i);
 		}
 
-		Tools.Log("Admins: " + mAdmin.size);
-		Tools.Log("Bans: " + mBan.size);
-
 		if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
-#if STANDALONE
+#if STANDALONE || UNITY_EDITOR
 		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
+		Tools.Print("Admins: " + mAdmin.size);
+		Tools.Print("Bans: " + mBan.size);
 #endif
 		if (udpPort > 0)
 		{
@@ -378,6 +377,7 @@ public class GameServer : FileServer
 		mLocalClient = null;
 #endif
 		mIsActive = false;
+		mListenerPort = 0;
 	}
 
 	/// <summary>
