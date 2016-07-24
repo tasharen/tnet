@@ -173,16 +173,27 @@ static public class Tools
 
 				if (!string.IsNullOrEmpty(hn))
 				{
-					IPAddress[] ips = Dns.GetHostAddresses(hn);
-
-					if (ips != null)
+					try
 					{
-						foreach (IPAddress ad in ips)
+						IPAddress[] ips = Dns.GetHostAddresses(hn);
+
+						if (ips != null)
 						{
-							if (IsValidAddress(ad) && !mAddresses.Contains(ad))
-								mAddresses.Add(ad);
+							foreach (IPAddress ad in ips)
+							{
+								if (IsValidAddress(ad) && !mAddresses.Contains(ad))
+									mAddresses.Add(ad);
+							}
 						}
 					}
+#if UNITY_EDITOR
+					catch (System.Exception ex)
+					{
+						UnityEngine.Debug.LogWarning(ex.Message + " (" + hn + ")");
+					}
+#else
+					catch (System.Exception) {}
+#endif
 				}
 #endif
 				// If everything else fails, simply use the loopback address

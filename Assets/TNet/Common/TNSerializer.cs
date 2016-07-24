@@ -398,6 +398,7 @@ public static class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(long)value;
 			if (desiredType == typeof(ulong)) return (ulong)(long)value;
+			if (desiredType == typeof(DateTime)) return new DateTime((long)value, DateTimeKind.Utc);
 		}
 		else if (valueType == typeof(ulong))
 		{
@@ -446,6 +447,13 @@ public static class Serialization
 			{
 				Color c = (Color)value;
 				return new Vector4(c.r, c.g, c.b, c.a);
+			}
+		}
+		else if (valueType == typeof(DateTime))
+		{
+			if (desiredType == typeof(long))
+			{
+				return ((DateTime)value).Ticks;
 			}
 		}
 #if !STANDALONE
@@ -1048,7 +1056,8 @@ public static class Serialization
 			return true;
 		}
 
-		if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) || type == typeof(short) || type == typeof(ushort))
+		if (type == typeof(Int32) || type == typeof(UInt32) || type == typeof(byte) ||
+			type == typeof(short) || type == typeof(ushort) || type == typeof(long) || type == typeof(ulong))
 		{
 			if (prefix) writer.Write(" = ");
 			writer.Write(value.ToString());
@@ -1081,10 +1090,10 @@ public static class Serialization
 			return true;
 		}
 
-		if (type == typeof(long) || type == typeof(ulong))
+		if (type == typeof(DateTime))
 		{
 			if (prefix) writer.Write(" = ");
-			writer.Write(value.ToString());
+			writer.Write(((DateTime)value).Ticks.ToString());
 			return true;
 		}
 
@@ -1747,9 +1756,14 @@ public static class Serialization
 		// AnimationCurve should be sent as an array of Vector4 values since it's not serializable on its own
 		if (obj is AnimationCurve) obj = Convert<Vector4[]>(obj);
 #endif
-		// The object implements IBinarySerializable
-		if (obj is IBinarySerializable)
+		if (obj is DateTime)
 		{
+			// Convert date to ticks
+			obj = ((DateTime)obj).Ticks;
+		}
+		else if (obj is IBinarySerializable)
+		{
+			// The object implements IBinarySerializable
 			if (!typeIsKnown) bw.Write(253, obj.GetType());
 			(obj as IBinarySerializable).Serialize(bw);
 			return;

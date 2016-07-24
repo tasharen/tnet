@@ -280,12 +280,13 @@ public class GameServer : FileServer
 				mBan.RemoveAt(i);
 		}
 
+		Tools.Log("Admins: " + mAdmin.size);
+		Tools.Log("Bans: " + mBan.size);
+
 		if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
-#if STANDALONE || UNITY_EDITOR
+#if STANDALONE
 		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
-		Tools.Print("Admins: " + mAdmin.size);
-		Tools.Print("Bans: " + mBan.size);
 #endif
 		if (udpPort > 0)
 		{
@@ -377,7 +378,6 @@ public class GameServer : FileServer
 		mLocalClient = null;
 #endif
 		mIsActive = false;
-		mListenerPort = 0;
 	}
 
 	/// <summary>
@@ -1298,12 +1298,12 @@ public class GameServer : FileServer
 		Packet request = (Packet)reader.ReadByte();
 
 #if DEBUG_PACKETS && !STANDALONE
- #if !SINGLE_THREADED
-        if (request != Packet.RequestPing && request != Packet.ResponsePing)
-            Tools.Print("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
- #elif UNITY_EDITOR
+ #if UNITY_EDITOR
 		if (request != Packet.RequestPing && request != Packet.ResponsePing)
 			UnityEngine.Debug.Log("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
+ #elif !SINGLE_THREADED
+		if (request != Packet.RequestPing && request != Packet.ResponsePing)
+			Tools.Print("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
  #endif
 #endif
 		switch (request)
@@ -2034,6 +2034,20 @@ public class GameServer : FileServer
 		}
 		else
 		{
+			if (s.Length == 17 && s.StartsWith("7656"))
+			{
+				long sid;
+
+				if (long.TryParse(s, out sid))
+				{
+					if (sid > 76561199999999999)
+					{
+						player.Log("FAILED a ban check: " + s);
+						return false;
+					}
+				}
+			}
+
 			player.Log("Passed a ban check: " + s);
 			if (player.aliases == null) player.aliases = new List<string>();
 			AddUnique(player.aliases, s);

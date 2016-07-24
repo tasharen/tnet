@@ -1,7 +1,7 @@
 -----------------------------------------------------
         TNet: Tasharen Networking Framework
   Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.2
+                  Version 3.0.3
        http://www.tasharen.com/?page_id=4518
 -----------------------------------------------------
 
@@ -108,6 +108,11 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.3
+- NEW: Added a robust WorkerThread class that can be used as a simple to use thread pool: WorkerThread.Create(delegate, <optional>), where <optional> delegate will be executed on the main thread when the threaded delegate finishes.
+- FIX: TCP lobby client's error string will be cleared when reconnected.
+- FIX: TNSerializer will now serialize DateTime as a long.
 
 3.0.2
 - NEW: Full IPv6 support.

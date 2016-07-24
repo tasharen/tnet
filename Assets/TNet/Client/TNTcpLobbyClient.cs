@@ -85,12 +85,14 @@ public class TNTcpLobbyClient : TNLobbyClient
 						knownServers.Clear();
 						isActive = false;
 						changed = true;
+						errorString = "";
 					}
 					else if (response == Packet.ResponseServerList)
 					{
 						lock (knownServers.list) knownServers.list.Clear();
 						knownServers.ReadFrom(reader, time);
 						changed = true;
+						errorString = "";
 					}
 					else if (response == Packet.Error)
 					{

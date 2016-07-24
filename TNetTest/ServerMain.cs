@@ -232,6 +232,7 @@ public class Application : IDisposable
 		bool tcpLobby = false;
 		bool service = false;
 		bool http = false;
+		string fn = "server.dat";
 
 		for (int i = 0; i < args.Length; )
 		{
@@ -305,6 +306,10 @@ public class Application : IDisposable
 			{
 				Tools.applicationDirectory = val1;
 			}
+			else if (param == "-fn")
+			{
+				fn = val1;
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;
@@ -313,7 +318,7 @@ public class Application : IDisposable
 
 		TcpProtocol.httpGetSupport = http;
 		Application app = new Application();
-		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service);
+		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, fn);
 		return 0;
 	}
 }
