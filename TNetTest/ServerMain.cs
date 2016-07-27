@@ -232,6 +232,7 @@ public class Application : IDisposable
 		bool tcpLobby = false;
 		bool service = false;
 		bool http = false;
+		bool useIPv6 = false;
 		string fn = "server.dat";
 
 		for (int i = 0; i < args.Length; )
@@ -310,12 +311,17 @@ public class Application : IDisposable
 			{
 				fn = val1;
 			}
+			else if (param == "-ipv6" || param == "-IPv6")
+			{
+				useIPv6 = true;
+			}
 
 			if (val1 != null) i += 3;
 			else if (val0 != null) i += 2;
 			else ++i;
 		}
 
+		TcpProtocol.defaultListenerInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
 		TcpProtocol.httpGetSupport = http;
 		Application app = new Application();
 		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, fn);
