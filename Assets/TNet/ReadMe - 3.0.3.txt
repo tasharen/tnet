@@ -1,9 +1,9 @@
------------------------------------------------------
-        TNet: Tasharen Networking Framework
-  Copyright © 2012-2016 Tasharen Entertainment Inc.
+------------------------------------------------------------
+   TNet 3: Tasharen's Networking and Serialization Tools
+     Copyright © 2012-2016 Tasharen Entertainment Inc.
                   Version 3.0.3
        http://www.tasharen.com/?page_id=4518
------------------------------------------------------
+------------------------------------------------------------
 
 Thank you for buying TNet!
 
@@ -113,6 +113,8 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added a robust WorkerThread class that can be used as a simple to use thread pool: WorkerThread.Create(delegate, <optional>), where <optional> delegate will be executed on the main thread when the threaded delegate finishes.
 - FIX: TCP lobby client's error string will be cleared when reconnected.
 - FIX: TNSerializer will now serialize DateTime as a long.
+- FIX: TNManager.Connect(address) now supports IPv6 just like TNManager.Connect(address, port) already did.
+- FIX: Tools.externalAddress will now reveal an IPv6 address if using IPv6.
 
 3.0.2
 - NEW: Full IPv6 support.

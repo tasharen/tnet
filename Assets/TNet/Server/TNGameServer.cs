@@ -2134,16 +2134,12 @@ public class GameServer : FileServer
 			// If the request should be saved, let's do so
 			if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 			{
-				if (ch.isLocked && !player.isAdmin)
+				if (!ch.isLocked || player.isAdmin)
 				{
-					player.LogError("Tried to call a persistent RFC while the channel is locked", null);
-					RemovePlayer(player);
-					return;
+					uint target = reader.ReadUInt32();
+					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+					ch.AddRFC(target, funcName, buffer);
 				}
-
-				uint target = reader.ReadUInt32();
-				string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-				ch.AddRFC(target, funcName, buffer);
 			}
 
 			buffer.position = start;
@@ -2189,7 +2185,7 @@ public class GameServer : FileServer
 				Channel ch = player.GetChannel(channelID);
 				byte type = reader.ReadByte();
 
-				if (ch != null && !ch.isLocked)
+				if (ch != null && (!ch.isLocked || player.isAdmin))
 				{
 					uint uniqueID = 0;
 
@@ -2225,7 +2221,7 @@ public class GameServer : FileServer
 				Channel ch = player.GetChannel(reader.ReadInt32());
 				uint objectID = reader.ReadUInt32();
 
-				if (ch != null && !ch.isLocked && ch.DestroyObject(objectID))
+				if (ch != null && (!ch.isLocked || player.isAdmin) && ch.DestroyObject(objectID))
 				{
 					// Inform all players in the channel that the object should be destroyed
 					BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
@@ -2314,7 +2310,7 @@ public class GameServer : FileServer
 				string lvl = reader.ReadString();
 
 				// Change the currently loaded level
-				if (ch.host == player && ch != null && !ch.isLocked)
+				if (ch.host == player && ch != null && (!ch.isLocked || player.isAdmin))
 				{
 					ch.Reset();
 					ch.level = lvl;
@@ -2431,7 +2427,7 @@ public class GameServer : FileServer
 				Channel ch = player.GetChannel(reader.ReadInt32());
 				uint id = reader.ReadUInt32();
 				string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
-				if (ch != null && (player.isAdmin || !ch.isLocked))
+				if (ch != null && (!ch.isLocked || player.isAdmin))
 					ch.DeleteRFC(id, funcName);
 				break;
 			}
@@ -2443,31 +2439,23 @@ public class GameServer : FileServer
 				bool isNew;
 				Channel ch = CreateChannel(reader.ReadInt32(), out isNew);
 
-				if (ch != null)
+				if (ch != null && (!ch.isLocked || player.isAdmin))
 				{
-					if (player.isAdmin || !ch.isLocked)
+					if (ch.players.size == 0) ch.persistent = true;
+					if (ch.dataNode == null) ch.dataNode = new DataNode("Version", Player.version);
+
+					// Set the local data
+					ch.dataNode.SetHierarchy(reader.ReadString(), reader.ReadObject());
+
+					// Change the packet type to a response before sending it as-is
+					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetChannelData;
+					buffer.position = origin;
+
+					// Forward the packet to everyone in this channel
+					for (int i = 0; i < mPlayerList.size; ++i)
 					{
-						if (ch.players.size == 0) ch.persistent = true;
-						if (ch.dataNode == null) ch.dataNode = new DataNode("Version", Player.version);
-
-						// Set the local data
-						ch.dataNode.SetHierarchy(reader.ReadString(), reader.ReadObject());
-
-						// Change the packet type to a response before sending it as-is
-						buffer.buffer[origin + 4] = (byte)Packet.ResponseSetChannelData;
-						buffer.position = origin;
-
-						// Forward the packet to everyone in this channel
-						for (int i = 0; i < mPlayerList.size; ++i)
-						{
-							TcpPlayer tp = mPlayerList[i];
-							tp.SendTcpPacket(buffer);
-						}
-					}
-					else
-					{
-						player.LogError("Tried to set channel data in a locked channel", null);
-						RemovePlayer(player);
+						TcpPlayer tp = mPlayerList[i];
+						tp.SendTcpPacket(buffer);
 					}
 				}
 				break;

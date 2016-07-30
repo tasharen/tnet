@@ -759,14 +759,6 @@ public sealed class TNObject : MonoBehaviour
 #endif
 		if (mDestroyed) return;
 
-		if ((target == Target.AllSaved || target == Target.Others) && TNManager.IsChannelLocked(channelID))
-		{
-#if UNITY_EDITOR
-			Debug.LogError("Can't send persistent RFCs while in a locked channel");
-#endif
-			return;
-		}
-
 		// Some very odd special case... sending a string[] as the only parameter
 		// results in objs[] being a string[] instead, when it should be object[string[]].
 		if (objs != null && objs.GetType() != typeof(object[]))

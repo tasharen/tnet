@@ -525,6 +525,7 @@ public class DataNode
 		{
 			byte ch = data[i];
 			if (ch >= '!' && ch <= '~') continue;
+			if (ch == ' ') continue;
 			return SaveType.Binary;
 		}
 		return SaveType.Text;
