@@ -222,11 +222,19 @@ static public class Tools
 
 					for (int i = 0; i < mAddresses.size; ++i)
 					{
-						IPAddress addr = mAddresses[i];
-						string str = addr.ToString();
+						var addr = mAddresses[i];
+						var fam = addr.AddressFamily;
 
-						// Hamachi IPs begin with 25
-						if (str.StartsWith("25.")) continue;
+						if (fam == AddressFamily.InterNetwork)
+						{
+							// Hamachi IPs begin with 25
+							if (addr.ToString().StartsWith("25.")) continue;
+						}
+						else if (fam == AddressFamily.InterNetworkV6)
+						{
+							// LAN IPv6 addresses start with "fe" -- so we want one of those
+							if (!addr.ToString().ToLower().StartsWith("fe")) continue;
+						}
 
 						// This is a valid address
 						mLocalAddress = addr;
@@ -265,7 +273,10 @@ static public class Tools
 		get
 		{
 			if (mExternalAddress == null)
-				mExternalAddress = GetExternalAddress();
+			{
+				if (localAddress.AddressFamily == AddressFamily.InterNetworkV6) ResolveExternalIPv6Address();
+				else ResolveExternalIPv4Address();
+			}
 			return mExternalAddress != null ? mExternalAddress : localAddress;
 		}
 	}
@@ -327,34 +338,48 @@ static public class Tools
 	}
 
 	/// <summary>
-	/// Determine the external IP address by accessing an external web site.
+	/// Determine the external IPv4 address by accessing an external web site.
 	/// </summary>
 
-	static IPAddress GetExternalAddress ()
+	static void ResolveExternalIPv4Address ()
 	{
-		if (mExternalAddress != null) return mExternalAddress;
+#if !UNITY_WEBPLAYER
+		if (ResolveExternalIP(ipCheckerUrl)) return;
+		if (ResolveExternalIP("http://icanhazip.com")) return;
+		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
+		if (ResolveExternalIP("http://ipinfo.io/ip")) return;
 
-#if UNITY_WEBPLAYER
-		// HttpWebRequest.Create is not supported in the Unity web player
-		return localAddress;
-#else
-		if (ResolveExternalIP(ipCheckerUrl)) return mExternalAddress;
-
-		if (localAddress.AddressFamily == AddressFamily.InterNetworkV6)
-		{
-			if (ResolveExternalIP("http://ipv6.icanhazip.com")) return mExternalAddress;
-		}
-		else
-		{
-			if (ResolveExternalIP("http://icanhazip.com")) return mExternalAddress;
-			if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return mExternalAddress;
-			if (ResolveExternalIP("http://ipinfo.io/ip")) return mExternalAddress;
-		}
  #if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
  #endif
-		return localAddress;
 #endif
+		mExternalAddress = localAddress;
+	}
+
+	/// <summary>
+	/// Determine the external IPv6 address from the list of local interfaces.
+	/// </summary>
+
+	static void ResolveExternalIPv6Address ()
+	{
+		var locals = localAddresses;
+
+		for (int i = 0; i < locals.size; ++i)
+		{
+			var local = locals[i];
+			if (local.AddressFamily != AddressFamily.InterNetworkV6) continue;
+
+			// LAN IPs start with "fe", such as "fe8" through "feb" for private LAN
+			// and "fec" through "fff" for site-local addresses.
+			var str = local.ToString().ToLower();
+			if (str.StartsWith("fe")) continue;
+
+			mExternalAddress = local;
+			isExternalIPReliable = true;
+			return;
+		}
+		
+		mExternalAddress = localAddress;
 	}
 
 	/// <summary>
@@ -404,9 +429,7 @@ static public class Tools
 	static public IPAddress ResolveAddress (string address)
 	{
 		address = address.Trim();
-		if (string.IsNullOrEmpty(address))
-			return null;
-
+		if (string.IsNullOrEmpty(address)) return null;
 		if (address == "localhost") return IPAddress.Loopback;
 
 		IPAddress ip;
