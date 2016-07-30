@@ -114,6 +114,7 @@ http://www.tasharen.com/?page_id=4518
 - FIX: TCP lobby client's error string will be cleared when reconnected.
 - FIX: TNSerializer will now serialize DateTime as a long.
 - FIX: TNManager.Connect(address) now supports IPv6 just like TNManager.Connect(address, port) already did.
+- FIX: More tweaks to IPv6, making it more robust.
 - FIX: Tools.externalAddress will now reveal an IPv6 address if using IPv6.
 
 3.0.2

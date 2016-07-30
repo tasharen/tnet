@@ -178,7 +178,7 @@ public class UPnP
 						sender = null;
 
 						mGatewayAddress = sourceAddress.Address;
-#if STANDALONE
+#if STANDALONE || UNITY_EDITOR
 						Tools.Print("UPnP Gateway: " + mGatewayAddress);
 #endif
 						mStatus = Status.Success;
@@ -197,7 +197,7 @@ public class UPnP
 			catch (System.Exception) { if (sender != null) sender.Close(); }
 #endif
 			mStatus = Status.Failure;
-#if STANDALONE
+#if STANDALONE || UNITY_EDITOR
 			Tools.Print("UPnP Gateway: Not found");
 #endif
 			// If we found one, we're done
@@ -379,9 +379,6 @@ public class UPnP
 				string addr = Tools.localAddress.ToString();
 				if (addr == "127.0.0.1") return;
 
-#if UNITY_EDITOR
-				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port + " on " + addr);
-#endif
 				mPorts.Add(id);
 
 				ExtraParams xp = new ExtraParams();
