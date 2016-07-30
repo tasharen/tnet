@@ -267,7 +267,11 @@ public static class ComponentSerialization
 		if (ren.probeAnchor != null) root.AddChild("probeAnchor", ren.gameObject.ReferenceToString(ren.probeAnchor));
 #endif
 		root.AddChild("receiveShadows", ren.receiveShadows);
+#if UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3
 		root.AddChild("useLightProbes", ren.useLightProbes);
+#else
+		root.AddChild("lightProbeUsage", (byte)ren.lightProbeUsage);
+#endif
 
 		Material[] mats = ren.sharedMaterials;
 		if (mats == null || mats.Length == 0) return;
@@ -371,7 +375,22 @@ public static class ComponentSerialization
 		ren.reflectionProbeUsage = data.GetChild<UnityEngine.Rendering.ReflectionProbeUsage>("reflectionProbes", ren.reflectionProbeUsage);
 #endif
 		ren.receiveShadows = data.GetChild<bool>("receiveShadows", ren.receiveShadows);
+#if UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3
 		ren.useLightProbes = data.GetChild<bool>("useLightProbes", ren.useLightProbes);
+#else
+		var lpu = data.GetChild("lightProbeUsage");
+
+		if (lpu != null)
+		{
+			ren.lightProbeUsage = (UnityEngine.Rendering.LightProbeUsage)lpu.Get<byte>((byte)ren.lightProbeUsage);
+		}
+		else
+		{
+			// Pre-Unity 5.4 format
+			ren.lightProbeUsage = data.GetChild<bool>("useLightProbes", ren.lightProbeUsage != UnityEngine.Rendering.LightProbeUsage.Off) ?
+				UnityEngine.Rendering.LightProbeUsage.BlendProbes : UnityEngine.Rendering.LightProbeUsage.Off;
+		}
+#endif
 
 		DataNode matRoot = data.GetChild("Materials");
 
