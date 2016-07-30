@@ -785,8 +785,8 @@ public class TNManager : MonoBehaviour
 	{
 		string[] split = address.Split(new char[] { ':' });
 		int port = 5127;
-		if (split.Length > 1) int.TryParse(split[1], out port);
-		Connect(split[0], port);
+		if (split.Length == 2 && int.TryParse(split[1], out port)) Connect(split[0], port);
+		else Connect(address, port);
 	}
 
 	/// <summary>

@@ -339,9 +339,17 @@ static public class Tools
 		return localAddress;
 #else
 		if (ResolveExternalIP(ipCheckerUrl)) return mExternalAddress;
-		if (ResolveExternalIP("http://icanhazip.com")) return mExternalAddress;
-		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return mExternalAddress;
-		if (ResolveExternalIP("http://ipinfo.io/ip")) return mExternalAddress;
+
+		if (localAddress.AddressFamily == AddressFamily.InterNetworkV6)
+		{
+			if (ResolveExternalIP("http://ipv6.icanhazip.com")) return mExternalAddress;
+		}
+		else
+		{
+			if (ResolveExternalIP("http://icanhazip.com")) return mExternalAddress;
+			if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return mExternalAddress;
+			if (ResolveExternalIP("http://ipinfo.io/ip")) return mExternalAddress;
+		}
  #if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
  #endif
