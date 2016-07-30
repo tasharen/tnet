@@ -138,18 +138,21 @@ static public class Tools
 					for (int i = list.size; i > 0; )
 					{
 						NetworkInterface ni = list[--i];
-						if (ni == null) continue;
+						if (ni == null || ni.OperationalStatus != OperationalStatus.Up) continue;
 
 						IPInterfaceProperties props = ni.GetIPProperties();
 						if (props == null) continue;
 
-						//if (ni.NetworkInterfaceType == NetworkInterfaceType.Unknown) continue;
-
 						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
 						if (uniAddresses == null) continue;
 
+						//UnityEngine.Debug.Log("Name: " + ni.Name + " (" + ni.Description + ")\n" +
+						//	"Type: " + ni.NetworkInterfaceType + ", multicast: " + ni.SupportsMulticast + ", gateways: " + props.GatewayAddresses.Count);
+
 						foreach (UnicastIPAddressInformation uni in uniAddresses)
 						{
+							//UnityEngine.Debug.Log("    " + uni.Address + " -- " + IsValidAddress(uni.Address));
+
 							// BUG: Accessing 'uni.Address' crashes when executed in a stand-alone build in Unity,
 							// yet works perfectly fine when launched from within the Unity Editor or any other platform.
 							// The stack trace reads:
@@ -158,6 +161,8 @@ static public class Tools
 							// at (wrapper managed-to-native) System.Runtime.InteropServices.Marshal:PtrToStructure (intptr,System.Type)
 							// at System.Net.NetworkInformation.Win32_SOCKET_ADDRESS.GetIPAddress () [0x00000] in <filename unknown>:0 
 							// at System.Net.NetworkInformation.Win32UnicastIPAddressInformation.get_Address () [0x00000] in <filename unknown>:0
+							//
+							// NOTE: This seems to be fixed in Unity 5.4
 
 							if (IsValidAddress(uni.Address))
 								mAddresses.Add(uni.Address);
@@ -168,32 +173,35 @@ static public class Tools
 #endif
 #if !UNITY_IPHONE && !UNITY_EDITOR_OSX && !UNITY_STANDALONE_OSX && !UNITY_WINRT
 				// Fallback method. This won't work on the iPhone, but seems to be needed on some platforms
-				// where GetIPProperties either fails, or Unicast.Addres access throws an exception.
-				string hn = Dns.GetHostName();
-
-				if (!string.IsNullOrEmpty(hn))
+				// where GetIPProperties either fails, or Unicast.Address access throws an exception.
+				if (mAddresses.size == 0)
 				{
-					try
-					{
-						IPAddress[] ips = Dns.GetHostAddresses(hn);
+					string hn = Dns.GetHostName();
 
-						if (ips != null)
+					if (!string.IsNullOrEmpty(hn))
+					{
+						try
 						{
-							foreach (IPAddress ad in ips)
+							IPAddress[] ips = Dns.GetHostAddresses(hn);
+
+							if (ips != null)
 							{
-								if (IsValidAddress(ad) && !mAddresses.Contains(ad))
-									mAddresses.Add(ad);
+								foreach (IPAddress ad in ips)
+								{
+									if (IsValidAddress(ad) && !mAddresses.Contains(ad))
+										mAddresses.Add(ad);
+								}
 							}
 						}
+ #if UNITY_EDITOR
+						catch (System.Exception ex)
+						{
+							UnityEngine.Debug.LogWarning(ex.Message + " (" + hn + ")");
+						}
+ #else
+						catch (System.Exception) {}
+ #endif
 					}
-#if UNITY_EDITOR
-					catch (System.Exception ex)
-					{
-						UnityEngine.Debug.LogWarning(ex.Message + " (" + hn + ")");
-					}
-#else
-					catch (System.Exception) {}
-#endif
 				}
 #endif
 				// If everything else fails, simply use the loopback address
@@ -224,6 +232,9 @@ static public class Tools
 					{
 						var addr = mAddresses[i];
 						var fam = addr.AddressFamily;
+
+						// Skip IPv6 addresses when using IPv4 and vice versa
+						if (fam != TcpProtocol.defaultListenerInterface.AddressFamily) continue;
 
 						if (fam == AddressFamily.InterNetwork)
 						{
@@ -345,9 +356,9 @@ static public class Tools
 	{
 #if !UNITY_WEBPLAYER
 		if (ResolveExternalIP(ipCheckerUrl)) return;
-		if (ResolveExternalIP("http://icanhazip.com")) return;
-		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
+		if (ResolveExternalIP("http://ipv4.icanhazip.com")) return;
 		if (ResolveExternalIP("http://ipinfo.io/ip")) return;
+		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
 
  #if UNITY_EDITOR
 		UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
@@ -367,18 +378,21 @@ static public class Tools
 		for (int i = 0; i < locals.size; ++i)
 		{
 			var local = locals[i];
-			if (local.AddressFamily != AddressFamily.InterNetworkV6) continue;
 
-			// LAN IPs start with "fe", such as "fe8" through "feb" for private LAN
-			// and "fec" through "fff" for site-local addresses.
-			var str = local.ToString().ToLower();
-			if (str.StartsWith("fe")) continue;
+			if (local.AddressFamily != AddressFamily.InterNetworkV6) continue;
+			if (local.IsIPv6LinkLocal) continue; // LAN address
 
 			mExternalAddress = local;
 			isExternalIPReliable = true;
 			return;
 		}
-		
+
+#if !UNITY_WEBPLAYER
+		if (ResolveExternalIP(ipCheckerUrl)) return;
+		if (ResolveExternalIP("http://ipv6.icanhazip.com")) return;
+		if (ResolveExternalIP("http://ipinfo.io/ip")) return;
+		if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
+#endif
 		mExternalAddress = localAddress;
 	}
 
@@ -397,7 +411,7 @@ static public class Tools
 			string text = web.DownloadString(url).Trim();
 			mExternalAddress = ResolveAddress(text);
 
-			if (mExternalAddress != null)
+			if (mExternalAddress != null && localAddress.AddressFamily == mExternalAddress.AddressFamily)
 			{
 				isExternalIPReliable = true;
 				return true;
@@ -414,11 +428,12 @@ static public class Tools
 
 	static public bool IsValidAddress (IPAddress address)
 	{
-		if (address.AddressFamily != TcpProtocol.defaultListenerInterface.AddressFamily) return false;
+		if (address.IsIPv6SiteLocal) return false;
+		if (address.IsIPv6Multicast) return false;
 		if (address.Equals(IPAddress.Loopback) || address.Equals(IPAddress.IPv6Loopback)) return false;
 		if (address.Equals(IPAddress.None) || address.Equals(IPAddress.IPv6None)) return false;
 		if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.IPv6Any)) return false;
-		if (address.ToString().StartsWith("169.")) return false;
+		if (address.AddressFamily == AddressFamily.InterNetwork && address.ToString().StartsWith("169.")) return false;
 		return true;
 	}
 

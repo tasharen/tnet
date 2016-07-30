@@ -1556,12 +1556,23 @@ public class TNManager : MonoBehaviour
 
 			if (ips != null && ips.size > 0)
 			{
+				var ipv6 = (TNet.Tools.localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6);
 				string text = "[TNet] Local IPs: " + ips.size;
 
 				for (int i = 0; i < ips.size; ++i)
 				{
+					var ip = ips[i];
 					text += "\n  " + (i + 1) + ": " + ips[i];
-					if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+					
+					if (ip == TNet.Tools.localAddress)
+					{
+						text += " (LAN)";
+					}
+					else if (ipv6 && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+					{
+						if (ip == TNet.Tools.externalAddress)
+							text += " (WAN)";
+					}
 				}
 				Debug.Log(text);
 			}

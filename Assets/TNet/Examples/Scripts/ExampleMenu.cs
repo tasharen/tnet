@@ -29,14 +29,21 @@ public class ExampleMenu : TNEventReceiver
 	const float buttonWidth = 400f;
 	const float buttonHeight = 40f;
 
+	public enum IPType
+	{
+		IP_v_4,
+		IP_v_6,
+	}
+
 	public int serverTcpPort = 5127;
-	public bool useIPv6 = false;
+	public IPType addressFamily = IPType.IP_v_4;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
-	public GUIStyle button;
-	public GUIStyle text;
-	public GUIStyle textLeft;
-	public GUIStyle input;
+
+	[HideInInspector] public GUIStyle button;
+	[HideInInspector] public GUIStyle text;
+	[HideInInspector] public GUIStyle textLeft;
+	[HideInInspector] public GUIStyle input;
 
 	string mAddress = "127.0.0.1";
 	string mMessage = "";
@@ -51,7 +58,7 @@ public class ExampleMenu : TNEventReceiver
 		if (Application.isPlaying)
 		{
 			// Choose IPv6 or IPv4
-			TcpProtocol.defaultListenerInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
+			TcpProtocol.defaultListenerInterface = (addressFamily == IPType.IP_v_6) ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
 
 			// TNet will automatically switch UDP to IPv6 if TCP uses it, but you can specify an explicit one if you like
 			//UdpProtocol.defaultNetworkInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;

@@ -346,6 +346,9 @@ public class UPnP
 	{
 		if (mStatus == Status.Inactive)
 		{
+			// IPv6 doesn't need port forwarding
+			if (TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6) return;
+
 			mStatus = Status.Searching;
 			mDiscover = new Thread(ThreadDiscover);
 			mDiscover.Start(mDiscover);
@@ -358,6 +361,9 @@ public class UPnP
 
 	void Open (int port, bool tcp, OnPortRequest callback)
 	{
+		// IPv6 doesn't need port forwarding
+		if (TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6) return;
+
 		if (port > 0)
 		{
 			int id = (port << 8) | (tcp ? 1 : 0);
@@ -374,7 +380,7 @@ public class UPnP
 				if (addr == "127.0.0.1") return;
 
 #if UNITY_EDITOR
-				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port  + " on " + addr);
+				UnityEngine.Debug.Log("Opening " + (tcp ? "TCP" : "UDP") + " port " + port + " on " + addr);
 #endif
 				mPorts.Add(id);
 
