@@ -120,7 +120,7 @@ static public class Tools
 	static List<IPAddress> mAddresses = null;
 
 	/// <summary>
-	/// Return the list of local addresses. There can be more than one if there is more than one network (for example: Hamachi).
+	/// Return the list of local addresses. There is usually more than one with today's computers (IPv4, IPv6, tunnels, VLANs, etc).
 	/// </summary>
 
 	static public List<IPAddress> localAddresses
@@ -135,10 +135,12 @@ static public class Tools
 				{
 					List<NetworkInterface> list = networkInterfaces;
 
+					// First go through the network interfaces and find all non-tunnels
 					for (int i = list.size; i > 0; )
 					{
 						NetworkInterface ni = list[--i];
 						if (ni == null || ni.OperationalStatus != OperationalStatus.Up) continue;
+						if (ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
 
 						IPInterfaceProperties props = ni.GetIPProperties();
 						if (props == null) continue;
@@ -146,24 +148,32 @@ static public class Tools
 						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
 						if (uniAddresses == null) continue;
 
-						//UnityEngine.Debug.Log("Name: " + ni.Name + " (" + ni.Description + ")\n" +
+						//Tools.Log("Name: " + ni.Name + " (" + ni.Description + ")\n" +
 						//	"Type: " + ni.NetworkInterfaceType + ", multicast: " + ni.SupportsMulticast + ", gateways: " + props.GatewayAddresses.Count);
 
 						foreach (UnicastIPAddressInformation uni in uniAddresses)
 						{
-							//UnityEngine.Debug.Log("    " + uni.Address + " -- " + IsValidAddress(uni.Address));
+							//Tools.Log("    " + uni.Address + " -- " + IsValidAddress(uni.Address));
+							if (IsValidAddress(uni.Address))
+								mAddresses.Add(uni.Address);
+						}
+					}
 
-							// BUG: Accessing 'uni.Address' crashes when executed in a stand-alone build in Unity,
-							// yet works perfectly fine when launched from within the Unity Editor or any other platform.
-							// The stack trace reads:
-							//
-							// Argument cannot be null. Parameter name: src
-							// at (wrapper managed-to-native) System.Runtime.InteropServices.Marshal:PtrToStructure (intptr,System.Type)
-							// at System.Net.NetworkInformation.Win32_SOCKET_ADDRESS.GetIPAddress () [0x00000] in <filename unknown>:0 
-							// at System.Net.NetworkInformation.Win32UnicastIPAddressInformation.get_Address () [0x00000] in <filename unknown>:0
-							//
-							// NOTE: This seems to be fixed in Unity 5.4
+					// Last, append the tunnels so they are at the end of the list
+					for (int i = list.size; i > 0; )
+					{
+						NetworkInterface ni = list[--i];
+						if (ni == null || ni.OperationalStatus != OperationalStatus.Up) continue;
+						if (ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel) continue;
 
+						IPInterfaceProperties props = ni.GetIPProperties();
+						if (props == null) continue;
+
+						UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+						if (uniAddresses == null) continue;
+
+						foreach (UnicastIPAddressInformation uni in uniAddresses)
+						{
 							if (IsValidAddress(uni.Address))
 								mAddresses.Add(uni.Address);
 						}

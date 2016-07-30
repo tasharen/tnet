@@ -1,7 +1,7 @@
-//----------------------------------------------
-//            Tasharen Network
-// Copyright © 2012-2016 Tasharen Entertainment
-//----------------------------------------------
+//-------------------------------------------------
+//                    TNet 3
+// Copyright © 2012-2016 Tasharen Entertainment Inc
+//-------------------------------------------------
 
 // Note on the UDP lobby: Although it's a better choice than TCP (and plus it allows LAN broadcasts),
 // it doesn't seem to work with the Amazon EC2 cloud-hosted servers. They don't seem to accept inbound UDP traffic
@@ -45,11 +45,22 @@ public class Application : IDisposable
 		mFilename = fn;
 		List<IPAddress> ips = Tools.localAddresses;
 		string text = "\nLocal IPs: " + ips.size;
+		var ipv6 = (TNet.Tools.localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6);
 
 		for (int i = 0; i < ips.size; ++i)
 		{
+			var ip = ips[i];
 			text += "\n  " + (i + 1) + ": " + ips[i];
-			if (ips[i] == TNet.Tools.localAddress) text += " (Primary)";
+
+			if (ip == TNet.Tools.localAddress)
+			{
+				text += " (LAN)";
+			}
+			else if (ipv6 && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+			{
+				if (ip == TNet.Tools.externalAddress)
+					text += " (WAN)";
+			}
 		}
 
 		Console.WriteLine(text + "\n");
@@ -216,7 +227,9 @@ public class Application : IDisposable
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
 			Console.WriteLine("   -service                    <-- Run it as a service");
-			Console.WriteLine("   -http	                      <-- Respond to HTTP requests");
+			Console.WriteLine("   -http                       <-- Respond to HTTP requests");
+			Console.WriteLine("   -ipv6                       <-- Use IPv6");
+			Console.WriteLine("   -fn [filename]              <-- Use this save instead of server.dat");
 			Console.WriteLine("   -app [name]                 <-- Set the application name");
 			Console.WriteLine("\nFor example:");
 			Console.WriteLine("  TNServer -name \"My Server\" -tcp 5127 -udp 5128 -udpLobby 5129");
