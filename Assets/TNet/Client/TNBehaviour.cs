@@ -31,6 +31,24 @@ public abstract class TNBehaviour : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Get the object-specific data.
+	/// </summary>
+
+	public T Get<T> (string name) { return tno.Get<T>(name); }
+
+	/// <summary>
+	/// Get the object-specific data.
+	/// </summary>
+
+	public T Get<T> (string name, T defVal) { return tno.Get<T>(name, defVal); }
+
+	/// <summary>
+	/// Set the object-specific data.
+	/// </summary>
+
+	public void Set (string name, object val) { tno.Set(name, val); }
+
+	/// <summary>
 	/// If the TNObject is not yet present, wait until the next frame in case it will be added in Start().
 	/// OnEnable() is called on object instantiation and prior to any code being able to execute that would
 	/// change the transform's parent, so ideally this code should simply run in Start() -- however due to

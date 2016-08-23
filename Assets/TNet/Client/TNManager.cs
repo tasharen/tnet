@@ -336,6 +336,20 @@ public class TNManager : MonoBehaviour
 	static public long serverTime { get { return (mInstance != null) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
 
 	/// <summary>
+	/// Server's uptime in milliseconds.
+	/// </summary>
+
+	static public long serverUptime { get { return (mInstance != null) ? mInstance.mClient.serverUptime : (System.DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
+	static readonly long mStartTime = (System.DateTime.UtcNow.Ticks / 10000);
+
+	/// <summary>
+	/// Time elapsed either since the server has been started up in seconds, or (if not connected) -- time since TNManager was first used.
+	/// It's a more precise version of Unity's Time.time, since it takes a mere 3 hours for float precision to start dropping milliseconds.
+	/// </summary>
+
+	static public double time { get { return serverUptime * 0.001; } }
+
+	/// <summary>
 	/// Forward and Create type packets write down their source.
 	/// If the packet was sent by the server instead of another player, the ID will be 0.
 	/// </summary>

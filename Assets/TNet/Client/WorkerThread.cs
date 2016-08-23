@@ -18,10 +18,13 @@ public class WorkerThread : MonoBehaviour
 {
 	// Recommended setting is 2 threads per CPU, but I am setting it to 1 by default since I don't want to assume 100% CPU usage
 	const int threadsPerCore = 1;
+	
+	// How much time the worker thread's update function is allowed to take per frame.
+	// Note that this value simply means that if it's exceeded, no more functions will be executed on this frame, not that it will pause mid-execution.
+	const long MAX_MILLISECONDS_PER_FRAME = 4;
 
 	static WorkerThread mInstance = null;
 
-	// Callback function prototype -- should return whether to keep it in the thread pool
 	public delegate bool BoolFunc ();
 	public delegate void VoidFunc ();
 
@@ -32,14 +35,29 @@ public class WorkerThread : MonoBehaviour
 	class Entry
 	{
 		public VoidFunc main;
-		public BoolFunc conditional;
 		public VoidFunc finished;
+		public BoolFunc mainBool;		// Return 'true' when done, 'false' to execute again next update
+		public BoolFunc finishedBool;	// Return 'true' when done, 'false' to execute again next update
 	}
 
 	// List of callbacks executed in order by the worker thread
 	Queue<Entry> mNew = new Queue<Entry>();
 	Queue<Entry> mFinished = new Queue<Entry>();
 	List<Entry> mUnused = new List<Entry>();
+	System.Diagnostics.Stopwatch mStopwatch = new System.Diagnostics.Stopwatch();
+
+	/// <summary>
+	/// Whether the update timer has been exceeded for this frame. Can check this inside delegates executed on the main thread and exit out early.
+	/// </summary>
+
+	static public bool mainThreadTimeExceeded
+	{
+		get
+		{
+			if (mInstance == null) return false;
+			return mInstance.mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME;
+		}
+	}
 
 	/// <summary>
 	/// Create the worker thread.
@@ -139,14 +157,14 @@ public class WorkerThread : MonoBehaviour
 								{
 									ent.main();
 									active.RemoveAt(b);
-									if (ent.finished != null) lock (mFinished) mFinished.Enqueue(ent);
+									if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
 									else lock (mUnused) mUnused.Add(ent);
 									mLoad[threadID] = active.size;
 								}
-								else if (!ent.conditional())
+								else if (ent.mainBool != null && ent.mainBool())
 								{
 									active.RemoveAt(b);
-									if (ent.finished != null) lock (mFinished) mFinished.Enqueue(ent);
+									if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
 									else lock (mUnused) mUnused.Add(ent);
 									mLoad[threadID] = active.size;
 								}
@@ -202,6 +220,8 @@ public class WorkerThread : MonoBehaviour
 		mNew.Clear();
 	}
 
+	List<Entry> mTemp = new List<Entry>();
+
 	/// <summary>
 	/// Call finished delegates on the main thread.
 	/// </summary>
@@ -210,17 +230,38 @@ public class WorkerThread : MonoBehaviour
 	{
 		if (mFinished.Count > 0)
 		{
+			mStopwatch.Reset();
+			mStopwatch.Start();
+
 			lock (mFinished)
 			{
 				while (mFinished.Count > 0)
 				{
 					var ent = mFinished.Dequeue();
-					if (ent.finished != null) ent.finished();
+
+					if (ent.finished != null)
+					{
+						ent.finished();
+					}
+					else if (ent.finishedBool != null && !ent.finishedBool())
+					{
+						mTemp.Add(ent);
+						if (mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME) break;
+						continue;
+					}
+
 					ent.main = null;
 					ent.finished = null;
-					ent.conditional = null;
+					ent.mainBool = null;
+					ent.finishedBool = null;
 					lock (mUnused) mUnused.Add(ent);
+
+					if (mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME) break;
 				}
+
+				// Re-queue the conditionals
+				for (int i = 0; i < mTemp.size; ++i) mFinished.Enqueue(mTemp[i]);
+				mTemp.Clear();
 			}
 		}
 	}
@@ -236,7 +277,7 @@ public class WorkerThread : MonoBehaviour
 #if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
-				main();
+				if (main != null) main();
 				if (finished != null) finished();
 				return;
 			}
@@ -255,22 +296,62 @@ public class WorkerThread : MonoBehaviour
 
 		ent.main = main;
 		ent.finished = finished;
-		lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+
+		if (main != null) lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
 	}
 
 	/// <summary>
 	/// Add a new callback function to the worker thread.
-	/// The 'main' delegate will run on a secondary thread, while the 'finished' delegate will run in Update().
+	/// Return 'false' if you want the same delegate to execute again in the next Update(), or 'true' if you're done.
 	/// </summary>
 
-	static public void CreateConditional (BoolFunc main, VoidFunc finished = null)
+	static public void CreateMultiStageCompletion (VoidFunc main, BoolFunc finished = null)
 	{
 		if (mInstance == null)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
-				if (main() && finished != null) finished();
+				if (main != null) main();
+				if (finished != null) while (!finished()) { };
+				return;
+			}
+#endif
+			GameObject go = new GameObject("Worker Thread");
+			mInstance = go.AddComponent<WorkerThread>();
+		}
+
+		Entry ent;
+
+		if (mInstance.mUnused.size != 0)
+		{
+			lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
+		}
+		else ent = new Entry();
+
+		ent.main = main;
+		ent.finishedBool = finished;
+
+		if (main != null) lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
+	}
+
+	/// <summary>
+	/// Add a new callback function to the worker thread.
+	/// The 'main' delegate will run on a secondary thread, while the 'finished' delegate will run in Update().
+	/// Return 'false' if you want the same delegate to execute again next time, or 'true' if you're done.
+	/// </summary>
+
+	static public void CreateMultiStageExecution (BoolFunc main, VoidFunc finished = null)
+	{
+		if (mInstance == null)
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				if (main != null) { while (!main()) { } }
+				if (finished != null) finished();
 				return;
 			}
 #endif
@@ -286,8 +367,43 @@ public class WorkerThread : MonoBehaviour
 		}
 		else ent = new Entry();
 
-		ent.conditional = main;
+		ent.mainBool = main;
 		ent.finished = finished;
+		lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+	}
+
+	/// <summary>
+	/// Add a new callback function to the worker thread.
+	/// The 'main' delegate will run on a secondary thread, while the 'finished' delegate will run in Update().
+	/// Return 'false' if you want the same delegates to execute again next time, or 'true' if you're done.
+	/// </summary>
+
+	static public void CreateMultiStage (BoolFunc main, BoolFunc finished = null)
+	{
+		if (mInstance == null)
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				if (main != null) { while (!main()) { } }
+				if (finished != null) { while (!finished()) { } }
+				return;
+			}
+#endif
+			GameObject go = new GameObject("Worker Thread");
+			mInstance = go.AddComponent<WorkerThread>();
+		}
+
+		Entry ent;
+
+		if (mInstance.mUnused.Count != 0)
+		{
+			lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
+		}
+		else ent = new Entry();
+
+		ent.mainBool = main;
+		ent.finishedBool = finished;
 		lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
 	}
 }

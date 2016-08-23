@@ -227,7 +227,7 @@ public struct ObsInt
 // binaryWriter.Write(data);
 // binaryReader.Read<DataType>();
 
-public static class Serialization
+static public class Serialization
 {
 #if REFLECTION_SUPPORT
 	/// <summary>

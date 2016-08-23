@@ -91,6 +91,7 @@ public enum Packet
 	/// int32: Protocol ID.
 	/// int32: Player ID (only if the protocol ID matched).
 	/// int64: Server time in milliseconds (only if the protocol ID matched).
+	/// int64: Server's start time in milliseconds (only if the protocol ID matched).
 	/// </summary>
 
 	ResponseID,

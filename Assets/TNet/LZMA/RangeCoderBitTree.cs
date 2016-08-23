@@ -71,7 +71,7 @@ namespace SevenZip.Compression.RangeCoder
 			return price;
 		}
 
-		public static UInt32 ReverseGetPrice(BitEncoder[] Models, UInt32 startIndex,
+		static public UInt32 ReverseGetPrice(BitEncoder[] Models, UInt32 startIndex,
 			int NumBitLevels, UInt32 symbol)
 		{
 			UInt32 price = 0;
@@ -86,7 +86,7 @@ namespace SevenZip.Compression.RangeCoder
 			return price;
 		}
 
-		public static void ReverseEncode(BitEncoder[] Models, UInt32 startIndex,
+		static public void ReverseEncode(BitEncoder[] Models, UInt32 startIndex,
 			Encoder rangeEncoder, int NumBitLevels, UInt32 symbol)
 		{
 			UInt32 m = 1;
@@ -139,7 +139,7 @@ namespace SevenZip.Compression.RangeCoder
 			return symbol;
 		}
 
-		public static uint ReverseDecode(BitDecoder[] Models, UInt32 startIndex,
+		static public uint ReverseDecode(BitDecoder[] Models, UInt32 startIndex,
 			RangeCoder.Decoder rangeDecoder, int NumBitLevels)
 		{
 			uint m = 1;

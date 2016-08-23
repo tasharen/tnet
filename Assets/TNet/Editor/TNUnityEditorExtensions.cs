@@ -12,7 +12,7 @@ namespace TNet
 /// Taken pretty much straight from NGUI.
 /// </summary>
 
-public static class UnityEditorExtensions
+static public class UnityEditorExtensions
 {
 	/// <summary>
 	/// Helper function that draws a serialized property.

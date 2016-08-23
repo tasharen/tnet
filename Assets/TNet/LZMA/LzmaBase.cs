@@ -38,7 +38,7 @@ namespace SevenZip.Compression.LZMA
 
 		public const uint kMatchMinLen = 2;
 
-		public static uint GetLenToPosState(uint len)
+		static public uint GetLenToPosState(uint len)
 		{
 			len -= kMatchMinLen;
 			if (len < kNumLenToPosStates)

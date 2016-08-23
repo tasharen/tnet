@@ -22,7 +22,7 @@ namespace TNet
 /// to serialize behaviours and game objects.
 /// </summary>
 
-public static class ComponentSerialization
+static public class ComponentSerialization
 {
 #region Component Serialization
 

@@ -124,6 +124,55 @@ public sealed class TNObject : MonoBehaviour
 
 	public Player owner { get { return (mParent != null) ? mParent.owner : (mOwner ?? TNManager.GetHost(channelID)); } }
 
+	[System.NonSerialized]
+	DataNode mData = null;
+
+	/// <summary>
+	/// Get the object-specific data.
+	/// </summary>
+
+	public T Get<T> (string name) { return (mData != null) ? mData.GetChild<T>(name) : default(T); }
+
+	/// <summary>
+	/// Get the object-specific data.
+	/// </summary>
+
+	public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetChild<T>(name, defVal) : defVal; }
+
+	/// <summary>
+	/// Set the object-specific data.
+	/// </summary>
+
+	public void Set (string name, object val)
+	{
+		if (isMine) OnSet(name, val);
+		else Send("OnSet", ownerID, name, val);
+	}
+
+	[RFC]
+	void OnSet (string name, object val)
+	{
+		if (mData == null) mData = new DataNode("ObjectData");
+		if (val == null) mData.RemoveChild(name);
+		else mData.SetChild(name, val);
+		OnSetData(mData);
+		Send("OnSetData", Target.OthersSaved, mData);
+	}
+
+	[RFC]
+	void OnSetData (DataNode data)
+	{
+		mData = data;
+		if (onDataChanged != null) onDataChanged(data);
+	}
+
+	/// <summary>
+	/// Callback triggered the the object's get/set data changes.
+	/// </summary>
+
+	public OnDataChanged onDataChanged;
+	public delegate void OnDataChanged (DataNode data);
+
 	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>

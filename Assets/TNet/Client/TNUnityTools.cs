@@ -701,10 +701,26 @@ static public class UnityTools
 	}
 
 	/// <summary>
+	/// Add a blank child to the specified game object.
+	/// </summary>
+
+	static public GameObject AddChild (this GameObject go, string name)
+	{
+		GameObject inst = new GameObject();
+		inst.name = name;
+		Transform t = inst.transform;
+		t.parent = go.transform;
+		t.localPosition = Vector3.zero;
+		t.localRotation = Quaternion.identity;
+		t.localScale = Vector3.one;
+		return inst;
+	}
+
+	/// <summary>
 	/// Load an asset from resources and instantiate it as a child of the game object.
 	/// </summary>
 
-	static public GameObject AddChild (this GameObject go, string resourceName)
+	static public GameObject InstantiateChild (this GameObject go, string resourceName)
 	{
 		GameObject prefab = LoadPrefab(resourceName);
 
@@ -728,7 +744,7 @@ static public class UnityTools
 	/// Load an asset from resources and instantiate it as a child of the game object.
 	/// </summary>
 
-	static public T AddChild<T> (this GameObject go, string resourceName) where T : Component
+	static public T InstantiateChild<T> (this GameObject go, string resourceName) where T : Component
 	{
 		GameObject prefab = LoadPrefab(resourceName);
 
@@ -752,7 +768,7 @@ static public class UnityTools
 	/// Load an asset from resources and instantiate it as a child of the game object.
 	/// </summary>
 
-	static public T[] AddChildren<T> (this GameObject go, string resourceName) where T : Component
+	static public T[] InstantiateChildren<T> (this GameObject go, string resourceName) where T : Component
 	{
 		GameObject prefab = LoadPrefab(resourceName);
 

@@ -53,6 +53,7 @@ public class GameClient : TNEvents
 	long mTimeDifference = 0;
 	long mMyTime = 0;
 	long mPingTime = 0;
+	long mStartTime = 0;
 
 	// Last ping, and whether we can ping again
 	int mPing = 0;
@@ -112,10 +113,16 @@ public class GameClient : TNEvents
 	public TNet.List<Channel> channels { get { return mChannels; } }
 
 	/// <summary>
-	/// Current time on the server.
+	/// Current time on the server in milliseconds.
 	/// </summary>
 
 	public long serverTime { get { return mTimeDifference + (System.DateTime.UtcNow.Ticks / 10000); } }
+
+	/// <summary>
+	/// Server's uptime in milliseconds.
+	/// </summary>
+
+	public long serverUptime { get { return serverTime - mStartTime; } }
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -935,7 +942,9 @@ public class GameClient : TNEvents
 		{
 			if (mTcp.VerifyResponseID(response, reader))
 			{
-				mTimeDifference = reader.ReadInt64() - (System.DateTime.UtcNow.Ticks / 10000);
+				var now = System.DateTime.UtcNow.Ticks / 10000;
+				mTimeDifference = reader.ReadInt64() - now;
+				mStartTime = reader.ReadInt64();
 
 #if !UNITY_WEBPLAYER
 				if (mUdp.isActive)

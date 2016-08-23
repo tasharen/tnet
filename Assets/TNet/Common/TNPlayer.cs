@@ -70,7 +70,7 @@ public class Player : DataNodeContainer
 	/// Protocol version.
 	/// </summary>
 
-	public const int version = 20160207;
+	public const int version = 20160822;
 
 	/// <summary>
 	/// All players have a unique identifier given by the server.

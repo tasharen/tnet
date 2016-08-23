@@ -109,6 +109,12 @@ http://www.tasharen.com/?page_id=4518
  Version History
 --------------------------------------------------------------------------------------------------------------------
 
+3.0.4
+- NEW: Added a convenient set of Get and Set functions on the TNBehaviour and TNObject classes for simple per-object property persistence.
+- NEW: Added TNManager.serverUptime and TNManager.time (how long the server was up).
+- NEW: Added multi-stage callback support to the WorkerThread's main thread callbacks.
+- NEW: Added a maximum time limiter to the WorkerThread's main thread execution, limiting the time that it takes up in the Update().
+
 3.0.3
 - NEW: Added a robust WorkerThread class that can be used as a simple to use thread pool: WorkerThread.Create(delegate, <optional>), where <optional> delegate will be executed on the main thread when the threaded delegate finishes.
 - NEW: TNServer executable now supports -ipv6 to use IPv6.

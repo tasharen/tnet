@@ -118,6 +118,7 @@ public class GameServer : FileServer
 	TcpPlayer mLocalPlayer = null;
 	bool mIsActive = false;
 	bool mServerDataChanged = false;
+	long mStartTime = 0;
 
 	/// <summary>
 	/// Add a new entry to the list. Returns 'true' if a new entry was added.
@@ -267,6 +268,8 @@ public class GameServer : FileServer
 
 	public bool Start (int tcpPort = 0, int udpPort = 0)
 	{
+		mStartTime = System.DateTime.UtcNow.Ticks / 10000;
+
 		Stop();
 
 		Tools.LoadList("ServerConfig/ban.txt", mBan);
@@ -1259,6 +1262,7 @@ public class GameServer : FileServer
 					writer.Write(TcpPlayer.version);
 					writer.Write(player.id);
 					writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
+					writer.Write(mStartTime);
 					player.EndSend();
 
 					if (mServerData != null)
