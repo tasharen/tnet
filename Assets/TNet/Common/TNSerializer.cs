@@ -359,7 +359,12 @@ static public class Serialization
 		return name;
 	}
 
+#if STANDALONE
 	static int Round (float val) { return (int)(val + 0.5f); }
+#else
+	static int Round (float val) { return Mathf.RoundToInt(val); }
+#endif
+	static int Round (double val) { return (int)Math.Round(val); }
 
 	/// <summary>
 	/// Cast the specified object into the desired type.
@@ -378,6 +383,7 @@ static public class Serialization
 			if (desiredType == typeof(short)) return (short)(int)value;
 			if (desiredType == typeof(ushort)) return (ushort)(int)value;
 			if (desiredType == typeof(float)) return (float)(int)value;
+			if (desiredType == typeof(double)) return (double)(int)value;
 			if (desiredType == typeof(long)) return (long)(int)value;
 			if (desiredType == typeof(ulong)) return (ulong)(int)value;
 			if (desiredType == typeof(UInt32)) return (UInt32)(int)value;
@@ -393,12 +399,25 @@ static public class Serialization
 			if (desiredType == typeof(short)) return (short)Round((float)value);
 			if (desiredType == typeof(ushort)) return (ushort)Round((float)value);
 			if (desiredType == typeof(int)) return Round((float)value);
+			if (desiredType == typeof(double)) return (double)(float)value;
+			if (desiredType == typeof(long)) return (long)Round((float)value);
+		}
+		else if (valueType == typeof(double))
+		{
+			// Float conversion
+			if (desiredType == typeof(byte)) return (byte)Round((double)value);
+			if (desiredType == typeof(short)) return (short)Round((double)value);
+			if (desiredType == typeof(ushort)) return (ushort)Round((double)value);
+			if (desiredType == typeof(int)) return Round((double)value);
+			if (desiredType == typeof(float)) return (float)(double)value;
+			if (desiredType == typeof(long)) return (long)Math.Round((double)value);
 		}
 		else if (valueType == typeof(long))
 		{
 			if (desiredType == typeof(int)) return (int)(long)value;
 			if (desiredType == typeof(ulong)) return (ulong)(long)value;
 			if (desiredType == typeof(DateTime)) return new DateTime((long)value, DateTimeKind.Utc);
+			if (desiredType == typeof(double)) return (double)(long)value;
 		}
 		else if (valueType == typeof(ulong))
 		{
@@ -1053,6 +1072,13 @@ static public class Serialization
 		{
 			if (prefix) writer.Write(" = ");
 			writer.WriteFloat((float)value);
+			return true;
+		}
+
+		if (type == typeof(double))
+		{
+			if (prefix) writer.Write(" = ");
+			writer.WriteDouble((double)value);
 			return true;
 		}
 
@@ -1718,15 +1744,30 @@ static public class Serialization
 	}
 
 	/// <summary>
-	/// Write a float using invariant culture, trimming values close to 0 down to 0 for easier readability.
+	/// Write a float using the English-US culture, trimming values close to 0 down to 0 for easier readability.
 	/// </summary>
 
 	[System.Diagnostics.DebuggerHidden]
 	[System.Diagnostics.DebuggerStepThrough]
 	static public void WriteFloat (this StreamWriter writer, float f)
 	{
-		writer.Write(((f > -0.0001f && f < 0.0001f) ? 0f : f).ToString(Tools.englishUSCulture));
+#if !STANDALONE
+		var rnd = Mathf.Round(f);
+		if (Mathf.Abs(f - rnd) < 0.0001f) f = rnd;
+#else
+		var rnd = Math.Round(f);
+		if (Math.Abs(f - rnd) < 0.0001) f = (float)rnd;
+#endif
+		writer.Write(f.ToString(Tools.englishUSCulture));
 	}
+
+	/// <summary>
+	/// Write a double using the English-US culture.
+	/// </summary>
+
+	[System.Diagnostics.DebuggerHidden]
+	[System.Diagnostics.DebuggerStepThrough]
+	static public void WriteDouble (this StreamWriter writer, double f) { writer.Write(f.ToString(Tools.englishUSCulture)); }
 
 	/// <summary>
 	/// Write a single object to the binary writer.

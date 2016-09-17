@@ -60,6 +60,19 @@ public class WorkerThread : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Count how many callbacks are still remaining in the worker thread's queues.
+	/// </summary>
+
+	static public int remainingCallbackCount
+	{
+		get
+		{
+			if (mInstance == null) return 0;
+			lock (mInstance.mNew) { lock (mInstance.mFinished) { return mInstance.mNew.Count + mInstance.mFinished.Count; } }
+		}
+	}
+
+	/// <summary>
 	/// Create the worker thread.
 	/// </summary>
 
@@ -145,7 +158,7 @@ public class WorkerThread : MonoBehaviour
 					}
 
 					// If we are working on something, run another update
-					if (active.Count > 0)
+					if (active.size > 0)
 					{
 						for (int b = active.size; b > 0; )
 						{
@@ -361,7 +374,7 @@ public class WorkerThread : MonoBehaviour
 
 		Entry ent;
 
-		if (mInstance.mUnused.Count != 0)
+		if (mInstance.mUnused.size != 0)
 		{
 			lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
 		}
@@ -396,7 +409,7 @@ public class WorkerThread : MonoBehaviour
 
 		Entry ent;
 
-		if (mInstance.mUnused.Count != 0)
+		if (mInstance.mUnused.size != 0)
 		{
 			lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
 		}

@@ -1414,8 +1414,49 @@ public class GameServer : FileServer
 
 				if (player.id == playerID)
 				{
-					player.Set(str, obj);
-					player.saveNeeded = true;
+					// The rare case of setting the entire data node: for example player loads a local save file
+					if (string.IsNullOrEmpty(str))
+					{
+						// It's not possible to set the entire player data to nothing
+						if (obj == null) break;
+
+						if (obj is DataNode)
+						{
+							// Players can't change the "Server" node, so simply remove it
+							var node = obj as DataNode;
+							node.RemoveChild("Server");
+
+							// Add our existing "Server" node
+							if (player.dataNode != null)
+							{
+								var ours = player.dataNode.GetChild("Server");
+								if (ours != null) node.children.Add(ours);
+							}
+
+							player.dataNode = node;
+							player.saveNeeded = true;
+
+							Buffer buff = Buffer.Create();
+							BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
+							writer.Write(player.id);
+							writer.Write("");
+							writer.WriteObject(player.dataNode);
+							buff.EndPacket();
+
+							SendToOthers(buff, player, player, true);
+							buff.Recycle();
+							break;
+						}
+
+						player.Set(str, obj);
+						player.saveNeeded = true;
+					}
+					else if (!str.StartsWith("Server")) 
+					{
+						player.Set(str, obj);
+						player.saveNeeded = true;
+					}
+					else break; // Silently ignore attempts to set server data
 
 					// Change the packet type to a response before sending it as-is
 					buffer.buffer[origin + 4] = (byte)Packet.ResponseSetPlayerData;
@@ -1441,7 +1482,13 @@ public class GameServer : FileServer
 				player.savePath = reader.ReadString();
 				player.saveType = (DataNode.SaveType)reader.ReadByte();
 				player.dataNode = DataNode.Read(player.savePath);
-				player.saveNeeded = false;
+
+				// The player data must be valid at this point
+				if (player.dataNode == null) player.dataNode = new DataNode("Version", Player.version);
+				else player.saveNeeded = false;
+
+				// We want to record the player's login time so that we can automatically keep track of that player's /played time
+				player.dataNode.GetChild("Server", true).SetChild("lastSave", mTime);
 
 				Buffer buff = Buffer.Create();
 				BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
@@ -2554,13 +2601,19 @@ public class GameServer : FileServer
 		}
 		else
 		{
-			byte[] bytes = player.dataNode.ToArray(player.saveType);
+			// Automatically keep track of how long the player has been playing
+			var server = player.dataNode.GetChild("Server", true);
+			var played = server.GetChild("playedTime", true);
+			var save = server.GetChild("lastSave", true);
+			var elapsed = mTime - save.Get<long>(mTime);
 
-			if (SaveFile(player.savePath, bytes))
-			{
-				player.Log("Saved " + player.savePath + " (" + (bytes != null ? bytes.Length.ToString("N0") : "0") + " bytes)");
-			}
-			else player.LogError("Unable to save " + player.savePath);
+			// Update the values
+			played.value = played.Get<long>() + elapsed;
+			save.value = mTime;
+
+			// Save to file
+			byte[] bytes = player.dataNode.ToArray(player.saveType);
+			if (!SaveFile(player.savePath, bytes)) player.LogError("Unable to save " + player.savePath);
 		}
 	}
 

@@ -758,6 +758,10 @@ static public class Tools
 				string docs = Path.Combine(persistentDataPath, applicationDirectory).Replace("\\", "/");
 				path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
 			}
+			else
+			{
+				path = string.IsNullOrEmpty(path) ? persistentDataPath : Path.Combine(persistentDataPath, path);
+			}
 
 			path = path.Replace("\\", "/");
 		}

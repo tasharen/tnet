@@ -707,6 +707,25 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Find the player associated with the specified partial name. This function is not case sensitive, so calling it with "Ren" will return "Aren Mook" as a possible choice.
+	/// </summary>
+
+	static public Player FindPlayer (string name)
+	{
+		var exact = GetPlayer(name);
+		if (exact != null) return exact;
+
+		var list = players;
+
+		for (int i = 0; i < list.size; ++i)
+		{
+			var p = list[i];
+			if (p.name.IndexOf(name, System.StringComparison.CurrentCultureIgnoreCase) != -1) return p;
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Get our player's data.
 	/// </summary>
 
@@ -730,8 +749,15 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPlayerData (string path, object val)
 	{
-		if (isConnected) mInstance.mClient.SetPlayerData(path, val);
-		else mPlayer.Set(path, val);
+		if (isConnected)
+		{
+			mInstance.mClient.SetPlayerData(path, val);
+		}
+		else
+		{
+			var dn = player.Set(path, val);
+			if (onSetPlayerData != null) onSetPlayerData(player, path, dn);
+		}
 	}
 
 	/// <summary>
@@ -820,6 +846,7 @@ public class TNManager : MonoBehaviour
 			}
 			else
 			{
+				Application.runInBackground = true;
 				IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
 
 				if (ip == null)
@@ -1692,10 +1719,11 @@ public class TNManager : MonoBehaviour
 		if (go == null)
 		{
 			go = UnityTools.GetDummyObject();
+
 #if UNITY_EDITOR
-			Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\". Make sure it's in the Resources folder.");
+			if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\". Make sure it's in the Resources folder.");
 #else
-			Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
+			if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
 #endif
 		}
 

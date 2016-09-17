@@ -248,6 +248,33 @@ public class DataNode
 	}
 
 	/// <summary>
+	/// Find a child with the specified name starting at the chosen path.
+	/// </summary>
+
+	public DataNode FindChild (string name, string path = null)
+	{
+		if (!string.IsNullOrEmpty(path))
+		{
+			var node = GetHierarchy(path);
+			if (node == null) return null;
+			return node.FindChild(name);
+		}
+
+		for (int i = 0; i < children.size; ++i)
+		{
+			var child = children[i];
+			if (child.name == name) return child;
+		}
+
+		for (int i = 0; i < children.size; ++i)
+		{
+			var child = children[i].FindChild(name);
+			if (child != null) return child;
+		}
+		return null;
+	}
+
+	/// <summary>
 	/// Retrieve a child by its path.
 	/// </summary>
 

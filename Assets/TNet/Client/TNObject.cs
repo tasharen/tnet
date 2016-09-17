@@ -32,7 +32,8 @@ public sealed class TNObject : MonoBehaviour
 	/// The ID is supposed to be a 'uint', but Unity is not able to serialize 'uint' types. Sigh.
 	/// </summary>
 
-	[SerializeField] int id = 0;
+	[SerializeField, UnityEngine.Serialization.FormerlySerializedAs("id")] int mStaticID = 0;
+	[System.NonSerialized] uint mDynamicID = 0;
 
 	/// <summary>
 	/// ID of the channel this TNObject belongs to.
@@ -48,12 +49,16 @@ public sealed class TNObject : MonoBehaviour
 	{
 		get
 		{
-			return (mParent != null) ? mParent.uid : (uint)id;
+			return (mParent != null) ? mParent.uid : (mStaticID == 0 ? mDynamicID : (uint)mStaticID);
 		}
 		set
 		{
-			if (mParent != null) mParent.uid = value;
-			else id = (int)(value & 0xFFFFFF);
+			if (mParent == null)
+			{
+				mDynamicID = value;
+				mStaticID = 0;
+			}
+			else mParent.uid = value;
 		}
 	}
 
@@ -88,6 +93,13 @@ public sealed class TNObject : MonoBehaviour
 	/// </summary>
 	
 	[System.NonSerialized] bool mDestroyed = false;
+
+	/// <summary>
+	/// Whether the object has been destroyed. It can happen when the object has been requested to be
+	/// transferred to another channel, but has not yet completed the operation.
+	/// </summary>
+
+	public bool hasBeenDestroyed { get { return mDestroyed; } }
 
 	public delegate void OnDestroyCallback ();
 
@@ -128,6 +140,12 @@ public sealed class TNObject : MonoBehaviour
 	DataNode mData = null;
 
 	/// <summary>
+	/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
+	/// </summary>
+
+	public DataNode dataNode { get { return mData; } }
+
+	/// <summary>
 	/// Get the object-specific data.
 	/// </summary>
 
@@ -153,8 +171,7 @@ public sealed class TNObject : MonoBehaviour
 	void OnSet (string name, object val)
 	{
 		if (mData == null) mData = new DataNode("ObjectData");
-		if (val == null) mData.RemoveChild(name);
-		else mData.SetChild(name, val);
+		mData.SetHierarchy(name, val);
 		OnSetData(mData);
 		Send("OnSetData", Target.OthersSaved, mData);
 	}
@@ -244,7 +261,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		// This usually happens after scripts get recompiled.
 		// When this happens, static variables are erased, so the list of objects has to be rebuilt.
-		if (!Application.isPlaying && id != 0)
+		if (!Application.isPlaying && uid != 0)
 		{
 			Unregister();
 			Register();
@@ -288,27 +305,9 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (mDictionary == null) return null;
 		TNObject tno = null;
-
-		if (channelID == 0)
-		{
-			// Broadcasts are sent with the channel ID of '0'
-			foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
-			{
-				TNet.List<TNObject> list = pair.Value;
-
-				for (int i = 0; i < list.size; ++i)
-				{
-					TNObject ts = list[i];
-					if (ts.id == tnID) return ts;
-				}
-			}
-		}
-		else
-		{
-			Dictionary<uint, TNObject> dict;
-			if (!mDictionary.TryGetValue(channelID, out dict)) return null;
-			if (!dict.TryGetValue(tnID, out tno)) return null;
-		}
+		Dictionary<uint, TNObject> dict;
+		if (!mDictionary.TryGetValue(channelID, out dict)) return null;
+		if (!dict.TryGetValue(tnID, out tno)) return null;
 		return tno;
 	}
 
@@ -320,7 +319,7 @@ public sealed class TNObject : MonoBehaviour
 	/// Get a new unique object identifier.
 	/// </summary>
 
-	static internal uint GetUniqueID ()
+	static uint GetUniqueID ()
 	{
 		foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
 		{
@@ -357,10 +356,9 @@ public sealed class TNObject : MonoBehaviour
 
 	void UniqueCheck ()
 	{
-		if (id < 0) id = -id;
-
-		if (id == 0)
+		if (uid == 0)
 		{
+			if (Application.isPlaying) Debug.LogError("Assigning a static ID at run-time. This is wrong, and will cause issues. All TNObjects must be instantiated via TNManager.Instantiate", this);
 			uid = GetUniqueID();
 		}
 		else
@@ -373,7 +371,7 @@ public sealed class TNObject : MonoBehaviour
 				{
 					if (tobj != null)
 					{
-						Debug.LogError("Network ID " + id + " is already in use by " +
+						Debug.LogError("Network ID " + channelID + "." + uid + " is already in use by " +
 							GetHierarchy(tobj.gameObject) +
 							".\nPlease make sure that the network IDs are unique.", this);
 					}
@@ -410,7 +408,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void Start ()
 	{
-		if (id == 0)
+		if (uid == 0)
 		{
 			mParent = FindParent(transform.parent);
 			if (!TNManager.isConnected) return;

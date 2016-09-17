@@ -35,7 +35,7 @@ public class TNObjectEditor : Editor
 		else
 		{
 			serializedObject.Update();
-			SerializedProperty sp = serializedObject.FindProperty("id");
+			SerializedProperty sp = serializedObject.FindProperty("mStaticID");
 			EditorGUILayout.PropertyField(sp, new GUIContent("ID"));
 			serializedObject.ApplyModifiedProperties();
 
