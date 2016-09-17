@@ -318,11 +318,11 @@ public class Application : IDisposable
 			}
 			else if (param == "-app")
 			{
-				Tools.applicationDirectory = val1;
+				Tools.applicationDirectory = val0;
 			}
 			else if (param == "-fn")
 			{
-				fn = val1;
+				fn = val0;
 			}
 			else if (param == "-ipv6" || param == "-IPv6")
 			{
