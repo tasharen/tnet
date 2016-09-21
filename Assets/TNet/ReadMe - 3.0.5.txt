@@ -115,7 +115,8 @@ http://www.tasharen.com/?page_id=4518
 - NEW: TNObject's Set now accepts a hierarchical path, not just a single value name.
 - NEW: Added WorkerThread.remainingCallbackCount that returns the number of callbacks still waiting to be executed.
 - NEW: Added DataNode.FindChild that can search for a child with the specified name.
-- NEW: Player data under the "Server" child node will now be only settable by the server The "Server" node will be used for other server-side data. Trying to set anything under the "Server" node from the client side is simply ignored by the server.
+- NEW: Player data under the "Server" child node will now be only settable by the server.
+       Trying to set anything under the "Server" node from the client side is simply ignored by the server.
 - NEW: The server now automatically tracks the player's played time: player.Get<long>("Server/playerTime").
 - FIX: Setting player data offline will now trigger the onSetPlayerData notification.
 - FIX: TNObject now stores static and dynamic IDs separately
