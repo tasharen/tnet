@@ -234,15 +234,11 @@ public class TcpLobbyServer : LobbyServer
 				long lastSendTime = tc.Get<long>("lastSend");
 				if (lastSendTime == 0) continue;
 
-				// If timestamp was set then the list was already sent previously
-				if (lastSendTime != 0)
-				{
-					// List hasn't changed -- do nothing
-					if (lastSendTime >= mLastChange) continue;
+				// List hasn't changed -- do nothing
+				if (lastSendTime >= mLastChange) continue;
 					
-					// Too many clients: we want the updates to be infrequent
-					if (!mInstantUpdates && lastSendTime + 4000 > mTime) continue;
-				}
+				// Too many clients: we want the updates to be infrequent
+				if (!mInstantUpdates && lastSendTime + 4000 > mTime) continue;
 
 				// Create the server list packet
 				if (buffer == null)
@@ -329,7 +325,7 @@ public class TcpLobbyServer : LobbyServer
 			case Packet.RequestServerList:
 			{
 				if (reader.ReadUInt16() != GameServer.gameID) return false;
-				tc.Set("lastSend", mTime);
+				tc.Set("lastSend", 1);
 				return true;
 			}
 			case Packet.RequestAddServer:

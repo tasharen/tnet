@@ -609,9 +609,6 @@ public class GameServer : FileServer
 			if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
 			LeaveAllChannels(p);
-
-			p.Release();
-			p.savePath = null;
 			mPlayerList.Remove(p);
 
 			if (p.udpEndPoint != null)
@@ -630,6 +627,9 @@ public class GameServer : FileServer
 				}
 				p.id = 0;
 			}
+
+			p.Release();
+			p.savePath = null;
 		}
 	}
 
