@@ -423,6 +423,7 @@ static public class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(ulong)value;
 			if (desiredType == typeof(long)) return (long)(ulong)value;
+			if (desiredType == typeof(DateTime)) return new DateTime((long)(ulong)value, DateTimeKind.Utc);
 		}
 		else if (valueType == typeof(ObsInt))
 		{
@@ -473,6 +474,10 @@ static public class Serialization
 			if (desiredType == typeof(long))
 			{
 				return ((DateTime)value).Ticks;
+			}
+			else if (desiredType == typeof(ulong))
+			{
+				return (ulong)((DateTime)value).Ticks;
 			}
 		}
 #if !STANDALONE
