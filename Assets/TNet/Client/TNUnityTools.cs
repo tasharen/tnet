@@ -290,8 +290,11 @@ static public class UnityTools
 				}
 			}
 		}
-
+#if UNITY_EDITOR
 		if (Application.isPlaying) mTypeCache[name] = t;
+#else
+		mTypeCache[name] = t;
+#endif
 		return t;
 	}
 
@@ -616,11 +619,37 @@ static public class UnityTools
 	}
 
 	/// <summary>
+	/// Just a root game object for prefabs, in case you need to add other prefabs underneath it.
+	/// </summary>
+
+	static public Transform prefabRoot
+	{
+		get
+		{
+			if (mPrefabRoot == null)
+			{
+				var go = new GameObject("Prefabs");
+				Object.DontDestroyOnLoad(go);
+				mPrefabRoot = go.transform;
+				mPrefabs.Clear();
+			}
+			return mPrefabRoot;
+		}
+	}
+
+	/// <summary>
+	/// Custom prefab loading by name. Set this function to be able to load prefabs from any source, not just via Resources.Load.
+	/// </summary>
+
+	static public LoadPrefabFunc onLoadPrefab = null;
+	public delegate GameObject LoadPrefabFunc (string path);
+
+	/// <summary>
 	/// Load a game object prefab at the specified path. This is equivalent to Resources.Load, but it will
 	/// also consider DataNode-exported binary assets as well, automatically loading them as if they were
 	/// regular prefabs.
 	/// </summary>
-
+	
 	static public GameObject LoadPrefab (string path)
 	{
 		if (string.IsNullOrEmpty(path)) return null;
@@ -628,21 +657,16 @@ static public class UnityTools
 
 		GameObject prefab = null;
 
-		if (mPrefabRoot == null)
-		{
-			GameObject go = new GameObject("Prefabs");
-			Object.DontDestroyOnLoad(go);
-			mPrefabRoot = go.transform;
-			mPrefabs.Clear();
-		}
-
 		// Try to get it from cache
 		if (mPrefabs.TryGetValue(path, out prefab)) return prefab;
 
 		if (prefab == null)
 		{
+			// Try the custom function first
+			if (onLoadPrefab != null) prefab = onLoadPrefab(path);
+
 			// Load it from resources as a Game Object
-			prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
+			if (prefab == null) prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
 
 			if (prefab == null)
 			{
@@ -663,7 +687,7 @@ static public class UnityTools
 						{
 							mPrefabs.Add(path, prefab);
 							Object.DontDestroyOnLoad(prefab);
-							prefab.transform.parent = mPrefabRoot;
+							prefab.transform.parent = prefabRoot;
 							prefab.SetActive(false);
 							return prefab;
 						}
@@ -794,7 +818,6 @@ static public class UnityTools
 
 	static public void Destroy (UnityEngine.Object obj)
 	{
-		Debug.Log(obj.name, obj);
 		if (Application.isPlaying) UnityEngine.Object.Destroy(obj);
 		else UnityEngine.Object.DestroyImmediate(obj);
 	}

@@ -350,6 +350,26 @@ public class TNManager : MonoBehaviour
 	static public double time { get { return serverUptime * 0.001; } }
 
 	/// <summary>
+	/// Player's /played time in seconds. This value is automatically tracked by the server and is saved as a part of the player file.
+	/// </summary>
+
+	static public long playedTime
+	{
+		get
+		{
+			if (player == null || player.dataNode == null) return 0;
+			var server = player.dataNode.GetChild("Server");
+			if (server == null) return 0;
+
+			var time = serverTime;
+			var played = server.GetChild<long>("playedTime", 0);
+			var save = server.GetChild<long>("lastSave", time);
+			var elapsed = time - save;
+			return (elapsed + played) / 1000;
+		}
+	}
+
+	/// <summary>
 	/// Forward and Create type packets write down their source.
 	/// If the packet was sent by the server instead of another player, the ID will be 0.
 	/// </summary>
@@ -669,7 +689,7 @@ public class TNManager : MonoBehaviour
 	{
 		if (!isConnected) return def;
 		var ch = GetChannel(channelID);
-		return (ch != null) ? ch.Get<T>(key) : def;
+		return (ch != null) ? ch.Get<T>(key, def) : def;
 	}
 
 	/// <summary>
@@ -757,6 +777,27 @@ public class TNManager : MonoBehaviour
 		{
 			var dn = player.Set(path, val);
 			if (onSetPlayerData != null) onSetPlayerData(player, path, dn);
+		}
+	}
+
+	/// <summary>
+	/// Set the specified value on our player using key = value notation.
+	/// </summary>
+
+	static public void SetPlayerData (string text)
+	{
+		if (!string.IsNullOrEmpty(text))
+		{
+			string[] parts = text.Split(new char[] { '=' }, 2);
+
+			if (parts.Length == 2)
+			{
+				string key = parts[0].Trim();
+				string val = parts[1].Trim();
+				DataNode node = new DataNode(key, val);
+				if (node.ResolveValue()) SetPlayerData(node.name, node.value);
+			}
+			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
 		}
 	}
 

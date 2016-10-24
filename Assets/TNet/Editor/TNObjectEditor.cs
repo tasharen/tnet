@@ -11,6 +11,26 @@ using TNet;
 [CustomEditor(typeof(TNObject), true)]
 public class TNObjectEditor : Editor
 {
+	static void Print (DataNode data, int ident)
+	{
+		var val = data.value;
+
+		var sb = new System.Text.StringBuilder();
+		for (int i = 0; i < ident; ++i) sb.Append("   ");
+		sb.Append(data.name);
+
+		if (val != null)
+		{
+			sb.Append(" = ");
+			sb.Append(val.ToString());
+		}
+
+		EditorGUILayout.LabelField(sb.ToString());
+		++ident;
+
+		for (int i = 0; i < data.children.size; ++i) Print(data.children[i], ident);
+	}
+
 	public override void OnInspectorGUI ()
 	{
 		TNObject obj = target as TNObject;
@@ -30,6 +50,10 @@ public class TNObjectEditor : Editor
 			TNet.Player host = TNManager.GetHost(TNManager.lastChannelID);
 			EditorGUILayout.LabelField("Host", (host != null) ? host.name : "<none>");
 			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
+
+			var data = obj.dataNode;
+			if (data != null && data.children.size > 0) Print(data, 0);
+
 			EditorGUI.EndDisabledGroup();
 		}
 		else

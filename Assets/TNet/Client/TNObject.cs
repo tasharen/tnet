@@ -49,7 +49,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		get
 		{
-			return (mParent != null) ? mParent.uid : (mStaticID == 0 ? mDynamicID : (uint)mStaticID);
+			return (mParent != null) ? mParent.uid : (mDynamicID != 0 ? mDynamicID : (uint)mStaticID);
 		}
 		set
 		{
@@ -93,6 +93,7 @@ public sealed class TNObject : MonoBehaviour
 	/// </summary>
 	
 	[System.NonSerialized] bool mDestroyed = false;
+	[System.NonSerialized] bool mHasBeenRegistered = false;
 
 	/// <summary>
 	/// Whether the object has been destroyed. It can happen when the object has been requested to be
@@ -100,6 +101,12 @@ public sealed class TNObject : MonoBehaviour
 	/// </summary>
 
 	public bool hasBeenDestroyed { get { return mDestroyed; } }
+
+	/// <summary>
+	/// An object gets marked as registered after the creation call has completed and the object's ID has been assigned.
+	/// </summary>
+
+	public bool hasBeenRegistered { get { return mHasBeenRegistered; } }
 
 	public delegate void OnDestroyCallback ();
 
@@ -141,9 +148,10 @@ public sealed class TNObject : MonoBehaviour
 
 	/// <summary>
 	/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
+	/// Note that setting the entire data node is only possible during the object creation (RCC). After that the individual Set functions should be used.
 	/// </summary>
 
-	public DataNode dataNode { get { return mData; } }
+	public DataNode dataNode { get { return mData; } set { if (!mHasBeenRegistered) { mData = value; if (onDataChanged != null) onDataChanged(mData); } } }
 
 	/// <summary>
 	/// Get the object-specific data.
@@ -191,6 +199,12 @@ public sealed class TNObject : MonoBehaviour
 	public delegate void OnDataChanged (DataNode data);
 
 	/// <summary>
+	/// Delegate called on creation after the object's ID has been assigned.
+	/// </summary>
+
+	public System.Action onRegister;
+
+	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>
 
@@ -201,7 +215,12 @@ public sealed class TNObject : MonoBehaviour
 		{
 			mDestroyed = true;
 
-			if (TNManager.IsInChannel(channelID))
+			if (uid == 0 && parent == null)
+			{
+				if (onDestroy != null) onDestroy();
+				Object.Destroy(gameObject);
+			}
+			else if (TNManager.IsInChannel(channelID))
 			{
 				if (TNManager.IsChannelLocked(channelID))
 				{
@@ -293,7 +312,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void OnLeaveChannel (int channelID)
 	{
-		if (this.channelID == channelID && uid > 32767)
+		if (mParent == null && this.channelID == channelID && uid > 32767)
 			Object.Destroy(gameObject);
 	}
 
@@ -459,7 +478,15 @@ public sealed class TNObject : MonoBehaviour
 
 			list.Add(this);
 			mIsRegistered = true;
+
+			if (onRegister != null)
+			{
+				onRegister();
+				onRegister = null;
+			}
 		}
+
+		mHasBeenRegistered = true;
 	}
 
 	/// <summary>
@@ -804,7 +831,8 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (mDestroyed) return;
+		var uid = this.uid;
+		if (mDestroyed || uid == 0) return;
 
 		// Some very odd special case... sending a string[] as the only parameter
 		// results in objs[] being a string[] instead, when it should be object[string[]].
@@ -892,7 +920,7 @@ public sealed class TNObject : MonoBehaviour
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
 #endif
-		if (mDestroyed || string.IsNullOrEmpty(targetName)) return;
+		if (mDestroyed || uid == 0 || string.IsNullOrEmpty(targetName)) return;
 
 		if (targetName == TNManager.playerName)
 		{
@@ -918,7 +946,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)
 	{
-		if (mDestroyed) return;
+		if (mDestroyed || uid == 0) return;
 
 		if (TNManager.isConnected)
 		{
@@ -944,7 +972,7 @@ public sealed class TNObject : MonoBehaviour
 
 	void BroadcastToLAN (int port, byte rfcID, string rfcName, params object[] objs)
 	{
-		if (mDestroyed) return;
+		if (mDestroyed || uid == 0) return;
 		BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 		writer.Write(TNManager.playerID);
 		writer.Write(channelID);
@@ -976,7 +1004,7 @@ public sealed class TNObject : MonoBehaviour
 
 	public void TransferToChannel (int newChannelID)
 	{
-		if (!mDestroyed && isMine && channelID != newChannelID && TNManager.IsInChannel(channelID))
+		if (!mDestroyed && uid != 0 && isMine && channelID != newChannelID && TNManager.IsInChannel(channelID))
 		{
 			mDestroyed = true;
 			BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);

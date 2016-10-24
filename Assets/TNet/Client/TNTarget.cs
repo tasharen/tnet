@@ -42,7 +42,7 @@ public enum Target
 	Host,
 
 	/// <summary>
-	/// Broadcast this packet to everyone connected to the server.
+	/// Broadcast is the same as "All", but it has a built-in spam checker. Ideal for global chat.
 	/// </summary>
 
 	Broadcast,

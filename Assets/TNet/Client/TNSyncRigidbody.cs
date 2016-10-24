@@ -110,10 +110,11 @@ public class TNSyncRigidbody : TNBehaviour
 	[RFC(1)]
 	void OnSync (Vector3 pos, Quaternion rot, Vector3 vel, Vector3 ang)
 	{
-		mTrans.position = pos;
-		mTrans.rotation = rot;
+		mRb.position = pos;
+		mRb.rotation = rot;
+		
 		//mRb.MovePosition(pos);
-		//mRb.MoveRotation(Quaternion.Euler(rot));
+		//mRb.MoveRotation(rot);
 
 		if (!mRb.isKinematic)
 		{

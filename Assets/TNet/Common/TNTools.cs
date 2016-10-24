@@ -106,9 +106,8 @@ static public class Tools
 
 				foreach (NetworkInterface ni in list)
 				{
-					if (ni.Supports(NetworkInterfaceComponent.IPv4) &&
-						(ni.OperationalStatus == OperationalStatus.Up ||
-						ni.OperationalStatus == OperationalStatus.Unknown))
+					if ((ni.Supports(NetworkInterfaceComponent.IPv4) || ni.Supports(NetworkInterfaceComponent.IPv6)) &&
+						(ni.OperationalStatus == OperationalStatus.Up || ni.OperationalStatus == OperationalStatus.Unknown))
 						mInterfaces.Add(ni);
 				}
 			}
@@ -139,7 +138,6 @@ static public class Tools
 					for (int i = list.size; i > 0; )
 					{
 						NetworkInterface ni = list[--i];
-						if (ni == null || ni.OperationalStatus != OperationalStatus.Up) continue;
 						if (ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
 
 						IPInterfaceProperties props = ni.GetIPProperties();
@@ -163,7 +161,6 @@ static public class Tools
 					for (int i = list.size; i > 0; )
 					{
 						NetworkInterface ni = list[--i];
-						if (ni == null || ni.OperationalStatus != OperationalStatus.Up) continue;
 						if (ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel) continue;
 
 						IPInterfaceProperties props = ni.GetIPProperties();
@@ -759,7 +756,7 @@ static public class Tools
 				path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
 			}
 
-			path = path.Replace("\\", "/");
+			if (!string.IsNullOrEmpty(path)) path = path.Replace("\\", "/");
 		}
 		catch (System.Exception ex)
 		{

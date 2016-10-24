@@ -1480,7 +1480,7 @@ public class GameClient : TNEvents
 	{
 		Channel ch = GetChannel(channelID);
 
-		if (ch != null)
+		if (ch != null && !string.IsNullOrEmpty(path))
 		{
 			if (!ch.isLocked || isAdmin)
 			{
@@ -1493,6 +1493,7 @@ public class GameClient : TNEvents
 				}
 
 				node.SetHierarchy(path, val);
+
 				BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
 				bw.Write(channelID);
 				bw.Write(path);

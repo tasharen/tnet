@@ -222,7 +222,7 @@ public class List<T> : TList
 	public bool Contains (T item)
 	{
 		if (buffer == null) return false;
-		for (int i = 0; i < size; ++i) if (buffer[i].Equals(item)) return true;
+		for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return true;
 		return false;
 	}
 
@@ -233,7 +233,7 @@ public class List<T> : TList
 	public int IndexOf (T item)
 	{
 		if (buffer == null) return -1;
-		for (int i = 0; i < size; ++i) if (buffer[i].Equals(item)) return i;
+		for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return i;
 		return -1;
 	}
 
@@ -250,7 +250,7 @@ public class List<T> : TList
 
 			for (int i = 0; i < size; ++i)
 			{
-				if (comp.Equals(buffer[i], item))
+				if (buffer[i] != null && comp.Equals(buffer[i], item))
 				{
 					--size;
 					buffer[i] = default(T);

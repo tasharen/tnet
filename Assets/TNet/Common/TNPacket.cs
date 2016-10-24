@@ -528,7 +528,7 @@ public enum Packet
 	ForwardTargetNotFound,
 
 	/// <summary>
-	/// Echo this message to everyone connected to the server.
+	/// Echo this message to everyone connected to the server. Note that TNet 3 supports multiple channels, so broadcasts are no longer needed.
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.
 	/// uint32: Object ID (24 bits), RFC ID (8 bits).

@@ -376,16 +376,19 @@ public class DataNode
 
 					if (!found)
 					{
-						if (obj == null) break;
+						// No need to do anything -- the requested path is already missing
+						if (obj == null) return parent;
+
+						// Add a new node
 						parent = node;
 						node = node.AddChild(names[index]);
 						++index;
 					}
 				}
 
-				if (obj == null)
+				if (node != null && obj == null)
 				{
-					if (parent != null) parent.RemoveChild(names[index - 1]);
+					parent.RemoveChild(names[index - 1]);
 					return parent;
 				}
 			}
@@ -742,11 +745,11 @@ public class DataNode
 
 				if (prefix) writer.Write(" = ");
 				writer.Write(Serialization.TypeToName(type));
+				writer.Write('\n');
 
 				for (int i = 0; i < node.children.size; ++i)
 				{
 					DataNode child = node.children[i];
-					writer.Write('\n');
 					child.Write(writer, tab + 1);
 				}
 				return;
