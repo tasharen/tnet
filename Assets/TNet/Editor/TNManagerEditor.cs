@@ -27,6 +27,7 @@ public class TNManagerEditor : Editor
 				GUILayout.Space(6f);
 				EditorGUILayout.LabelField("Channel #" + ch.id, TNManager.GetHost(ch.id).name);
 				EditorGUILayout.LabelField("Players", (TNManager.GetPlayers(ch.id).size + 1).ToString());
+				EditorGUILayout.LabelField("Host", (TNManager.GetHost(ch.id).name).ToString());
 			}
 		}
 

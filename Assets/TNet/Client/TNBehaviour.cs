@@ -22,13 +22,24 @@ public abstract class TNBehaviour : MonoBehaviour
 		{
 			if (mTNO == null)
 			{
-				mTNO = GetComponentInParent<TNObject>();
+				mTNO = GetComponent<TNObject>() ?? GetComponentInParent<TNObject>();
+
 				if (mTNO != null && Application.isPlaying)
+				{
 					mTNO.rebuildMethodList = true;
+					if (mTNO.hasBeenRegistered) OnInit();
+					else mTNO.onRegister += OnInit;
+				}
 			}
 			return mTNO;
 		}
 	}
+
+	/// <summary>
+	/// This function will be called after the TNObject's ID has been assigned. It's a slightly delayed version of Awake().
+	/// </summary>
+
+	public virtual void OnInit () { }
 
 	/// <summary>
 	/// Get the object-specific data.
@@ -47,6 +58,27 @@ public abstract class TNBehaviour : MonoBehaviour
 	/// </summary>
 
 	public void Set (string name, object val) { tno.Set(name, val); }
+
+	/// <summary>
+	/// Convenience function to set the data using a single string notation such as "key = value".
+	/// </summary>
+
+	public void Set (string text)
+	{
+		if (!string.IsNullOrEmpty(text))
+		{
+			var parts = text.Split(new char[] { '=' }, 2);
+
+			if (parts.Length == 2)
+			{
+				var key = parts[0].Trim();
+				var val = parts[1].Trim();
+				var node = new DataNode(key, val);
+				if (node.ResolveValue()) Set(node.name, node.value);
+			}
+			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
+		}
+	}
 
 	/// <summary>
 	/// If the TNObject is not yet present, wait until the next frame in case it will be added in Start().

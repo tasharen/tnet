@@ -439,8 +439,8 @@ public class TNManager : MonoBehaviour
 
 	static public Player GetHost (int channelID)
 	{
-		if (mInstance == null) return mPlayer;
-		return mInstance.mClient.GetHost(channelID) ?? mPlayer;
+		if (mInstance == null || !isConnected) return mPlayer;
+		return mInstance.mClient.GetHost(channelID);
 	}
 
 	/// <summary>
@@ -1303,13 +1303,18 @@ public class TNManager : MonoBehaviour
 
 	static internal void Instantiate (int channelID, int rccID, string funcName, string path, bool persistent, params object[] objs)
 	{
+		if (path == null) path = "";
 		GameObject go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
 
 		if (go != null && instance != null)
 		{
-			CachedFunc func = GetRCC(rccID, funcName);
+			var func = GetRCC(rccID, funcName);
 
-			if (TNManager.IsInChannel(channelID))
+			if (func == null)
+			{
+				Debug.LogError("Unable to locate RCC " + rccID + " " + funcName);
+			}
+			else if (TNManager.IsInChannel(channelID))
 			{
 				if (IsJoiningChannel(channelID))
 				{
@@ -1363,6 +1368,7 @@ public class TNManager : MonoBehaviour
 					{
 						if (++mObjID == 0) mObjID = 32768;
 						tno.uid = mObjID;
+						tno.Register();
 					}
 				}
 			}

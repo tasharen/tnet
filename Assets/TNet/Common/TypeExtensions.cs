@@ -309,11 +309,11 @@ static public class TypeExtensions
 
 	static public bool Invoke (this Type type, string methodName, params object[] parameters)
 	{
-		Type[] types = new Type[parameters.Length];
+		var types = new Type[parameters.Length];
 		for (int i = 0, imax = parameters.Length; i < imax; ++i)
 			types[i] = parameters[i].GetType();
 
-		MethodInfo mi = type.GetMethodOrExtension(methodName, types);
+		var mi = type.GetMethodOrExtension(methodName, types);
 		if (mi == null) return false;
 
 		// Extension methods need to pass the object as the first parameter ('this' reference)
@@ -343,12 +343,12 @@ static public class TypeExtensions
 	{
 		if (obj == null) return false;
 
-		Type type = obj.GetType();
-		Type[] types = new Type[parameters.Length];
+		var type = obj.GetType();
+		var types = new Type[parameters.Length];
 		for (int i = 0, imax = parameters.Length; i < imax; ++i)
 			types[i] = parameters[i].GetType();
 
-		MethodInfo mi = type.GetMethodOrExtension(methodName, types);
+		var mi = type.GetMethodOrExtension(methodName, types);
 		if (mi == null) return false;
 
 		// Extension methods need to pass the object as the first parameter ('this' reference)
@@ -368,6 +368,39 @@ static public class TypeExtensions
 
 		mi.Invoke(obj, parameters);
 		return true;
+	}
+
+	/// <summary>
+	/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+	/// </summary>
+
+	static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)
+	{
+		if (obj == null) return null;
+
+		var type = obj.GetType();
+		var types = new Type[parameters.Length];
+		for (int i = 0, imax = parameters.Length; i < imax; ++i)
+			types[i] = parameters[i].GetType();
+
+		var mi = type.GetMethodOrExtension(methodName, types);
+		if (mi == null) return null;
+
+		// Extension methods need to pass the object as the first parameter ('this' reference)
+		if (mi.IsStatic && mi.ReflectedType != type)
+		{
+			object[] extended = new object[parameters.Length + 1];
+			extended[0] = obj;
+			for (int i = 0, imax = parameters.Length; i < imax; ++i)
+				extended[i + 1] = parameters[i];
+
+			// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
+			// will not propagate outside that function. It seems to be a limitation of how the variable
+			// is passed to the extension function (as a part of the 'extended array').
+			return mi.Invoke(obj, extended);
+		}
+
+		return mi.Invoke(obj, parameters);
 	}
 
 	// Cached for speed

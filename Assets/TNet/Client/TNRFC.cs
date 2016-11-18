@@ -16,8 +16,29 @@ namespace TNet
 public sealed class RFC : Attribute
 {
 	public int id = 0;
-	public RFC () { }
-	public RFC (int rid) { id = rid; }
+	public string uniqueID;
+	public string property;
+
+	public RFC (string property = null)
+	{
+		this.uniqueID = null;
+		this.property = property;
+	}
+
+	public RFC (int rid)
+	{
+		id = rid;
+		uniqueID = null;
+		property = null;
+	}
+
+	public string GetUniqueID (object target)
+	{
+		if (uniqueID != null) return uniqueID;
+		if (string.IsNullOrEmpty(property)) return null;
+		uniqueID = target.GetFieldOrPropertyValue<string>(property);
+		return uniqueID;
+	}
 }
 
 /// <summary>

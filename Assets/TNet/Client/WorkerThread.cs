@@ -41,7 +41,8 @@ public class WorkerThread : MonoBehaviour
 	}
 
 	// List of callbacks executed in order by the worker thread
-	Queue<Entry> mNew = new Queue<Entry>();
+	Queue<Entry> mPriority = new Queue<Entry>();
+	Queue<Entry> mRegular = new Queue<Entry>();
 	Queue<Entry> mFinished = new Queue<Entry>();
 	List<Entry> mUnused = new List<Entry>();
 	System.Diagnostics.Stopwatch mStopwatch = new System.Diagnostics.Stopwatch();
@@ -68,7 +69,7 @@ public class WorkerThread : MonoBehaviour
 		get
 		{
 			if (mInstance == null) return 0;
-			lock (mInstance.mNew) { lock (mInstance.mFinished) { return mInstance.mNew.Count + mInstance.mFinished.Count; } }
+			lock (mInstance.mPriority) { lock (mInstance.mRegular) { lock (mInstance.mFinished) { return mInstance.mPriority.Count + mInstance.mRegular.Count + mInstance.mFinished.Count; } } }
 		}
 	}
 
@@ -125,8 +126,10 @@ public class WorkerThread : MonoBehaviour
 
 				for (; ; )
 				{
+					bool handled = false;
+
 					// Check without locking first as it's faster
-					if (mNew.Count > 0)
+					if (mPriority.Count > 0)
 					{
 						bool grab = true;
 
@@ -146,11 +149,43 @@ public class WorkerThread : MonoBehaviour
 						// No threads are idling -- grab the first queued item
 						if (grab)
 						{
-							lock (mNew)
+							lock (mPriority)
 							{
-								if (mNew.Count > 0)
+								if (mPriority.Count > 0)
 								{
-									active.Add(mNew.Dequeue());
+									handled = true;
+									active.Add(mPriority.Dequeue());
+									mLoad[threadID] = active.size;
+								}
+							}
+						}
+					}
+
+					if (!handled && mRegular.Count > 0)
+					{
+						bool grab = true;
+
+						// If this thread is not idling, check to see if others are
+						if (active.size != 0)
+						{
+							for (int b = 0; b < maxThreads; ++b)
+							{
+								if (b != threadID && mLoad[b] == 0)
+								{
+									grab = false;
+									break;
+								}
+							}
+						}
+
+						// No threads are idling -- grab the first queued item
+						if (grab)
+						{
+							lock (mRegular)
+							{
+								if (mRegular.Count > 0)
+								{
+									active.Add(mRegular.Dequeue());
 									mLoad[threadID] = active.size;
 								}
 							}
@@ -230,7 +265,7 @@ public class WorkerThread : MonoBehaviour
 	void OnApplicationQuit ()
 	{
 		StopThreads();
-		mNew.Clear();
+		mRegular.Clear();
 	}
 
 	List<Entry> mTemp = new List<Entry>();
@@ -283,7 +318,7 @@ public class WorkerThread : MonoBehaviour
 	/// Add a new callback function to the worker thread.
 	/// </summary>
 
-	static public void Create (VoidFunc main, VoidFunc finished = null)
+	static public void Create (VoidFunc main, VoidFunc finished = null, bool highPriority = false)
 	{
 		if (mInstance == null)
 		{
@@ -310,7 +345,11 @@ public class WorkerThread : MonoBehaviour
 		ent.main = main;
 		ent.finished = finished;
 
-		if (main != null) lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+		if (main != null)
+		{
+			if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
+			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
+		}
 		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
 	}
 
@@ -319,7 +358,7 @@ public class WorkerThread : MonoBehaviour
 	/// Return 'false' if you want the same delegate to execute again in the next Update(), or 'true' if you're done.
 	/// </summary>
 
-	static public void CreateMultiStageCompletion (VoidFunc main, BoolFunc finished = null)
+	static public void CreateMultiStageCompletion (VoidFunc main, BoolFunc finished = null, bool highPriority = false)
 	{
 		if (mInstance == null)
 		{
@@ -346,7 +385,11 @@ public class WorkerThread : MonoBehaviour
 		ent.main = main;
 		ent.finishedBool = finished;
 
-		if (main != null) lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+		if (main != null)
+		{
+			if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
+			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
+		}
 		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
 	}
 
@@ -356,7 +399,7 @@ public class WorkerThread : MonoBehaviour
 	/// Return 'false' if you want the same delegate to execute again next time, or 'true' if you're done.
 	/// </summary>
 
-	static public void CreateMultiStageExecution (BoolFunc main, VoidFunc finished = null)
+	static public void CreateMultiStageExecution (BoolFunc main, VoidFunc finished = null, bool highPriority = false)
 	{
 		if (mInstance == null)
 		{
@@ -382,7 +425,9 @@ public class WorkerThread : MonoBehaviour
 
 		ent.mainBool = main;
 		ent.finished = finished;
-		lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+
+		if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
+		else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 	}
 
 	/// <summary>
@@ -391,7 +436,7 @@ public class WorkerThread : MonoBehaviour
 	/// Return 'false' if you want the same delegates to execute again next time, or 'true' if you're done.
 	/// </summary>
 
-	static public void CreateMultiStage (BoolFunc main, BoolFunc finished = null)
+	static public void CreateMultiStage (BoolFunc main, BoolFunc finished = null, bool highPriority = false)
 	{
 		if (mInstance == null)
 		{
@@ -417,7 +462,9 @@ public class WorkerThread : MonoBehaviour
 
 		ent.mainBool = main;
 		ent.finishedBool = finished;
-		lock (mInstance.mNew) mInstance.mNew.Enqueue(ent);
+
+		if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
+		else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 	}
 }
 }
