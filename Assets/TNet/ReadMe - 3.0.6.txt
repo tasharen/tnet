@@ -109,6 +109,18 @@ http://www.tasharen.com/?page_id=4518
  Version History
 --------------------------------------------------------------------------------------------------------------------
 
+3.0.6
+- NEW: Added a string ID to RFC that you can specify to uniquely identify identical RFCs underneath the same TNObject. For example: having two turrets underneath one TNObject with each script having a "Fire" function. You can now specify a name of the property that will uniquely identify the RFC, thus making it possible to call only that one RFC instead of both at once. To call only that RFC, instead of tno.Send("name", ...) use tno.Send("name/property", ...);
+- NEW: WorkerThread now has a "priority" queue. All items in the priority queue gets processed before the regular queue.
+- NEW: Added OnInit() function to TNBehaviour. Use it instead of Awake() as it will be called as soon as the object gets created, but unlike Awake() it's called after the TNObject's ID has been set.
+- NEW: TNManager.playedTime will show the player's /played time. Played time is tracked automatically  via the player's save file.
+- NEW: It's now possible to assign the TNObject's data on creation. Useful if you mean to pass some starting data to your RCC.
+- NEW: Selecting a TNObject in Unity will now show its associated DataNode's data in inspector.
+- FIX: Fixed a bug in DataNode related to serialization of custom classes as text.
+- FIX: DataNode.SetHierarchy(path, null) will no longer remove the node's parent.
+- FIX: When retrieving a list of network interfaces, unknown status interfaces will no longer be ignored.
+- FIX: Improvements of how nested TNObjects work.
+
 3.0.5
 - NEW: TNet now automatically forces Application.runInBackground to be 'true' when connected.
 - NEW: Exposed TNObject.dataNode in case you need to run through its data manually.
