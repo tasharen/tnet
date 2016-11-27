@@ -586,9 +586,9 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (mDictionary != null)
 			{
-				Dictionary<uint, TNObject> dict = mDictionary[channelID];
+				Dictionary<uint, TNObject> dict;
 
-				if (dict != null)
+				if (mDictionary.TryGetValue(channelID, out dict) && dict != null)
 				{
 					dict.Remove(uid);
 					if (dict.Count == 0) mDictionary.Remove(channelID);
@@ -597,9 +597,9 @@ public sealed class TNObject : MonoBehaviour
 
 			if (mList != null)
 			{
-				TNet.List<TNObject> list = mList[channelID];
+				TNet.List<TNObject> list;
 
-				if (list != null)
+				if (mList.TryGetValue(channelID, out list) && list != null)
 				{
 					list.Remove(this);
 					if (list.size == 0) mList.Remove(channelID);
@@ -1151,30 +1151,19 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (parent == null)
 		{
-			Transfer(newChannelID);
+			if (mDestroyed) return;
 
-			var children = GetComponentsInChildren<TNObject>();
-
-			for (int i = 0, imax = children.Length; i < imax; ++i)
+			if (uid > 32767 && channelID != newChannelID && TNManager.IsInChannel(channelID))
 			{
-				var t = children[i];
-				if (t != this) t.Transfer(newChannelID);
+				mDestroyed = true;
+				BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
+				writer.Write(channelID);
+				writer.Write(newChannelID);
+				writer.Write(uid);
+				TNManager.EndSend(channelID, true);
 			}
 		}
 		else parent.TransferToChannel(newChannelID);
-	}
-
-	void Transfer (int newChannelID)
-	{
-		if (!mDestroyed && uid > 32767 && isMine && channelID != newChannelID && TNManager.IsInChannel(channelID))
-		{
-			mDestroyed = true;
-			BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
-			writer.Write(channelID);
-			writer.Write(newChannelID);
-			writer.Write(uid);
-			TNManager.EndSend(channelID, true);
-		}
 	}
 
 	/// <summary>

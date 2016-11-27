@@ -423,6 +423,7 @@ static public class Serialization
 		{
 			if (desiredType == typeof(int)) return (int)(ulong)value;
 			if (desiredType == typeof(long)) return (long)(ulong)value;
+			if (desiredType == typeof(double)) return (double)(ulong)value;
 			if (desiredType == typeof(DateTime)) return new DateTime((long)(ulong)value, DateTimeKind.Utc);
 		}
 		else if (valueType == typeof(ObsInt))
@@ -1607,6 +1608,12 @@ static public class Serialization
 	}
 
 	/// <summary>
+	/// Write a counter value to this stream.
+	/// </summary>
+
+	static public void Write (this BinaryWriter writer, Counter c) { c.Serialize(writer); }
+
+	/// <summary>
 	/// Get the identifier prefix for the specified type.
 	/// If this is not one of the common types, the returned value will be 254 if reflection is supported and 255 otherwise.
 	/// </summary>
@@ -1638,6 +1645,7 @@ static public class Serialization
 		if (type == typeof(Matrix4x4)) return 21;
 		if (type == typeof(BoneWeight)) return 22;
 		if (type == typeof(Bounds)) return 23;
+		if (type == typeof(Counter)) return 24;
 
 		if (type == typeof(bool[])) return 101;
 		if (type == typeof(byte[])) return 102;
@@ -1663,6 +1671,7 @@ static public class Serialization
 		if (type == typeof(Matrix4x4[])) return 121;
 		if (type == typeof(BoneWeight[])) return 122;
 		if (type == typeof(Bounds[])) return 123;
+		if (type == typeof(Counter[])) return 124;
 
 #if REFLECTION_SUPPORT
 		return 254;
@@ -1701,6 +1710,10 @@ static public class Serialization
 			case 18: return typeof(long);
 			case 19: return typeof(ulong);
 			case 20: return typeof(ObsInt);
+			case 21: return typeof(Matrix4x4);
+			case 22: return typeof(BoneWeight);
+			case 23: return typeof(Bounds);
+			case 24: return typeof(Counter);
 
 			case 101: return typeof(bool[]);
 			case 102: return typeof(byte[]);
@@ -1723,6 +1736,10 @@ static public class Serialization
 			case 118: return typeof(long[]);
 			case 119: return typeof(ulong[]);
 			case 120: return typeof(ObsInt[]);
+			case 121: return typeof(Matrix4x4[]);
+			case 122: return typeof(BoneWeight[]);
+			case 123: return typeof(Bounds[]);
+			case 124: return typeof(Counter[]);
 		}
 		return null;
 	}
@@ -1973,6 +1990,7 @@ static public class Serialization
 			case 21: bw.Write((Matrix4x4)obj); break;
 			case 22: bw.Write((BoneWeight)obj); break;
 			case 23: bw.Write((Bounds)obj); break;
+			case 24: bw.Write((Counter)obj); break;
 			case 101:
 			{
 				bool[] arr = (bool[])obj;
@@ -2131,6 +2149,13 @@ static public class Serialization
 			case 123:
 			{
 				Bounds[] arr = (Bounds[])obj;
+				bw.WriteInt(arr.Length);
+				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+				break;
+			}
+			case 124:
+			{
+				var arr = (Counter[])obj;
 				bw.WriteInt(arr.Length);
 				for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 				break;
@@ -2395,6 +2420,17 @@ static public class Serialization
 	}
 
 	/// <summary>
+	/// Read a previously serialized counter.
+	/// </summary>
+
+	static public Counter ReadCounter (this BinaryReader reader)
+	{
+		var c = new Counter();
+		c.Deserialize(reader);
+		return c;
+	}
+
+	/// <summary>
 	/// Read a previously serialized bone weight from the stream.
 	/// </summary>
 
@@ -2511,6 +2547,7 @@ static public class Serialization
 			case 21: return reader.ReadMatrix();
 			case 22: return reader.ReadBoneWeight();
 			case 23: return reader.ReadBounds();
+			case 24: return reader.ReadCounter();
 			case 98: // TNet.List
 			{
 				type = reader.ReadType(out prefix);
@@ -2756,6 +2793,13 @@ static public class Serialization
 				int elements = reader.ReadInt();
 				Bounds[] arr = new Bounds[elements];
 				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBounds();
+				return arr;
+			}
+			case 124:
+			{
+				int elements = reader.ReadInt();
+				var arr = new Counter[elements];
+				for (int b = 0; b < elements; ++b) arr[b] = reader.ReadCounter();
 				return arr;
 			}
 			case 253:

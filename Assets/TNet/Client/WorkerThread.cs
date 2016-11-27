@@ -3,9 +3,13 @@
 // Copyright © 2012-2016 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+// Use this for debugging purposes
+//#define SINGLE_THREADED
+
 using UnityEngine;
 using System.Threading;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace TNet
 {
@@ -21,8 +25,7 @@ public class WorkerThread : MonoBehaviour
 	
 	// How much time the worker thread's update function is allowed to take per frame.
 	// Note that this value simply means that if it's exceeded, no more functions will be executed on this frame, not that it will pause mid-execution.
-	const long MAX_MILLISECONDS_PER_FRAME = 4;
-
+	static public long maxMillisecondsPerFrame = 4;
 	static WorkerThread mInstance = null;
 
 	public delegate bool BoolFunc ();
@@ -38,6 +41,7 @@ public class WorkerThread : MonoBehaviour
 		public VoidFunc finished;
 		public BoolFunc mainBool;		// Return 'true' when done, 'false' to execute again next update
 		public BoolFunc finishedBool;	// Return 'true' when done, 'false' to execute again next update
+		public long milliseconds = 0;
 	}
 
 	// List of callbacks executed in order by the worker thread
@@ -45,7 +49,7 @@ public class WorkerThread : MonoBehaviour
 	Queue<Entry> mRegular = new Queue<Entry>();
 	Queue<Entry> mFinished = new Queue<Entry>();
 	List<Entry> mUnused = new List<Entry>();
-	System.Diagnostics.Stopwatch mStopwatch = new System.Diagnostics.Stopwatch();
+	static Stopwatch mStopwatch = new Stopwatch();
 
 	/// <summary>
 	/// Whether the update timer has been exceeded for this frame. Can check this inside delegates executed on the main thread and exit out early.
@@ -56,7 +60,7 @@ public class WorkerThread : MonoBehaviour
 		get
 		{
 			if (mInstance == null) return false;
-			return mInstance.mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME;
+			return mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame;
 		}
 	}
 
@@ -70,6 +74,22 @@ public class WorkerThread : MonoBehaviour
 		{
 			if (mInstance == null) return 0;
 			lock (mInstance.mPriority) { lock (mInstance.mRegular) { lock (mInstance.mFinished) { return mInstance.mPriority.Count + mInstance.mRegular.Count + mInstance.mFinished.Count; } } }
+		}
+	}
+
+	/// <summary>
+	/// Immediately abort all active threads.
+	/// </summary>
+
+	static public void Abort ()
+	{
+		if (mInstance != null)
+		{
+			mInstance.StopThreads();
+			mInstance.mRegular.Clear();
+			mInstance.mPriority.Clear();
+			mInstance.mFinished.Clear();
+			mInstance.StartThreads();
 		}
 	}
 
@@ -122,7 +142,8 @@ public class WorkerThread : MonoBehaviour
 
 			mThreads[threadID] = new Thread(delegate()
 			{
-				List<Entry> active = new List<Entry>();
+				var active = new List<Entry>();
+				var sw = new Stopwatch();
 
 				for (; ; )
 				{
@@ -199,11 +220,16 @@ public class WorkerThread : MonoBehaviour
 						{
 							var ent = active[--b];
 
+							sw.Reset();
+							sw.Start();
+
 							try
 							{
 								if (ent.main != null)
 								{
 									ent.main();
+									ent.milliseconds += sw.ElapsedMilliseconds;
+
 									active.RemoveAt(b);
 									if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
 									else lock (mUnused) mUnused.Add(ent);
@@ -211,6 +237,8 @@ public class WorkerThread : MonoBehaviour
 								}
 								else if (ent.mainBool != null && ent.mainBool())
 								{
+									ent.milliseconds += sw.ElapsedMilliseconds;
+
 									active.RemoveAt(b);
 									if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
 									else lock (mUnused) mUnused.Add(ent);
@@ -219,7 +247,7 @@ public class WorkerThread : MonoBehaviour
 							}
 							catch (System.Exception ex)
 							{
-								Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+								UnityEngine.Debug.LogError(ex.Message + "\n" + ex.StackTrace);
 								active.RemoveAt(b);
 							}
 						}
@@ -271,6 +299,13 @@ public class WorkerThread : MonoBehaviour
 	List<Entry> mTemp = new List<Entry>();
 
 	/// <summary>
+	/// Check this value at the end of your Finished function if you want to know how long it took to execute the worker thread's functions.
+	/// </summary>
+
+	static public long elapsedMilliseconds { get { return mStopwatch.ElapsedMilliseconds - mStart; } }
+	static long mStart = 0;
+
+	/// <summary>
 	/// Call finished delegates on the main thread.
 	/// </summary>
 
@@ -286,6 +321,8 @@ public class WorkerThread : MonoBehaviour
 				while (mFinished.Count > 0)
 				{
 					var ent = mFinished.Dequeue();
+					var start = mStopwatch.ElapsedMilliseconds;
+					mStart = start - ent.milliseconds;
 
 					if (ent.finished != null)
 					{
@@ -293,8 +330,10 @@ public class WorkerThread : MonoBehaviour
 					}
 					else if (ent.finishedBool != null && !ent.finishedBool())
 					{
+						var elapsed = mStopwatch.ElapsedMilliseconds;
+						ent.milliseconds += elapsed - start;
 						mTemp.Add(ent);
-						if (mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME) break;
+						if (elapsed > maxMillisecondsPerFrame) break;
 						continue;
 					}
 
@@ -302,9 +341,10 @@ public class WorkerThread : MonoBehaviour
 					ent.finished = null;
 					ent.mainBool = null;
 					ent.finishedBool = null;
+
 					lock (mUnused) mUnused.Add(ent);
 
-					if (mStopwatch.ElapsedMilliseconds > MAX_MILLISECONDS_PER_FRAME) break;
+					if (mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame) break;
 				}
 
 				// Re-queue the conditionals
@@ -320,6 +360,10 @@ public class WorkerThread : MonoBehaviour
 
 	static public void Create (VoidFunc main, VoidFunc finished = null, bool highPriority = false)
 	{
+#if SINGLE_THREADED
+		if (main != null) main();
+		if (finished != null) finished();
+#else
 		if (mInstance == null)
 		{
 #if UNITY_EDITOR
@@ -344,6 +388,7 @@ public class WorkerThread : MonoBehaviour
 
 		ent.main = main;
 		ent.finished = finished;
+		ent.milliseconds = 0;
 
 		if (main != null)
 		{
@@ -351,6 +396,7 @@ public class WorkerThread : MonoBehaviour
 			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 		}
 		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
+#endif
 	}
 
 	/// <summary>
@@ -360,6 +406,10 @@ public class WorkerThread : MonoBehaviour
 
 	static public void CreateMultiStageCompletion (VoidFunc main, BoolFunc finished = null, bool highPriority = false)
 	{
+#if SINGLE_THREADED
+		if (main != null) main();
+		if (finished != null) while (!finished()) { };
+#else
 		if (mInstance == null)
 		{
 #if UNITY_EDITOR
@@ -384,6 +434,7 @@ public class WorkerThread : MonoBehaviour
 
 		ent.main = main;
 		ent.finishedBool = finished;
+		ent.milliseconds = 0;
 
 		if (main != null)
 		{
@@ -391,6 +442,7 @@ public class WorkerThread : MonoBehaviour
 			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 		}
 		else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
+#endif
 	}
 
 	/// <summary>
@@ -401,6 +453,10 @@ public class WorkerThread : MonoBehaviour
 
 	static public void CreateMultiStageExecution (BoolFunc main, VoidFunc finished = null, bool highPriority = false)
 	{
+#if SINGLE_THREADED
+		if (main != null) { while (!main()) { } }
+		if (finished != null) finished();
+#else
 		if (mInstance == null)
 		{
 #if UNITY_EDITOR
@@ -425,9 +481,11 @@ public class WorkerThread : MonoBehaviour
 
 		ent.mainBool = main;
 		ent.finished = finished;
+		ent.milliseconds = 0;
 
 		if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
 		else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
+#endif
 	}
 
 	/// <summary>
@@ -438,6 +496,10 @@ public class WorkerThread : MonoBehaviour
 
 	static public void CreateMultiStage (BoolFunc main, BoolFunc finished = null, bool highPriority = false)
 	{
+#if SINGLE_THREADED
+		if (main != null) { while (!main()) { } }
+		if (finished != null) { while (!finished()) { } }
+#else
 		if (mInstance == null)
 		{
 #if UNITY_EDITOR
@@ -462,9 +524,11 @@ public class WorkerThread : MonoBehaviour
 
 		ent.mainBool = main;
 		ent.finishedBool = finished;
+		ent.milliseconds = 0;
 
 		if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
 		else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
+#endif
 	}
 }
 }

@@ -116,7 +116,7 @@ public class GameClient : TNEvents
 	/// Current time on the server in milliseconds.
 	/// </summary>
 
-	public long serverTime { get { return mTimeDifference + (System.DateTime.UtcNow.Ticks / 10000); } }
+	public long serverTime { get { return mTimeDifference + mMyTime; } }
 
 	/// <summary>
 	/// Server's uptime in milliseconds.
@@ -942,8 +942,7 @@ public class GameClient : TNEvents
 		{
 			if (mTcp.VerifyResponseID(response, reader))
 			{
-				var now = System.DateTime.UtcNow.Ticks / 10000;
-				mTimeDifference = reader.ReadInt64() - now;
+				mTimeDifference = reader.ReadInt64() - mMyTime;
 				mStartTime = reader.ReadInt64();
 
 #if !UNITY_WEBPLAYER

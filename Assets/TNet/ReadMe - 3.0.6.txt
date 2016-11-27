@@ -116,6 +116,10 @@ http://www.tasharen.com/?page_id=4518
 - NEW: TNManager.playedTime will show the player's /played time. Played time is tracked automatically  via the player's save file.
 - NEW: It's now possible to assign the TNObject's data on creation. Useful if you mean to pass some starting data to your RCC.
 - NEW: Selecting a TNObject in Unity will now show its associated DataNode's data in inspector.
+- NEW: Added WorkerThread.elapsedMilliseconds you can check at the end of your finished function callbacks to see how long the worker thread's functions took to execute.
+- NEW: WorkerThread now has a SINGLE_THREADED #define to aid with debugging.
+- NEW: WorkerThread's maximum milliseconds per frame spent in the update function is now settable at run-time.
+- NEW: Added a simple TNet.Counter class that can be used for server-side resource counters that automatically change with time. For example: energy production at your game's base.
 - FIX: Fixed a bug in DataNode related to serialization of custom classes as text.
 - FIX: DataNode.SetHierarchy(path, null) will no longer remove the node's parent.
 - FIX: When retrieving a list of network interfaces, unknown status interfaces will no longer be ignored.
