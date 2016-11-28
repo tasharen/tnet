@@ -150,7 +150,7 @@ public sealed class TNObject : MonoBehaviour
 		get
 		{
 			var owner = this.owner;
-			return (owner != null) ? owner == TNManager.player : TNManager.isHosting;
+			return (owner != null) ? owner == TNManager.player : TNManager.IsHosting(channelID);
 		}
 	}
 
@@ -936,7 +936,15 @@ public sealed class TNObject : MonoBehaviour
 
 			CachedFunc ent;
 
-			if (!mDict1.TryGetValue(rfcName, out ent))
+			if (rfcID != 0)
+			{
+				if (!mDict0.TryGetValue(rfcID, out ent))
+				{
+					Debug.LogWarning("RFC " + rfcID + " is not present on " + name, this);
+					return;
+				}
+			}
+			else if (!mDict1.TryGetValue(rfcName, out ent))
 			{
 				Debug.LogWarning("RFC " + rfcName + " is not present on " + name, this);
 				return;
@@ -992,7 +1000,7 @@ public sealed class TNObject : MonoBehaviour
 				}
 				else executeLocally = true;
 			}
-			else if (target == Target.Host && TNManager.isHosting)
+			else if (target == Target.Host && TNManager.IsHosting(channelID))
 			{
 				// We're the host, and the packet should be going to the host -- just echo it locally
 				executeLocally = true;

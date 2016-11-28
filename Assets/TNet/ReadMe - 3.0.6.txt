@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.5
+                  Version 3.0.6
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -120,6 +120,8 @@ http://www.tasharen.com/?page_id=4518
 - NEW: WorkerThread now has a SINGLE_THREADED #define to aid with debugging.
 - NEW: WorkerThread's maximum milliseconds per frame spent in the update function is now settable at run-time.
 - NEW: Added a simple TNet.Counter class that can be used for server-side resource counters that automatically change with time. For example: energy production at your game's base.
+- NEW: Added TNManager.IsHosting(channel) and added a warning to the TNManager.isHosting property.
+- FIX: Fixed some places that still used TNManager.isHosting.
 - FIX: Fixed a bug in DataNode related to serialization of custom classes as text.
 - FIX: DataNode.SetHierarchy(path, null) will no longer remove the node's parent.
 - FIX: When retrieving a list of network interfaces, unknown status interfaces will no longer be ignored.

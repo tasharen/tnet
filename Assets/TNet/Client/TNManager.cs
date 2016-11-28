@@ -268,10 +268,28 @@ public class TNManager : MonoBehaviour
 	static public bool isTryingToConnect { get { return mInstance != null && mInstance.mClient.isTryingToConnect; } }
 
 	/// <summary>
-	/// Whether we're currently hosting.
+	/// Whether we're currently hosting. Note that this should only be used if the player is in only one channel.
 	/// </summary>
 
-	static public bool isHosting { get { return GetHost(lastChannelID) == player; } }
+	static public bool isHosting
+	{
+		get
+		{
+#if UNITY_EDITOR
+			if (channels.size > 1)
+			{
+				Debug.LogWarning("Use TNManager.IsHosting(channelID) instead, as the player is in more than one channel.\nUndefined results will occur if you keep using TNManager.isHosting.");
+			}
+#endif
+			return GetHost(lastChannelID) == player;
+		}
+	}
+
+	/// <summary>
+	/// Whether the player is hosting this channel.
+	/// </summary>
+
+	static public bool IsHosting (int channelID) { return GetHost(channelID) == player; }
 
 	/// <summary>
 	/// Whether we're currently in any channel. To find out if we are in a specific channel, use TNManager.IsInChannel(id).
@@ -1681,7 +1699,18 @@ public class TNManager : MonoBehaviour
 			if (lastChannelID == channelID)
 			{
 				List<Channel> chs = channels;
-				lastChannelID = (chs != null && chs.size > 0) ? chs[0].id : 0;
+
+				for (int i = 0; i < chs.size; ++i)
+				{
+					var ch = chs[i];
+
+					if (ch.id != lastChannelID)
+					{
+						lastChannelID = ch.id;
+						return;
+					}
+				}
+				lastChannelID = 0;
 			}
 		};
 
