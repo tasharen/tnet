@@ -657,6 +657,9 @@ public class GameClient : TNEvents
 	{
 		if (isConnected && !IsInChannel(channelID) && !mJoining.Contains(channelID))
 		{
+			if (playerLimit > 65535) playerLimit = 65535;
+			else if (playerLimit < 0) playerLimit = 0;
+
 			BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
 			writer.Write(channelID);
 			writer.Write(string.IsNullOrEmpty(password) ? "" : password);

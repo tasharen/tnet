@@ -269,15 +269,6 @@ public enum Packet
 	RequestRemoveRFC,
 
 	/// <summary>
-	/// Echo the packet to everyone in the room. Interpreting the packet is up to the client.
-	/// int32: ID of the player that sent the packet.
-	/// int32: Channel ID.
-	/// uint32: Object ID (24 bits), RFC ID (8 bits).
-	/// string: Function name (only if RFC ID is 0).
-	/// Arbitrary amount of data follows.
-	/// </summary>
-
-	/// <summary>
 	/// Instantiate a new object with the specified identifier.
 	/// int32: ID of the player that sent the packet.
 	/// int32: Channel ID.

@@ -253,6 +253,7 @@ static public class UnityTools
 	public delegate UnityEngine.Object LoadExFunc (string path, System.Type type, string name);
 	public delegate byte[] LoadBinaryFunc (string path);
 
+	[System.NonSerialized]
 	static System.Collections.Generic.Dictionary<string, System.Type> mTypeCache =
 		new System.Collections.Generic.Dictionary<string, System.Type>();
 
@@ -290,11 +291,7 @@ static public class UnityTools
 				}
 			}
 		}
-#if UNITY_EDITOR
-		if (Application.isPlaying) mTypeCache[name] = t;
-#else
 		mTypeCache[name] = t;
-#endif
 		return t;
 	}
 

@@ -58,6 +58,9 @@ public class TcpLobbyServer : LobbyServer
 	{
 		Stop();
 
+#if FORCE_EN_US
+		Tools.SetCurrentCultureToEnUS();
+#endif
 		try
 		{
 			mListener = new TcpListener(TNet.TcpProtocol.defaultListenerInterface, listenPort);
@@ -74,7 +77,7 @@ public class TcpLobbyServer : LobbyServer
 #else
 		catch (System.Exception) { return false; }
 #endif
-		mThread = new Thread(ThreadFunction);
+		mThread = Tools.CreateThread(ThreadFunction);
 		mThread.Start();
 		return true;
 	}

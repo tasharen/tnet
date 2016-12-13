@@ -140,7 +140,7 @@ public class WorkerThread : MonoBehaviour
 		{
 			int threadID = i;
 
-			mThreads[threadID] = new Thread(delegate()
+			mThreads[threadID] = Tools.CreateThread(delegate()
 			{
 				var active = new List<Entry>();
 				var sw = new Stopwatch();

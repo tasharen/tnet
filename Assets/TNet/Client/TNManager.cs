@@ -20,7 +20,8 @@ public class TNManager : MonoBehaviour
 {
 	// Will be 'true' at play time unless the application is shutting down. 'false' at edit time.
 	static bool isPlaying { get { return !mDestroyed && Application.isPlaying; } }
-	static bool mDestroyed = false;
+	[System.NonSerialized] static bool mDestroyed = false;
+	[System.NonSerialized] static bool mShuttingDown = false;
 
 #region Delegates
 	/// <summary>
@@ -227,7 +228,7 @@ public class TNManager : MonoBehaviour
 	{
 		get
 		{
-			return mInstance != null ? mInstance.mClient : (mDestroyed ? null : instance.mClient);
+			return mInstance != null ? mInstance.mClient : (!mDestroyed && !mShuttingDown ? instance.mClient : null);
 		}
 	}
 
@@ -548,6 +549,7 @@ public class TNManager : MonoBehaviour
 #endif
 			if (mInstance == null)
 			{
+				if (mShuttingDown) return null;
 				GameObject go = new GameObject("Network Manager");
 				mInstance = go.AddComponent<TNManager>();
 				mDestroyed = false;
@@ -831,7 +833,7 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (byte packetID, GameClient.OnPacket callback)
 	{
-		if (!mDestroyed && Application.isPlaying)
+		if (!mShuttingDown && !mDestroyed && Application.isPlaying)
 			instance.mClient.packetHandlers[packetID] = callback;
 	}
 
@@ -841,7 +843,7 @@ public class TNManager : MonoBehaviour
 
 	static public void SetPacketHandler (Packet packet, GameClient.OnPacket callback)
 	{
-		if (!mDestroyed && Application.isPlaying)
+		if (!mShuttingDown && !mDestroyed && Application.isPlaying)
 			instance.mClient.packetHandlers[(byte)packet] = callback;
 	}
 
@@ -949,7 +951,7 @@ public class TNManager : MonoBehaviour
 
 	static public void JoinChannel (int channelID, bool persistent = false, bool leaveCurrentChannel = false)
 	{
-		JoinChannel(channelID, null, persistent, int.MaxValue, null, leaveCurrentChannel);
+		JoinChannel(channelID, null, persistent, 65535, null, leaveCurrentChannel);
 	}
 
 	/// <summary>
@@ -1653,7 +1655,9 @@ public class TNManager : MonoBehaviour
 			mInstance = this;
 			rebuildMethodList = true;
 			DontDestroyOnLoad(gameObject);
-
+#if FORCE_EN_US
+			Tools.SetCurrentCultureToEnUS();
+#endif
 			AddRCCs<TNManager>();
 			SetDefaultCallbacks();
 			
@@ -1864,6 +1868,8 @@ public class TNManager : MonoBehaviour
 #endif
 		}
 	}
+
+	void OnApplicationQuit () { mShuttingDown = true; }
 
 	/// <summary>
 	/// If custom functionality is needed, all unrecognized packets will arrive here.

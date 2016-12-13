@@ -272,6 +272,9 @@ public class GameServer : FileServer
 
 		Stop();
 
+#if FORCE_EN_US
+		Tools.SetCurrentCultureToEnUS();
+#endif
 		Tools.LoadList("ServerConfig/ban.txt", mBan);
 		Tools.LoadList("ServerConfig/admin.txt", mAdmin);
 
@@ -321,7 +324,7 @@ public class GameServer : FileServer
 		}
 
 #if !SINGLE_THREADED
-		mThread = new Thread(ThreadFunction);
+		mThread = Tools.CreateThread(ThreadFunction);
 		mThread.Start();
 #endif
 		return true;
@@ -2286,25 +2289,25 @@ public class GameServer : FileServer
 			case Packet.RequestTransferObject:
 			{
 				bool isNew;
-				Channel from = player.GetChannel(reader.ReadInt32());
-				Channel to = CreateChannel(reader.ReadInt32(), out isNew);
-				uint objectID = reader.ReadUInt32();
+				var from = player.GetChannel(reader.ReadInt32());
+				var to = CreateChannel(reader.ReadInt32(), out isNew);
+				var objectID = reader.ReadUInt32();
 
 				if (from != null && to != null && from != to)
 				{
-					Channel.CreatedObject obj = from.TransferObject(objectID, to);
+					var obj = from.TransferObject(objectID, to);
 
 					if (obj != null)
 					{
 						// Notify players in the old channel
 						for (int i = 0; i < from.players.size; ++i)
 						{
-							TcpPlayer p = (TcpPlayer)from.players[i];
+							var p = (TcpPlayer)from.players[i];
 
 							if (to.players.Contains(p))
 							{
 								// The player is also present in the other channel -- inform them of the transfer
-								BinaryWriter writer = p.BeginSend(Packet.ResponseTransferObject);
+								var writer = p.BeginSend(Packet.ResponseTransferObject);
 								writer.Write(from.id);
 								writer.Write(to.id);
 								writer.Write(objectID);
@@ -2325,14 +2328,14 @@ public class GameServer : FileServer
 						// Notify players in the new channel
 						for (int i = 0; i < to.players.size; ++i)
 						{
-							TcpPlayer p = (TcpPlayer)to.players[i];
+							var p = (TcpPlayer)to.players[i];
 
 							if (!from.players.Contains(p))
 							{
-								Buffer temp = Buffer.Create();
+								var temp = Buffer.Create();
 
 								// Object creation notification
-								BinaryWriter writer = temp.BeginPacket(Packet.ResponseCreateObject);
+								var writer = temp.BeginPacket(Packet.ResponseCreateObject);
 								writer.Write(obj.playerID);
 								writer.Write(to.id);
 								writer.Write(obj.objectID);

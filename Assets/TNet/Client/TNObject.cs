@@ -36,6 +36,13 @@ public sealed class TNObject : MonoBehaviour
 	[System.NonSerialized] uint mDynamicID = 0;
 
 	/// <summary>
+	/// If set to 'true', missing RFCs won't produce warning messages.
+	/// </summary>
+
+	[Tooltip("If set to 'true', missing RFCs won't produce warning messages")]
+	public bool ignoreWarnings = false;
+
+	/// <summary>
 	/// ID of the channel this TNObject belongs to.
 	/// </summary>
 
@@ -68,6 +75,9 @@ public sealed class TNObject : MonoBehaviour
 	
 	[System.NonSerialized] bool mDestroyed = false;
 	[System.NonSerialized] bool mHasBeenRegistered = false;
+	[System.NonSerialized] DataNode mData = null;
+	[System.NonSerialized] bool mCallDataChanged = false;
+	[System.NonSerialized] bool mSettingData = false;
 
 	/// <summary>
 	/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32,768 to 16,777,215).
@@ -176,9 +186,6 @@ public sealed class TNObject : MonoBehaviour
 
 	public Player owner { get { return (parent == null) ? (mOwner ?? TNManager.GetHost(channelID)) : mParent.owner; } }
 
-	[System.NonSerialized] DataNode mData = null;
-	[System.NonSerialized] bool mCallDataChanged = false;
-
 	/// <summary>
 	/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
 	/// Note that setting the entire data node is only possible during the object creation (RCC). After that the individual Set functions should be used.
@@ -240,8 +247,6 @@ public sealed class TNObject : MonoBehaviour
 		}
 		else mParent.Set(name, val);
 	}
-
-	bool mSettingData = false;
 
 	[RFC]
 	void OnSet (string name, object val)
@@ -404,7 +409,18 @@ public sealed class TNObject : MonoBehaviour
 	void OnLeaveChannel (int channelID)
 	{
 		if (parent == null && this.channelID == channelID && uid > 32767)
+		{
+#if UNITY_EDITOR && W2
+			var pv = PlayerVehicle.controlled;
+			if (pv != null && pv == GetComponent<PlayerVehicle>())
+			{
+				var tile = ProceduralTerrain.GetTile(channelID);
+				Debug.LogError("Destroying a channel " + channelID + " with the player's vehicle still in it!\n" +
+					"pos: " + pv.truePosition.x + " " + pv.truePosition.z + ", " + (tile != null ? tile.ix + " " + tile.iz : "null"));
+			}
+#endif
 			Object.Destroy(gameObject);
+		}
 	}
 
 	/// <summary>
@@ -692,19 +708,13 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (obj.Execute(funcID, parameters)) return;
 #if UNITY_EDITOR
-			Debug.LogError("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
-				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
+			if (!obj.ignoreWarnings)
+				Debug.LogWarning("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
+					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 		}
 #if UNITY_EDITOR
-		else if (TNManager.isJoiningChannel)
-		{
-			Debug.Log("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
-		}
-		else
-		{
-			Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
-		}
+		else Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created.");
 #endif
 	}
 
@@ -720,21 +730,13 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (obj.Execute(funcName, parameters)) return;
 #if UNITY_EDITOR
-			Debug.LogError("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
-				"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
+			if (!obj.ignoreWarnings)
+				Debug.LogWarning("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
+					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 		}
 #if UNITY_EDITOR
-		else if (TNManager.isJoiningChannel)
-		{
-			Debug.Log("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
-				" before it has been created.");
-		}
-		else
-		{
-			Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID +
-				" before it has been created.");
-		}
+		else Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created.");
 #endif
 	}
 
@@ -1163,6 +1165,18 @@ public sealed class TNObject : MonoBehaviour
 
 			if (uid > 32767 && channelID != newChannelID && TNManager.IsInChannel(channelID))
 			{
+#if W2 && UNITY_EDITOR
+				var pv = PlayerVehicle.controlled;
+
+				if (pv != null && pv == GetComponent<PlayerVehicle>())
+				{
+					var before = ProceduralTerrain.GetTile(channelID);
+					var after = ProceduralTerrain.GetTile(newChannelID);
+					Debug.Log("Transfer: " + name + " from " +
+						(before != null ? before.ix + " " + before.iz : channelID.ToString()) + " to " +
+						(after != null ? after.ix + " " + after.iz : newChannelID.ToString()) + "\n", this);
+				}
+#endif
 				mDestroyed = true;
 				BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
 				writer.Write(channelID);

@@ -199,9 +199,9 @@ public class Channel : DataNodeContainer
 			if (p == host) host = null;
 
 			// Remove all of the non-persistent objects that were created by this player
-			for (int i = created.size; i > 0; )
+			for (int i = 0; i < created.size; )
 			{
-				Channel.CreatedObject obj = created[--i];
+				var obj = created[i];
 
 				if (obj.playerID == p.id)
 				{
@@ -213,12 +213,12 @@ public class Channel : DataNodeContainer
 						destroyedObjects.Add(objID);
 						if (objID >= 32768) mCreatedObjectDictionary.Remove(objID);
 						DestroyObjectRFCs(objID);
+						continue;
 					}
-					else if (players.size != 0)
-					{
-						// The same operation happens on the client as well
-						obj.playerID = players[0].id;
-					}
+
+					// The same operation happens on the client as well
+					if (players.size != 0) obj.playerID = players[0].id;
+					++i;
 				}
 			}
 
@@ -229,7 +229,7 @@ public class Channel : DataNodeContainer
 
 				for (int i = 0; i < rfcs.size; ++i)
 				{
-					RFC r = rfcs[i];
+					var r = rfcs[i];
 					if (r.data != null) r.data.Recycle();
 				}
 				rfcs.Clear();
@@ -258,7 +258,7 @@ public class Channel : DataNodeContainer
 			// Dynamic objects are always a part of the 'created' array and the lookup table
 			for (int i = 0; i < created.size; ++i)
 			{
-				Channel.CreatedObject obj = created[i];
+				var obj = created[i];
 
 				if (obj.objectID == objID)
 				{
@@ -304,7 +304,7 @@ public class Channel : DataNodeContainer
 		{
 			for (int i = 0; i < created.size; ++i)
 			{
-				CreatedObject obj = created[i];
+				var obj = created[i];
 
 				if (obj.objectID == objectID)
 				{
@@ -330,9 +330,9 @@ public class Channel : DataNodeContainer
 					other.mCreatedObjectDictionary[obj.objectID] = true;
 
 					// Move RFCs over to the other channel
-					for (int b = rfcs.size; b > 0; )
+					for (int b = 0; b < rfcs.size; )
 					{
-						RFC r = rfcs[--b];
+						var r = rfcs[b];
 
 						if (r.objectID == objectID)
 						{
@@ -340,6 +340,7 @@ public class Channel : DataNodeContainer
 							rfcs.RemoveAt(b);
 							other.rfcs.Add(r);
 						}
+						else ++b;
 					}
 					return obj;
 				}

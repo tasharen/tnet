@@ -78,7 +78,7 @@ public class LobbyServerLink
 			}
 			else if (mThread == null)
 			{
-				mThread = new Thread(SendThread);
+				mThread = Tools.CreateThread(SendThread);
 				mThread.Start();
 			}
 		}

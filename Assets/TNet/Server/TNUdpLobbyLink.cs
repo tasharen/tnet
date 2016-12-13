@@ -54,6 +54,9 @@ public class UdpLobbyServerLink : LobbyServerLink
 	{
 		base.Start();
 
+#if FORCE_EN_US
+		Tools.SetCurrentCultureToEnUS();
+#endif
 		if (mUdp == null)
 		{
 			mUdp = new UdpProtocol("Lobby Link");
@@ -74,7 +77,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 
 			if (mThread == null)
 			{
-				mThread = new Thread(ThreadFunction);
+				mThread = Tools.CreateThread(ThreadFunction);
 				mThread.Start();
 			}
 		}

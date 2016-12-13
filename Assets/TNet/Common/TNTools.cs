@@ -327,7 +327,7 @@ static public class Tools
 
 				if (mResolveThread == null)
 				{
-					mResolveThread = new Thread(ResolveThread);
+					mResolveThread = Tools.CreateThread(ResolveThread);
 					mResolveThread.Start();
 				}
 			}
@@ -1207,15 +1207,57 @@ static public class Tools
 	/// Culture info that forces North American syntax for floating point numbers that using dot as a decimal separator.
 	/// </summary>
 
-	static public System.Globalization.CultureInfo englishUSCulture = GetEnUsCulture();
+	static public System.Globalization.CultureInfo englishUSCulture = new System.Globalization.CultureInfo("en-US");
 
-	static System.Globalization.CultureInfo GetEnUsCulture ()
+	/// <summary>
+	/// Forcefully sets the current thread's culture to en-US in order to make floating point formats consistent when printed to/parsed from text form.
+	/// </summary>
+
+	static public void SetCurrentCultureToEnUS ()
 	{
-		var thread = Thread.CurrentThread;
-		var culture = System.Globalization.CultureInfo.CreateSpecificCulture("en-US");
-		culture.NumberFormat.CurrencyDecimalSeparator = ".";
-		if (thread != null) thread.CurrentCulture = culture;
-		return culture;
+		try
+		{
+			var thread = Thread.CurrentThread;
+
+			if (thread != null)
+			{
+				thread.CurrentCulture = englishUSCulture;
+				thread.CurrentUICulture = englishUSCulture;
+			}
+		}
+		catch (System.Exception) { }
+	}
+
+	/// <summary>
+	/// Create a new thread and assign its culture to en-US so that the floating point values are printed consistently.
+	/// </summary>
+
+	static public Thread CreateThread (ParameterizedThreadStart del)
+	{
+		var thread = new Thread(del);
+		try
+		{
+			thread.CurrentCulture = englishUSCulture;
+			thread.CurrentUICulture = englishUSCulture;
+		}
+		catch (System.Exception) { }
+		return thread;
+	}
+
+	/// <summary>
+	/// Create a new thread and assign its culture to en-US so that the floating point values are printed consistently.
+	/// </summary>
+
+	static public Thread CreateThread (ThreadStart del)
+	{
+		var thread = new Thread(del);
+		try
+		{
+			thread.CurrentCulture = englishUSCulture;
+			thread.CurrentUICulture = englishUSCulture;
+		}
+		catch (System.Exception) { }
+		return thread;
 	}
 
 	/// <summary>
@@ -1224,7 +1266,7 @@ static public class Tools
 
 	static public bool TryParseFloat (string s, out float f)
 	{
-		return float.TryParse(s, System.Globalization.NumberStyles.Float, Tools.englishUSCulture, out f);
+		return float.TryParse(s, System.Globalization.NumberStyles.Float, englishUSCulture, out f);
 	}
 }
 }

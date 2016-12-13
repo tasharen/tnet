@@ -59,8 +59,10 @@ public class TNObjectEditor : Editor
 		else
 		{
 			serializedObject.Update();
-			SerializedProperty sp = serializedObject.FindProperty("mStaticID");
+			var sp = serializedObject.FindProperty("mStaticID");
 			EditorGUILayout.PropertyField(sp, new GUIContent("ID"));
+			sp = serializedObject.FindProperty("ignoreWarnings");
+			EditorGUILayout.PropertyField(sp, new GUIContent("Ignore Warnings"));
 			serializedObject.ApplyModifiedProperties();
 
 			PrefabType type = PrefabUtility.GetPrefabType(obj.gameObject);

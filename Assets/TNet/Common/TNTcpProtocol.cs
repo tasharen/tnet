@@ -206,8 +206,8 @@ public class TcpProtocol : Player
 					mConnecting.Add(mSocket);
 				}
 
-				IAsyncResult result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
-				Thread th = new Thread(CancelConnect);
+				var result = mSocket.BeginConnect(tcpEndPoint, OnConnectResult, mSocket);
+				var th = Tools.CreateThread(CancelConnect);
 				th.Start(result);
 				return true;
 			}

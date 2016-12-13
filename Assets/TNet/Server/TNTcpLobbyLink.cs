@@ -51,6 +51,9 @@ public class TcpLobbyServerLink : LobbyServerLink
 	{
 		base.Start();
 
+#if FORCE_EN_US
+		Tools.SetCurrentCultureToEnUS();
+#endif
 		if (mTcp == null)
 		{
 			mTcp = new TcpProtocol();
@@ -72,7 +75,7 @@ public class TcpLobbyServerLink : LobbyServerLink
 
 			if (mThread == null)
 			{
-				mThread = new Thread(ThreadFunction);
+				mThread = Tools.CreateThread(ThreadFunction);
 				mThread.Start();
 			}
 		}

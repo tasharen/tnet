@@ -350,7 +350,7 @@ public class UPnP
 			if (TcpProtocol.defaultListenerInterface.AddressFamily == AddressFamily.InterNetworkV6) return;
 
 			mStatus = Status.Searching;
-			mDiscover = new Thread(ThreadDiscover);
+			mDiscover = Tools.CreateThread(ThreadDiscover);
 			mDiscover.Start(mDiscover);
 		}
 	}
@@ -395,7 +395,7 @@ public class UPnP
 					"<NewPortMappingDescription>" + name + "</NewPortMappingDescription>\n" +
 					"<NewLeaseDuration>0</NewLeaseDuration>\n";
 
-				xp.th = new Thread(OpenRequest);
+				xp.th = Tools.CreateThread(OpenRequest);
 				lock (mThreads) mThreads.Add(xp.th);
 				xp.th.Start(xp);
 				return;
@@ -451,7 +451,7 @@ public class UPnP
 
 			if (callback != null)
 			{
-				xp.th = new Thread(CloseRequest);
+				xp.th = Tools.CreateThread(CloseRequest);
 
 				lock (mThreads)
 				{

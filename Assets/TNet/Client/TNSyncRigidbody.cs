@@ -110,14 +110,21 @@ public class TNSyncRigidbody : TNBehaviour
 	[RFC(1)]
 	void OnSync (Vector3 pos, Quaternion rot, Vector3 vel, Vector3 ang)
 	{
-		mRb.position = pos;
-		mRb.rotation = rot;
-		
-		//mRb.MovePosition(pos);
-		//mRb.MoveRotation(rot);
-
-		if (!mRb.isKinematic)
+		if (mRb.isKinematic)
 		{
+			mTrans.position = pos;
+			mTrans.rotation = rot;
+
+			// Does this actually do anything? Needs to be investigated...
+			mRb.isKinematic = false;
+			mRb.velocity = vel;
+			mRb.angularVelocity = ang;
+			mRb.isKinematic = true;
+		}
+		else
+		{
+			mRb.position = pos;
+			mRb.rotation = rot;
 			mRb.velocity = vel;
 			mRb.angularVelocity = ang;
 		}
