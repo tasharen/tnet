@@ -218,8 +218,8 @@ public class Channel : DataNodeContainer
 
 					// The same operation happens on the client as well
 					if (players.size != 0) obj.playerID = players[0].id;
-					++i;
 				}
+				++i;
 			}
 
 			// Close the channel if it wasn't persistent
