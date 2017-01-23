@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.6
+                  Version 3.0.7
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -108,6 +108,20 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.7
+- NEW: It's now possible to disable the TNBehaviour in an Awake() function, preventing it from sending out messages or trying to ensure that a TNObject actually exists. Useful for when you need to render an object with network scripts into an off-screen texture, for example.
+- NEW: TNet now tracks sent and received packets per second. TNManager.setnPackets / receivedPackets.
+- NEW: TNManager now has one source for LoadScene functions -- an easily changed pair of delegates.
+- NEW: TNObject.IsJoiningChannel convenience function.
+- NEW: Added TNObject.RemoveSavedRFC to remove a previously sent RFC function.
+- NEW: Added an "ignore warnings" flag to the TNObject that will suppress messages about missing RFCs.
+- NEW: All of TNet's thread creation is now routed through a TNet.Tools.CreateThread function.
+- FIX: TNManager now listens to application quit messages, preventing its singleton from being created after.
+- FIX: When transferring objects between channels, their RFCs will now be kept in the same order.
+- FIX: Get/Set functions on the TNObject no longer work if the object's ID is 0.
+- FIX: TNSyncRigidbody will behave better when synchronizing an object that's marked as kinematic.
+- FIX: WorkerThread.remainingCallbackCount now considers active threads as well.
 
 3.0.6
 - NEW: Added a string ID to RFC that you can specify to uniquely identify identical RFCs underneath the same TNObject. For example: having two turrets underneath one TNObject with each script having a "Fire" function. You can now specify a name of the property that will uniquely identify the RFC, thus making it possible to call only that one RFC instead of both at once. To call only that RFC, instead of tno.Send("name", ...) use tno.Send("name/property", ...);
