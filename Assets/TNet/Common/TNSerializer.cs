@@ -284,7 +284,7 @@ static public class Serialization
 				}
 				else Tools.LogError("Malformed type: " + name);
 			}
-			else if (name == "null")
+			else if (name == "null" || string.IsNullOrEmpty(name))
 			{
 				type = typeof(void);
 			}
@@ -388,6 +388,8 @@ static public class Serialization
 			if (desiredType == typeof(ulong)) return (ulong)(int)value;
 			if (desiredType == typeof(UInt32)) return (UInt32)(int)value;
 			if (desiredType == typeof(ObsInt)) return new ObsInt((int)value);
+			if (desiredType == typeof(Vector3)) return new Vector3((int)value, (int)value, (int)value);
+			if (desiredType == typeof(Vector2)) return new Vector2((int)value, (int)value);
 #if !STANDALONE
 			if (desiredType == typeof(LayerMask)) return (LayerMask)(int)value;
 #endif
@@ -401,6 +403,8 @@ static public class Serialization
 			if (desiredType == typeof(int)) return Round((float)value);
 			if (desiredType == typeof(double)) return (double)(float)value;
 			if (desiredType == typeof(long)) return (long)Round((float)value);
+			if (desiredType == typeof(Vector3)) return new Vector3((float)value, (float)value, (float)value);
+			if (desiredType == typeof(Vector2)) return new Vector2((float)value, (float)value);
 		}
 		else if (valueType == typeof(double))
 		{
@@ -519,6 +523,9 @@ static public class Serialization
 		{
 			if (valueType == typeof(Int32))
 				return value;
+
+			if (valueType == typeof(byte))
+				return (Int32)(byte)value;
 
 			if (valueType == typeof(string))
 			{
@@ -716,76 +723,79 @@ static public class Serialization
 			return true;
 		}
 
-		int dataStart = line.IndexOf('(');
-
-		// Is there embedded data in brackets?
-		if (dataStart == -1)
+		if (!string.IsNullOrEmpty(line))
 		{
-			// Is it a number?
-			if (line[0] == '-' || (line[0] >= '0' && line[0] <= '9'))
+			int dataStart = line.IndexOf('(');
+
+			// Is there embedded data in brackets?
+			if (dataStart == -1)
 			{
-				if (line.IndexOf('.') != -1)
+				// Is it a number?
+				if (line[0] == '-' || (line[0] >= '0' && line[0] <= '9'))
 				{
-					float f;
-
-					if (float.TryParse(line, NumberStyles.Float, Tools.englishUSCulture, out f))
+					if (line.IndexOf('.') != -1)
 					{
-						obj = f;
-						return true;
-					}
-				}
-				else
-				{
-					int i;
+						float f;
 
-					if (line.Length < 12 && int.TryParse(line, out i))
-					{
-						if (type == typeof(byte)) obj = (byte)i;
-						else if (type == typeof(short)) obj = (short)i;
-						else if (type == typeof(ushort)) obj = (ushort)i;
-						else obj = i;
-						return true;
-					}
-					else
-					{
-						long l;
-						ulong ul;
-
-						if (line[0] == '-')
+						if (float.TryParse(line, NumberStyles.Float, Tools.englishUSCulture, out f))
 						{
-							if (long.TryParse(line, out l))
-							{
-								obj = l;
-								return true;
-							}
-						}
-						else if (ulong.TryParse(line, out ul))
-						{
-							obj = ul;
+							obj = f;
 							return true;
 						}
 					}
+					else
+					{
+						int i;
+
+						if (line.Length < 12 && int.TryParse(line, out i))
+						{
+							if (type == typeof(byte)) obj = (byte)i;
+							else if (type == typeof(short)) obj = (short)i;
+							else if (type == typeof(ushort)) obj = (ushort)i;
+							else obj = i;
+							return true;
+						}
+						else
+						{
+							long l;
+							ulong ul;
+
+							if (line[0] == '-')
+							{
+								if (long.TryParse(line, out l))
+								{
+									obj = l;
+									return true;
+								}
+							}
+							else if (ulong.TryParse(line, out ul))
+							{
+								obj = ul;
+								return true;
+							}
+						}
+					}
 				}
 			}
-		}
-		else
-		{
-			// For some odd reason LastIndexOf() fails to find the last character of the string
-			int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
+			else
+			{
+				// For some odd reason LastIndexOf() fails to find the last character of the string
+				int dataEnd = (line[line.Length - 1] == ')') ? line.Length - 1 : line.LastIndexOf(')', dataStart);
 
-			if (dataEnd != -1 && line.Length > 2)
-			{
-				// Set the type and extract the embedded data
-				string strType = line.Substring(0, dataStart);
-				type = Serialization.NameToType(strType);
-				line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
-			}
-			else if (type == null)
-			{
-				// No type specified, so just treat this line as a string
-				type = typeof(string);
-				obj = line;
-				return true;
+				if (dataEnd != -1 && line.Length > 2)
+				{
+					// Set the type and extract the embedded data
+					string strType = line.Substring(0, dataStart);
+					type = Serialization.NameToType(strType);
+					line = line.Substring(dataStart + 1, dataEnd - dataStart - 1);
+				}
+				else if (type == null)
+				{
+					// No type specified, so just treat this line as a string
+					type = typeof(string);
+					obj = line;
+					return true;
+				}
 			}
 		}
 
@@ -1620,6 +1630,10 @@ static public class Serialization
 
 	static int GetPrefix (Type type)
 	{
+		// This would result in less data saved, but also in unreadable values after read-back
+		// http://www.tasharen.com/forum/index.php?topic=15060.0
+		//if (type.IsEnum) type = Enum.GetUnderlyingType(type);
+
 		if (type == typeof(bool)) return 1;
 		if (type == typeof(byte)) return 2;
 		if (type == typeof(ushort)) return 3;

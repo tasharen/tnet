@@ -102,8 +102,10 @@ public class TNAutoSync : TNBehaviour
 	/// Locate the property that we should be synchronizing.
 	/// </summary>
 
-	void Awake ()
+	protected override void Awake ()
 	{
+		base.Awake();
+
 #if UNITY_EDITOR
 		if (!Application.isPlaying)
 		{
@@ -184,8 +186,8 @@ public class TNAutoSync : TNBehaviour
 		}
 	}
 
-	protected override void OnEnable () { base.OnEnable(); if (!isSavedOnServer) TNManager.onPlayerJoin += OnPlayerJoin; }
-	void OnDisable () { if (!isSavedOnServer) TNManager.onPlayerJoin -= OnPlayerJoin; }
+	protected void OnEnable () { if (!isSavedOnServer) TNManager.onPlayerJoin += OnPlayerJoin; }
+	protected void OnDisable () { if (!isSavedOnServer) TNManager.onPlayerJoin -= OnPlayerJoin; }
 
 	/// <summary>
 	/// If this values are not saved on the server, at least send them to the newly joined player.

@@ -55,6 +55,10 @@ public class GameClient : TNEvents
 	long mPingTime = 0;
 	long mStartTime = 0;
 
+	// Used to keep track of how many packets get sent / received per second
+	int mSent = 0, mReceived = 0, mCountSent = 0, mCountReceived = 0;
+	long mNextReset = 0;
+
 	// Last ping, and whether we can ping again
 	int mPing = 0;
 	bool mCanPing = false;
@@ -123,6 +127,18 @@ public class GameClient : TNEvents
 	/// </summary>
 
 	public long serverUptime { get { return serverTime - mStartTime; } }
+
+	/// <summary>
+	/// How many packets were sent in the last second.
+	/// </summary>
+
+	public int sentPackets { get { return mSent; } }
+
+	/// <summary>
+	/// How many packets have been received in the last second.
+	/// </summary>
+
+	public int receivedPackets { get { return mReceived; } }
 
 	/// <summary>
 	/// Whether the client is currently connected to the server.
@@ -475,13 +491,12 @@ public class GameClient : TNEvents
 
 	public void EndSend (bool forced = false)
 	{
-		if (mBuffer != null)
-		{
-			mBuffer.EndPacket();
-			if (isActive || forced) mTcp.SendTcpPacket(mBuffer);
-			mBuffer.Recycle();
-			mBuffer = null;
-		}
+		if (mBuffer == null) return;
+		++mCountSent;
+		mBuffer.EndPacket();
+		if (isActive || forced) mTcp.SendTcpPacket(mBuffer);
+		mBuffer.Recycle();
+		mBuffer = null;
 	}
 
 	/// <summary>
@@ -490,6 +505,8 @@ public class GameClient : TNEvents
 
 	public void EndSend (int channelID, bool reliable)
 	{
+		if (mBuffer == null) return;
+		++mCountSent;
 		mBuffer.EndPacket();
 
 		if (isActive)
@@ -515,6 +532,8 @@ public class GameClient : TNEvents
 
 	public void EndSend (int port)
 	{
+		if (mBuffer == null) return;
+		++mCountSent;
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
 		if (isActive) mUdp.Broadcast(mBuffer, port);
@@ -529,6 +548,8 @@ public class GameClient : TNEvents
 
 	public void EndSend (IPEndPoint target)
 	{
+		if (mBuffer == null) return;
+		++mCountSent;
 		mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER
 		if (isActive) mUdp.Send(mBuffer, target);
@@ -918,9 +939,25 @@ public class GameClient : TNEvents
 #endif
 		while (keepGoing && isActive && mTcp.ReceivePacket(out buffer))
 		{
+			++mCountReceived;
 			keepGoing = ProcessPacket(buffer, null);
 			buffer.Recycle();
 		}
+
+		if (mNextReset < mMyTime) ResetPacketCount();
+	}
+
+	/// <summary>
+	/// Immediately reset the packet count.
+	/// </summary>
+
+	public void ResetPacketCount ()
+	{
+		mNextReset = mMyTime + 1000;
+		mSent = mCountSent;
+		mReceived = mCountReceived;
+		mCountSent = 0;
+		mCountReceived = 0;
 	}
 
 	/// <summary>

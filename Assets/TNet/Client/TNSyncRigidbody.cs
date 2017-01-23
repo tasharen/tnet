@@ -46,8 +46,9 @@ public class TNSyncRigidbody : TNBehaviour
 	Vector3 mLastPos;
 	Quaternion mLastRot;
 
-	void Awake ()
+	protected override void Awake ()
 	{
+		base.Awake();
 		mTrans = transform;
 		mRb = GetComponent<Rigidbody>();
 		mLastPos = mTrans.position;
@@ -123,8 +124,17 @@ public class TNSyncRigidbody : TNBehaviour
 		}
 		else
 		{
-			mRb.position = pos;
-			mRb.rotation = rot;
+			if (TNManager.IsJoiningChannel(tno.channelID))
+			{
+				mTrans.position = pos;
+				mTrans.rotation = rot;
+			}
+			else
+			{
+				mRb.position = pos;
+				mRb.rotation = rot;
+			}
+
 			mRb.velocity = vel;
 			mRb.angularVelocity = ang;
 		}

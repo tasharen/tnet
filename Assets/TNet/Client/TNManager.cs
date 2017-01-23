@@ -239,6 +239,24 @@ public class TNManager : MonoBehaviour
 	static public bool isConnected { get { return mInstance != null && mInstance.mClient.isConnected; } }
 
 	/// <summary>
+	/// How many packets were sent in the last second.
+	/// </summary>
+
+	static public int sentPackets { get { return mInstance != null ? mInstance.mClient.sentPackets : 0; } }
+
+	/// <summary>
+	/// How many packets have been received in the last second.
+	/// </summary>
+
+	static public int receivedPackets { get { return mInstance != null ? mInstance.mClient.receivedPackets : 0; } }
+
+	/// <summary>
+	/// Immediately reset the packet count. Calling this isn't necessary as they get updated once per second anyway.
+	/// </summary>
+
+	static public void ResetPacketCount() { if (mInstance != null) mInstance.mClient.ResetPacketCount(); }
+
+	/// <summary>
 	/// Whether we are currently in the process of joining a channel.
 	/// To find out whether we are joining a specific channel, use the "IsJoiningChannel(id)" function.
 	/// </summary>
@@ -565,7 +583,16 @@ public class TNManager : MonoBehaviour
 	static public ProcessPacketsFunc ProcessPackets = delegate()
 	{
 		if (mInstance != null && mInstance.mLoadingLevel.size == 0)
+		{
 			mInstance.mClient.ProcessPackets();
+#if UNITY_EDITOR
+			if (sentPackets > 60)
+			{
+				Debug.Log("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+				ResetPacketCount();
+			}
+#endif
+		}
 	};
 	public delegate void ProcessPacketsFunc ();
 
@@ -955,6 +982,42 @@ public class TNManager : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Load the chosen scene.
+	/// </summary>
+
+	static public LoadSceneFunc LoadScene = delegate(string levelName)
+	{
+		if (!string.IsNullOrEmpty(levelName))
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
+			Application.LoadLevel(levelName);
+#else
+			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+#endif
+		}
+	};
+
+	/// <summary>
+	/// Load the chosen scene asynchronously.
+	/// </summary>
+
+	static public LoadSceneAsyncFunc LoadSceneAsync = delegate(string levelName)
+	{
+		if (!string.IsNullOrEmpty(levelName))
+		{
+#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
+			return Application.LoadLevelAsync(levelName);
+#else
+			return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(levelName);
+#endif
+		}
+		return null;
+	};
+
+	public delegate void LoadSceneFunc (string levelName);
+	public delegate AsyncOperation LoadSceneAsyncFunc (string levelName);
+
+	/// <summary>
 	/// Join the specified channel. This channel will be marked as persistent, meaning it will
 	/// stay open even when the last player leaves, unless explicitly closed first.
 	/// </summary>
@@ -974,15 +1037,7 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
-
-			if (!string.IsNullOrEmpty(levelName))
-			{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-				Application.LoadLevel(levelName);
-#else
-				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
-#endif
-			}
+			LoadScene(levelName);
 		}
 	}
 
@@ -1005,15 +1060,7 @@ public class TNManager : MonoBehaviour
 		else
 		{
 			TNManager.lastChannelID = channelID;
-
-			if (!string.IsNullOrEmpty(levelName))
-			{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-				Application.LoadLevel(levelName);
-#else
-				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
-#endif
-			}
+			LoadScene(levelName);
 		}
 	}
 
@@ -1049,14 +1096,7 @@ public class TNManager : MonoBehaviour
 			if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
 			mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
 		}
-		else
-		{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			Application.LoadLevel(levelName);
-#else
-			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
-#endif
-		}
+		else LoadScene(levelName);
 	}
 
 	/// <summary>
@@ -1134,17 +1174,7 @@ public class TNManager : MonoBehaviour
 	/// Load the specified level.
 	/// </summary>
 
-	static public void LoadLevel (int channelID, string levelName)
-	{
-		if (!mInstance.mClient.LoadLevel(channelID, levelName))
-		{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			Application.LoadLevel(levelName);
-#else
-			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
-#endif
-		}
-	}
+	static public void LoadLevel (int channelID, string levelName) { if (!mInstance.mClient.LoadLevel(channelID, levelName)) LoadScene(levelName); }
 
 	/// <summary>
 	/// Save the specified file on the server.
@@ -1324,6 +1354,8 @@ public class TNManager : MonoBehaviour
 	static internal void Instantiate (int channelID, int rccID, string funcName, string path, bool persistent, params object[] objs)
 	{
 		if (path == null) path = "";
+
+		lastChannelID = channelID;
 		GameObject go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
 
 		if (go != null && instance != null)
@@ -1381,15 +1413,16 @@ public class TNManager : MonoBehaviour
 
 				if (go != null)
 				{
-					go.SetActive(true);
 					TNObject tno = go.GetComponent<TNObject>();
 
 					if (tno != null)
 					{
 						if (++mObjID == 0) mObjID = 32768;
 						tno.uid = mObjID;
+						go.SetActive(true);
 						tno.Register();
 					}
+					else go.SetActive(true);
 				}
 			}
 		}
@@ -1819,19 +1852,30 @@ public class TNManager : MonoBehaviour
 
 		if (go != null)
 		{
-			go.SetActive(true);
+			// Network objects should only be destroyed when leaving their channel
+			go.transform.parent = null;
+			DontDestroyOnLoad(go);
 
 			// If an object ID was requested, assign it to the TNObject
 			if (objectID != 0)
 			{
-				TNObject obj = go.GetComponent<TNObject>();
+				var obj = go.GetComponent<TNObject>();
 
 				if (obj != null)
 				{
 					obj.channelID = channelID;
 					obj.uid = objectID;
+					go.SetActive(true);
 					obj.Register();
 				}
+				else go.SetActive(true);
+			}
+			else
+			{
+#if UNITY_EDITOR
+				Debug.LogWarning("Object ID is 0. Intentional?", go);
+#endif
+				go.SetActive(true);
 			}
 		}
 
@@ -1913,11 +1957,8 @@ public class TNManager : MonoBehaviour
 	System.Collections.IEnumerator LoadLevelCoroutine (System.Collections.Generic.KeyValuePair<int, string> pair)
 	{
 		yield return null;
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-		loadLevelOperation = Application.LoadLevelAsync(pair.Value);
-#else
-		loadLevelOperation = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(pair.Value);
-#endif
+
+		loadLevelOperation = LoadSceneAsync(pair.Value);
 		loadLevelOperation.allowSceneActivation = false;
 
 		while (loadLevelOperation.progress < 0.9f)

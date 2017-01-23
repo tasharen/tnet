@@ -73,7 +73,16 @@ public class WorkerThread : MonoBehaviour
 		get
 		{
 			if (mInstance == null) return 0;
-			lock (mInstance.mPriority) { lock (mInstance.mRegular) { lock (mInstance.mFinished) { return mInstance.mPriority.Count + mInstance.mRegular.Count + mInstance.mFinished.Count; } } }
+
+			var count = 0;
+			lock (mInstance.mPriority) { lock (mInstance.mRegular) { lock (mInstance.mFinished) { count = mInstance.mPriority.Count + mInstance.mRegular.Count + mInstance.mFinished.Count; } } }
+
+			if (mInstance.mLoad != null)
+			{
+				for (int i = 0, imax = mInstance.mLoad.Length; i < imax; ++i)
+					count += mInstance.mLoad[i];
+			}
+			return count;
 		}
 	}
 

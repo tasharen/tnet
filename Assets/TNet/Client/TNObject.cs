@@ -123,6 +123,12 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Whether the player is currently joining this object's channel.
+	/// </summary>
+
+	public bool isJoiningChannel { get { return TNManager.IsJoiningChannel(channelID); } }
+
+	/// <summary>
 	/// Whether the object has been destroyed. It can happen when the object has been requested to be
 	/// transferred to another channel, but has not yet completed the operation.
 	/// </summary>
@@ -242,8 +248,11 @@ public sealed class TNObject : MonoBehaviour
 				mSettingData = false;
 			}
 
-			if (isMine) Send("OnSetData", Target.OthersSaved, mData);
-			else Send("OnSet", ownerID, name, val);
+			if (enabled && uid != 0)
+			{
+				if (isMine) Send("OnSetData", Target.OthersSaved, mData);
+				else Send("OnSet", ownerID, name, val);
+			}
 		}
 		else mParent.Set(name, val);
 	}
@@ -264,17 +273,16 @@ public sealed class TNObject : MonoBehaviour
 	[RFC]
 	void OnSetData (DataNode data)
 	{
-		if (!mSettingData)
+		if (parent != null)
+		{
+			parent.OnSetData(data);
+		}
+		else if (!mSettingData)
 		{
 			mSettingData = true;
 			mCallDataChanged = false;
-
-			if (parent == null)
-			{
-				mData = data;
-				if (onDataChanged != null) onDataChanged(data);
-			}
-			else mParent.OnSetData(data);
+			mData = data;
+			if (onDataChanged != null) onDataChanged(data);
 			mSettingData = false;
 		}
 	}
@@ -285,12 +293,6 @@ public sealed class TNObject : MonoBehaviour
 
 	public OnDataChanged onDataChanged;
 	public delegate void OnDataChanged (DataNode data);
-
-	/// <summary>
-	/// Delegate called on creation after the object's ID has been assigned.
-	/// </summary>
-
-	public System.Action onRegister;
 
 	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
@@ -411,12 +413,15 @@ public sealed class TNObject : MonoBehaviour
 		if (parent == null && this.channelID == channelID && uid > 32767)
 		{
 #if UNITY_EDITOR && W2
-			var pv = PlayerVehicle.controlled;
-			if (pv != null && pv == GetComponent<PlayerVehicle>())
+			if (TNManager.isConnected)
 			{
-				var tile = ProceduralTerrain.GetTile(channelID);
-				Debug.LogError("Destroying a channel " + channelID + " with the player's vehicle still in it!\n" +
-					"pos: " + pv.truePosition.x + " " + pv.truePosition.z + ", " + (tile != null ? tile.ix + " " + tile.iz : "null"));
+				var pv = PlayerVehicle.controlled;
+				if (pv != null && pv == GetComponent<PlayerVehicle>())
+				{
+					var tile = ProceduralTerrain.GetTile(channelID);
+					Debug.LogWarning("Destroying a channel " + channelID + " with the player's vehicle still in it!\n" +
+						"pos: " + pv.truePosition.x + " " + pv.truePosition.z + ", " + (tile != null ? tile.ix + " " + tile.iz : "null"));
+				}
 			}
 #endif
 			Object.Destroy(gameObject);
@@ -437,7 +442,6 @@ public sealed class TNObject : MonoBehaviour
 		return tno;
 	}
 
-#if UNITY_EDITOR
 	// Last used ID
 	static uint mLastID = 0;
 
@@ -460,6 +464,7 @@ public sealed class TNObject : MonoBehaviour
 		return ++mLastID;
 	}
 
+#if UNITY_EDITOR
 	/// <summary>
 	/// Helper function that returns the game object's hierarchy in a human-readable format.
 	/// </summary>
@@ -523,7 +528,18 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (!TNManager.isConnected) { Register(); return; }
 
-			if (parent == null && Application.isPlaying)
+			mParentCheck = true;
+
+			if (parent != null)
+			{
+#if UNITY_EDITOR
+				Debug.LogWarning("It's not a good idea to nest network objects. TNBehaviour-derived scripts will find " +
+					"the root network object by default. Unexpected behaviours may occur with nested networked objects, " +
+					"such as certain RFCs not being called. If you need to join multiple networked objects together " +
+					"(such as a player avatar traveling inside a car), consider using a FixedJoint instead.", this);
+#endif
+			}
+			else if (Application.isPlaying)
 			{
 				Debug.LogError("Objects that are not instantiated via TNManager.Create must have a non-zero ID.", this);
 				return;
@@ -580,12 +596,6 @@ public sealed class TNObject : MonoBehaviour
 
 				list.Add(this);
 				mIsRegistered = true;
-			}
-
-			if (onRegister != null)
-			{
-				onRegister();
-				onRegister = null;
 			}
 		}
 
@@ -708,7 +718,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (obj.Execute(funcID, parameters)) return;
 #if UNITY_EDITOR
-			if (!obj.ignoreWarnings)
+			if (!obj.ignoreWarnings && !TNManager.IsJoiningChannel(channelID))
 				Debug.LogWarning("[TNet] Unable to execute function with ID of '" + funcID + "'. Make sure there is a script that can receive this call.\n" +
 					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
@@ -730,7 +740,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (obj.Execute(funcName, parameters)) return;
 #if UNITY_EDITOR
-			if (!obj.ignoreWarnings)
+			if (!obj.ignoreWarnings && !TNManager.IsJoiningChannel(channelID))
 				Debug.LogWarning("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
 					"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
@@ -749,29 +759,30 @@ public sealed class TNObject : MonoBehaviour
 		rebuildMethodList = false;
 		mDict0.Clear();
 		mDict1.Clear();
-		MonoBehaviour[] mbs = GetComponentsInChildren<MonoBehaviour>(true);
+		var mbs = GetComponentsInChildren<MonoBehaviour>(true);
 
 		for (int i = 0, imax = mbs.Length; i < imax; ++i)
 		{
-			MonoBehaviour mb = mbs[i];
-			System.Type type = mb.GetType();
+			var mb = mbs[i];
+			if (!mb) continue;
 
-			MethodInfo[] methods = type.GetMethods(
+			var type = mb.GetType();
+			var methods = type.GetMethods(
 				BindingFlags.Public |
 				BindingFlags.NonPublic |
 				BindingFlags.Instance);
 
 			for (int b = 0, bmax = methods.Length; b < bmax; ++b)
 			{
-				MethodInfo method = methods[b];
+				var method = methods[b];
 
 				if (method.IsDefined(typeof(RFC), true))
 				{
-					CachedFunc ent = new CachedFunc();
+					var ent = new CachedFunc();
 					ent.obj = mb;
 					ent.func = method;
 
-					RFC rfc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
+					var rfc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
 
 					if (rfc.id > 0)
 					{
@@ -893,12 +904,26 @@ public sealed class TNObject : MonoBehaviour
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
+	public void RemoveSavedRFC (string rfcName) { RemoveSavedRFC(channelID, uid, 0, rfcName); }
+
+	/// <summary>
+	/// Remove a previously saved remote function call.
+	/// </summary>
+
+	public void RemoveSavedRFC (byte rfcID) { RemoveSavedRFC(channelID, uid, rfcID, null); }
+
+	/// <summary>
+	/// Remove a previously saved remote function call.
+	/// </summary>
+
+	[System.Obsolete("Use RemoveSavedRFC instead")]
 	public void Remove (string rfcName) { RemoveSavedRFC(channelID, uid, 0, rfcName); }
 
 	/// <summary>
 	/// Remove a previously saved remote function call.
 	/// </summary>
 
+	[System.Obsolete("Use RemoveSavedRFC instead")]
 	public void Remove (byte rfcID) { RemoveSavedRFC(channelID, uid, rfcID, null); }
 
 	/// <summary>
@@ -952,7 +977,6 @@ public sealed class TNObject : MonoBehaviour
 				return;
 			}
 #endif
-
 			// Some very odd special case... sending a string[] as the only parameter
 			// results in objs[] being a string[] instead, when it should be object[string[]].
 			if (objs != null && objs.GetType() != typeof(object[]))
@@ -1163,7 +1187,7 @@ public sealed class TNObject : MonoBehaviour
 		{
 			if (mDestroyed) return;
 
-			if (uid > 32767 && channelID != newChannelID && TNManager.IsInChannel(channelID))
+			if (uid > 32767 && channelID != newChannelID)
 			{
 #if W2 && UNITY_EDITOR
 				var pv = PlayerVehicle.controlled;
@@ -1178,11 +1202,16 @@ public sealed class TNObject : MonoBehaviour
 				}
 #endif
 				mDestroyed = true;
-				BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
-				writer.Write(channelID);
-				writer.Write(newChannelID);
-				writer.Write(uid);
-				TNManager.EndSend(channelID, true);
+
+				if (TNManager.isConnected)
+				{
+					BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
+					writer.Write(channelID);
+					writer.Write(newChannelID);
+					writer.Write(uid);
+					TNManager.EndSend(channelID, true);
+				}
+				else FinalizeTransfer(newChannelID, TNObject.GetUniqueID());
 			}
 		}
 		else parent.TransferToChannel(newChannelID);
