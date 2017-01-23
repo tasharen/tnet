@@ -111,7 +111,7 @@ http://www.tasharen.com/?page_id=4518
 
 3.0.7
 - NEW: It's now possible to disable the TNBehaviour in an Awake() function, preventing it from sending out messages or trying to ensure that a TNObject actually exists. Useful for when you need to render an object with network scripts into an off-screen texture, for example.
-- NEW: TNet now tracks sent and received packets per second. TNManager.setnPackets / receivedPackets.
+- NEW: TNet now tracks sent and received packets per second. TNManager.sentPackets / receivedPackets.
 - NEW: TNManager now has one source for LoadScene functions -- an easily changed pair of delegates.
 - NEW: TNObject.IsJoiningChannel convenience function.
 - NEW: Added TNObject.RemoveSavedRFC to remove a previously sent RFC function.
