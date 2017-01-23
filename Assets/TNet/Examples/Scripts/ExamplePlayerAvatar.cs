@@ -16,10 +16,17 @@ using System.Collections;
 /// object it's attached to to the closest channel.
 /// </summary>
 
-public class ExamplePlayerAvatar : TNBehaviour
+public class ExamplePlayerAvatar : MonoBehaviour
 {
 	public float joinDistance = 14f;
 	public float leaveDistance = 16f;
+
+	TNObject tno;
+
+	void Awake ()
+	{
+		tno = GetComponentInParent<TNObject>();
+	}
 
 	IEnumerator Start ()
 	{

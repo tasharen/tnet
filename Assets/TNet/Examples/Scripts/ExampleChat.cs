@@ -41,7 +41,7 @@ public class ExampleChat : TNBehaviour
 	/// Register event delegates.
 	/// </summary>
 
-	protected override void OnEnable ()
+	void OnEnable ()
 	{
 		TNManager.onJoinChannel += OnJoinChannel;
 		TNManager.onPlayerJoin += OnPlayerJoin;

@@ -1,4 +1,4 @@
-﻿//-------------------------------------------------
+//-------------------------------------------------
 //                    TNet 3
 // Copyright © 2012-2016 Tasharen Entertainment Inc
 //-------------------------------------------------
@@ -17,7 +17,7 @@ public class ColoredObject : TNBehaviour
 {
 	Material mMat;
 
-	void Awake () { mMat = GetComponent<Renderer>().material; }
+	protected override void Awake () { base.Awake(); mMat = GetComponent<Renderer>().material; }
 
 	/// <summary>
 	/// This function is called by the server when one of the players sends an RFC call.

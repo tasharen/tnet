@@ -17,8 +17,9 @@ public class DraggedObject : TNBehaviour
 	Player mOwner;
 	Vector3 mTarget;
 
-	void Awake ()
+	protected override void Awake ()
 	{
+		base.Awake();
 		mTrans = transform;
 		mTarget = mTrans.position;
 	}
