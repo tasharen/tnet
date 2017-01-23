@@ -122,6 +122,7 @@ http://www.tasharen.com/?page_id=4518
 - FIX: Get/Set functions on the TNObject no longer work if the object's ID is 0.
 - FIX: TNSyncRigidbody will behave better when synchronizing an object that's marked as kinematic.
 - FIX: WorkerThread.remainingCallbackCount now considers active threads as well.
+- NOTE: TNBehaviour no longer has a virtual OnEnable(), but now it has a virtual Awake() and Start() functions.
 
 3.0.6
 - NEW: Added a string ID to RFC that you can specify to uniquely identify identical RFCs underneath the same TNObject. For example: having two turrets underneath one TNObject with each script having a "Fire" function. You can now specify a name of the property that will uniquely identify the RFC, thus making it possible to call only that one RFC instead of both at once. To call only that RFC, instead of tno.Send("name", ...) use tno.Send("name/property", ...);
