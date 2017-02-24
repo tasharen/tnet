@@ -58,6 +58,9 @@ public class ExampleCar : ExampleCarNoNetworking
 		// Update the input axes
 		base.Update();
 
+		// Objects get marked as destroyed while being transferred from one channel to another
+		if (tno.hasBeenDestroyed) return;
+
 		float time = Time.time;
 		float delta = time - mLastInputSend;
 		float delay = 1f / inputUpdates;
