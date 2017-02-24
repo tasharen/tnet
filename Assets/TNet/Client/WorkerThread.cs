@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Use this for debugging purposes
@@ -50,19 +50,6 @@ public class WorkerThread : MonoBehaviour
 	Queue<Entry> mFinished = new Queue<Entry>();
 	List<Entry> mUnused = new List<Entry>();
 	static Stopwatch mStopwatch = new Stopwatch();
-
-	/// <summary>
-	/// Whether the update timer has been exceeded for this frame. Can check this inside delegates executed on the main thread and exit out early.
-	/// </summary>
-
-	static public bool mainThreadTimeExceeded
-	{
-		get
-		{
-			if (mInstance == null) return false;
-			return mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame;
-		}
-	}
 
 	/// <summary>
 	/// Count how many callbacks are still remaining in the worker thread's queues.
@@ -308,11 +295,27 @@ public class WorkerThread : MonoBehaviour
 	List<Entry> mTemp = new List<Entry>();
 
 	/// <summary>
-	/// Check this value at the end of your Finished function if you want to know how long it took to execute the worker thread's functions.
+	/// Number of elapsed milliseconds since the function started its current execution iteration.
+	/// Only valid inside the OnFinished stage functions.
 	/// </summary>
 
-	static public long elapsedMilliseconds { get { return mStopwatch.ElapsedMilliseconds - mStart; } }
-	static long mStart = 0;
+	static public long currentExecutionTime { get { return mStopwatch.ElapsedMilliseconds - mLoopStart; } }
+
+	/// <summary>
+	/// Total execution time for the current callback, including secondary thread execution times. Execution of multi-stage callbacks are cumulative.
+	/// Only valid inside the OnFinished stage functions.
+	/// </summary>
+
+	static public long totalExecutionTime { get { return mExecStart + currentExecutionTime; } }
+
+	/// <summary>
+	/// Check from inside your multi-stage completion functions to check whether the main frame's max allowed time has been exceeded.
+	/// Only valid inside the OnFinished stage functions.
+	/// </summary>
+
+	static public bool mainFrameTimeExceeded { get { return currentExecutionTime > maxMillisecondsPerFrame; } }
+
+	static long mLoopStart = 0, mExecStart = 0;
 
 	/// <summary>
 	/// Call finished delegates on the main thread.
@@ -330,8 +333,8 @@ public class WorkerThread : MonoBehaviour
 				while (mFinished.Count > 0)
 				{
 					var ent = mFinished.Dequeue();
-					var start = mStopwatch.ElapsedMilliseconds;
-					mStart = start - ent.milliseconds;
+					mLoopStart = mStopwatch.ElapsedMilliseconds;
+					mExecStart = ent.milliseconds;
 
 					if (ent.finished != null)
 					{
@@ -340,7 +343,7 @@ public class WorkerThread : MonoBehaviour
 					else if (ent.finishedBool != null && !ent.finishedBool())
 					{
 						var elapsed = mStopwatch.ElapsedMilliseconds;
-						ent.milliseconds += elapsed - start;
+						ent.milliseconds += elapsed - mLoopStart;
 						mTemp.Add(ent);
 						if (elapsed > maxMillisecondsPerFrame) break;
 						continue;

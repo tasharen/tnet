@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.IO;
@@ -1417,8 +1417,7 @@ public class TNManager : MonoBehaviour
 
 					if (tno != null)
 					{
-						if (++mObjID == 0) mObjID = 32768;
-						tno.uid = mObjID;
+						tno.uid = TNObject.GetUniqueID(true);
 						go.SetActive(true);
 						tno.Register();
 					}
@@ -1472,8 +1471,6 @@ public class TNManager : MonoBehaviour
 		}
 		return func;
 	}
-
-	static uint mObjID = 32767;
 
 	/// <summary>
 	/// Automatically find and cache RFCs on all known MonoBehaviours.
@@ -1889,12 +1886,7 @@ public class TNManager : MonoBehaviour
 	void OnDestroyObject (int channelID, uint objID)
 	{
 		TNObject obj = TNObject.Find(channelID, objID);
-
-		if (obj)
-		{
-			if (obj.onDestroy != null) obj.onDestroy();
-			UnityEngine.Object.Destroy(obj.gameObject);
-		}
+		if (obj) obj.OnDestroyPacket();
 	}
 
 	/// <summary>

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.IO;
@@ -73,7 +73,7 @@ public sealed class TNObject : MonoBehaviour
 	/// and the response coming back from the server.
 	/// </summary>
 	
-	[System.NonSerialized] bool mDestroyed = false;
+	[System.NonSerialized] byte mDestroyed = 0;
 	[System.NonSerialized] bool mHasBeenRegistered = false;
 	[System.NonSerialized] DataNode mData = null;
 	[System.NonSerialized] bool mCallDataChanged = false;
@@ -133,7 +133,7 @@ public sealed class TNObject : MonoBehaviour
 	/// transferred to another channel, but has not yet completed the operation.
 	/// </summary>
 
-	public bool hasBeenDestroyed { get { return (parent == null) ? mDestroyed : mParent.hasBeenDestroyed; } }
+	public bool hasBeenDestroyed { get { return (parent == null) ? mDestroyed != 0 : mParent.hasBeenDestroyed; } }
 
 	/// <summary>
 	/// An object gets marked as registered after the creation call has completed and the object's ID has been assigned.
@@ -295,6 +295,13 @@ public sealed class TNObject : MonoBehaviour
 	public delegate void OnDataChanged (DataNode data);
 
 	/// <summary>
+	/// Set this to 'true' if you plan on destroying the object yourself and don't want it to be destroyed immediately after onDestroy has been called.
+	/// This is useful if you want to destroy the object yourself after performing some action such as fracturing it into pieces.
+	/// </summary>
+
+	[System.NonSerialized] public bool ignoreDestroyCall = false;
+
+	/// <summary>
 	/// Destroy this game object on all connected clients and remove it from the server.
 	/// </summary>
 
@@ -303,38 +310,58 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (parent == null)
 		{
-			if (!mDestroyed)
-			{
-				mDestroyed = true;
+			if (mDestroyed != 0) return;
+			mDestroyed = 1;
 
-				if (uid == 0)
+			if (!enabled)
+			{
+				Object.Destroy(gameObject);
+			}
+			else if (uid == 0)
+			{
+				OnDestroyPacket();
+			}
+			else if (TNManager.IsInChannel(channelID))
+			{
+				if (TNManager.IsChannelLocked(channelID))
 				{
-					if (onDestroy != null) onDestroy();
-					Object.Destroy(gameObject);
-				}
-				else if (TNManager.IsInChannel(channelID))
-				{
-					if (TNManager.IsChannelLocked(channelID))
-					{
-						Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
-					}
-					else
-					{
-						Invoke("EnsureDestroy", 5f);
-						BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
-						bw.Write(channelID);
-						bw.Write(uid);
-						TNManager.EndSend(channelID, true);
-					}
+					Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
 				}
 				else
 				{
-					if (onDestroy != null) onDestroy();
-					Object.Destroy(gameObject);
+					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
+					bw.Write(channelID);
+					bw.Write(uid);
+					TNManager.EndSend(channelID, true);
 				}
 			}
+			else OnDestroyPacket();
 		}
 		else mParent.DestroySelf();
+	}
+
+	/// <summary>
+	/// Notification of the object needing to be destroyed immediately.
+	/// </summary>
+
+	internal void OnDestroyPacket ()
+	{
+		if (!enabled)
+		{
+			Object.Destroy(gameObject);
+		}
+		else if (mDestroyed < 2)
+		{
+			mDestroyed = 2;
+			if (onDestroy != null) onDestroy();
+
+			if (ignoreDestroyCall)
+			{
+				enabled = false;
+				mDestroyed = 3;
+			}
+			else Object.Destroy(gameObject);
+		}
 	}
 
 	/// <summary>
@@ -352,16 +379,6 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	void DestroyIfMine () { if (isMine) DestroySelf(); }
-
-	/// <summary>
-	/// If this function is still here in 5 seconds then something went wrong, so force-destroy the object.
-	/// </summary>
-
-	void EnsureDestroy ()
-	{
-		if (onDestroy != null) onDestroy();
-		Object.Destroy(gameObject);
-	}
 
 	/// <summary>
 	/// Remember the object's ownership, for convenience.
@@ -443,25 +460,43 @@ public sealed class TNObject : MonoBehaviour
 	}
 
 	// Last used ID
-	static uint mLastID = 0;
+	[System.NonSerialized] static uint mLastID = 0;
+	[System.NonSerialized] static uint mLastDynID = 16777216;
 
 	/// <summary>
 	/// Get a new unique object identifier.
 	/// </summary>
 
-	static uint GetUniqueID ()
+	static public uint GetUniqueID (bool isDynamic)
 	{
-		foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
+		if (isDynamic)
 		{
-			TNet.List<TNObject> list = pair.Value;
-
-			for (int i = 0; i < list.size; ++i)
+			foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
 			{
-				TNObject ts = list[i];
-				if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+				TNet.List<TNObject> list = pair.Value;
+
+				for (int i = 0; i < list.size; ++i)
+				{
+					TNObject ts = list[i];
+					if (ts != null && ts.uid < mLastDynID && ts.uid > 32767) mLastDynID = ts.uid;
+				}
 			}
+			return --mLastDynID;
 		}
-		return ++mLastID;
+		else
+		{
+			foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
+			{
+				TNet.List<TNObject> list = pair.Value;
+
+				for (int i = 0; i < list.size; ++i)
+				{
+					TNObject ts = list[i];
+					if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+				}
+			}
+			return ++mLastID;
+		}
 	}
 
 #if UNITY_EDITOR
@@ -489,8 +524,8 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (uid == 0)
 		{
-			if (Application.isPlaying) Debug.LogError("Assigning a static ID at run-time. This is wrong, and will cause issues. All TNObjects must be instantiated via TNManager.Instantiate", this);
-			uid = GetUniqueID();
+			if (!Application.isPlaying) uid = GetUniqueID(false);
+			else Debug.LogError("All TNObjects must be instantiated via TNManager.Instantiate, or network communication is not going to be possible.", this);
 		}
 		else
 		{
@@ -512,7 +547,7 @@ public sealed class TNObject : MonoBehaviour
 							"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
 					}
 				}
-				uid = GetUniqueID();
+				uid = GetUniqueID(false);
 			}
 		}
 	}
@@ -524,10 +559,10 @@ public sealed class TNObject : MonoBehaviour
 
 	void Start ()
 	{
+		if (uid == 0 && !TNManager.isConnected && Application.isPlaying) uid = GetUniqueID(true);
+
 		if (uid == 0)
 		{
-			if (!TNManager.isConnected) { Register(); return; }
-
 			mParentCheck = true;
 
 			if (parent != null)
@@ -956,7 +991,15 @@ public sealed class TNObject : MonoBehaviour
 #endif
 		if (parent == null)
 		{
-			if (hasBeenDestroyed || !enabled) return;
+			if (!enabled) return;
+
+			if (hasBeenDestroyed)
+			{
+#if UNITY_EDITOR
+				Debug.LogWarning("Trying to send RFC " + (rfcID != 0 ? rfcID.ToString() : rfcName) + " through a destroyed object. Ignoring.", this);
+				return;
+#endif
+			}
 
 #if UNITY_EDITOR
 			if (rebuildMethodList) RebuildMethodList();
@@ -1086,7 +1129,7 @@ public sealed class TNObject : MonoBehaviour
 #endif
 		if (parent == null)
 		{
-			if (mDestroyed || uid == 0 || string.IsNullOrEmpty(targetName)) return;
+			if (mDestroyed != 0 || uid == 0 || string.IsNullOrEmpty(targetName)) return;
 
 			if (targetName == TNManager.playerName)
 			{
@@ -1185,7 +1228,7 @@ public sealed class TNObject : MonoBehaviour
 	{
 		if (parent == null)
 		{
-			if (mDestroyed) return;
+			if (mDestroyed != 0) return;
 
 			if (uid > 32767 && channelID != newChannelID)
 			{
@@ -1201,7 +1244,7 @@ public sealed class TNObject : MonoBehaviour
 						(after != null ? after.ix + " " + after.iz : newChannelID.ToString()) + "\n", this);
 				}
 #endif
-				mDestroyed = true;
+				mDestroyed = 2;
 
 				if (TNManager.isConnected)
 				{
@@ -1211,7 +1254,7 @@ public sealed class TNObject : MonoBehaviour
 					writer.Write(uid);
 					TNManager.EndSend(channelID, true);
 				}
-				else FinalizeTransfer(newChannelID, TNObject.GetUniqueID());
+				else FinalizeTransfer(newChannelID, TNObject.GetUniqueID(true));
 			}
 		}
 		else parent.TransferToChannel(newChannelID);
@@ -1231,7 +1274,7 @@ public sealed class TNObject : MonoBehaviour
 			channelID = newChannel;
 			uid = newObjectID;
 			Register();
-			mDestroyed = false;
+			mDestroyed = 0;
 		}
 		else parent.FinalizeTransfer(newChannel, newObjectID);
 	}

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;
@@ -19,7 +19,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 	public double rate;		// Value's rate of change per second
 
 	double mValue;
-	double mTimestamp;
+	long mTimestamp;
 
 	/// <summary>
 	/// Actual stored value. In most cases you will want to use 'value' instead.
@@ -36,16 +36,16 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 		get
 		{
 #if STANDALONE
-			var time = System.DateTime.UtcNow.Ticks * 0.0000001;
+			var time = System.DateTime.UtcNow.Ticks / 10000;
 #else
 			var time = TNManager.serverTime;
 #endif
 			if (mTimestamp != time)
 			{
 				var delta = (time - mTimestamp);
-				if (delta < 0.0) delta = 0.0;
+				if (delta < 0) delta = 0;
 				mTimestamp = time;
-				mValue += delta * rate;
+				mValue += delta * 0.001 * rate;
 				if (mValue < min) mValue = min;
 				else if (mValue > max) mValue = max;
 			}
@@ -55,7 +55,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 		{
 			mValue = value;
 #if STANDALONE
-			mTimestamp = System.DateTime.UtcNow.Ticks * 0.0000001;
+			mTimestamp = System.DateTime.UtcNow.Ticks / 10000;
 #else
 			mTimestamp = TNManager.serverTime;
 #endif
@@ -87,7 +87,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 		max = reader.ReadDouble();
 		rate = reader.ReadDouble();
 		mValue = reader.ReadDouble();
-		mTimestamp = reader.ReadDouble();
+		mTimestamp = reader.ReadInt64();
 	}
 
 	public virtual void Serialize (DataNode node)
@@ -105,7 +105,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 		max = node.GetChild<double>("max");
 		rate = node.GetChild<double>("rate");
 		mValue = node.GetChild<double>("value");
-		mTimestamp = node.GetChild<double>("time");
+		mTimestamp = node.GetChild<long>("time");
 	}
 
 	/// <summary>
@@ -150,5 +150,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 		}
 		return 1.0;
 	}
+
+	public override string ToString () { return value.ToString(); }
 }
 }

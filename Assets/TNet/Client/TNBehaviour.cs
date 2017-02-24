@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -15,6 +15,7 @@ namespace TNet
 public abstract class TNBehaviour : MonoBehaviour
 {
 	[System.NonSerialized] TNObject mTNO;
+	[System.NonSerialized] public bool ignoreMissingTNO = false;
 
 	public TNObject tno { get { if (mTNO == null) CreateTNObject(); return mTNO; } }
 
@@ -49,7 +50,7 @@ public abstract class TNBehaviour : MonoBehaviour
 		{
 			mTNO.rebuildMethodList = true;
 		}
-		else
+		else if (!ignoreMissingTNO)
 		{
 			if (!isActiveAndEnabled) return;
 

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
@@ -1838,7 +1838,7 @@ static public class Serialization
 			// Convert date to ticks
 			obj = ((DateTime)obj).Ticks;
 		}
-		else if (obj is IBinarySerializable)
+		else if (obj is IBinarySerializable && !(obj is Counter))
 		{
 			// The object implements IBinarySerializable
 			if (!typeIsKnown) bw.Write(253, obj.GetType());

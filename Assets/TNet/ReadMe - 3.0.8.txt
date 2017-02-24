@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.7
+                  Version 3.0.8
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -108,6 +108,16 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.8
+- NEW: It's now possible to "soft-destroy" TNObjects by setting tno.ignoreDestroyCall = false in TNObject's onDestroy delegate callback. This will effectively make TNet behave like this object was destroyed already, without actually destroying the game object. Example usage would be immediately destroying a networked object (such as the player's car) as far as networking is concerned, while still keeping a copy for post-processing, such as making it break up into pieces before an explosion.
+- NEW: Added an "assign unique ID" button to static TNObjects shown when the ID is 0.
+- NEW: WorkerThread.totalExecutionTime shows the total execution time for this function, cumulative over repeated execution calls (multi-stage execution).
+- ALT: WorkerThread.currentExecutionTime can be checked in worker thread's main thread (OnFinished) callbacks to check how long the function has been executing so far. Replaces 'elapsedMilliseconds'.
+- ALT: WorkerThread.mainFrameTimeExceeded can be checked in the main thread's (OnFinished) callbacks to see if the multi-stage callback should exit early and continue next update to prevent FPS degradation. Replaces 'mainThreadTimeExceeded'.
+- ALT: DataNodeExporter.ShowExportDialog / ShowImportDialog were moved to UnityEditorExtensions.
+- FIX: Fixes to TNet.Counter not serializing the time properly in some cases.
+- FIX: Fix to RequestSetUDP packet parsing IP from address bytes, causing issues in some cases. It now uses it directly.
 
 3.0.7
 - NEW: It's now possible to disable the TNBehaviour in an Awake() function, preventing it from sending out messages or trying to ensure that a TNObject actually exists. Useful for when you need to render an object with network scripts into an off-screen texture, for example.

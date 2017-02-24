@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -59,18 +59,23 @@ public class TNObjectEditor : Editor
 		else
 		{
 			serializedObject.Update();
-			var sp = serializedObject.FindProperty("mStaticID");
-			EditorGUILayout.PropertyField(sp, new GUIContent("ID"));
-			sp = serializedObject.FindProperty("ignoreWarnings");
+			var staticID = serializedObject.FindProperty("mStaticID");
+			EditorGUILayout.PropertyField(staticID, new GUIContent("ID"));
+			var sp = serializedObject.FindProperty("ignoreWarnings");
 			EditorGUILayout.PropertyField(sp, new GUIContent("Ignore Warnings"));
-			serializedObject.ApplyModifiedProperties();
 
 			PrefabType type = PrefabUtility.GetPrefabType(obj.gameObject);
-			if (type == PrefabType.Prefab) return;
 
-			if (obj.uid == 0)
+			if (type == PrefabType.Prefab)
+			{
+				serializedObject.ApplyModifiedProperties();
+				return;
+			}
+
+			if (staticID.intValue == 0)
 			{
 				EditorGUILayout.HelpBox("Object ID of '0' means this object must be dynamically instantiated via TNManager.Instantiate.", MessageType.Info);
+				if (GUILayout.Button("Assign Unique ID")) staticID.intValue = (int)TNObject.GetUniqueID(false);
 			}
 			else
 			{
@@ -87,6 +92,8 @@ public class TNObjectEditor : Editor
 					}
 				}
 			}
+
+			serializedObject.ApplyModifiedProperties();
 		}
 	}
 }

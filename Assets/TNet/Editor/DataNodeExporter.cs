@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -13,36 +13,6 @@ using TNet;
 
 static internal class DataNodeExporter
 {
-	/// <summary>
-	/// Show a file export dialog.
-	/// </summary>
-
-	static public string ShowExportDialog (string name, string fileName, string extension = "bytes", string prefsName = "TNet Path")
-	{
-		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
-		string path = EditorUtility.SaveFilePanel(name, currentPath, fileName + "." + extension, extension);
-
-		if (!string.IsNullOrEmpty(path))
-			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
-
-		return path;
-	}
-
-	/// <summary>
-	/// Show a file import dialog.
-	/// </summary>
-
-	static public string ShowImportDialog (string name, string extension = "bytes", string prefsName = "TNet Path")
-	{
-		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
-		string path = EditorUtility.OpenFilePanel(name, currentPath, extension);
-
-		if (!string.IsNullOrEmpty(path))
-			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
-
-		return path;
-	}
-
 	/// <summary>
 	/// Save the data under the specified filename.
 	/// </summary>
@@ -84,7 +54,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", go.name);
+		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Text);
 	}
 
@@ -96,7 +66,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", go.name);
+		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Binary);
 	}
 
@@ -108,7 +78,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = go.Serialize(true);
-		string path = ShowExportDialog("Export to DataNode", go.name);
+		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
 		Save(node, path, DataNode.SaveType.Compressed);
 	}
 
@@ -121,7 +91,7 @@ static internal class DataNodeExporter
 	{
 		GameObject go = Selection.activeGameObject;
 		DataNode node = new DataNode(go.name, go.GetInstanceID());
-		string path = ShowExportDialog("Export AssetBundle", go.name);
+		string path = UnityEditorExtensions.ShowExportDialog("Export AssetBundle", go.name);
 
 		if (!string.IsNullOrEmpty(path))
 		{
@@ -143,7 +113,7 @@ static internal class DataNodeExporter
 	[MenuItem("Assets/DataNode/Convert/to Text", false, 30)]
 	static internal void ConvertA ()
 	{
-		string path = ShowImportDialog("Convert DataNode");
+		string path = UnityEditorExtensions.ShowImportDialog("Convert DataNode");
 
 		if (!string.IsNullOrEmpty(path))
 		{
@@ -156,7 +126,7 @@ static internal class DataNodeExporter
 	[MenuItem("Assets/DataNode/Convert/to Binary", false, 30)]
 	static internal void ConvertB ()
 	{
-		string path = ShowImportDialog("Convert DataNode");
+		string path = UnityEditorExtensions.ShowImportDialog("Convert DataNode");
 
 		if (!string.IsNullOrEmpty(path))
 		{
@@ -169,7 +139,7 @@ static internal class DataNodeExporter
 	[MenuItem("Assets/DataNode/Convert/to Compressed", false, 30)]
 	static internal void ConvertC ()
 	{
-		string path = ShowImportDialog("Convert DataNode");
+		string path = UnityEditorExtensions.ShowImportDialog("Convert DataNode");
 
 		if (!string.IsNullOrEmpty(path))
 		{
@@ -182,7 +152,7 @@ static internal class DataNodeExporter
 	[MenuItem("Assets/DataNode/Import", false, 60)]
 	static internal void ImportSelected ()
 	{
-		string path = ShowImportDialog("Import DataNode");
+		string path = UnityEditorExtensions.ShowImportDialog("Import DataNode");
 
 		if (!string.IsNullOrEmpty(path))
 		{

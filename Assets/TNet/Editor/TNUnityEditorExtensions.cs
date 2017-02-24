@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -8,12 +8,38 @@ using UnityEditor;
 
 namespace TNet
 {
-/// <summary>
-/// Taken pretty much straight from NGUI.
-/// </summary>
-
 static public class UnityEditorExtensions
 {
+	/// <summary>
+	/// Show a file export dialog.
+	/// </summary>
+
+	static public string ShowExportDialog (string name, string fileName, string extension = "bytes", string prefsName = "TNet Path")
+	{
+		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
+		string path = EditorUtility.SaveFilePanel(name, currentPath, fileName + "." + extension, extension);
+
+		if (!string.IsNullOrEmpty(path))
+			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
+
+		return path;
+	}
+
+	/// <summary>
+	/// Show a file import dialog.
+	/// </summary>
+
+	static public string ShowImportDialog (string name, string extension = "bytes", string prefsName = "TNet Path")
+	{
+		string currentPath = EditorPrefs.GetString(prefsName, "Assets/");
+		string path = EditorUtility.OpenFilePanel(name, currentPath, extension);
+
+		if (!string.IsNullOrEmpty(path))
+			EditorPrefs.SetString(prefsName, System.IO.Path.GetDirectoryName(path));
+
+		return path;
+	}
+
 	/// <summary>
 	/// Helper function that draws a serialized property.
 	/// </summary>

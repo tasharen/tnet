@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;
@@ -1342,8 +1342,7 @@ public class GameServer : FileServer
 
 				if (port != 0 && mUdp.isActive && player.tcpEndPoint != null)
 				{
-					IPAddress ip = new IPAddress(player.tcpEndPoint.Address.GetAddressBytes());
-					SetPlayerUdpEndPoint(player, new IPEndPoint(ip, port));
+					SetPlayerUdpEndPoint(player, new IPEndPoint(player.tcpEndPoint.Address, port));
 				}
 				else SetPlayerUdpEndPoint(player, null);
 
