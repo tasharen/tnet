@@ -1356,7 +1356,7 @@ public class TNManager : MonoBehaviour
 		if (path == null) path = "";
 
 		lastChannelID = channelID;
-		GameObject go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
+		var go = UnityTools.LoadPrefab(path) ?? UnityTools.GetDummyObject();
 
 		if (go != null && instance != null)
 		{
@@ -1384,11 +1384,10 @@ public class TNManager : MonoBehaviour
 					return;
 				}
 
-				BinaryWriter writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
-				byte flag = GetFlag(go, persistent);
+				var writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
 				writer.Write(playerID);
 				writer.Write(channelID);
-				writer.Write(flag);
+				writer.Write(persistent ? (byte)1 : (byte)2);
 
 				if (rccID > 0 && rccID < 256)
 				{
@@ -1413,15 +1412,11 @@ public class TNManager : MonoBehaviour
 
 				if (go != null)
 				{
-					TNObject tno = go.GetComponent<TNObject>();
-
-					if (tno != null)
-					{
-						tno.uid = TNObject.GetUniqueID(true);
-						go.SetActive(true);
-						tno.Register();
-					}
-					else go.SetActive(true);
+					var tno = go.GetComponent<TNObject>();
+					if (tno == null) tno = go.AddComponent<TNObject>();
+					tno.uid = TNObject.GetUniqueID(true);
+					go.SetActive(true);
+					tno.Register();
 				}
 			}
 		}
@@ -1795,20 +1790,6 @@ public class TNManager : MonoBehaviour
 		}
 		return -1;
 	}
-
-	/// <summary>
-	/// RequestCreate flag.
-	/// 0 = Local-only object. Only echoed to other clients.
-	/// 1 = Saved on the server, assigned a new owner when the existing owner leaves.
-	/// 2 = Saved on the server, destroyed when the owner leaves.
-	/// </summary>
-
-	static byte GetFlag (GameObject go, bool persistent)
-	{
-		TNObject tno = go.GetComponent<TNObject>();
-		if (tno == null) return 0;
-		return persistent ? (byte)1 : (byte)2;
-	}
 	
 	/// <summary>
 	/// Notification of a new object being created.
@@ -1820,11 +1801,11 @@ public class TNManager : MonoBehaviour
 		TNManager.lastChannelID = channelID;
 		byte rccID = reader.ReadByte();
 		string funcName = (rccID == 0) ? reader.ReadString() : null;
-		CachedFunc func = GetRCC(rccID, funcName);
+		var func = GetRCC(rccID, funcName);
 
 		// Load the object from the resources folder
-		string prefab = reader.ReadString();
-		GameObject go = UnityTools.LoadPrefab(prefab);
+		var prefab = reader.ReadString();
+		var go = UnityTools.LoadPrefab(prefab);
 
 		if (go == null)
 		{
@@ -1840,7 +1821,7 @@ public class TNManager : MonoBehaviour
 		if (func != null)
 		{
 			// Custom creation function
-			object[] objs = reader.ReadArray(go);
+			var objs = reader.ReadArray(go);
 			go = func.Execute(objs) as GameObject;
 			UnityTools.Clear(objs);
 		}
@@ -1857,15 +1838,11 @@ public class TNManager : MonoBehaviour
 			if (objectID != 0)
 			{
 				var obj = go.GetComponent<TNObject>();
-
-				if (obj != null)
-				{
-					obj.channelID = channelID;
-					obj.uid = objectID;
-					go.SetActive(true);
-					obj.Register();
-				}
-				else go.SetActive(true);
+				if (obj == null) obj = go.AddComponent<TNObject>();
+				obj.channelID = channelID;
+				obj.uid = objectID;
+				go.SetActive(true);
+				obj.Register();
 			}
 			else
 			{

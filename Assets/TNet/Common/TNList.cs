@@ -157,6 +157,16 @@ public class List<T> : TList
 	public void Release () { size = 0; buffer = null; }
 
 	/// <summary>
+	/// Add a new element to the array, returning its index.
+	/// </summary>
+
+	public int Expand ()
+	{
+		if (buffer == null || size == buffer.Length) AllocateMore();
+		return size++;
+	}
+
+	/// <summary>
 	/// Add the specified item to the end of the list.
 	/// </summary>
 

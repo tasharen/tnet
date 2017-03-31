@@ -485,7 +485,7 @@ public class DataNode
 	/// Write the node hierarchy to the specified filename.
 	/// </summary>
 
-	public bool Write (string path, SaveType type = SaveType.Text, bool allowConfigAccess = false)
+	public bool Write (string path, SaveType type = SaveType.Text, bool inMyDocuments = false, bool allowConfigAccess = false)
 	{
 		bool retVal = false;
 		MemoryStream stream = new MemoryStream();
@@ -494,7 +494,7 @@ public class DataNode
 		{
 			BinaryWriter writer = new BinaryWriter(stream);
 			writer.WriteObject(this);
-			retVal = Tools.WriteFile(path, stream, false, allowConfigAccess);
+			retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
 			writer.Close();
 		}
 		else if (type == SaveType.Compressed)
@@ -507,17 +507,17 @@ public class DataNode
 
 			if (comp != null)
 			{
-				retVal = Tools.WriteFile(path, comp, false, allowConfigAccess);
+				retVal = Tools.WriteFile(path, comp, inMyDocuments, allowConfigAccess);
 				comp.Close();
 			}
-			else retVal = Tools.WriteFile(path, stream, false, allowConfigAccess);
+			else retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
 			writer.Close();
 		}
 		else
 		{
 			StreamWriter writer = new StreamWriter(stream);
 			Write(writer, 0);
-			retVal = Tools.WriteFile(path, stream, false, allowConfigAccess);
+			retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
 			writer.Close();
 		}
 		return retVal;

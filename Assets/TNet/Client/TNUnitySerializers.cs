@@ -168,7 +168,11 @@ static public class ComponentSerialization
 		node.AddChild("depth", cam.depth);
 		node.AddChild("renderingPath", cam.renderingPath);
 		node.AddChild("useOcclusionCulling", cam.useOcclusionCulling);
+#if UNITY_4_7 || UNITY_5_3 || UNITY_5_4 || UNITY_5_5
 		node.AddChild("hdr", cam.hdr);
+#else
+		node.AddChild("hdr", cam.allowHDR);
+#endif
 	}
 
 	/// <summary>

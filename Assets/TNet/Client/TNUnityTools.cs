@@ -713,6 +713,7 @@ static public class UnityTools
 	{
 		GameObject inst = new GameObject();
 		inst.name = inst.GetInstanceID().ToString();
+		inst.layer = go.layer;
 		Transform t = inst.transform;
 		t.parent = go.transform;
 		t.localPosition = Vector3.zero;
@@ -729,6 +730,7 @@ static public class UnityTools
 	{
 		GameObject inst = new GameObject();
 		inst.name = name;
+		inst.layer = go.layer;
 		Transform t = inst.transform;
 		t.parent = go.transform;
 		t.localPosition = Vector3.zero;

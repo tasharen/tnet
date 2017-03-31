@@ -313,7 +313,10 @@ public class WorkerThread : MonoBehaviour
 	/// Only valid inside the OnFinished stage functions.
 	/// </summary>
 
-	static public bool mainFrameTimeExceeded { get { return currentExecutionTime > maxMillisecondsPerFrame; } }
+	static public bool frameTimeExceeded { get { return currentExecutionTime > maxMillisecondsPerFrame; } }
+
+	[System.Obsolete("Use 'frameTimeExceeded instead'")]
+	static public bool mainFrameTimeExceeded { get { return frameTimeExceeded; } }
 
 	static long mLoopStart = 0, mExecStart = 0;
 
