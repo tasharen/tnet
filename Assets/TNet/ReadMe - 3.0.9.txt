@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2016 Tasharen Entertainment Inc.
-                  Version 3.0.8
+                  Version 3.0.9
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -108,6 +108,10 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.0.9
+- NEW: TNManager.Instantiate will now always assign a TNObject to the created object, even if there isn't one. If you want to create a local-only (non-networked) object, use an RFC instead.
+- FIX: Better visualization for game server addition/removal on the lobby server.
 
 3.0.8
 - NEW: It's now possible to "soft-destroy" TNObjects by setting tno.ignoreDestroyCall = false in TNObject's onDestroy delegate callback. This will effectively make TNet behave like this object was destroyed already, without actually destroying the game object. Example usage would be immediately destroying a networked object (such as the player's car) as far as networking is concerned, while still keeping a copy for post-processing, such as making it break up into pieces before an explosion.
