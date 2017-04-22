@@ -1,6 +1,6 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
-     Copyright © 2012-2016 Tasharen Entertainment Inc.
+     Copyright © 2012-2017 Tasharen Entertainment Inc.
                   Version 3.0.9
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
