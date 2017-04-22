@@ -172,7 +172,7 @@ public class UPnP
 					IPEndPoint sourceAddress = new IPEndPoint(UdpProtocol.defaultNetworkInterface, 0);
 					byte[] data = sender.Receive(ref sourceAddress);
 
-					if (ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
+					if (data != null && data.Length > 0 && ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 					{
 						sender.Close();
 						sender = null;

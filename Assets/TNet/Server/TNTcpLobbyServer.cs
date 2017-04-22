@@ -472,50 +472,25 @@ public class TcpLobbyServer : LobbyServer
 	}
 
 	/// <summary>
-	/// Remove all entries added by the specified client.
-	/// </summary>
-
-	bool RemoveServer (TcpProtocol tcp)
-	{
-		var ent = tcp.Get<ServerList.Entry>("data");
-
-		if (ent != null)
-		{
-			mLastChange = mTime;
-#if STANDALONE
-			if (tcp.Get<long>("lastSend") != 0)
-				Tools.Print("[-] " + ent.name);
-#endif
-			tcp.Set("data", null);
-			return true;
-		}
-		return false;
-	}
-
-	/// <summary>
 	/// Add a new server to the list.
 	/// </summary>
 
 	void AddServer (ServerList.Entry ent, TcpProtocol tcp)
 	{
 		ent.recordTime = mTime;
-		bool noChange = false;
-
-		var old = tcp.Get<ServerList.Entry>("data");
-
-		if (old != null)
-		{
-			if (old.playerCount == ent.playerCount && old.name == ent.name)
-				noChange = true;
-		}
-
-		if (!noChange) mLastChange = mTime;
-
-#if STANDALONE
-		if (tcp.Get<long>("lastSend") != 0)
-			Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
-#endif
 		tcp.Set("data", ent);
+		AddServer(ent.name, ent.playerCount, ent.internalAddress, ent.externalAddress);
+	}
+
+	/// <summary>
+	/// Remove all entries added by the specified client.
+	/// </summary>
+
+	bool RemoveServer (TcpProtocol tcp)
+	{
+		var ent = tcp.Get<ServerList.Entry>("data");
+		if (ent != null) { RemoveServer(ent.internalAddress, ent.externalAddress); return true; }
+		return false;
 	}
 
 	/// <summary>
@@ -539,7 +514,7 @@ public class TcpLobbyServer : LobbyServer
 
 	public override void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress)
 	{
-		ServerList.Entry ent = mList.Remove(internalAddress, externalAddress);
+		var ent = mList.Remove(internalAddress, externalAddress);
 
 		if (ent != null)
 		{
