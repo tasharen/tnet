@@ -16,28 +16,23 @@ namespace TNet
 public sealed class RFC : Attribute
 {
 	public int id = 0;
-	public string uniqueID;
 	public string property;
 
 	public RFC (string property = null)
 	{
-		this.uniqueID = null;
 		this.property = property;
 	}
 
 	public RFC (int rid)
 	{
 		id = rid;
-		uniqueID = null;
 		property = null;
 	}
 
 	public string GetUniqueID (object target)
 	{
-		if (uniqueID != null) return uniqueID;
 		if (string.IsNullOrEmpty(property)) return null;
-		uniqueID = target.GetFieldOrPropertyValue<string>(property);
-		return uniqueID;
+		return target.GetFieldOrPropertyValue<string>(property);
 	}
 }
 
@@ -60,7 +55,7 @@ public sealed class RCC : System.Attribute
 public class CachedFunc
 {
 	public object obj = null;
-	public MethodInfo func;
+	public MethodInfo mi;
 	public ParameterInfo[] parameters;
 
 	/// <summary>
@@ -69,20 +64,20 @@ public class CachedFunc
 
 	public object Execute (params object[] pars)
 	{
-		if (func == null) return null;
+		if (mi == null) return null;
 		if (parameters == null)
-			parameters = func.GetParameters();
+			parameters = mi.GetParameters();
 
 		try
 		{
 			return (parameters.Length == 1 && parameters[0].ParameterType == typeof(object[])) ?
-				func.Invoke(obj, new object[] { pars }) :
-				func.Invoke(obj, pars);
+				mi.Invoke(obj, new object[] { pars }) :
+				mi.Invoke(obj, pars);
 		}
 		catch (System.Exception ex)
 		{
 			if (ex.GetType() == typeof(System.NullReferenceException)) return null;
-			UnityTools.PrintException(ex, this, 0, func.Name, pars);
+			UnityTools.PrintException(ex, this, 0, mi.Name, pars);
 			return null;
 		}
 	}

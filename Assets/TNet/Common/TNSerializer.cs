@@ -2826,7 +2826,7 @@ static public class Serialization
 			{
 #if REFLECTION_SUPPORT
 				// Create the object
-				if (obj == null)
+				if (obj == null && type != null)
 				{
 					obj = type.Create();
 					if (obj == null) Tools.LogError("Unable to create an instance of " + type);

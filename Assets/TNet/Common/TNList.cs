@@ -255,8 +255,7 @@ public class List<T> : TList
 	{
 		if (buffer != null)
 		{
-			System.Collections.Generic.EqualityComparer<T> comp =
-				System.Collections.Generic.EqualityComparer<T>.Default;
+			var comp = System.Collections.Generic.EqualityComparer<T>.Default;
 
 			for (int i = 0; i < size; ++i)
 			{

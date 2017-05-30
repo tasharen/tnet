@@ -80,7 +80,7 @@ public enum Packet
 	/// This should be the very first packet sent by the client.
 	/// int32: Protocol version.
 	/// string: Player Name.
-	/// object: Player data.
+	/// DataNode: Player data.
 	/// </summary>
 
 	RequestID,
@@ -599,9 +599,9 @@ public enum Packet
 
 	/// <summary>
 	/// Kick the specified player.
-	/// int32: Channel ID.
+	/// int32: Channel ID. If -1, kick from the server, not just channel (admin-only)
 	/// int32: Player ID.
-	/// string: player name or address
+	/// string: player name or address (if player ID is 0)
 	/// </summary>
 
 	RequestKick,
@@ -711,6 +711,13 @@ public enum Packet
 	/// </summary>
 
 	RequestSetPlayerSave,
+
+	/// <summary>
+	/// Notification sent by the server when a player disconnects.
+	/// int32: ID of the player.
+	/// </summary>
+
+	ResponsePlayerDisconnect,
 
 	/// <summary>
 	/// Begin custom packets here.

@@ -223,6 +223,7 @@ static public class UnityTools
 	{
 		var obj = Object.Instantiate(prefab) as GameObject;
 		obj.name = prefab.name;
+		obj.SetActive(true);
 		return obj;
 	}
 
@@ -484,15 +485,14 @@ static public class UnityTools
 
 	static public System.Type FindType (string name)
 	{
-		System.Type t = GetTypeEx(name);
+		var t = GetTypeEx(name);
 		if (t != null) return t;
 
-		List<System.Type> types = TypeExtensions.GetTypes();
-		List<string> names = TypeExtensions.GetTypeNames();
+		var types = TypeExtensions.GetTypes();
 
-		for (int i = 0; i < names.size; ++i)
-			if (names[i] == name || types[i].Name == name)
-				return types[i];
+		for (int i = 0; i < types.size; ++i)
+			if (types[i].name == name)
+				return types[i].type;
 
 		return null;
 	}
@@ -745,7 +745,8 @@ static public class UnityTools
 
 	static public GameObject InstantiateChild (this GameObject go, string resourceName)
 	{
-		GameObject prefab = LoadPrefab(resourceName);
+		if (string.IsNullOrEmpty(resourceName)) return null;
+		var prefab = LoadPrefab(resourceName);
 
 		if (prefab != null)
 		{

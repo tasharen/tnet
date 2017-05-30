@@ -143,18 +143,15 @@ public abstract class TNBehaviour : MonoBehaviour
 
 	public void RemoveAllSavedRFCs ()
 	{
-		var methods = GetType().GetMethods(
-					BindingFlags.Public |
-					BindingFlags.NonPublic |
-					BindingFlags.Static);
+		var methods = GetType().GetCache().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
-		for (int b = 0, bmax = methods.Length; b < bmax; ++b)
+		for (int b = 0, bmax = methods.Count; b < bmax; ++b)
 		{
-			var method = methods[b];
+			var cm = methods[b];
 
-			if (method.IsDefined(typeof(RFC), true))
+			if (cm.method.IsDefined(typeof(RFC), true))
 			{
-				var rfc = (RFC)method.GetCustomAttributes(typeof(RFC), true)[0];
+				var rfc = (RFC)cm.method.GetCustomAttributes(typeof(RFC), true)[0];
 
 				if (rfc.id > 0)
 				{
@@ -162,7 +159,7 @@ public abstract class TNBehaviour : MonoBehaviour
 				}
 				else
 				{
-					var name = method.Name;
+					var name = cm.name;
 					if (rfc.property != null) name = name + "/" + rfc.GetUniqueID(this);
 					tno.RemoveSavedRFC(name);
 				}

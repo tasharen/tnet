@@ -9,151 +9,158 @@ using System.IO;
 
 namespace TNet
 {
-/// <summary>
-/// Container class with all the possible notification delegates used by TNet's GameClient.
-/// </summary>
-
-public class TNEvents
-{
 	/// <summary>
-	/// Ping notification.
+	/// Container class with all the possible notification delegates used by TNet's GameClient.
 	/// </summary>
 
-	public OnPing onPing;
-	public delegate void OnPing (IPEndPoint ip, int ping);
+	public class TNEvents
+	{
+		/// <summary>
+		/// Ping notification.
+		/// </summary>
 
-	/// <summary>
-	/// Error notification.
-	/// </summary>
+		public OnPing onPing;
+		public delegate void OnPing (IPEndPoint ip, int ping);
 
-	public OnError onError;
-	public delegate void OnError (string msg);
+		/// <summary>
+		/// Error notification.
+		/// </summary>
 
-	/// <summary>
-	/// Connection attempt result indicating success or failure.
-	/// </summary>
+		public OnError onError;
+		public delegate void OnError (string msg);
 
-	public OnConnect onConnect;
-	public delegate void OnConnect (bool success, string message);
+		/// <summary>
+		/// Connection attempt result indicating success or failure.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent after the connection terminates for any reason.
-	/// </summary>
+		public OnConnect onConnect;
+		public delegate void OnConnect (bool success, string message);
 
-	public OnDisconnect onDisconnect;
-	public delegate void OnDisconnect ();
+		/// <summary>
+		/// Notification sent after the connection terminates for any reason.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when attempting to join a channel, indicating a success or failure.
-	/// </summary>
+		public OnDisconnect onDisconnect;
+		public delegate void OnDisconnect ();
 
-	public OnJoinChannel onJoinChannel;
-	public delegate void OnJoinChannel (int channelID, bool success, string message);
+		/// <summary>
+		/// Notification sent when attempting to join a channel, indicating a success or failure.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when leaving a channel.
-	/// Also sent just before a disconnect (if inside a channel when it happens).
-	/// </summary>
+		public OnJoinChannel onJoinChannel;
+		public delegate void OnJoinChannel (int channelID, bool success, string message);
 
-	public OnLeaveChannel onLeaveChannel;
-	public delegate void OnLeaveChannel (int channelID);
+		/// <summary>
+		/// Notification sent when leaving a channel.
+		/// Also sent just before a disconnect (if inside a channel when it happens).
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when changing levels.
-	/// </summary>
+		public OnLeaveChannel onLeaveChannel;
+		public delegate void OnLeaveChannel (int channelID);
 
-	public OnLoadLevel onLoadLevel;
-	public delegate void OnLoadLevel (int channelID, string levelName);
+		/// <summary>
+		/// Notification sent when changing levels.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when a new player joins the channel.
-	/// </summary>
+		public OnLoadLevel onLoadLevel;
+		public delegate void OnLoadLevel (int channelID, string levelName);
 
-	public OnPlayerJoin onPlayerJoin;
-	public delegate void OnPlayerJoin (int channelID, Player p);
+		/// <summary>
+		/// Notification sent when a new player joins the channel.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when a player leaves the channel.
-	/// </summary>
+		public OnPlayerJoin onPlayerJoin;
+		public delegate void OnPlayerJoin (int channelID, Player p);
 
-	public OnPlayerLeave onPlayerLeave;
-	public delegate void OnPlayerLeave (int channelID, Player p);
+		/// <summary>
+		/// Notification sent when a player leaves the channel.
+		/// </summary>
 
-	/// <summary>
-	/// Notification of some player changing their name.
-	/// </summary>
+		public OnPlayerLeave onPlayerLeave;
+		public delegate void OnPlayerLeave (int channelID, Player p);
 
-	public OnRenamePlayer onRenamePlayer;
-	public delegate void OnRenamePlayer (Player p, string previous);
+		/// <summary>
+		/// Notification sent when a player disconnects.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when the channel's host changes.
-	/// </summary>
+		public OnPlayerDisconnect onPlayerDisconnect;
+		public delegate void OnPlayerDisconnect (Player p);
 
-	public OnHostChanged onHostChanged;
-	public delegate void OnHostChanged (Channel ch);
+		/// <summary>
+		/// Notification of some player changing their name.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when the server's data gets changed.
-	/// </summary>
+		public OnRenamePlayer onRenamePlayer;
+		public delegate void OnRenamePlayer (Player p, string previous);
 
-	public OnSetServerData onSetServerData;
-	public delegate void OnSetServerData (string path, DataNode node);
+		/// <summary>
+		/// Notification sent when the channel's host changes.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when the channel's data gets changed.
-	/// </summary>
+		public OnHostChanged onHostChanged;
+		public delegate void OnHostChanged (Channel ch);
 
-	public OnSetChannelData onSetChannelData;
-	public delegate void OnSetChannelData (Channel ch, string path, DataNode node);
+		/// <summary>
+		/// Notification sent when the server's data gets changed.
+		/// </summary>
 
-	/// <summary>
-	/// Notification sent when player data gets changed.
-	/// </summary>
+		public OnSetServerData onSetServerData;
+		public delegate void OnSetServerData (string path, DataNode node);
 
-	public OnSetPlayerData onSetPlayerData;
-	public delegate void OnSetPlayerData (Player p, string path, DataNode node);
+		/// <summary>
+		/// Notification sent when the channel's data gets changed.
+		/// </summary>
 
-	/// <summary>
-	/// Notification of a new object being created.
-	/// </summary>
+		public OnSetChannelData onSetChannelData;
+		public delegate void OnSetChannelData (Channel ch, string path, DataNode node);
 
-	public OnCreate onCreate;
-	public delegate void OnCreate (int channelID, int creator, uint objID, BinaryReader reader);
+		/// <summary>
+		/// Notification sent when player data gets changed.
+		/// </summary>
 
-	/// <summary>
-	/// Notification of the specified object being destroyed.
-	/// </summary>
+		public OnSetPlayerData onSetPlayerData;
+		public delegate void OnSetPlayerData (Player p, string path, DataNode node);
 
-	public OnDestroy onDestroy;
-	public delegate void OnDestroy (int channelID, uint objID);
+		/// <summary>
+		/// Notification of a new object being created.
+		/// </summary>
 
-	/// <summary>
-	/// Notification of the specified object being transferred to another channel.
-	/// </summary>
+		public OnCreate onCreate;
+		public delegate void OnCreate (int channelID, int creator, uint objID, BinaryReader reader);
 
-	public OnTransfer onTransfer;
-	public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
+		/// <summary>
+		/// Notification of the specified object being destroyed.
+		/// </summary>
 
-	/// <summary>
-	/// Callback triggered when the channel becomes locked or unlocked.
-	/// </summary>
+		public OnDestroy onDestroy;
+		public delegate void OnDestroy (int channelID, uint objID);
 
-	public OnLockChannel onLockChannel;
-	public delegate void OnLockChannel (int channelID, bool locked);
+		/// <summary>
+		/// Notification of the specified object being transferred to another channel.
+		/// </summary>
 
-	/// <summary>
-	/// Callback triggered when the player gets verified as an administrator.
-	/// </summary>
+		public OnTransfer onTransfer;
+		public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
 
-	public OnSetAdmin onSetAdmin;
-	public delegate void OnSetAdmin (Player p);
+		/// <summary>
+		/// Callback triggered when the channel becomes locked or unlocked.
+		/// </summary>
 
-	/// <summary>
-	/// Notification of a client packet arriving.
-	/// </summary>
+		public OnLockChannel onLockChannel;
+		public delegate void OnLockChannel (int channelID, bool locked);
 
-	public OnForwardedPacket onForwardedPacket;
-	public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
-}
+		/// <summary>
+		/// Callback triggered when the player gets verified as an administrator.
+		/// </summary>
+
+		public OnSetAdmin onSetAdmin;
+		public delegate void OnSetAdmin (Player p);
+
+		/// <summary>
+		/// Notification of a client packet arriving.
+		/// </summary>
+
+		public OnForwardedPacket onForwardedPacket;
+		public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
+	}
 }

@@ -687,11 +687,11 @@ public sealed class TNObject : MonoBehaviour
 			if (mDict0.TryGetValue(funcID, out ent))
 			{
 				if (ent.parameters == null)
-					ent.parameters = ent.func.GetParameters();
+					ent.parameters = ent.mi.GetParameters();
 
 				try
 				{
-					ent.func.Invoke(ent.obj, parameters);
+					ent.mi.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)
@@ -722,11 +722,11 @@ public sealed class TNObject : MonoBehaviour
 			if (mDict1.TryGetValue(funcName, out ent))
 			{
 				if (ent.parameters == null)
-					ent.parameters = ent.func.GetParameters();
+					ent.parameters = ent.mi.GetParameters();
 
 				try
 				{
-					ent.func.Invoke(ent.obj, parameters);
+					ent.mi.Invoke(ent.obj, parameters);
 					return true;
 				}
 				catch (System.Exception ex)
@@ -785,6 +785,17 @@ public sealed class TNObject : MonoBehaviour
 #endif
 	}
 
+	[System.NonSerialized] static System.Collections.Generic.List<MonoBehaviour> mTempMono = new System.Collections.Generic.List<MonoBehaviour>();
+	[System.NonSerialized] static Dictionary<System.Type, System.Collections.Generic.List<CachedMethodInfo>> mMethodCache =
+		new Dictionary<System.Type, System.Collections.Generic.List<CachedMethodInfo>>();
+
+	public class CachedMethodInfo
+	{
+		public string name;
+		public CachedFunc cf;
+		public RFC rfc;
+	}
+
 	/// <summary>
 	/// Rebuild the list of known RFC calls.
 	/// </summary>
@@ -794,43 +805,55 @@ public sealed class TNObject : MonoBehaviour
 		rebuildMethodList = false;
 		mDict0.Clear();
 		mDict1.Clear();
-		var mbs = GetComponentsInChildren<MonoBehaviour>(true);
+		GetComponentsInChildren(true, mTempMono);
 
-		for (int i = 0, imax = mbs.Length; i < imax; ++i)
+		for (int i = 0, imax = mTempMono.Count; i < imax; ++i)
 		{
-			var mb = mbs[i];
-			if (!mb) continue;
-
+			var mb = mTempMono[i];
 			var type = mb.GetType();
-			var methods = type.GetMethods(
-				BindingFlags.Public |
-				BindingFlags.NonPublic |
-				BindingFlags.Instance);
+			System.Collections.Generic.List<CachedMethodInfo> ret;
 
-			for (int b = 0, bmax = methods.Length; b < bmax; ++b)
+			if (!mMethodCache.TryGetValue(type, out ret))
 			{
-				var method = methods[b];
+				ret = new System.Collections.Generic.List<CachedMethodInfo>();
+				var cache = type.GetCache().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-				if (method.IsDefined(typeof(RFC), true))
+				for (int b = 0, bmax = cache.Count; b < bmax; ++b)
 				{
-					var ent = new CachedFunc();
-					ent.obj = mb;
-					ent.func = method;
+					var ent = cache[b];
+					if (!ent.method.IsDefined(typeof(RFC), true)) continue;
 
-					var rfc = (RFC)ent.func.GetCustomAttributes(typeof(RFC), true)[0];
+					var ci = new CachedMethodInfo();
+					ci.name = ent.name;
+					ci.rfc = (RFC)ent.method.GetCustomAttributes(typeof(RFC), true)[0];
 
-					if (rfc.id > 0)
-					{
-						if (rfc.id < 256) mDict0[rfc.id] = ent;
-						else Debug.LogError("RFC IDs need to be between 1 and 255 (1 byte). If you need more, just don't specify an ID and use the function's name instead.");
-					}
-					else
-					{
-						var name = method.Name;
-						if (rfc.property != null) name = name + "/" + rfc.GetUniqueID(mb);
-						mDict1[name] = ent;
-					}
+					ci.cf = new CachedFunc();
+					ci.cf.mi = ent.method;
+					
+					ret.Add(ci);
 				}
+
+				mMethodCache.Add(type, ret);
+			}
+
+			for (int b = 0, bmax = ret.Count; b < bmax; ++b)
+			{
+				var ci = ret[b];
+
+				var ent = new CachedFunc();
+				ent.obj = mb;
+				ent.mi = ci.cf.mi;
+
+				if (ci.rfc.id > 0)
+				{
+					if (ci.rfc.id < 256) mDict0[ci.rfc.id] = ent;
+					else Debug.LogError("RFC IDs need to be between 1 and 255 (1 byte). If you need more, just don't specify an ID and use the function's name instead.");
+				}
+				else if (ci.rfc.property != null)
+				{
+					mDict1[ci.name + "/" + ci.rfc.GetUniqueID(mb)] = ent;
+				}
+				else mDict1[ci.name] = ent;
 			}
 		}
 	}
@@ -988,6 +1011,8 @@ public sealed class TNObject : MonoBehaviour
 	{
 #if UNITY_EDITOR
 		if (!Application.isPlaying) return;
+
+		//Debug.Log("Sending " + rfcName);
 #endif
 		if (parent == null)
 		{
@@ -1232,18 +1257,18 @@ public sealed class TNObject : MonoBehaviour
 
 			if (uid > 32767 && channelID != newChannelID)
 			{
-#if W2 && UNITY_EDITOR
-				var pv = PlayerVehicle.controlled;
+//#if W2 && UNITY_EDITOR
+//				var pv = PlayerVehicle.controlled;
 
-				if (pv != null && pv == GetComponent<PlayerVehicle>())
-				{
-					var before = ProceduralTerrain.GetTile(channelID);
-					var after = ProceduralTerrain.GetTile(newChannelID);
-					Debug.Log("Transfer: " + name + " from " +
-						(before != null ? before.ix + " " + before.iz : channelID.ToString()) + " to " +
-						(after != null ? after.ix + " " + after.iz : newChannelID.ToString()) + "\n", this);
-				}
-#endif
+//				if (pv != null && pv == GetComponent<PlayerVehicle>())
+//				{
+//					var before = ProceduralTerrain.GetTile(channelID);
+//					var after = ProceduralTerrain.GetTile(newChannelID);
+//					Debug.Log("Transfer: " + name + " from " +
+//						(before != null ? before.ix + " " + before.iz : channelID.ToString()) + " to " +
+//						(after != null ? after.ix + " " + after.iz : newChannelID.ToString()) + "\n", this);
+//				}
+//#endif
 				mDestroyed = 2;
 
 				if (TNManager.isConnected)

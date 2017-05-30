@@ -13,546 +13,651 @@ using System.Reflection;
 
 namespace TNet
 {
-/// <summary>
-/// Can be used to mark fields as ignored by TNet-based serialization.
-/// </summary>
-
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
-public sealed class IgnoredByTNet : Attribute { public IgnoredByTNet () { } }
-
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
-public sealed class SerializeProperties : Attribute { public SerializeProperties () { } }
-
-/// <summary>
-/// Static helper class containing useful extensions for the System.Type class.
-/// </summary>
-
-static public class TypeExtensions
-{
 	/// <summary>
-	/// Not sure why this isn't already present...
+	/// Can be used to mark fields as ignored by TNet-based serialization.
 	/// </summary>
 
-	static public bool IsStruct (this Type type) { return type.IsValueType && !type.IsEnum; }
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+	public sealed class IgnoredByTNet : Attribute { public IgnoredByTNet () { } }
+
+	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
+	public sealed class SerializeProperties : Attribute { public SerializeProperties () { } }
 
 	/// <summary>
-	/// Helper extension that returns 'true' if the type implements the specified interface.
+	/// Static helper class containing useful extensions for the System.Type class.
 	/// </summary>
 
-	static public bool Implements (this Type t, Type interfaceType)
+	static public class TypeExtensions
 	{
-		if (interfaceType == null) return false;
-		return interfaceType.IsAssignableFrom(t);
-	}
+		/// <summary>
+		/// Not sure why this isn't already present...
+		/// </summary>
 
-	/// <summary>
-	/// Retrieve the generic element type from the templated type.
-	/// </summary>
+		static public bool IsStruct (this Type type) { return type.IsValueType && !type.IsEnum; }
 
-	static public Type GetGenericArgument (this Type type)
-	{
-		Type[] elems = type.GetGenericArguments();
-		return (elems != null && elems.Length == 1) ? elems[0] : null;
-	}
+		/// <summary>
+		/// Helper extension that returns 'true' if the type implements the specified interface.
+		/// </summary>
 
-	/// <summary>
-	/// Create a new instance of the specified object.
-	/// </summary>
-
-	static public object Create (this Type type)
-	{
-		try
+		static public bool Implements (this Type t, Type interfaceType)
 		{
-			return Activator.CreateInstance(type);
+			if (interfaceType == null) return false;
+			return interfaceType.IsAssignableFrom(t);
 		}
-		catch (Exception ex)
-		{
-			Tools.LogError(ex.Message);
-			return null;
-		}
-	}
 
-	/// <summary>
-	/// Create a new instance of the specified object.
-	/// </summary>
+		/// <summary>
+		/// Retrieve the generic element type from the templated type.
+		/// </summary>
 
-	static public object Create (this Type type, int size)
-	{
-		try
+		static public Type GetGenericArgument (this Type type)
 		{
-			return Activator.CreateInstance(type, size);
+			Type[] elems = type.GetGenericArguments();
+			return (elems != null && elems.Length == 1) ? elems[0] : null;
 		}
-		catch (Exception)
+
+		/// <summary>
+		/// Create a new instance of the specified object.
+		/// </summary>
+
+		static public object Create (this Type type)
 		{
-			return type.Create();
+			if (type != null)
+			{
+				try
+				{
+					return Activator.CreateInstance(type);
+				}
+				catch (Exception ex)
+				{
+					Tools.LogError(ex.Message);
+				}
+			}
+			return default(Type);
 		}
-	}
+
+		/// <summary>
+		/// Create a new instance of the specified object.
+		/// </summary>
+
+		static public object Create (this Type type, int size)
+		{
+			try
+			{
+				return Activator.CreateInstance(type, size);
+			}
+			catch (Exception)
+			{
+				return type.Create();
+			}
+		}
 
 #if REFLECTION_SUPPORT
-	class CacheItem
-	{
-		public MethodInfo method;
-		public Type[] parameters;
-	}
+		/// <summary>
+		/// Cached method details used by the CachedType class.
+		/// </summary>
 
-	static Dictionary<string, Dictionary<Type, List<CacheItem>>> mCache =
-		new Dictionary<string, Dictionary<Type, List<CacheItem>>>();
-
-	/// <summary>
-	/// Retrieve a specific extension method for the type that matches the function parameters.
-	/// Each result gets cached, so subsequent calls are going to be much faster and won't cause any GC allocation.
-	/// </summary>
-
-	static public MethodInfo GetMethodOrExtension (this Type type, string name, params Type[] paramTypes)
-	{
-		Dictionary<Type, List<CacheItem>> cachedMethod;
-
-		if (!mCache.TryGetValue(name, out cachedMethod) || cachedMethod == null)
+		public class CachedMethod
 		{
-			cachedMethod = new Dictionary<Type, List<CacheItem>>();
-			mCache.Add(name, cachedMethod);
+			public string name;
+			public MethodInfo method;
+			public ParameterInfo[] parameters;
+			public Type[] paramTypes;
 		}
 
-		List<CacheItem> cachedList = null;
+		/// <summary>
+		/// Reflection doesn't store data retrieved once. This class does.
+		/// Retrieving fields and methods via this class causes no garbage collection past the first time, and is obviously a lot faster.
+		/// </summary>
 
-		if (!cachedMethod.TryGetValue(type, out cachedList) || cachedList == null)
+		public class CachedType
 		{
-			cachedList = new List<CacheItem>();
-			cachedMethod.Add(type, cachedList);
-		}
+			public Type type;
+			public string name;
 
-		for (int b = 0; b < cachedList.size; ++b)
-		{
-			CacheItem item = cachedList[b];
-			bool isValid = true;
+			List<FieldInfo> mFieldDict;
+			List<PropertyInfo> mPropDict;
+			Dictionary<BindingFlags, List<CachedMethod>> mMethods;
+			Dictionary<string, FieldInfo> mSerFieldCache;
+			Dictionary<string, PropertyInfo> mSerPropCache;
 
-			if (item.parameters != paramTypes)
+			/// <summary>
+			/// Get all methods of specified type.
+			/// </summary>
+
+			public List<CachedMethod> GetMethods (BindingFlags flags)
 			{
-				if (item.parameters.Length == paramTypes.Length)
+				if (mMethods == null) mMethods = new Dictionary<BindingFlags, List<CachedMethod>>();
+
+				List<CachedMethod> list = null;
+
+				if (!mMethods.TryGetValue(flags, out list))
 				{
-					for (int i = 0, imax = item.parameters.Length; i < imax; ++i)
+					list = new List<CachedMethod>();
+					var methods = type.GetMethods(flags);
+
+					for (int im = 0, imm = methods.Length; im < imm; ++im)
 					{
-						if (item.parameters[i] != paramTypes[i])
+						var cmi = new CachedMethod();
+						cmi.method = methods[im];
+						cmi.name = cmi.method.Name;
+						cmi.parameters = cmi.method.GetParameters();
+
+						var c = cmi.parameters.Length;
+						cmi.paramTypes = new Type[c];
+						for (int i = 0; i < c; ++i) cmi.paramTypes[i] = cmi.parameters[i].ParameterType;
+
+						list.Add(cmi);
+					}
+
+					mMethods[flags] = list;
+				}
+				return list;
+			}
+
+			public MethodInfo GetMethod (string name, params Type[] paramTypes)
+			{
+				return type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+			}
+
+			/// <summary>
+			/// Collect all serializable fields on the class of specified type.
+			/// </summary>
+
+			public List<FieldInfo> GetSerializableFields (bool includePrivate = false)
+			{
+				if (mFieldDict == null)
+				{
+					mFieldDict = new List<FieldInfo>();
+
+					var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+					bool serializable = type.IsDefined(typeof(SerializableAttribute), true);
+
+					for (int i = 0, imax = fields.Length; i < imax; ++i)
+					{
+						FieldInfo field = fields[i];
+
+						// Don't do anything with static fields
+						if ((field.Attributes & FieldAttributes.Static) != 0) continue;
+						if (field.IsDefined(typeof(IgnoredByTNet), true)) continue;
+#if !STANDALONE
+						// Ignore fields that were not marked as serializable
+						if (!field.IsDefined(typeof(UnityEngine.SerializeField), true))
+#endif
+						{
+							// Class is not serializable
+							if (!serializable) continue;
+
+							// It's not a public field
+							if (!includePrivate && (field.Attributes & FieldAttributes.Public) == 0) continue;
+						}
+
+						// Ignore fields that were marked as non-serializable
+						if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
+
+						// It's a valid serializable field
+						mFieldDict.Add(field);
+					}
+				}
+				return mFieldDict;
+			}
+
+			/// <summary>
+			/// Retrieve the specified serializable field from the type. Returns 'null' if the field was not found or if it's not serializable.
+			/// </summary>
+
+			public FieldInfo GetSerializableField (string name)
+			{
+				if (mSerFieldCache == null) mSerFieldCache = new Dictionary<string, FieldInfo>();
+				FieldInfo field = null;
+
+				if (!mSerFieldCache.TryGetValue(name, out field))
+				{
+					var list = type.GetSerializableFields();
+
+					for (int i = 0, imax = list.size; i < imax; ++i)
+					{
+						if (list[i].Name == name)
+						{
+							field = list[i];
+							break;
+						}
+					}
+					mSerFieldCache[name] = field;
+				}
+				return field;
+			}
+
+			/// <summary>
+			/// Collect all serializable properties on the class of specified type.
+			/// </summary>
+
+			public List<PropertyInfo> GetSerializableProperties (bool includePrivate = false)
+			{
+				if (mPropDict == null)
+				{
+					mPropDict = new List<PropertyInfo>();
+
+					var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+					for (int i = 0, imax = props.Length; i < imax; ++i)
+					{
+						PropertyInfo prop = props[i];
+						if (!prop.CanRead || !prop.CanWrite) continue;
+
+						if (prop.IsDefined(typeof(System.ObsoleteAttribute), true)) continue;
+						if (prop.IsDefined(typeof(IgnoredByTNet), true)) continue;
+
+						// It's a valid serializable property
+						mPropDict.Add(prop);
+					}
+				}
+				return mPropDict;
+			}
+
+			/// <summary>
+			/// Retrieve the specified serializable property from the type.
+			/// Returns 'null' if the property was not found or if it's not serializable.
+			/// A serializable property must have both a getter and a setter.
+			/// </summary>
+
+			public PropertyInfo GetSerializableProperty (string name)
+			{
+				if (mSerPropCache == null) mSerPropCache = new Dictionary<string, PropertyInfo>();
+
+				PropertyInfo prop = null;
+
+				if (!mSerPropCache.TryGetValue(name, out prop))
+				{
+					var list = type.GetSerializableProperties();
+
+					for (int i = 0, imax = list.size; i < imax; ++i)
+					{
+						if (list[i].Name == name)
+						{
+							prop = list[i];
+							break;
+						}
+					}
+					mSerPropCache[name] = prop;
+				}
+				return prop;
+			}
+		}
+
+		class ExtesionType
+		{
+			public MethodInfo method;
+			public Type[] paramTypes;
+		}
+
+		static Dictionary<string, Dictionary<Type, List<ExtesionType>>> mCache =
+			new Dictionary<string, Dictionary<Type, List<ExtesionType>>>();
+
+		/// <summary>
+		/// Retrieve a specific extension method for the type that matches the function parameters.
+		/// Each result gets cached, so subsequent calls are going to be much faster and won't cause any GC allocation.
+		/// </summary>
+
+		static public MethodInfo GetMethodOrExtension (this Type type, string name, params Type[] paramTypes)
+		{
+			Dictionary<Type, List<ExtesionType>> cachedMethod;
+
+			if (!mCache.TryGetValue(name, out cachedMethod) || cachedMethod == null)
+			{
+				cachedMethod = new Dictionary<Type, List<ExtesionType>>();
+				mCache.Add(name, cachedMethod);
+			}
+
+			List<ExtesionType> cachedList = null;
+
+			if (!cachedMethod.TryGetValue(type, out cachedList) || cachedList == null)
+			{
+				cachedList = new List<ExtesionType>();
+				cachedMethod.Add(type, cachedList);
+			}
+
+			for (int b = 0; b < cachedList.size; ++b)
+			{
+				var item = cachedList[b];
+				bool isValid = true;
+
+				if (item.paramTypes != paramTypes)
+				{
+					if (item.paramTypes.Length == paramTypes.Length)
+					{
+						for (int i = 0, imax = item.paramTypes.Length; i < imax; ++i)
+						{
+							if (item.paramTypes[i] != paramTypes[i])
+							{
+								isValid = false;
+								break;
+							}
+						}
+					}
+					else isValid = false;
+				}
+				if (isValid) return item.method;
+			}
+
+			var ci = new ExtesionType();
+			ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+			if (ci.method == null) ci.method = type.GetExtensionMethod(name, paramTypes);
+			ci.paramTypes = paramTypes;
+			cachedList.Add(ci);
+			return ci.method;
+		}
+
+		[System.NonSerialized] static Assembly[] mCachedAssemblies = null;
+		[System.NonSerialized] static List<CachedType> mCachedTypes = null;
+		[System.NonSerialized] static Dictionary<Type, CachedType> mTypeDict = null;
+		[System.NonSerialized] static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
+
+		static void CacheTypes ()
+		{
+			mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+
+			List<Assembly> refined = new List<Assembly>();
+			mAssemblyTypes = new Dictionary<Assembly, Type[]>();
+			mCachedTypes = new List<CachedType>();
+			mTypeDict = new Dictionary<Type, CachedType>();
+
+			foreach (Assembly asm in mCachedAssemblies)
+			{
+				if (asm.FullName.StartsWith("Mono.")) continue;
+
+				try
+				{
+					var tpl = asm.GetTypes();
+
+					foreach (Type t in tpl)
+					{
+						var ent = new CachedType();
+						ent.type = t;
+						ent.name = t.ToString();
+						mCachedTypes.Add(ent);
+						mTypeDict[t] = ent;
+					}
+
+					refined.Add(asm);
+					mAssemblyTypes[asm] = tpl;
+				}
+#if STANDALONE
+				catch (Exception) {}
+#else
+				catch (Exception ex)
+				{
+					UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
+				}
+#endif
+			}
+
+			mCachedAssemblies = refined.ToArray();
+		}
+
+		/// <summary>
+		/// Get the cached list of currently loaded assemblies.
+		/// </summary>
+
+		static public Assembly[] GetAssemblies (bool update = false)
+		{
+			if (mCachedAssemblies == null || update) CacheTypes();
+			return mCachedAssemblies;
+		}
+
+		/// <summary>
+		/// Get the cached list of currently loaded types.
+		/// </summary>
+
+		static public List<CachedType> GetTypes (bool update = false)
+		{
+			if (mCachedTypes == null || update) CacheTypes();
+			return mCachedTypes;
+		}
+
+		/// <summary>
+		/// Get cached type data.
+		/// </summary>
+
+		static public CachedType GetCache (this Type type)
+		{
+			if (mTypeDict == null) CacheTypes();
+			CachedType ent = null;
+
+			if (!mTypeDict.TryGetValue(type, out ent))
+			{
+				ent = new CachedType();
+				ent.type = type;
+				ent.name = ent.ToString();
+				mCachedTypes.Add(ent);
+				mTypeDict[type] = ent;
+			}
+			return ent;
+		}
+
+		/// <summary>
+		/// Convenience function that retrieves a public or private method with specified parameters.
+		/// </summary>
+
+		static public MethodInfo GetMethod (this Type type, string name, params Type[] paramTypes)
+		{
+			return type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+		}
+
+		/// <summary>
+		/// Convenience function that retrieves a public or private method with specified parameters.
+		/// </summary>
+
+		static public MethodInfo GetMethod (this object target, string name, params Type[] paramTypes)
+		{
+			return target.GetType().GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+		}
+
+		/// <summary>
+		/// Get the specified method converted into a delegate.
+		/// </summary>
+
+		static public T GetMethod<T> (this object target, string methodName)
+		{
+			try
+			{
+				var del = Delegate.CreateDelegate(typeof(T), target, methodName);
+				if (del != null) return (T)Convert.ChangeType(del, typeof(T));
+			}
+#if UNITY_EDITOR
+			catch (Exception ex) { UnityEngine.Debug.LogError(ex.GetType() + ": " + ex.Message); }
+#else
+			catch (Exception) {}
+#endif
+			return default(T);
+		}
+
+		/// <summary>
+		/// Convenience function that retrieves an extension method with specified parameters.
+		/// </summary>
+
+		static public MethodInfo GetExtensionMethod (this Type type, string name, params Type[] paramTypes)
+		{
+			if (mCachedTypes == null) CacheTypes();
+
+			for (int b = 0; b < mCachedTypes.size; ++b)
+			{
+				var t = mCachedTypes[b];
+				var methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+				for (int im = 0, imm = methods.Count; im < imm; ++im)
+				{
+					var m = methods[im];
+					if (m.name != name) continue;
+
+					var pts = m.parameters;
+
+					if (pts.Length != paramTypes.Length + 1) continue;
+					if (pts[0].ParameterType != type) continue;
+
+					bool isValid = true;
+
+					for (int i = 0; i < paramTypes.Length; ++i)
+					{
+						if (pts[i + 1].ParameterType != paramTypes[i])
 						{
 							isValid = false;
 							break;
 						}
 					}
+
+					if (isValid) return m.method;
 				}
-				else isValid = false;
 			}
-			if (isValid) return item.method;
-		}
-		
-		CacheItem ci = new CacheItem();
-		ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
-		if (ci.method == null) ci.method = type.GetExtensionMethod(name, paramTypes);
-		ci.parameters = paramTypes;
-		cachedList.Add(ci);
-		return ci.method;
-	}
-
-	static Assembly[] mCachedAssemblies = null;
-	static List<Type> mCachedTypes = null;
-	static List<string> mCachedTypeNames = null;
-	static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
-
-	static void CacheTypes ()
-	{
-		mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
-
-		List<Assembly> refined = new List<Assembly>();
-		mAssemblyTypes = new Dictionary<Assembly, Type[]>();
-		mCachedTypes = new List<Type>();
-		mCachedTypeNames = new List<string>();
-
-		foreach (Assembly asm in mCachedAssemblies)
-		{
-			if (asm.FullName.StartsWith("Mono.")) continue;
-
-			try
-			{
-				Type[] tpl = asm.GetTypes();
-
-				foreach (Type t in tpl)
-				{
-					mCachedTypes.Add(t);
-					mCachedTypeNames.Add(t.ToString());
-				}
-
-				refined.Add(asm);
-				mAssemblyTypes[asm] = tpl;
-			}
-#if STANDALONE
-			catch (Exception) {}
-#else
-			catch (Exception ex)
-			{
-				UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
-			}
-#endif
+			return null;
 		}
 
-		mCachedAssemblies = refined.ToArray();
-	}
+		/// <summary>
+		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+		/// </summary>
 
-	/// <summary>
-	/// Get the cached list of currently loaded assemblies.
-	/// </summary>
-
-	static public Assembly[] GetAssemblies (bool update = false)
-	{
-		if (mCachedAssemblies == null || update) CacheTypes();
-		return mCachedAssemblies;
-	}
-
-	/// <summary>
-	/// Get the cached list of currently loaded types.
-	/// </summary>
-
-	static public List<Type> GetTypes (bool update = false)
-	{
-		if (mCachedTypes == null || update) CacheTypes();
-		return mCachedTypes;
-	}
-
-	/// <summary>
-	/// Get the cached list of currently loaded types.
-	/// </summary>
-
-	static public List<string> GetTypeNames (bool update = false)
-	{
-		if (mCachedTypeNames == null || update) CacheTypes();
-		return mCachedTypeNames;
-	}
-
-	/// <summary>
-	/// Convenience function that retrieves a public or private method with specified parameters.
-	/// </summary>
-
-	static public MethodInfo GetMethod (this Type type, string name, params Type[] paramTypes)
-	{
-		return type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
-	}
-
-	/// <summary>
-	/// Convenience function that retrieves a public or private method with specified parameters.
-	/// </summary>
-
-	static public MethodInfo GetMethod (this object target, string name, params Type[] paramTypes)
-	{
-		return target.GetType().GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
-	}
-
-	/// <summary>
-	/// Get the specified method converted into a delegate.
-	/// </summary>
-
-	static public T GetMethod<T> (this object target, string methodName)
-	{
-		try
+		static public bool Invoke (this Type type, string methodName, params object[] parameters)
 		{
-			var del = Delegate.CreateDelegate(typeof(T), target, methodName);
-			if (del != null) return (T)Convert.ChangeType(del, typeof(T));
-		}
-#if UNITY_EDITOR
-		catch (Exception ex) { UnityEngine.Debug.LogError(ex.GetType() + ": " + ex.Message); }
-#else
-		catch (Exception) {}
-#endif
-		return default(T);
-	}
-
-	/// <summary>
-	/// Convenience function that retrieves an extension method with specified parameters.
-	/// </summary>
-
-	static public MethodInfo GetExtensionMethod (this Type type, string name, params Type[] paramTypes)
-	{
-		if (mCachedTypes == null) CacheTypes();
-
-		for (int b = 0; b < mCachedTypes.size; ++b)
-		{
-			Type t = mCachedTypes[b];
-			MethodInfo[] methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-
-			for (int im = 0, imm = methods.Length; im < imm; ++im)
-			{
-				MethodInfo m = methods[im];
-				if (m.Name != name) continue;
-
-				ParameterInfo[] pts = m.GetParameters();
-
-				if (pts.Length != paramTypes.Length + 1) continue;
-				if (pts[0].ParameterType != type) continue;
-
-				bool isValid = true;
-
-				for (int i = 0; i < paramTypes.Length; ++i)
-				{
-					if (pts[i + 1].ParameterType != paramTypes[i])
-					{
-						isValid = false;
-						break;
-					}
-				}
-
-				if (isValid) return m;
-			}
-		}
-		return null;
-	}
-
-	/// <summary>
-	/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
-	/// </summary>
-
-	static public bool Invoke (this Type type, string methodName, params object[] parameters)
-	{
-		var types = new Type[parameters.Length];
-		for (int i = 0, imax = parameters.Length; i < imax; ++i)
-			types[i] = parameters[i].GetType();
-
-		var mi = type.GetMethodOrExtension(methodName, types);
-		if (mi == null) return false;
-
-		// Extension methods need to pass the object as the first parameter ('this' reference)
-		if (mi.IsStatic && mi.ReflectedType != type)
-		{
-			object[] extended = new object[parameters.Length + 1];
-			extended[0] = null;
+			var types = new Type[parameters.Length];
 			for (int i = 0, imax = parameters.Length; i < imax; ++i)
-				extended[i + 1] = parameters[i];
+				types[i] = parameters[i].GetType();
 
-			// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-			// will not propagate outside that function. It seems to be a limitation of how the variable
-			// is passed to the extension function (as a part of the 'extended array').
-			mi.Invoke(null, extended);
+			var mi = type.GetMethodOrExtension(methodName, types);
+			if (mi == null) return false;
+
+			// Extension methods need to pass the object as the first parameter ('this' reference)
+			if (mi.IsStatic && mi.ReflectedType != type)
+			{
+				object[] extended = new object[parameters.Length + 1];
+				extended[0] = null;
+				for (int i = 0, imax = parameters.Length; i < imax; ++i)
+					extended[i + 1] = parameters[i];
+
+				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
+				// will not propagate outside that function. It seems to be a limitation of how the variable
+				// is passed to the extension function (as a part of the 'extended array').
+				mi.Invoke(null, extended);
+				return true;
+			}
+
+			mi.Invoke(null, parameters);
 			return true;
 		}
 
-		mi.Invoke(null, parameters);
-		return true;
-	}
+		/// <summary>
+		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+		/// </summary>
 
-	/// <summary>
-	/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
-	/// </summary>
-
-	static public bool Invoke (this object obj, string methodName, params object[] parameters)
-	{
-		if (obj == null) return false;
-
-		var type = obj.GetType();
-		var types = new Type[parameters.Length];
-		for (int i = 0, imax = parameters.Length; i < imax; ++i)
-			types[i] = parameters[i].GetType();
-
-		var mi = type.GetMethodOrExtension(methodName, types);
-		if (mi == null) return false;
-
-		// Extension methods need to pass the object as the first parameter ('this' reference)
-		if (mi.IsStatic && mi.ReflectedType != type)
+		static public bool Invoke (this object obj, string methodName, params object[] parameters)
 		{
-			object[] extended = new object[parameters.Length + 1];
-			extended[0] = obj;
-			for (int i = 0, imax = parameters.Length; i < imax; ++i)
-				extended[i + 1] = parameters[i];
+			if (obj == null) return false;
 
-			// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-			// will not propagate outside that function. It seems to be a limitation of how the variable
-			// is passed to the extension function (as a part of the 'extended array').
-			mi.Invoke(obj, extended);
+			var type = obj.GetType();
+			var types = new Type[parameters.Length];
+			for (int i = 0, imax = parameters.Length; i < imax; ++i)
+				types[i] = parameters[i].GetType();
+
+			var mi = type.GetMethodOrExtension(methodName, types);
+			if (mi == null) return false;
+
+			// Extension methods need to pass the object as the first parameter ('this' reference)
+			if (mi.IsStatic && mi.ReflectedType != type)
+			{
+				object[] extended = new object[parameters.Length + 1];
+				extended[0] = obj;
+				for (int i = 0, imax = parameters.Length; i < imax; ++i)
+					extended[i + 1] = parameters[i];
+
+				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
+				// will not propagate outside that function. It seems to be a limitation of how the variable
+				// is passed to the extension function (as a part of the 'extended array').
+				mi.Invoke(obj, extended);
+				return true;
+			}
+
+			mi.Invoke(obj, parameters);
 			return true;
 		}
 
-		mi.Invoke(obj, parameters);
-		return true;
-	}
+		/// <summary>
+		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+		/// </summary>
 
-	/// <summary>
-	/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
-	/// </summary>
-
-	static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)
-	{
-		if (obj == null) return null;
-
-		var type = obj.GetType();
-		var types = new Type[parameters.Length];
-		for (int i = 0, imax = parameters.Length; i < imax; ++i)
-			types[i] = parameters[i].GetType();
-
-		var mi = type.GetMethodOrExtension(methodName, types);
-		if (mi == null) return null;
-
-		// Extension methods need to pass the object as the first parameter ('this' reference)
-		if (mi.IsStatic && mi.ReflectedType != type)
+		static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)
 		{
-			object[] extended = new object[parameters.Length + 1];
-			extended[0] = obj;
+			if (obj == null) return null;
+
+			var type = obj.GetType();
+			var types = new Type[parameters.Length];
 			for (int i = 0, imax = parameters.Length; i < imax; ++i)
-				extended[i + 1] = parameters[i];
+				types[i] = parameters[i].GetType();
 
-			// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-			// will not propagate outside that function. It seems to be a limitation of how the variable
-			// is passed to the extension function (as a part of the 'extended array').
-			return mi.Invoke(obj, extended);
-		}
+			var mi = type.GetMethodOrExtension(methodName, types);
+			if (mi == null) return null;
 
-		return mi.Invoke(obj, parameters);
-	}
-
-	// Cached for speed
-	static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
-
-	/// <summary>
-	/// Collect all serializable fields on the class of specified type.
-	/// </summary>
-
-	static public List<FieldInfo> GetSerializableFields (this Type type, bool includePrivate = false)
-	{
-		List<FieldInfo> list = null;
-
-		if (!mFieldDict.TryGetValue(type, out list) || list == null)
-		{
-			list = new List<FieldInfo>();
-			FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-			bool serializable = type.IsDefined(typeof(System.SerializableAttribute), true);
-
-			for (int i = 0, imax = fields.Length; i < imax; ++i)
+			// Extension methods need to pass the object as the first parameter ('this' reference)
+			if (mi.IsStatic && mi.ReflectedType != type)
 			{
-				FieldInfo field = fields[i];
+				object[] extended = new object[parameters.Length + 1];
+				extended[0] = obj;
+				for (int i = 0, imax = parameters.Length; i < imax; ++i)
+					extended[i + 1] = parameters[i];
 
-				// Don't do anything with static fields
-				if ((field.Attributes & FieldAttributes.Static) != 0) continue;
-				if (field.IsDefined(typeof(IgnoredByTNet), true)) continue;
-#if !STANDALONE
-				// Ignore fields that were not marked as serializable
-				if (!field.IsDefined(typeof(UnityEngine.SerializeField), true))
-#endif
-				{
-					// Class is not serializable
-					if (!serializable) continue;
-
-					// It's not a public field
-					if (!includePrivate && (field.Attributes & FieldAttributes.Public) == 0) continue;
-				}
-
-				// Ignore fields that were marked as non-serializable
-				if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
-
-				// It's a valid serializable field
-				list.Add(field);
+				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
+				// will not propagate outside that function. It seems to be a limitation of how the variable
+				// is passed to the extension function (as a part of the 'extended array').
+				return mi.Invoke(obj, extended);
 			}
-			mFieldDict[type] = list;
+
+			return mi.Invoke(obj, parameters);
 		}
-		return list;
-	}
 
-	static Dictionary<Type, Dictionary<string, FieldInfo>> mSerFieldCache = new Dictionary<Type, Dictionary<string, FieldInfo>>();
+		// Cached for speed
+		//[System.NonSerialized] static Dictionary<Type, List<FieldInfo>> mFieldDict = new Dictionary<Type, List<FieldInfo>>();
 
-	/// <summary>
-	/// Retrieve the specified serializable field from the type. Returns 'null' if the field was not found or if it's not serializable.
-	/// </summary>
+		/// <summary>
+		/// Collect all serializable fields on the class of specified type.
+		/// </summary>
 
-	static public FieldInfo GetSerializableField (this Type type, string name)
-	{
-		Dictionary<string, FieldInfo> cache = null;
-
-		if (!mSerFieldCache.TryGetValue(type, out cache) || cache == null)
+		static public List<FieldInfo> GetSerializableFields (this Type type, bool includePrivate = false)
 		{
-			cache = new Dictionary<string, FieldInfo>();
-			mSerFieldCache.Add(type, cache);
+			return type.GetCache().GetSerializableFields(includePrivate);
 		}
 
-		FieldInfo field = null;
+		//[System.NonSerialized] static Dictionary<Type, Dictionary<string, FieldInfo>> mSerFieldCache = new Dictionary<Type, Dictionary<string, FieldInfo>>();
 
-		if (!cache.TryGetValue(name, out field) || cache == null)
+		/// <summary>
+		/// Retrieve the specified serializable field from the type. Returns 'null' if the field was not found or if it's not serializable.
+		/// </summary>
+
+		static public FieldInfo GetSerializableField (this Type type, string name)
 		{
-			List<FieldInfo> list = type.GetSerializableFields();
-
-			for (int i = 0, imax = list.size; i < imax; ++i)
-			{
-				if (list[i].Name == name)
-				{
-					field = list[i];
-					break;
-				}
-			}
-			cache[name] = field;
+			return type.GetCache().GetSerializableField(name);
 		}
-		return field;
-	}
 
-	// Cached for speed
-	static Dictionary<Type, List<PropertyInfo>> mPropDict = new Dictionary<Type, List<PropertyInfo>>();
+		// Cached for speed
+		//[System.NonSerialized] static Dictionary<Type, List<PropertyInfo>> mPropDict = new Dictionary<Type, List<PropertyInfo>>();
 
-	/// <summary>
-	/// Collect all serializable properties on the class of specified type.
-	/// </summary>
+		/// <summary>
+		/// Collect all serializable properties on the class of specified type.
+		/// </summary>
 
-	static public List<PropertyInfo> GetSerializableProperties (this Type type, bool includePrivate = false)
-	{
-		List<PropertyInfo> list = null;
-
-		if (!mPropDict.TryGetValue(type, out list) || list == null)
+		static public List<PropertyInfo> GetSerializableProperties (this Type type, bool includePrivate = false)
 		{
-			list = new List<PropertyInfo>();
-			PropertyInfo[] props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-			for (int i = 0, imax = props.Length; i < imax; ++i)
-			{
-				PropertyInfo prop = props[i];
-				if (!prop.CanRead || !prop.CanWrite) continue;
-
-				if (prop.IsDefined(typeof(System.ObsoleteAttribute), true)) continue;
-				if (prop.IsDefined(typeof(IgnoredByTNet), true)) continue;
-
-				// It's a valid serializable property
-				list.Add(prop);
-			}
-			mPropDict[type] = list;
+			return type.GetCache().GetSerializableProperties(includePrivate);
 		}
-		return list;
-	}
 
-	static Dictionary<Type, Dictionary<string, PropertyInfo>> mSerPropCache = new Dictionary<Type, Dictionary<string, PropertyInfo>>();
+		//[System.NonSerialized] static Dictionary<Type, Dictionary<string, PropertyInfo>> mSerPropCache = new Dictionary<Type, Dictionary<string, PropertyInfo>>();
 
-	/// <summary>
-	/// Retrieve the specified serializable property from the type.
-	/// Returns 'null' if the property was not found or if it's not serializable.
-	/// A serializable property must have both a getter and a setter.
-	/// </summary>
+		/// <summary>
+		/// Retrieve the specified serializable property from the type.
+		/// Returns 'null' if the property was not found or if it's not serializable.
+		/// A serializable property must have both a getter and a setter.
+		/// </summary>
 
-	static public PropertyInfo GetSerializableProperty (this Type type, string name)
-	{
-		Dictionary<string, PropertyInfo> cache = null;
-
-		if (!mSerPropCache.TryGetValue(type, out cache) || cache == null)
+		static public PropertyInfo GetSerializableProperty (this Type type, string name)
 		{
-			cache = new Dictionary<string, PropertyInfo>();
-			mSerPropCache.Add(type, cache);
+			return type.GetCache().GetSerializableProperty(name);
 		}
-
-		PropertyInfo prop = null;
-
-		if (!cache.TryGetValue(name, out prop))
-		{
-			List<PropertyInfo> list = type.GetSerializableProperties();
-
-			for (int i = 0, imax = list.size; i < imax; ++i)
-			{
-				if (list[i].Name == name)
-				{
-					prop = list[i];
-					break;
-				}
-			}
-			cache[name] = prop;
-		}
-		return prop;
-	}
 
 #if NETFX_CORE
 	// I have no idea why Microsoft decided to rename these...
@@ -560,5 +665,5 @@ static public class TypeExtensions
 	static public PropertyInfo GetProperty (this Type type, string name) { return type.GetRuntimeProperty(name); }
 #endif
 #endif
-}
+	}
 }
