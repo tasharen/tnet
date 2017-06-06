@@ -629,12 +629,6 @@ namespace TNet
 						if (onPlayerDisconnect != null) onPlayerDisconnect(p);
 					}
 
-					// Inform others that the player disconnected
-					BinaryWriter writer;
-					writer = BeginSend(Packet.ResponsePlayerDisconnect);
-					writer.Write(p.id);
-					EndSend(true);
-
 					p.id = 0;
 				}
 
@@ -1864,6 +1858,7 @@ namespace TNet
 				}
 				case Packet.RequestSetServerData:
 				{
+					// Only administrators can set the server data to prevent sensitive data corruption
 					if (player.isAdmin)
 					{
 						if (mServerData == null) mServerData = new DataNode("Version", Player.version);

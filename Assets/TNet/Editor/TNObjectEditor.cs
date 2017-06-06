@@ -47,7 +47,7 @@ public class TNObjectEditor : Editor
 			}
 			else EditorGUILayout.LabelField("Owner", obj.ownerID.ToString("N0"));
 
-			TNet.Player host = TNManager.GetHost(TNManager.lastChannelID);
+			var host = TNManager.GetHost(obj.channelID);
 			EditorGUILayout.LabelField("Host", (host != null) ? host.name : "<none>");
 			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
 

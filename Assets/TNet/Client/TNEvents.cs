@@ -80,13 +80,6 @@ namespace TNet
 		public delegate void OnPlayerLeave (int channelID, Player p);
 
 		/// <summary>
-		/// Notification sent when a player disconnects.
-		/// </summary>
-
-		public OnPlayerDisconnect onPlayerDisconnect;
-		public delegate void OnPlayerDisconnect (Player p);
-
-		/// <summary>
 		/// Notification of some player changing their name.
 		/// </summary>
 

@@ -61,12 +61,6 @@ namespace TNet
 		static public TNEvents.OnLeaveChannel onLeaveChannel { get { return isPlaying ? instance.mClient.onLeaveChannel : null; } set { if (isPlaying) instance.mClient.onLeaveChannel = value; } }
 
 		/// <summary>
-		/// Notification sent when an existing player gets disconnected.
-		/// </summary>
-
-		static public TNEvents.OnPlayerDisconnect onPlayerDisconnect { get { return isPlaying ? instance.mClient.onPlayerDisconnect : null; } set { if (isPlaying) instance.mClient.onPlayerDisconnect = value; } }
-
-		/// <summary>
 		/// Notification sent when changing levels.
 		/// </summary>
 
@@ -273,7 +267,13 @@ namespace TNet
 		/// Whether we are currently trying to join the specified channel.
 		/// </summary>
 
-		static public IsJoiningChannelFunc IsJoiningChannel = delegate (int channelID)
+		static public IsJoiningChannelFunc IsJoiningChannel = IsJoiningChannelDefault;
+
+		/// <summary>
+		/// Default function to check whether the TNet is currently joining a channel.
+		/// </summary>
+
+		static public bool IsJoiningChannelDefault (int channelID)
 		{
 			if (mInstance == null) return false;
 
@@ -282,7 +282,7 @@ namespace TNet
 				return (mInstance.mLoadingLevel.size != 0 || mInstance.mClient.isJoiningChannel);
 			}
 			return mInstance.mLoadingLevel.Contains(channelID) || mInstance.mClient.IsJoiningChannel(channelID);
-		};
+		}
 
 		public delegate bool IsJoiningChannelFunc (int channelID);
 
@@ -1362,6 +1362,13 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// TNObject's ID, set right before calling the RCC function -- just in case you want to use it as a random seed.
+		/// </summary>
+
+		[System.NonSerialized]
+		static public uint currentRccObjectID = 0;
+
+		/// <summary>
 		/// Create a packet that will send a custom object creation call.
 		/// Instantiate a new game object in the specified channel on all connected players.
 		/// </summary>
@@ -1421,6 +1428,7 @@ namespace TNet
 				else
 				{
 					// Offline mode
+					currentRccObjectID = TNObject.GetUniqueID(true);
 					objs = BinaryExtensions.CombineArrays(go, objs);
 					go = func.Execute(objs) as GameObject;
 					UnityTools.Clear(objs);
@@ -1429,7 +1437,7 @@ namespace TNet
 					{
 						var tno = go.GetComponent<TNObject>();
 						if (tno == null) tno = go.AddComponent<TNObject>();
-						tno.uid = TNObject.GetUniqueID(true);
+						tno.uid = currentRccObjectID;
 						go.SetActive(true);
 						tno.Register();
 					}
@@ -1832,6 +1840,8 @@ namespace TNet
 			if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
 #endif
 			}
+
+			currentRccObjectID = objectID;
 
 			if (func != null)
 			{

@@ -326,9 +326,6 @@ public class WorkerThread : MonoBehaviour
 
 	void Update ()
 	{
-#if UNITY_EDITOR && W2
-		mDebug = Input.GetKey(KeyCode.LeftShift);
-#endif
 		if (mFinished.Count > 0)
 		{
 			mStopwatch.Reset();
@@ -372,10 +369,6 @@ public class WorkerThread : MonoBehaviour
 		}
 	}
 
-#if UNITY_EDITOR && W2
-	static bool mDebug = false;
-#endif
-
 	/// <summary>
 	/// Add a new callback function to the worker thread.
 	/// </summary>
@@ -411,10 +404,6 @@ public class WorkerThread : MonoBehaviour
 		ent.main = main;
 		ent.finished = finished;
 		ent.milliseconds = 0;
-
-#if UNITY_EDITOR && W2
-		if (mDebug) UnityEngine.Debug.Log("WorkerThread.Create");
-#endif
 
 		if (main != null)
 		{
@@ -461,10 +450,6 @@ public class WorkerThread : MonoBehaviour
 		ent.main = main;
 		ent.finishedBool = finished;
 		ent.milliseconds = 0;
-
-#if UNITY_EDITOR && W2
-		if (mDebug) UnityEngine.Debug.Log("WorkerThread.Create");
-#endif
 		if (main != null)
 		{
 			if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
@@ -508,9 +493,6 @@ public class WorkerThread : MonoBehaviour
 		}
 		else ent = new Entry();
 
-#if UNITY_EDITOR && W2
-		if (mDebug) UnityEngine.Debug.Log("WorkerThread.Create");
-#endif
 		ent.mainBool = main;
 		ent.finished = finished;
 		ent.milliseconds = 0;
@@ -554,9 +536,6 @@ public class WorkerThread : MonoBehaviour
 		}
 		else ent = new Entry();
 
-#if UNITY_EDITOR && W2
-		if (mDebug) UnityEngine.Debug.Log("WorkerThread.Create");
-#endif
 		ent.mainBool = main;
 		ent.finishedBool = finished;
 		ent.milliseconds = 0;

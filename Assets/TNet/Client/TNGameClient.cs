@@ -1154,20 +1154,6 @@ namespace TNet
 					}
 					break;
 				}
-				case Packet.ResponsePlayerDisconnect:
-				{
-					int id = reader.ReadInt32();
-					Player p = null;
-
-					if (mDictionary.ContainsKey(id))
-					{
-						mDictionary.TryGetValue(id, out p);
-						mDictionary.Remove(id);
-						if (onPlayerDisconnect != null) onPlayerDisconnect(p);
-						p.id = 0;
-					}
-					break;
-				}
 				case Packet.ResponseSetHost:
 				{
 					int channelID = reader.ReadInt32();
@@ -1206,7 +1192,7 @@ namespace TNet
 					string msg = success ? null : reader.ReadString();
 
 					// mJoining can contain -2 and -1 when joining random channels
-					if (!mJoining.Remove(channelID))
+					if (!mJoining.Remove(channelID) && channelID < 0)
 					{
 						for (int i = 0; i < mJoining.size; ++i)
 						{

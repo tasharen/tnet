@@ -142,6 +142,12 @@ public sealed class TNObject : MonoBehaviour
 	public bool hasBeenRegistered { get { return (parent == null) ? mHasBeenRegistered : mParent.hasBeenRegistered; } }
 
 	/// <summary>
+	/// Whether sending messages through this object is possible or not.
+	/// </summary>
+
+	public bool canSend { get { return !hasBeenDestroyed && !TNManager.IsJoiningChannel(channelID); } }
+
+	/// <summary>
 	/// If you want to know when this object is getting destroyed, subscribe to this delegate.
 	/// This delegate is guaranteed to be called before OnDestroy() notifications get sent out.
 	/// This is useful if you want parts of the object to remain behind (such as buggy Unity 4 cloth).

@@ -839,6 +839,29 @@ static public class Tools
 	}
 
 	/// <summary>
+	/// Ensure that the specified path exists.
+	/// </summary>
+
+	static public void CreatePath (string path)
+	{
+		string dir = Path.GetDirectoryName(path);
+
+		if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+			Directory.CreateDirectory(dir);
+
+		if (File.Exists(path))
+		{
+			FileAttributes att = File.GetAttributes(path);
+
+			if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+			{
+				att = (att & ~FileAttributes.ReadOnly);
+				File.SetAttributes(path, att);
+			}
+		}
+	}
+
+	/// <summary>
 	/// Write the specified file, creating all the subdirectories in the process.
 	/// </summary>
 

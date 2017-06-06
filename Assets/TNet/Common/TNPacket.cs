@@ -713,13 +713,6 @@ public enum Packet
 	RequestSetPlayerSave,
 
 	/// <summary>
-	/// Notification sent by the server when a player disconnects.
-	/// int32: ID of the player.
-	/// </summary>
-
-	ResponsePlayerDisconnect,
-
-	/// <summary>
 	/// Begin custom packets here.
 	/// </summary>
 
