@@ -1780,6 +1780,7 @@ namespace TNet
 			mClient.onCreate = OnCreateObject;
 			mClient.onDestroy = OnDestroyObject;
 			mClient.onTransfer = OnTransferObject;
+			mClient.onChangeOwner = OnChangeOwner;
 			mClient.onForwardedPacket = OnForwardedPacket;
 		}
 
@@ -1887,7 +1888,7 @@ namespace TNet
 
 		void OnDestroyObject (int channelID, uint objID)
 		{
-			TNObject obj = TNObject.Find(channelID, objID);
+			var obj = TNObject.Find(channelID, objID);
 			if (obj) obj.OnDestroyPacket();
 		}
 
@@ -1899,12 +1900,22 @@ namespace TNet
 		{
 			if (IsInChannel(oldChannelID))
 			{
-				TNObject obj = TNObject.Find(oldChannelID, oldObjectID);
+				var obj = TNObject.Find(oldChannelID, oldObjectID);
 				if (obj) obj.FinalizeTransfer(newChannelID, newObjectID);
 #if UNITY_EDITOR
 				else Debug.LogWarning("Unable to find TNO #" + oldObjectID + " in channel " + oldChannelID);
 #endif
 			}
+		}
+
+		/// <summary>
+		/// Notification of the object's owner being changed.
+		/// </summary>
+
+		void OnChangeOwner (int channelID, uint objectID, Player p)
+		{
+			var obj = TNObject.Find(channelID, objectID);
+			if (obj != null) obj.OnChangeOwnerPacket(p);
 		}
 
 		void OnApplicationQuit () { mShuttingDown = true; }

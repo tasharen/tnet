@@ -136,6 +136,13 @@ namespace TNet
 		public delegate void OnTransfer (int oldChannelID, int newChannelID, uint oldObjectID, uint newObjectID);
 
 		/// <summary>
+		/// Notification of the object's owner changing to a specific player.
+		/// </summary>
+
+		public OnChangeOwner onChangeOwner;
+		public delegate void OnChangeOwner (int channelID, uint objectID, Player p);
+
+		/// <summary>
 		/// Callback triggered when the channel becomes locked or unlocked.
 		/// </summary>
 

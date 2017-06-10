@@ -2051,6 +2051,24 @@ namespace TNet
 					name = reader.ReadString();
 					break;
 				}
+				case Packet.RequestSetOwner:
+				{
+					int channelID = reader.ReadInt32();
+					uint objID = reader.ReadUInt32();
+					int playerID = reader.ReadInt32();
+
+					Channel ch;
+
+					if (mChannelDict.TryGetValue(channelID, out ch) && ch != null && ch.ChangeObjectOwner(objID, playerID))
+					{
+						var writer = BeginSend(Packet.ResponseSetOwner);
+						writer.Write(channelID);
+						writer.Write(objID);
+						writer.Write(playerID);
+						EndSend(ch, null, true);
+					}
+					break;
+				}
 				default:
 				{
 					if (player.channels.size != 0 && (int)request < (int)Packet.UserPacket)

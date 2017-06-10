@@ -1440,6 +1440,14 @@ namespace TNet
 					if (onLockChannel != null) onLockChannel(channelID, isLocked);
 					break;
 				}
+				case Packet.ResponseSetOwner:
+				{
+					int channelID = reader.ReadInt32();
+					uint objID = reader.ReadUInt32();
+					int playerID = reader.ReadInt32();
+					onChangeOwner(channelID, objID, playerID != 0 ? GetPlayer(playerID) : null);
+					break;
+				}
 			}
 			return true;
 		}
