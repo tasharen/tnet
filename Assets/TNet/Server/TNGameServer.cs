@@ -37,7 +37,7 @@ namespace TNet
 
 		static public ushort gameID = 1;
 
-		public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable);
+		public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, byte request, bool reliable);
 		public delegate void OnPlayerAction (Player p);
 		public delegate void OnShutdown ();
 
@@ -79,46 +79,46 @@ namespace TNet
 		public LobbyServerLink lobbyLink;
 
 		// List of players in a consecutive order for each looping.
-		List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
+		protected List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
 
 		// Dictionary list of players for easy access by ID.
-		Dictionary<int, TcpPlayer> mPlayerDict = new Dictionary<int, TcpPlayer>();
+		protected Dictionary<int, TcpPlayer> mPlayerDict = new Dictionary<int, TcpPlayer>();
 
 		// Dictionary list of players for easy access by IPEndPoint.
-		Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
+		protected Dictionary<IPEndPoint, TcpPlayer> mDictionaryEP = new Dictionary<IPEndPoint, TcpPlayer>();
 
 		// List of all the active channels.
-		List<Channel> mChannelList = new List<Channel>();
+		protected List<Channel> mChannelList = new List<Channel>();
 
 		// Dictionary of active channels to make lookup faster
-		Dictionary<int, Channel> mChannelDict = new Dictionary<int, Channel>();
+		protected Dictionary<int, Channel> mChannelDict = new Dictionary<int, Channel>();
 
 		// List of admin keywords
-		List<string> mAdmin = new List<string>();
+		protected List<string> mAdmin = new List<string>();
 
 		// List of banned players
-		List<string> mBan = new List<string>();
+		protected List<string> mBan = new List<string>();
 
 		// Random number generator.
-		System.Random mRandom = new System.Random();
-		Buffer mBuffer;
-		TcpListener mListener;
-		Thread mThread;
-		int mListenerPort = 0;
-		long mTime = 0;
-		UdpProtocol mUdp = new UdpProtocol("Game Server");
-		bool mAllowUdp = false;
-		object mLock = 0;
-		DataNode mServerData = null;
-		string mFilename = "world.dat";
-		long mNextSave = 0;
+		protected System.Random mRandom = new System.Random();
+		protected Buffer mBuffer;
+		protected TcpListener mListener;
+		protected Thread mThread;
+		protected int mListenerPort = 0;
+		protected long mTime = 0;
+		protected UdpProtocol mUdp = new UdpProtocol("Game Server");
+		protected bool mAllowUdp = false;
+		protected object mLock = 0;
+		protected DataNode mServerData = null;
+		protected string mFilename = "world.dat";
+		protected long mNextSave = 0;
 #if !STANDALONE
-		GameClient mLocalClient = null;
+		protected GameClient mLocalClient = null;
 #endif
-		TcpPlayer mLocalPlayer = null;
-		bool mIsActive = false;
-		bool mServerDataChanged = false;
-		long mStartTime = 0;
+		protected TcpPlayer mLocalPlayer = null;
+		protected bool mIsActive = false;
+		protected bool mServerDataChanged = false;
+		protected long mStartTime = 0;
 
 		/// <summary>
 		/// Add a new entry to the list. Returns 'true' if a new entry was added.
@@ -390,7 +390,7 @@ namespace TNet
 		/// Thread that will be processing incoming data.
 		/// </summary>
 
-		void ThreadFunction ()
+		protected void ThreadFunction ()
 		{
 #if !SINGLE_THREADED
 			for (;;)
@@ -589,7 +589,7 @@ namespace TNet
 		/// Add a new player entry.
 		/// </summary>
 
-		TcpPlayer AddPlayer (Socket socket)
+		protected TcpPlayer AddPlayer (Socket socket)
 		{
 			TcpPlayer player = new TcpPlayer();
 			player.id = 0;
@@ -603,7 +603,7 @@ namespace TNet
 		/// Remove the specified player.
 		/// </summary>
 
-		void RemovePlayer (TcpPlayer p)
+		protected void RemovePlayer (TcpPlayer p)
 		{
 			if (p != null)
 			{
@@ -641,7 +641,7 @@ namespace TNet
 		/// Retrieve a player by their ID.
 		/// </summary>
 
-		TcpPlayer GetPlayer (int id)
+		protected TcpPlayer GetPlayer (int id)
 		{
 			TcpPlayer p = null;
 			mPlayerDict.TryGetValue(id, out p);
@@ -652,7 +652,7 @@ namespace TNet
 		/// Retrieve a player by their name.
 		/// </summary>
 
-		TcpPlayer GetPlayer (string name)
+		protected TcpPlayer GetPlayer (string name)
 		{
 			if (!string.IsNullOrEmpty(name))
 			{
@@ -684,7 +684,7 @@ namespace TNet
 		/// Retrieve a player by their UDP end point.
 		/// </summary>
 
-		TcpPlayer GetPlayer (IPEndPoint ip)
+		protected TcpPlayer GetPlayer (IPEndPoint ip)
 		{
 			TcpPlayer p = null;
 			mDictionaryEP.TryGetValue(ip, out p);
@@ -695,7 +695,7 @@ namespace TNet
 		/// Change the player's UDP end point and update the local dictionary.
 		/// </summary>
 
-		void SetPlayerUdpEndPoint (TcpPlayer player, IPEndPoint udp)
+		protected void SetPlayerUdpEndPoint (TcpPlayer player, IPEndPoint udp)
 		{
 			if (player.udpEndPoint != null) mDictionaryEP.Remove(player.udpEndPoint);
 			player.udpEndPoint = udp;
@@ -707,7 +707,7 @@ namespace TNet
 		/// Create a new channel (or return an existing one).
 		/// </summary>
 
-		Channel CreateChannel (int channelID, out bool isNew)
+		protected Channel CreateChannel (int channelID, out bool isNew)
 		{
 			Channel channel;
 
@@ -730,13 +730,13 @@ namespace TNet
 		/// Check to see if the specified channel exists.
 		/// </summary>
 
-		bool ChannelExists (int id) { return mChannelDict.ContainsKey(id); }
+		protected bool ChannelExists (int id) { return mChannelDict.ContainsKey(id); }
 
 		/// <summary>
 		/// Start the sending process.
 		/// </summary>
 
-		BinaryWriter BeginSend (Packet type)
+		protected BinaryWriter BeginSend (Packet type)
 		{
 			mBuffer = Buffer.Create();
 			BinaryWriter writer = mBuffer.BeginPacket(type);
@@ -747,7 +747,7 @@ namespace TNet
 		/// Send the outgoing buffer to the specified remote destination.
 		/// </summary>
 
-		void EndSend (IPEndPoint ip)
+		protected void EndSend (IPEndPoint ip)
 		{
 			mBuffer.EndPacket();
 			mUdp.Send(mBuffer, ip);
@@ -759,7 +759,7 @@ namespace TNet
 		/// Send the outgoing buffer to the specified player.
 		/// </summary>
 
-		void EndSend (bool reliable, TcpPlayer player)
+		protected void EndSend (bool reliable, TcpPlayer player)
 		{
 			mBuffer.EndPacket();
 			if (mBuffer.size > 1024) reliable = true;
@@ -778,7 +778,7 @@ namespace TNet
 		/// Send the outgoing buffer to all players in the specified channel.
 		/// </summary>
 
-		void EndSend (Channel channel, TcpPlayer exclude, bool reliable)
+		protected void EndSend (Channel channel, TcpPlayer exclude, bool reliable)
 		{
 			mBuffer.EndPacket();
 
@@ -802,13 +802,13 @@ namespace TNet
 			mBuffer = null;
 		}
 
-		List<TcpPlayer> mSentList = new List<TcpPlayer>();
+		protected List<TcpPlayer> mSentList = new List<TcpPlayer>();
 
 		/// <summary>
 		/// Send the outgoing buffer to all players in the same channels as the source player.
 		/// </summary>
 
-		void EndSendToOthers (TcpPlayer source, TcpPlayer exclude, bool reliable)
+		protected void EndSendToOthers (TcpPlayer source, TcpPlayer exclude, bool reliable)
 		{
 			mBuffer.EndPacket();
 			if (mBuffer.size > 1024) reliable = true;
@@ -822,7 +822,7 @@ namespace TNet
 		/// Send the specified buffer to all players in the same channel as the source.
 		/// </summary>
 
-		void SendToOthers (Buffer buffer, TcpPlayer source, TcpPlayer exclude, bool reliable)
+		protected void SendToOthers (Buffer buffer, TcpPlayer source, TcpPlayer exclude, bool reliable)
 		{
 			for (int b = 0; b < source.channels.size; ++b)
 			{
@@ -853,7 +853,7 @@ namespace TNet
 		/// Send the outgoing buffer to all connected players.
 		/// </summary>
 
-		void EndSend (bool reliable)
+		protected void EndSend (bool reliable)
 		{
 			mBuffer.EndPacket();
 
@@ -886,7 +886,7 @@ namespace TNet
 		/// Send the outgoing buffer to all players in the specified channel.
 		/// </summary>
 
-		void SendToChannel (bool reliable, Channel channel, Buffer buffer)
+		protected void SendToChannel (bool reliable, Channel channel, Buffer buffer)
 		{
 			mBuffer.MarkAsUsed();
 
@@ -912,7 +912,7 @@ namespace TNet
 		/// Have the specified player assume control of the channel.
 		/// </summary>
 
-		void SendSetHost (Channel ch, TcpPlayer player)
+		protected void SendSetHost (Channel ch, TcpPlayer player)
 		{
 			if (ch != null && ch.host != player)
 			{
@@ -925,13 +925,13 @@ namespace TNet
 		}
 
 		// Temporary buffer used in SendLeaveChannel below
-		List<uint> mTemp = new List<uint>();
+		protected List<uint> mTemp = new List<uint>();
 
 		/// <summary>
 		/// Leave all of the channels the player is in.
 		/// </summary>
 
-		void LeaveAllChannels (TcpPlayer player)
+		protected void LeaveAllChannels (TcpPlayer player)
 		{
 			while (player.channels.size > 0)
 			{
@@ -945,7 +945,7 @@ namespace TNet
 		/// Leave the channel the player is in.
 		/// </summary>
 
-		void SendLeaveChannel (TcpPlayer player, Channel ch, bool notify)
+		protected void SendLeaveChannel (TcpPlayer player, Channel ch, bool notify)
 		{
 			if (ch == null) return;
 
@@ -998,7 +998,7 @@ namespace TNet
 		/// Handles joining the specified channel.
 		/// </summary>
 
-		void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit)
+		protected void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit)
 		{
 			// Join a random existing channel or create a new one
 			if (channelID == -2)
@@ -1016,17 +1016,6 @@ namespace TNet
 						channelID = ch.id;
 						break;
 					}
-				}
-
-				// If no level name has been specified and no channels were found, we're done
-				if (randomLevel && channelID == -1)
-				{
-					BinaryWriter writer = BeginSend(Packet.ResponseJoinChannel);
-					writer.Write(channelID);
-					writer.Write(false);
-					writer.Write("No suitable channels found");
-					EndSend(true, player);
-					return;
 				}
 			}
 
@@ -1083,7 +1072,7 @@ namespace TNet
 		/// Join the specified channel.
 		/// </summary>
 
-		void SendJoinChannel (TcpPlayer player, Channel channel, string requestedLevelName)
+		protected void SendJoinChannel (TcpPlayer player, Channel channel, string requestedLevelName)
 		{
 			if (player.IsInChannel(channel.id)) return;
 
@@ -1243,7 +1232,7 @@ namespace TNet
 		/// Returns 'true' if a packet was received, 'false' otherwise.
 		/// </summary>
 
-		bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
+		protected bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 		{
 			// Save every 30 seconds
 			if (mNextSave == 0) mNextSave = mTime + 30000;
@@ -1303,7 +1292,8 @@ namespace TNet
 				return false;
 			}
 
-			Packet request = (Packet)reader.ReadByte();
+			var requestByte = reader.ReadByte();
+			Packet request = (Packet)requestByte;
 
 #if DEBUG_PACKETS && !STANDALONE
 #if UNITY_EDITOR
@@ -2071,7 +2061,7 @@ namespace TNet
 				}
 				default:
 				{
-					if (player.channels.size != 0 && (int)request < (int)Packet.UserPacket)
+					if (player.channels.size != 0 && requestByte < (int)Packet.UserPacket)
 					{
 						// Other packets can only be processed while in a channel
 						if (request >= Packet.ForwardToAll && request < Packet.ForwardToPlayer)
@@ -2085,7 +2075,7 @@ namespace TNet
 					}
 					else if (onCustomPacket != null)
 					{
-						onCustomPacket(player, buffer, reader, request, reliable);
+						onCustomPacket(player, buffer, reader, requestByte, reliable);
 					}
 					break;
 				}
@@ -2097,7 +2087,7 @@ namespace TNet
 		/// Set an alias and check it against the ban list.
 		/// </summary>
 
-		bool SetAlias (TcpPlayer player, string s)
+		protected bool SetAlias (TcpPlayer player, string s)
 		{
 			if (mBan.Contains(s))
 			{
@@ -2132,7 +2122,7 @@ namespace TNet
 		/// Ban the specified player.
 		/// </summary>
 
-		void Ban (TcpPlayer player, TcpPlayer other)
+		protected void Ban (TcpPlayer player, TcpPlayer other)
 		{
 			player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
 				other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
@@ -2161,7 +2151,7 @@ namespace TNet
 		/// Process a packet that's meant to be forwarded.
 		/// </summary>
 
-		void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
+		protected void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 		{
 			// 4 bytes for packet size, 1 byte for packet ID
 			int start = buffer.position - 5;
@@ -2238,7 +2228,7 @@ namespace TNet
 		/// Process a packet from the player.
 		/// </summary>
 
-		void ProcessChannelPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request)
+		protected void ProcessChannelPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request)
 		{
 			switch (request)
 			{
@@ -2538,15 +2528,15 @@ namespace TNet
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		// Cached to reduce memory allocation
-		MemoryStream mWriteStream = null;
-		BinaryWriter mWriter = null;
+		protected MemoryStream mWriteStream = null;
+		protected BinaryWriter mWriter = null;
 #endif
 
 		/// <summary>
 		/// Save the server's current state into the file that was loaded previously with Load().
 		/// </summary>
 
-		void Save ()
+		protected void Save ()
 		{
 			mNextSave = 0;
 
@@ -2611,7 +2601,7 @@ namespace TNet
 		/// Save this player's data.
 		/// </summary>
 
-		void SavePlayer (TcpPlayer player)
+		protected void SavePlayer (TcpPlayer player)
 		{
 			if (player == null || !player.saveNeeded || string.IsNullOrEmpty(player.savePath)) return;
 			player.saveNeeded = false;
@@ -2643,7 +2633,7 @@ namespace TNet
 		/// Load the server's human-readable data.
 		/// </summary>
 
-		void LoadConfig ()
+		protected void LoadConfig ()
 		{
 			if (!string.IsNullOrEmpty(mFilename))
 			{

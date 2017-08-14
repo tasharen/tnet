@@ -1769,6 +1769,7 @@ namespace TNet
 			mClient.onLoadLevel = delegate (int channelID, string levelName)
 			{
 				lastChannelID = channelID;
+				TNObject.CleanupChannelObjects(channelID);
 
 				if (!string.IsNullOrEmpty(levelName))
 				{

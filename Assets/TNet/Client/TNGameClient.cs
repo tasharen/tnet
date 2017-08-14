@@ -1192,7 +1192,7 @@ namespace TNet
 					string msg = success ? null : reader.ReadString();
 
 					// mJoining can contain -2 and -1 when joining random channels
-					if (!mJoining.Remove(channelID) && channelID < 0)
+					if (!mJoining.Remove(channelID))
 					{
 						for (int i = 0; i < mJoining.size; ++i)
 						{

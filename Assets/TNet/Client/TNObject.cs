@@ -465,8 +465,8 @@ namespace TNet
 #if UNITY_EDITOR && W2
 				if (TNManager.isConnected)
 				{
-					var pv = PlayerVehicle.controlled;
-					if (pv != null && pv == GetComponent<PlayerVehicle>())
+					var pv = ControllableEntity.controlled;
+					if (pv != null && pv == GetComponent<ControllableEntity>())
 					{
 						var tile = ProceduralTerrain.GetTile(channelID);
 						Debug.LogWarning("Destroying a channel " + channelID + " with the player's vehicle still in it!\n" +
@@ -504,9 +504,9 @@ namespace TNet
 		{
 			if (isDynamic)
 			{
-				foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
+				foreach (var pair in mList)
 				{
-					TNet.List<TNObject> list = pair.Value;
+					var list = pair.Value;
 
 					for (int i = 0; i < list.size; ++i)
 					{
@@ -518,9 +518,9 @@ namespace TNet
 			}
 			else
 			{
-				foreach (KeyValuePair<int, TNet.List<TNObject>> pair in mList)
+				foreach (var pair in mList)
 				{
-					TNet.List<TNObject> list = pair.Value;
+					var list = pair.Value;
 
 					for (int i = 0; i < list.size; ++i)
 					{
@@ -530,6 +530,33 @@ namespace TNet
 				}
 				return ++mLastID;
 			}
+		}
+
+		/// <summary>
+		/// Called by TNManager when loading a new level. All objects belonging to the previous level need to be destroyed.
+		/// </summary>
+
+		static internal void CleanupChannelObjects (int channelID)
+		{
+			List<TNObject> temp = null;
+
+			foreach (var pair in mList)
+			{
+				var list = pair.Value;
+
+				for (int i = 0; i < list.size; ++i)
+				{
+					var ts = list[i];
+
+					if (ts != null && ts.channelID == channelID)
+					{
+						if (temp == null) temp = new List<TNObject>();
+						temp.Add(ts);
+					}
+				}
+			}
+
+			if (temp != null) foreach (var ts in temp) ts.OnDestroyPacket();
 		}
 
 #if UNITY_EDITOR
