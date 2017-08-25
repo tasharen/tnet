@@ -273,7 +273,7 @@ namespace TNet
 			Stop();
 
 #if FORCE_EN_US
-		Tools.SetCurrentCultureToEnUS();
+			Tools.SetCurrentCultureToEnUS();
 #endif
 			Tools.LoadList("ServerConfig/ban.txt", mBan);
 			Tools.LoadList("ServerConfig/admin.txt", mAdmin);
@@ -289,9 +289,9 @@ namespace TNet
 			if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
 #if STANDALONE
-		Tools.Log("Admins: " + mAdmin.size);
-		Tools.Log("Bans: " + mBan.size);
-		Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
+			Tools.Print("Admins: " + mAdmin.size);
+			Tools.Print("Bans: " + mBan.size);
+			Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
 			if (udpPort > 0)
 			{

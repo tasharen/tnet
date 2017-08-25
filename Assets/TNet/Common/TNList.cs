@@ -190,22 +190,24 @@ public class List<T> : TList
 	/// Add the specified item to the end of the list.
 	/// </summary>
 
-	public void Add (T item, bool unique)
+	public bool Add (T item, bool unique)
 	{
-		if (unique && Contains(item)) return;
+		if (unique && Contains(item)) return false;
 		if (buffer == null || size == buffer.Length) AllocateMore();
 		buffer[size++] = item;
+		return true;
 	}
 
 	/// <summary>
 	/// Add the specified item to the end of the list.
 	/// </summary>
 
-	public void Add (object item, bool unique)
+	public bool Add (object item, bool unique)
 	{
-		if (unique && Contains((T)item)) return;
+		if (unique && Contains((T)item)) return false;
 		if (buffer == null || size == buffer.Length) AllocateMore();
 		buffer[size++] = (T)item;
+		return true;
 	}
 
 	/// <summary>

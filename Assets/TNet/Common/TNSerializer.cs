@@ -249,7 +249,8 @@ static public class Serialization
 
 		if (!mNameToType.TryGetValue(name, out type) || type == null)
 		{
-			if (name == "string[]") type = typeof(string[]);
+			if (name == "string") type = typeof(string);
+			else if (name == "string[]") type = typeof(string[]);
 			else if (name == "int[]") type = typeof(int[]);
 			else if (name == "float[]") type = typeof(float[]);
 			else if (name == "byte[]") type = typeof(byte[]);
@@ -326,7 +327,8 @@ static public class Serialization
 
 		if (!mTypeToName.TryGetValue(type, out name) || name == null)
 		{
-			if (type == typeof(string[])) name = "string[]";
+			if (type == typeof(string)) name = "string";
+			else if (type == typeof(string[])) name = "string[]";
 			else if (type == typeof(int[])) name = "int[]";
 			else if (type == typeof(float[])) name = "float[]";
 			else if (type == typeof(byte[])) name = "byte[]";

@@ -575,11 +575,7 @@ static public class UnityTools
 						}
 						else if (!string.IsNullOrEmpty(s))
 						{
-#if UNITY_4_7 || UNITY_5_4 || UNITY_5_5
-							t = t.FindChild(s);
-#else
 							t = t.Find(s);
-#endif
 							if (t == null) break;
 						}
 					}

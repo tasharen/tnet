@@ -6,46 +6,58 @@
 using System.Net;
 namespace TNet
 {
-/// <summary>
-/// Abstract class for a lobby server.
-/// </summary>
-
-public abstract class LobbyServer : FileServer
-{
 	/// <summary>
-	/// Port used to listen for incoming packets.
+	/// Abstract class for a lobby server.
 	/// </summary>
 
-	public abstract int port { get; }
+	public abstract class LobbyServer : FileServer
+	{
+		/// <summary>
+		/// Port used to listen for incoming packets.
+		/// </summary>
 
-	/// <summary>
-	/// Whether the server is active.
-	/// </summary>
+		public abstract int port { get; }
 
-	public abstract bool isActive { get; }
+		/// <summary>
+		/// Whether the server is active.
+		/// </summary>
 
-	/// <summary>
-	/// Start listening for incoming server list requests.
-	/// </summary>
+		public abstract bool isActive { get; }
 
-	public abstract bool Start (int listenPort);
+		/// <summary>
+		/// Start listening for incoming server list requests.
+		/// </summary>
 
-	/// <summary>
-	/// Stop listening for incoming packets.
-	/// </summary>
+		public abstract bool Start (int listenPort);
 
-	public abstract void Stop ();
+		/// <summary>
+		/// Stop listening for incoming packets.
+		/// </summary>
 
-	/// <summary>
-	/// Add a new server to the list.
-	/// </summary>
+		public abstract void Stop ();
 
-	public abstract void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress);
+		/// <summary>
+		/// Add a new server to the list.
+		/// </summary>
 
-	/// <summary>
-	/// Remove an existing server from the list.
-	/// </summary>
+		public abstract void AddServer (string name, int playerCount, IPEndPoint internalAddress, IPEndPoint externalAddress);
 
-	public abstract void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress);
-}
+		/// <summary>
+		/// Remove an existing server from the list.
+		/// </summary>
+
+		public abstract void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress);
+
+		/// <summary>
+		/// Add the specified IP to the ban list.
+		/// </summary>
+
+		public abstract void Ban (string ip);
+
+		/// <summary>
+		/// Remove the specified IP from the ban list.
+		/// </summary>
+
+		public abstract void Unban (string ip);
+	}
 }

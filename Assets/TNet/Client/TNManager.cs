@@ -275,7 +275,7 @@ namespace TNet
 
 		static public bool IsJoiningChannelDefault (int channelID)
 		{
-			if (mInstance == null) return false;
+			if (!isConnected) return false;
 
 			if (channelID < 0)
 			{
@@ -452,8 +452,14 @@ namespace TNet
 		/// Note that if used while the player is in more than one channel, a warning will be shown.
 		/// </summary>
 
+		[System.NonSerialized]
 		static public int lastChannelID = 0;
 
+		/// <summary>
+		/// Dummy channel list, used for backwards compatibility when using offline mode.
+		/// </summary>
+
+		[System.NonSerialized]
 		static List<Channel> mDummyCL = new List<Channel>();
 
 		/// <summary>
@@ -465,7 +471,6 @@ namespace TNet
 			get
 			{
 				if (isConnected) return mInstance.mClient.channels;
-				mDummyCL.Clear();
 				return mDummyCL;
 			}
 		}
@@ -474,7 +479,17 @@ namespace TNet
 		/// Check to see if we are currently in the specified channel.
 		/// </summary>
 
-		static public bool IsInChannel (int channelID) { return isConnected && mInstance.mClient.IsInChannel(channelID); }
+		static public bool IsInChannel (int channelID)
+		{
+			if (isConnected) return mInstance.mClient.IsInChannel(channelID);
+
+			for (int i = 0; i < mDummyCL.size; ++i)
+			{
+				var channel = mDummyCL[i];
+				if (channel.id == channelID) return true;
+			}
+			return false;
+		}
 
 		/// <summary>
 		/// Get the player hosting the specified channel. Only works for the channels the player is in.
@@ -482,7 +497,7 @@ namespace TNet
 
 		static public Player GetHost (int channelID)
 		{
-			if (mInstance == null || !isConnected) return mPlayer;
+			if (!isConnected) return mPlayer;
 			return mInstance.mClient.GetHost(channelID);
 		}
 
@@ -593,20 +608,20 @@ namespace TNet
 			{
 
 #if UNITY_EDITOR && UNITY_5_5_OR_NEWER
-			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.ProcessPackets()");
+				UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.ProcessPackets()");
 				mInstance.mClient.ProcessPackets();
 				UnityEngine.Profiling.Profiler.EndSample();
 #else
-			mInstance.mClient.ProcessPackets();
+				mInstance.mClient.ProcessPackets();
 #endif
 #if UNITY_EDITOR
-			if (sentPackets > 60)
+				if (sentPackets > 60)
 				{
 					Debug.LogWarning("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
 					ResetPacketCount();
 				}
 #endif
-		}
+			}
 		};
 		public delegate void ProcessPacketsFunc ();
 
@@ -1005,11 +1020,11 @@ namespace TNet
 			if (!string.IsNullOrEmpty(levelName))
 			{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			Application.LoadLevel(levelName);
+				Application.LoadLevel(levelName);
 #else
-			UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
+				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
 #endif
-		}
+			}
 		};
 
 		/// <summary>
@@ -1021,11 +1036,11 @@ namespace TNet
 			if (!string.IsNullOrEmpty(levelName))
 			{
 #if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-			return Application.LoadLevelAsync(levelName);
+				return Application.LoadLevelAsync(levelName);
 #else
-			return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(levelName);
+				return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(levelName);
 #endif
-		}
+			}
 			return null;
 		};
 
@@ -1041,18 +1056,23 @@ namespace TNet
 
 		static public void JoinChannel (int channelID, string levelName, bool leaveCurrentChannel = true)
 		{
-			if (mInstance != null && TNManager.isConnected)
+			if (!IsInChannel(channelID))
 			{
-				if (!IsInChannel(channelID))
+				if (leaveCurrentChannel) LeaveAllChannels();
+
+				if (isConnected)
 				{
-					if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
 					mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 				}
-			}
-			else
-			{
-				TNManager.lastChannelID = channelID;
-				LoadScene(levelName);
+				else
+				{
+					var ch = new Channel();
+					ch.id = channelID;
+					ch.host = player;
+					mDummyCL.Add(ch);
+					lastChannelID = channelID;
+					LoadScene(levelName);
+				}
 			}
 		}
 
@@ -1067,15 +1087,23 @@ namespace TNet
 
 		static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 		{
-			if (mInstance != null && TNManager.isConnected)
+			if (!IsInChannel(channelID))
 			{
-				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
-			}
-			else
-			{
-				TNManager.lastChannelID = channelID;
-				LoadScene(levelName);
+				if (leaveCurrentChannel) LeaveAllChannels();
+
+				if (isConnected)
+				{
+					mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
+				}
+				else
+				{
+					var ch = new Channel();
+					ch.id = channelID;
+					ch.host = player;
+					mDummyCL.Add(ch);
+					lastChannelID = channelID;
+					LoadScene(levelName);
+				}
 			}
 		}
 
@@ -1089,11 +1117,9 @@ namespace TNet
 
 		static public void JoinRandomChannel (string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 		{
-			if (mInstance != null && TNManager.isConnected)
-			{
-				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
-			}
+			if (leaveCurrentChannel) LeaveAllChannels();
+			if (isConnected) mInstance.mClient.JoinChannel(-2, levelName, persistent, playerLimit, password);
+			else JoinChannel(UnityEngine.Random.Range(1000, 100000), levelName, persistent, playerLimit, password, false);
 		}
 
 		/// <summary>
@@ -1106,12 +1132,9 @@ namespace TNet
 
 		static public void CreateChannel (string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
 		{
-			if (mInstance != null && TNManager.isConnected)
-			{
-				if (leaveCurrentChannel) mInstance.mClient.LeaveAllChannels();
-				mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
-			}
-			else LoadScene(levelName);
+			if (leaveCurrentChannel) LeaveAllChannels();
+			if (isConnected) mInstance.mClient.JoinChannel(-1, levelName, persistent, playerLimit, password);
+			else JoinChannel(UnityEngine.Random.Range(1000, 100000), levelName, persistent, playerLimit, password, false);
 		}
 
 		/// <summary>
@@ -1147,7 +1170,11 @@ namespace TNet
 		/// Leave all of the channels we're currently in.
 		/// </summary>
 
-		static public void LeaveAllChannels () { if (mInstance != null) mInstance.mClient.LeaveAllChannels(); }
+		static public void LeaveAllChannels ()
+		{
+			if (mInstance != null) mInstance.mClient.LeaveAllChannels();
+			mDummyCL.Clear();
+		}
 
 		/// <summary>
 		/// Leave the channel we're in.
@@ -1159,7 +1186,24 @@ namespace TNet
 		/// Leave the channel we're in.
 		/// </summary>
 
-		static public void LeaveChannel (int channelID) { if (mInstance != null) mInstance.mClient.LeaveChannel(channelID); }
+		static public void LeaveChannel (int channelID)
+		{
+			if (isConnected)
+			{
+				mInstance.mClient.LeaveChannel(channelID);
+			}
+			else
+			{
+				for (int i = 0; i < mDummyCL.size; ++i)
+				{
+					if (mDummyCL[i].id == channelID)
+					{
+						mDummyCL.RemoveAt(i);
+						return;
+					}
+				}
+			}
+		}
 
 		/// <summary>
 		/// Delete the specified channel.
@@ -1388,7 +1432,7 @@ namespace TNet
 				{
 					Debug.LogError("Unable to locate RCC " + rccID + " " + funcName);
 				}
-				else if (TNManager.IsInChannel(channelID))
+				else if (isConnected)
 				{
 					if (IsJoiningChannel(channelID))
 					{
@@ -1398,10 +1442,18 @@ namespace TNet
 						return;
 					}
 
-					if (TNManager.IsChannelLocked(channelID))
+					if (IsChannelLocked(channelID))
 					{
 #if UNITY_EDITOR
 						Debug.LogWarning("Trying to create an object in a locked channel. Call will be ignored.");
+#endif
+						return;
+					}
+
+					if (!IsInChannel(channelID))
+					{
+#if UNITY_EDITOR
+						Debug.LogWarning("Must join the channel first before calling instantiating objects.");
 #endif
 						return;
 					}
@@ -1438,6 +1490,7 @@ namespace TNet
 						var tno = go.GetComponent<TNObject>();
 						if (tno == null) tno = go.AddComponent<TNObject>();
 						tno.uid = currentRccObjectID;
+						tno.channelID = channelID;
 						go.SetActive(true);
 						tno.Register();
 					}
@@ -1750,7 +1803,7 @@ namespace TNet
 			{
 				if (lastChannelID == channelID)
 				{
-					List<Channel> chs = channels;
+					var chs = channels;
 
 					for (int i = 0; i < chs.size; ++i)
 					{
