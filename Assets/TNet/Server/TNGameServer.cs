@@ -32,6 +32,12 @@ namespace TNet
 #endif
 
 		/// <summary>
+		/// Path to the admin file. Can generally be left untouched, unless you really want to change it.
+		/// </summary>
+
+		public string adminFilePath = "ServerConfig/admin.txt";
+
+		/// <summary>
 		/// You will want to make this a unique value.
 		/// </summary>
 
@@ -275,8 +281,8 @@ namespace TNet
 #if FORCE_EN_US
 			Tools.SetCurrentCultureToEnUS();
 #endif
-			Tools.LoadList("ServerConfig/ban.txt", mBan);
-			Tools.LoadList("ServerConfig/admin.txt", mAdmin);
+			LoadBanList();
+			Tools.LoadList(adminFilePath, mAdmin);
 
 			// Banning by IPs is only good as a temporary measure
 			for (int i = mBan.size; i > 0;)
@@ -1723,7 +1729,7 @@ namespace TNet
 					{
 						if (!mAdmin.Contains(s)) mAdmin.Add(s);
 						player.Log("Added an admin (" + s + ")");
-						Tools.SaveList("ServerConfig/admin.txt", mAdmin);
+						Tools.SaveList(adminFilePath, mAdmin);
 					}
 					else
 					{
@@ -1741,7 +1747,7 @@ namespace TNet
 					{
 						mAdmin.Remove(s);
 						player.Log("Removed an admin (" + s + ")");
-						Tools.SaveList("ServerConfig/admin.txt", mAdmin);
+						Tools.SaveList(adminFilePath, mAdmin);
 					}
 					else
 					{
@@ -1784,7 +1790,7 @@ namespace TNet
 					if (player.isAdmin)
 					{
 						mBan.Remove(s);
-						Tools.SaveList("ServerConfig/ban.txt", mBan);
+						SaveBanList();
 						player.Log("Removed an banned keyword (" + s + ")");
 					}
 					else
@@ -1819,8 +1825,8 @@ namespace TNet
 				{
 					if (player.isAdmin)
 					{
-						Tools.LoadList("ServerConfig/ban.txt", mBan);
-						Tools.LoadList("ServerConfig/admin.txt", mAdmin);
+						LoadBanList();
+						Tools.LoadList(adminFilePath, mAdmin);
 						LoadConfig();
 
 						if (mServerData == null) mServerData = new DataNode("Version", Player.version);
@@ -1923,7 +1929,7 @@ namespace TNet
 								player.aliases.size > 0 ? player.aliases[0] : player.address);
 							AddUnique(mBan, banText);
 							AddUnique(mBan, s);
-							Tools.SaveList("ServerConfig/ban.txt", mBan);
+							SaveBanList();
 						}
 					}
 					else if (!playerBan)
@@ -2122,29 +2128,33 @@ namespace TNet
 		/// Ban the specified player.
 		/// </summary>
 
-		protected void Ban (TcpPlayer player, TcpPlayer other)
+		protected void Ban (TcpPlayer requestingPlayer, TcpPlayer bannedPlayer)
 		{
-			player.Log("BANNED " + other.name + " (" + (other.aliases != null &&
-				other.aliases.size > 0 ? other.aliases[0] : other.address) + ")");
+			var info = "BANNED " + bannedPlayer.name + " (" + (bannedPlayer.aliases != null &&
+					bannedPlayer.aliases.size > 0 ? bannedPlayer.aliases[0] : bannedPlayer.address) + ")";
+
+			if (requestingPlayer != null) requestingPlayer.Log(info);
+			else Tools.Log(info);
 
 			// Just to show the name of the player
-			string banText = "// [" + other.name + "]";
+			string banText = "// [" + bannedPlayer.name + "]";
 
-			if (player != other)
+			if (requestingPlayer != null && requestingPlayer != bannedPlayer)
 			{
-				banText += " banned by [" + player.name + "]- " + (other.aliases != null &&
-					player.aliases.size > 0 ? player.aliases[0] : player.address);
+				banText += " banned by [" + requestingPlayer.name + "]- " + (bannedPlayer.aliases != null &&
+					requestingPlayer.aliases.size > 0 ? requestingPlayer.aliases[0] : requestingPlayer.address);
 			}
+			else banText += " banned by the server";
 
 			AddUnique(mBan, banText);
-			AddUnique(mBan, other.tcpEndPoint.Address.ToString());
+			AddUnique(mBan, bannedPlayer.tcpEndPoint.Address.ToString());
 
-			if (other.aliases != null)
-				for (int i = 0; i < other.aliases.size; ++i)
-					AddUnique(mBan, other.aliases[i]);
+			if (bannedPlayer.aliases != null)
+				for (int i = 0; i < bannedPlayer.aliases.size; ++i)
+					AddUnique(mBan, bannedPlayer.aliases[i]);
 
-			Tools.SaveList("ServerConfig/ban.txt", mBan);
-			RemovePlayer(other);
+			RemovePlayer(bannedPlayer);
+			SaveBanList();
 		}
 
 		/// <summary>
@@ -2543,8 +2553,8 @@ namespace TNet
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 			if (!isActive || string.IsNullOrEmpty(mFilename)) return;
 
-			Tools.SaveList("ServerConfig/ban.txt", mBan);
-			Tools.SaveList("ServerConfig/admin.txt", mAdmin);
+			SaveBanList();
+			Tools.SaveList(adminFilePath, mAdmin);
 
 			if (mWriteStream == null)
 			{
@@ -2694,6 +2704,17 @@ namespace TNet
 			}
 			return true;
 #endif
+		}
+
+		/// <summary>
+		/// Add the specified keyword to the ban list.
+		/// </summary>
+
+		public override void Ban (string keyword)
+		{
+			var other = GetPlayer(keyword);
+			if (other != null) Ban(null, other);
+			else base.Ban(keyword);
 		}
 	}
 }

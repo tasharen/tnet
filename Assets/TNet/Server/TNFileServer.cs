@@ -9,60 +9,123 @@ using System.Collections.Generic;
 
 namespace TNet
 {
-/// <summary>
-/// Base class for Game and Lobby servers capable of saving and loading files.
-/// </summary>
-
-public class FileServer
-{
 	/// <summary>
-	/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
+	/// Base class for Game and Lobby servers capable of saving and loading files.
 	/// </summary>
 
-	Dictionary<string, byte[]> mSavedFiles = new Dictionary<string, byte[]>();
-
-	/// <summary>
-	/// Save the specified file.
-	/// </summary>
-
-	public bool SaveFile (string fileName, byte[] data)
+	public class FileServer
 	{
-		if (Tools.WriteFile(fileName, data, true))
+		/// <summary>
+		/// Path to the ban file. Can generally be left untouched, unless you really want to change it.
+		/// </summary>
+
+		public string banFilePath = "ServerConfig/ban.txt";
+
+		/// <summary>
+		/// You can save files on the server, such as player inventory, Fog of War map updates, player avatars, etc.
+		/// </summary>
+
+		protected Dictionary<string, byte[]> mSavedFiles = new Dictionary<string, byte[]>();
+
+		// List of banned keywords
+		protected List<string> mBan = new List<string>();
+
+		/// <summary>
+		/// Save the specified file.
+		/// </summary>
+
+		public bool SaveFile (string fileName, byte[] data)
 		{
-			mSavedFiles[fileName] = data;
-			return true;
+			if (Tools.WriteFile(fileName, data, true))
+			{
+				mSavedFiles[fileName] = data;
+				return true;
+			}
+			return false;
 		}
-		return false;
-	}
 
-	/// <summary>
-	/// Load the specified file.
-	/// </summary>
+		/// <summary>
+		/// Load the specified file.
+		/// </summary>
 
-	public byte[] LoadFile (string fileName)
-	{
-		byte[] data;
-
-		if (!mSavedFiles.TryGetValue(fileName, out data))
+		public byte[] LoadFile (string fileName)
 		{
-			data = Tools.ReadFile(fileName);
-			mSavedFiles[fileName] = data;
+			byte[] data;
+
+			if (!mSavedFiles.TryGetValue(fileName, out data))
+			{
+				data = Tools.ReadFile(fileName);
+				mSavedFiles[fileName] = data;
+			}
+			return data;
 		}
-		return data;
-	}
 
-	/// <summary>
-	/// Delete the specified file.
-	/// </summary>
+		/// <summary>
+		/// Delete the specified file.
+		/// </summary>
 
-	public bool DeleteFile (string fileName)
-	{
-		if (Tools.DeleteFile(fileName))
+		public bool DeleteFile (string fileName)
 		{
-			mSavedFiles.Remove(fileName);
-			return true;
+			if (Tools.DeleteFile(fileName))
+			{
+				mSavedFiles.Remove(fileName);
+				return true;
+			}
+			return false;
 		}
-		return false;
+
+		/// <summary>
+		/// Load a previously saved ban list.
+		/// </summary>
+
+		public void LoadBanList () { Tools.LoadList(banFilePath, mBan); }
+
+		/// <summary>
+		/// Save the current ban list to a file.
+		/// </summary>
+
+		public void SaveBanList () { Tools.SaveList(banFilePath, mBan); }
+
+		/// <summary>
+		/// Add the specified keyword to the ban list.
+		/// </summary>
+
+		public virtual void Ban (string keyword)
+		{
+			if (string.IsNullOrEmpty(keyword)) return;
+
+			if (!mBan.Contains(keyword))
+			{
+				mBan.Add(keyword);
+				Tools.Log("Added a banned keyword (" + keyword + ")");
+				SaveBanList();
+			}
+		}
+
+		/// <summary>
+		/// Remove the specified keyword from the ban list.
+		/// </summary>
+
+		public virtual void Unban (string keyword)
+		{
+			if (string.IsNullOrEmpty(keyword)) return;
+
+			if (mBan.Remove(keyword))
+			{
+				Tools.Log("Removed a banned keyword (" + keyword + ")");
+				SaveBanList();
+			}
+		}
+
+		/// <summary>
+		/// Whether the specified keyword is banned.
+		/// </summary>
+
+		public bool IsBanned (string keyword)
+		{
+			if (string.IsNullOrEmpty(keyword)) return false;
+			for (int i = 0; i < mBan.size; ++i) { if (mBan[i] == keyword || mBan[i].Contains(keyword)) return true; }
+			return false;
+		}
 	}
-}
 }

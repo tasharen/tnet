@@ -148,9 +148,33 @@ public class Application : IDisposable
 				if (!service)
 				{
 					Tools.Print("Press 'q' followed by ENTER when you want to quit.\n");
+					Tools.Print("Commands:\n");
+					Tools.Print("    ban <keyword>\n");
+					Tools.Print("    unban <keyword>\n");
+					Tools.Print("    http\n");
+
 					string command = Console.ReadLine();
 					if (command == "q") break;
-					else if (command == "c") TNet.Buffer.ReleaseUnusedMemory();
+
+					if (command.StartsWith("ban "))
+					{
+						if (mLobbyServer != null) mLobbyServer.Ban(command.Substring(4));
+						if (mGameServer != null) mGameServer.Ban(command.Substring(4));
+					}
+					else if (command.StartsWith("unban "))
+					{
+						if (mLobbyServer != null) mLobbyServer.Unban(command.Substring(6));
+						if (mGameServer != null) mGameServer.Unban(command.Substring(6));
+					}
+					else if (command == "c")
+					{
+						TNet.Buffer.ReleaseUnusedMemory();
+					}
+					else if (command == "http")
+					{
+						TcpProtocol.httpGetSupport = !TcpProtocol.httpGetSupport;
+						Tools.Print("HTTP support: " + TcpProtocol.httpGetSupport + "\n");
+					}
 				}
 				else Thread.Sleep(10000);
 			}

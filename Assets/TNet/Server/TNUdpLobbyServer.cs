@@ -26,9 +26,6 @@ namespace TNet
 		protected Thread mThread;
 		protected Buffer mBuffer;
 
-		// List of banned IPs
-		protected List<string> mBan = new List<string>();
-
 		/// <summary>
 		/// Port used to listen for incoming packets.
 		/// </summary>
@@ -234,45 +231,6 @@ namespace TNet
 			mUdp.Send(mBuffer, ip);
 			mBuffer.Recycle();
 			mBuffer = null;
-		}
-
-		/// <summary>
-		/// Add the specified keyword to the ban list.
-		/// </summary>
-
-		public override void Ban (string keyword)
-		{
-			if (!mBan.Contains(keyword))
-			{
-				mBan.Add(keyword);
-#if STANDALONE
-				Tools.Print("Added a banned keyword (" + keyword + ")");
-#endif
-			}
-		}
-
-		/// <summary>
-		/// Remove the specified keyword from the ban list.
-		/// </summary>
-
-		public override void Unban (string keyword)
-		{
-			if (mBan.Remove(keyword))
-			{
-#if STANDALONE
-				Tools.Print("Removed a banned keyword (" + keyword + ")");
-#endif
-			}
-		}
-
-		/// <summary>
-		/// Whether the specified keyword is banned.
-		/// </summary>
-
-		public bool IsBanned (string keyword)
-		{
-			for (int i = 0; i < mBan.size; ++i) { if (mBan[i] == keyword || mBan[i].Contains(keyword)) return true; }
-			return false;
 		}
 	}
 }

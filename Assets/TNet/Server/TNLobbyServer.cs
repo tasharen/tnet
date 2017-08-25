@@ -47,17 +47,5 @@ namespace TNet
 		/// </summary>
 
 		public abstract void RemoveServer (IPEndPoint internalAddress, IPEndPoint externalAddress);
-
-		/// <summary>
-		/// Add the specified IP to the ban list.
-		/// </summary>
-
-		public abstract void Ban (string ip);
-
-		/// <summary>
-		/// Remove the specified IP from the ban list.
-		/// </summary>
-
-		public abstract void Unban (string ip);
 	}
 }
