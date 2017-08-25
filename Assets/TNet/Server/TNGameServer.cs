@@ -102,9 +102,6 @@ namespace TNet
 		// List of admin keywords
 		protected List<string> mAdmin = new List<string>();
 
-		// List of banned players
-		protected List<string> mBan = new List<string>();
-
 		// Random number generator.
 		protected System.Random mRandom = new System.Random();
 		protected Buffer mBuffer;
