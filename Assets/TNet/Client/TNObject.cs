@@ -354,7 +354,7 @@ namespace TNet
 				{
 					OnDestroyPacket();
 				}
-				else if (TNManager.IsInChannel(channelID))
+				else if (TNManager.isConnected && TNManager.IsInChannel(channelID))
 				{
 					if (TNManager.IsChannelLocked(channelID))
 					{
