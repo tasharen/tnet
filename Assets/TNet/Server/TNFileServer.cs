@@ -78,7 +78,10 @@ namespace TNet
 		/// Load a previously saved ban list.
 		/// </summary>
 
-		public void LoadBanList () { Tools.LoadList(banFilePath, mBan); }
+		public void LoadBanList ()
+		{
+			Tools.Print("Bans: " + (Tools.LoadList(banFilePath, mBan) ? mBan.size.ToString() : "file not found"));
+		}
 
 		/// <summary>
 		/// Save the current ban list to a file.

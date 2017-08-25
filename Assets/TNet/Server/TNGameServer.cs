@@ -269,6 +269,21 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Load the admin list from the external file.
+		/// </summary>
+
+		public void LoadAdminList ()
+		{
+			Tools.Print("Admins: " + (Tools.LoadList(adminFilePath, mAdmin) ? mAdmin.size.ToString() : "file not found"));
+		}
+
+		/// <summary>
+		/// Save the admin list back to the external file.
+		/// </summary>
+
+		public void SaveAdminList () { Tools.SaveList(adminFilePath, mAdmin); }
+
+		/// <summary>
 		/// Start listening to incoming connections on the specified port.
 		/// </summary>
 
@@ -282,7 +297,7 @@ namespace TNet
 			Tools.SetCurrentCultureToEnUS();
 #endif
 			LoadBanList();
-			Tools.LoadList(adminFilePath, mAdmin);
+			LoadAdminList();
 
 			// Banning by IPs is only good as a temporary measure
 			for (int i = mBan.size; i > 0;)
@@ -295,8 +310,6 @@ namespace TNet
 			if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
 #if STANDALONE
-			Tools.Print("Admins: " + mAdmin.size);
-			Tools.Print("Bans: " + mBan.size);
 			Tools.Print("Game server started on port " + tcpPort + " using protocol version " + Player.version);
 #endif
 			if (udpPort > 0)
@@ -538,13 +551,13 @@ namespace TNet
 										received = true;
 								}
 #if STANDALONE
-							catch (System.Exception ex)
-							{
-								player.LogError(ex.Message, ex.StackTrace);
-								RemovePlayer(player);
-								buffer.Recycle();
-								continue;
-							}
+								catch (System.Exception ex)
+								{
+									player.LogError(ex.Message, ex.StackTrace);
+									RemovePlayer(player);
+									buffer.Recycle();
+									continue;
+								}
 #else
 								catch (System.Exception ex)
 								{
@@ -1596,8 +1609,8 @@ namespace TNet
 #if UNITY_EDITOR
 					reader.ReadString();
 #else
-				string s = reader.ReadString();
-				player.Log(s);
+					string s = reader.ReadString();
+					player.Log(s);
 #endif
 					break;
 				}
@@ -1729,7 +1742,7 @@ namespace TNet
 					{
 						if (!mAdmin.Contains(s)) mAdmin.Add(s);
 						player.Log("Added an admin (" + s + ")");
-						Tools.SaveList(adminFilePath, mAdmin);
+						SaveAdminList();
 					}
 					else
 					{
@@ -1747,7 +1760,7 @@ namespace TNet
 					{
 						mAdmin.Remove(s);
 						player.Log("Removed an admin (" + s + ")");
-						Tools.SaveList(adminFilePath, mAdmin);
+						SaveAdminList();
 					}
 					else
 					{
@@ -1826,7 +1839,7 @@ namespace TNet
 					if (player.isAdmin)
 					{
 						LoadBanList();
-						Tools.LoadList(adminFilePath, mAdmin);
+						LoadAdminList();
 						LoadConfig();
 
 						if (mServerData == null) mServerData = new DataNode("Version", Player.version);
@@ -2554,7 +2567,7 @@ namespace TNet
 			if (!isActive || string.IsNullOrEmpty(mFilename)) return;
 
 			SaveBanList();
-			Tools.SaveList(adminFilePath, mAdmin);
+			SaveAdminList();
 
 			if (mWriteStream == null)
 			{
@@ -2643,7 +2656,7 @@ namespace TNet
 		/// Load the server's human-readable data.
 		/// </summary>
 
-		protected void LoadConfig ()
+		public void LoadConfig ()
 		{
 			if (!string.IsNullOrEmpty(mFilename))
 			{

@@ -143,15 +143,23 @@ public class Application : IDisposable
 			try { SetConsoleCtrlHandler(new HandlerRoutine(OnExit), true); }
 			catch (Exception) { }
 
+			bool showInfo = true;
+
 			for (; ; )
 			{
 				if (!service)
 				{
-					Tools.Print("Press 'q' followed by ENTER when you want to quit.\n");
-					Tools.Print("Commands:\n");
-					Tools.Print("    ban <keyword>\n");
-					Tools.Print("    unban <keyword>\n");
-					Tools.Print("    http\n");
+					if (showInfo)
+					{
+						showInfo = false;
+						Console.WriteLine("[TNet] Server is now active. Optional command list:");
+						Console.WriteLine("  q -- Quit the application");
+						Console.WriteLine("  r -- Reload the server configuration");
+						Console.WriteLine("  c -- Release all unused memory");
+						Console.WriteLine("  ban <keyword> -- Ban this player, alias or IP");
+						Console.WriteLine("  unban <keyword> -- Unban this keyword");
+						Console.WriteLine("  http -- Enable or disable HTTP support");
+					}
 
 					string command = Console.ReadLine();
 					if (command == "q") break;
@@ -170,11 +178,23 @@ public class Application : IDisposable
 					{
 						TNet.Buffer.ReleaseUnusedMemory();
 					}
+					else if (command == "r")
+					{
+						if (mLobbyServer != null) mLobbyServer.LoadBanList();
+
+						if (mGameServer != null)
+						{
+							mGameServer.LoadBanList();
+							mGameServer.LoadAdminList();
+							mGameServer.LoadConfig();
+						}
+					}
 					else if (command == "http")
 					{
 						TcpProtocol.httpGetSupport = !TcpProtocol.httpGetSupport;
 						Tools.Print("HTTP support: " + TcpProtocol.httpGetSupport + "\n");
 					}
+					else showInfo = true;
 				}
 				else Thread.Sleep(10000);
 			}
