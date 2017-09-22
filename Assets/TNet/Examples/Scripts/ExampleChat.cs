@@ -76,8 +76,8 @@ public class ExampleChat : TNBehaviour
 		// Show the current server configuration
 		PrintConfig(TNManager.serverData);
 
-		string text = "Other players here: ";
-		List<Player> players = TNManager.players;
+		var text = "Other players here: ";
+		var players = TNManager.GetPlayers(channelID);
 		
 		for (int i = 0; i < players.size; ++i)
 		{
