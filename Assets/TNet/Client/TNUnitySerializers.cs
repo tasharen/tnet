@@ -1021,8 +1021,8 @@ static public class ComponentSerialization
 
 		for (int i = 0; i < scriptNode.children.size; ++i)
 		{
-			DataNode node = scriptNode.children[i];
-			System.Type type = UnityTools.GetType(node.name);
+			var node = scriptNode.children[i];
+			var type = UnityTools.GetType(node.name);
  
 			if (type != null && type.IsSubclassOf(typeof(Component)))
 			{

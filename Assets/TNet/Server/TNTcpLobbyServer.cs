@@ -259,7 +259,7 @@ namespace TNet
 				// Send the server list to all connected clients
 				for (int i = 0; i < mTcp.size; ++i)
 				{
-					TcpProtocol tc = mTcp[i];
+					var tc = mTcp[i];
 
 					// Skip clients that have not yet verified themselves
 					if (tc.stage != TcpProtocol.Stage.Connected) continue;
@@ -328,7 +328,7 @@ namespace TNet
 
 		bool ProcessPacket (Buffer buffer, TcpProtocol tc)
 		{
-			BinaryReader reader = buffer.BeginReading();
+			var reader = buffer.BeginReading();
 
 			// TCP connections must be verified first to ensure that they are using the correct protocol
 			if (tc.stage == TcpProtocol.Stage.Verifying)
@@ -346,13 +346,15 @@ namespace TNet
 				return false;
 			}
 
-			Packet request = (Packet)reader.ReadByte();
+			var request = (Packet)reader.ReadByte();
 
 			switch (request)
 			{
 				case Packet.RequestPing:
 				{
-					BeginSend(Packet.ResponsePing);
+					var writer = BeginSend(Packet.ResponsePing);
+					writer.Write(mTime);
+					writer.Write((ushort)mList.list.size);
 					EndSend(tc);
 					break;
 				}

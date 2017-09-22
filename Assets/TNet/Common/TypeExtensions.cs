@@ -347,70 +347,204 @@ namespace TNet
 			return ci.method;
 		}
 
-		[System.NonSerialized] static Assembly[] mCachedAssemblies = null;
 		[System.NonSerialized] static List<CachedType> mCachedTypes = null;
 		[System.NonSerialized] static Dictionary<Type, CachedType> mTypeDict = null;
+		[System.NonSerialized] static Dictionary<string, Type> mTypeLookup = null;
 		[System.NonSerialized] static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
+		[System.NonSerialized] static List<Assembly> mFullAssemblyList = null;
+		[System.NonSerialized] static List<Assembly> mRefinedAssemblyList = null;
+		[System.NonSerialized] static int mHash = 0;
+		[System.NonSerialized] static bool mHashIsValid = false;
 
 		static void CacheTypes ()
 		{
-			mCachedAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+			if (mFullAssemblyList == null) mFullAssemblyList = new List<Assembly>();
+			else mFullAssemblyList.Clear();
 
-			List<Assembly> refined = new List<Assembly>();
+			if (mRefinedAssemblyList == null) mRefinedAssemblyList = new List<Assembly>();
+			else mRefinedAssemblyList.Clear();
+
+			var currentAssemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+
 			mAssemblyTypes = new Dictionary<Assembly, Type[]>();
 			mCachedTypes = new List<CachedType>();
 			mTypeDict = new Dictionary<Type, CachedType>();
+			mTypeLookup = new Dictionary<string, Type>();
 
-			foreach (Assembly asm in mCachedAssemblies)
+			foreach (Assembly asm in currentAssemblies)
 			{
-				if (asm.FullName.StartsWith("Mono.")) continue;
+				var fn = asm.FullName;
+				if (fn.Contains("VisualStudio")) continue;
 
-				try
+				mFullAssemblyList.Add(asm, true);
+
+				// We don't need to cache types for any of these DLLs
+				if (fn.StartsWith("Mono.")) continue;
+				if (fn.StartsWith("System.CodeDom")) continue;
+				if (fn.StartsWith("Microsoft.CSharp")) continue;
+				if (fn.Contains("UnityEditor")) continue;
+				if (fn.Contains("Cecil")) continue;
+				if (fn.StartsWith("Boo.Lang")) continue;
+				if (fn.Contains("UnityScript")) continue;
+				if (fn.StartsWith("Unity.")) continue;
+				if (fn.StartsWith("ICSharpCode.")) continue;
+				if (fn.StartsWith("System.Xml.Linq")) continue;
+				if (fn.StartsWith("obfuscator")) continue;
+				if (fn.StartsWith("UnityEngine.")) continue;
+				if (fn.StartsWith("nunit.")) continue;
+				if (fn.StartsWith("Assembly-CSharp-Editor")) continue;
+				if (fn.StartsWith("I18N")) continue;
+				if (fn.StartsWith("System.Xml")) continue;
+				if (fn.StartsWith("System.Configuration")) continue;
+				if (fn.StartsWith("System.Core")) continue;
+				if (fn.StartsWith("P2T")) continue;
+				if (fn.StartsWith("mscorlib")) continue;
+
+				AddAssembly(asm);
+			}
+		}
+
+		static bool CacheTypes (Assembly asm)
+		{
+			if (asm == null) return false;
+
+			try
+			{
+				var types = asm.GetTypes();
+
+				foreach (Type t in types)
 				{
-					var tpl = asm.GetTypes();
+					var ent = new CachedType();
+					ent.type = t;
+					ent.name = t.ToString();
+					mTypeLookup[ent.name] = t;
+					mTypeDict[t] = ent;
+					mCachedTypes.Add(ent);
+				}
 
-					foreach (Type t in tpl)
+				mAssemblyTypes[asm] = types;
+				return true;
+			}
+#if STANDALONE
+			catch (Exception) {}
+#else
+			catch (Exception ex)
+			{
+				UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
+			}
+#endif
+			return false;
+		}
+
+		/// <summary>
+		/// Add a new assembly (and cache all of its types) to be used by the application. This can be a runtime-compiled assembly.
+		/// </summary>
+
+		static public bool AddAssembly (Assembly asm)
+		{
+			if (mFullAssemblyList == null) CacheTypes();
+
+			if (CacheTypes(asm))
+			{
+				mFullAssemblyList.Add(asm, true);
+				mRefinedAssemblyList.Add(asm, true);
+				mHashIsValid = false;
+				return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Remove a previously added assembly and all of its types.
+		/// </summary>
+
+		static public void RemoveAssembly (Assembly asm)
+		{
+			if (asm == null || mFullAssemblyList == null) return;
+
+			try
+			{
+				mAssemblyTypes.Remove(asm);
+				var types = asm.GetTypes();
+
+				foreach (Type t in types)
+				{
+					for (int i = 0; i < mCachedTypes.size; ++i)
 					{
-						var ent = new CachedType();
-						ent.type = t;
-						ent.name = t.ToString();
-						mCachedTypes.Add(ent);
-						mTypeDict[t] = ent;
+						var ent = mCachedTypes[i];
+
+						if (ent.type == t)
+						{
+							mCachedTypes.RemoveAt(i--);
+							mTypeLookup.Remove(ent.name);
+							mTypeDict.Remove(t);
+							mHashIsValid = false;
+						}
+					}
+				}
+			}
+#if STANDALONE
+			catch (Exception) {}
+#else
+			catch (Exception ex)
+			{
+				UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Return a hash generated from the currently loaded assemblies. Can be used to uniquely fingerprint mods or know when the assembly list has changed.
+		/// </summary>
+
+		static public int assemblyHash
+		{
+			get
+			{
+				if (!mHashIsValid)
+				{
+					if (mFullAssemblyList == null) CacheTypes();
+
+					for (int i = 0; i < mFullAssemblyList.size; ++i)
+					{
+						var asm = mFullAssemblyList[i];
+						var fn = asm.FullName;
+						if (!string.IsNullOrEmpty(fn)) mHash += fn.GetHashCode();
 					}
 
-					refined.Add(asm);
-					mAssemblyTypes[asm] = tpl;
+					mHashIsValid = true;
 				}
-#if STANDALONE
-				catch (Exception) {}
-#else
-				catch (Exception ex)
-				{
-					UnityEngine.Debug.Log(asm.FullName + "\n" + ex.Message + ex.StackTrace.Replace("\n\n", "\n"));
-				}
-#endif
+				return mHash;
 			}
-
-			mCachedAssemblies = refined.ToArray();
 		}
 
 		/// <summary>
 		/// Get the cached list of currently loaded assemblies.
 		/// </summary>
 
-		static public Assembly[] GetAssemblies (bool update = false)
+		static public Assembly[] GetAssemblies (bool full = true)
 		{
-			if (mCachedAssemblies == null || update) CacheTypes();
-			return mCachedAssemblies;
+			if (mFullAssemblyList == null) CacheTypes();
+
+			if (full)
+			{
+				mFullAssemblyList.Trim();
+				return mFullAssemblyList.buffer;
+			}
+			else
+			{
+				mRefinedAssemblyList.Trim();
+				return mRefinedAssemblyList.buffer;
+			}
 		}
 
 		/// <summary>
 		/// Get the cached list of currently loaded types.
 		/// </summary>
 
-		static public List<CachedType> GetTypes (bool update = false)
+		static public List<CachedType> GetTypes ()
 		{
-			if (mCachedTypes == null || update) CacheTypes();
+			if (mCachedTypes == null) CacheTypes();
 			return mCachedTypes;
 		}
 
@@ -433,6 +567,24 @@ namespace TNet
 			}
 			return ent;
 		}
+
+		/// <summary>
+		/// Resolve a type by its name.
+		/// </summary>
+
+		static public Type GetType (string name)
+		{
+			if (mTypeLookup == null) CacheTypes();
+			Type type;
+			if (mTypeLookup.TryGetValue(name, out type)) return type;
+			return null;
+		}
+
+		/// <summary>
+		/// Handy method that returns the type of the object. Calling GetType() on it only works if it's not null, but this method will work even if it's null.
+		/// </summary>
+
+		static public Type GetDeclaredType<T> (this T target) { return typeof(T); }
 
 		/// <summary>
 		/// Convenience function that retrieves a public or private method with specified parameters.

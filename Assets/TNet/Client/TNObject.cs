@@ -341,6 +341,18 @@ namespace TNet
 		[ContextMenu("Destroy")]
 		public void DestroySelf ()
 		{
+			if (isJoiningChannel) StartCoroutine("DestroyAfterJoin");
+			else DestroyNow();
+		}
+
+		System.Collections.IEnumerator DestroyAfterJoin ()
+		{
+			while (isJoiningChannel) yield return null;
+			DestroyNow();
+		}
+
+		void DestroyNow ()
+		{
 			if (parent == null)
 			{
 				if (mDestroyed != 0) return;
@@ -1319,9 +1331,9 @@ namespace TNet
 				if (uid > 32767 && channelID != newChannelID)
 				{
 //#if W2 && UNITY_EDITOR
-//				var pv = PlayerVehicle.controlled;
+//				var pv = ControllableEntity.controlled;
 
-//				if (pv != null && pv == GetComponent<PlayerVehicle>())
+//				if (pv != null && pv == GetComponent<ControllableEntity>())
 //				{
 //					var before = ProceduralTerrain.GetTile(channelID);
 //					var after = ProceduralTerrain.GetTile(newChannelID);

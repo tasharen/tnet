@@ -104,6 +104,8 @@ namespace TNet
 
 		/// <summary>
 		/// Response to a ping request.
+		/// int64: Server time in milliseconds.
+		/// ushort: Number of connected players (game server) or active servers (lobby server).
 		/// </summary>
 
 		ResponsePing,

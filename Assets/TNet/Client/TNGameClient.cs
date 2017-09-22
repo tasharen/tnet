@@ -962,15 +962,15 @@ namespace TNet
 		bool ProcessPacket (Buffer buffer, IPEndPoint ip)
 		{
 			mPacketSource = ip;
-			BinaryReader reader = buffer.BeginReading();
+			var reader = buffer.BeginReading();
 			if (buffer.size == 0) return true;
 
 			int packetID = reader.ReadByte();
-			Packet response = (Packet)packetID;
+			var response = (Packet)packetID;
 
 #if DEBUG_PACKETS && !STANDALONE
-		if (response != Packet.ResponsePing && response != Packet.Broadcast)
-			UnityEngine.Debug.Log("Client: " + response + " (" + buffer.size + " bytes) " + ((ip == null) ? "(TCP)" : "(UDP)"));
+			if (response != Packet.ResponsePing && response != Packet.Broadcast)
+				UnityEngine.Debug.Log("Client: " + response + " (" + buffer.size + " bytes) " + ((ip == null) ? "(TCP)" : "(UDP)"));
 #endif
 			// Verification step must be passed first
 			if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
@@ -1037,12 +1037,12 @@ namespace TNet
 				case Packet.ResponseSetPlayerData:
 				{
 					int pid = reader.ReadInt32();
-					Player target = GetPlayer(pid);
+					var target = GetPlayer(pid);
 
 					if (target != null)
 					{
-						string path = reader.ReadString();
-						DataNode node = target.Set(path, reader.ReadObject());
+						var path = reader.ReadString();
+						var node = target.Set(path, reader.ReadObject());
 						if (onSetPlayerData != null) onSetPlayerData(target, path, node);
 					}
 					else UnityEngine.Debug.LogError("Not found: " + pid);
@@ -1061,6 +1061,22 @@ namespace TNet
 						mCanPing = true;
 						mPing = ping;
 					}
+
+					// Trivial time speed hack check
+					var expectedTime = reader.ReadInt64();
+					/*var clients =*/ reader.ReadUInt16();
+					var diff = serverTime - expectedTime;
+					if (diff < 0) diff = -diff;
+
+					if (diff > 5000)
+					{
+#if W2
+						GameChat.NotifyAdmins("Server time is too different: " + diff + " milliseconds apart");
+#endif
+						if (onError != null) onError("Server time is too different: " + diff + " milliseconds apart");
+						Disconnect();
+						break;
+					}
 					break;
 				}
 				case Packet.ResponseSetUDP:
@@ -1071,7 +1087,7 @@ namespace TNet
 
 					if (port != 0 && mTcp.tcpEndPoint != null)
 					{
-						IPAddress ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
+						var ipa = new IPAddress(mTcp.tcpEndPoint.Address.GetAddressBytes());
 						mServerUdpEndPoint = new IPEndPoint(ipa, port);
 
 						// Send the first UDP packet to the server
@@ -1093,12 +1109,12 @@ namespace TNet
 				{
 					int channelID = reader.ReadInt32();
 					int count = reader.ReadInt16();
-					Channel ch = GetChannel(channelID, true);
+					var ch = GetChannel(channelID, true);
 
 					for (int i = 0; i < count; ++i)
 					{
 						int pid = reader.ReadInt32();
-						Player p = GetPlayer(pid, true);
+						var p = GetPlayer(pid, true);
 
 						if (reader.ReadBoolean())
 						{
@@ -1121,7 +1137,7 @@ namespace TNet
 				{
 					int channelID = reader.ReadInt32();
 
-					Channel ch = GetChannel(channelID);
+					var ch = GetChannel(channelID);
 
 					if (ch != null)
 					{
@@ -1143,7 +1159,7 @@ namespace TNet
 					int channelID = reader.ReadInt32();
 					int playerID = reader.ReadInt32();
 
-					Channel ch = GetChannel(channelID);
+					var ch = GetChannel(channelID);
 
 					if (ch != null)
 					{

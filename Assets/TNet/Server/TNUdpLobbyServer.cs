@@ -134,14 +134,16 @@ namespace TNet
 		{
 			if (mBan.size != 0 && mBan.Contains(ip.Address.ToString())) return false;
 
-			BinaryReader reader = buffer.BeginReading();
-			Packet request = (Packet)reader.ReadByte();
+			var reader = buffer.BeginReading();
+			var request = (Packet)reader.ReadByte();
 
 			switch (request)
 			{
 				case Packet.RequestPing:
 				{
-					BeginSend(Packet.ResponsePing);
+					var writer = BeginSend(Packet.ResponsePing);
+					writer.Write(mTime);
+					writer.Write((ushort)mList.list.size);
 					EndSend(ip);
 					break;
 				}
@@ -149,7 +151,7 @@ namespace TNet
 				{
 					if (reader.ReadUInt16() != GameServer.gameID) return false;
 
-					ServerList.Entry ent = new ServerList.Entry();
+					var ent = new ServerList.Entry();
 					ent.ReadFrom(reader);
 
 					if (mBan.size != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;

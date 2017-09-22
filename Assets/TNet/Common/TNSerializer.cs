@@ -261,7 +261,7 @@ static public class Serialization
 #if STANDALONE
 					type = Type.GetType(name.Substring(0, name.Length - 2));
 #else
-					type = UnityTools.FindType(name.Substring(0, name.Length - 2));
+					type = UnityTools.GetType(name.Substring(0, name.Length - 2));
 #endif
 					if (type != null) type = type.MakeArrayType();
 				}
@@ -296,7 +296,7 @@ static public class Serialization
 #if STANDALONE
 					type = Type.GetType(name);
 #else
-					type = UnityTools.FindType(name);
+					type = UnityTools.GetType(name);
 #endif
 				}
 				catch (Exception) { }

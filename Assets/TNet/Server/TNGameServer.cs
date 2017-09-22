@@ -507,7 +507,9 @@ namespace TNet
 									}
 									else if (request == Packet.RequestPing)
 									{
-										BeginSend(Packet.ResponsePing);
+										var writer = BeginSend(Packet.ResponsePing);
+										writer.Write(mTime);
+										writer.Write((ushort)playerCount);
 										EndSend(ip);
 									}
 								}
@@ -1339,7 +1341,9 @@ namespace TNet
 				case Packet.RequestPing:
 				{
 					// Respond with a ping back
-					player.BeginSend(Packet.ResponsePing);
+					var writer = player.BeginSend(Packet.ResponsePing);
+					writer.Write(mTime);
+					writer.Write((ushort)playerCount);
 					player.EndSend();
 					break;
 				}
@@ -1923,7 +1927,6 @@ namespace TNet
 					int id = reader.ReadInt32();
 					string s = (id != 0) ? null : reader.ReadString();
 					TcpPlayer other = (id != 0) ? GetPlayer(id) : GetPlayer(s);
-
 					bool playerBan = (other == player && mServerData != null && mServerData.GetChild<bool>("playersCanBan"));
 
 					if (player.isAdmin || playerBan)
@@ -1942,9 +1945,14 @@ namespace TNet
 							SaveBanList();
 						}
 					}
+					else if (other == player)
+					{
+						// Self-ban
+						Ban(player, other);
+					}
 					else if (!playerBan)
 					{
-						// Do nothing -- players can't ban other players, even themselves for security reasons
+						// Do nothing
 					}
 					else
 					{
@@ -2535,10 +2543,10 @@ namespace TNet
 						buffer.position = origin;
 
 						// Forward the packet to everyone in this channel
-						for (int i = 0; i < mPlayerList.size; ++i)
+						for (int i = 0; i < ch.players.size; ++i)
 						{
-							TcpPlayer tp = mPlayerList[i];
-							tp.SendTcpPacket(buffer);
+							var tp = ch.players.buffer[i] as TcpPlayer;
+							if (tp != null) tp.SendTcpPacket(buffer);
 						}
 					}
 					break;

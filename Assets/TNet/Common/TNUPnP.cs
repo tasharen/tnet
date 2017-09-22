@@ -225,7 +225,7 @@ public class UPnP
 		// Gateway URL: http://192.168.1.1:2555
 		int offset = baseURL.IndexOf("://");
 		offset = baseURL.IndexOf('/', offset + 3);
-		mGatewayURL = baseURL.Substring(0, offset);
+		mGatewayURL = (offset > 0) ? baseURL.Substring(0, offset) : baseURL;
 
 		// Get the port control URL
 		return GetControlURL(baseURL);

@@ -70,7 +70,7 @@ namespace TNet
 		/// Protocol version.
 		/// </summary>
 
-		public const int version = 20160822;
+		public const int version = 20170922;
 
 		/// <summary>
 		/// All players have a unique identifier given by the server.

@@ -26,7 +26,7 @@ public class LobbyServerLink
 	protected IPEndPoint mExternal;
 
 	// Thread-safe flag indicating that the server should shut down at the first available opportunity
-	protected volatile bool mShutdown = false;
+	protected bool mShutdown = false;
 
 	/// <summary>
 	/// Create a new local lobby server link. Expects a local server to work with.

@@ -74,7 +74,7 @@ namespace TNet
 				if (mBasePath == null)
 				{
 #if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IPHONE || UNITY_WEBPLAYER || UNITY_WINRT || UNITY_FLASH)
-				mBasePath = UnityEngine.Application.persistentDataPath;
+					mBasePath = UnityEngine.Application.persistentDataPath;
 #else
 					mBasePath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
 #endif
@@ -680,10 +680,10 @@ namespace TNet
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (!IsAllowedToAccess(directory)) return null;
-			string[] files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
+			var files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
 			return (files.Length == 0) ? null : files;
 #else
-		return null;
+			return null;
 #endif
 		}
 
@@ -737,7 +737,7 @@ namespace TNet
 			// No other paths are allowed
 			return false;
 #else
-		return false;
+			return false;
 #endif
 		}
 
@@ -752,7 +752,7 @@ namespace TNet
 			{
 				if (!string.IsNullOrEmpty(applicationDirectory))
 				{
-					string docs = Path.Combine(persistentDataPath, applicationDirectory).Replace("\\", "/");
+					var docs = Path.Combine(persistentDataPath, applicationDirectory).Replace("\\", "/");
 					path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
 				}
 
@@ -761,7 +761,7 @@ namespace TNet
 			catch (System.Exception ex)
 			{
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogError(ex.Message.Trim() + "\n" + path + "\n" + ex.StackTrace.Replace("\r\n", "\n"));
+				UnityEngine.Debug.LogError(ex.Message.Trim() + "\n" + path + "\n" + ex.StackTrace.Replace("\r\n", "\n"));
 #else
 				LogError(ex.Message + " (" + path + ")", ex.StackTrace.Replace("\r\n", "\n"), false);
 #endif
