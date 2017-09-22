@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2017 Tasharen Entertainment Inc.
-                  Version 3.0.9
+                  Version 3.1.0
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -108,6 +108,24 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.1.0
+- NEW: Added the ability to compile entire projects at runtime using RuntimeCode.Add(source file code). Requires Unity 5+.
+- NEW: Expanded TypeExtensions with even better caching for much faster lookups.
+- NEW: TypeExtensions.AddAssembly and RemoveAssembly to add/remove plugins at run-time.
+- NEW: Ping response now returns the server time and number of connected clients.
+- NEW: Ping response now performs a built-in time speed hack check, for convenience.
+- NEW: Added ban/unban functionality to the lobby servers.
+- NEW: Added the ability to change TNObject.owner at will.
+- NEW: TNManager.currentRccObjectID is now available at the time of object creation, in case you want to use its ID as a random seed.
+- NEW: Added a convenience method tno.canSend to check if it's currently possible to send messages through this object.
+- NEW: Added TNet.Tools.CreatePath(path).
+- FIX: TNObject channel ID and TNManager.IsInChannel calls with multiple channels will now return proper values even when testing in offline mode.
+- FIX: Fix for DestroySelf() not working properly offline since the last set of changes.
+- FIX: OnLoadLevel notification will now clean up all objects belonging to the channel, effectively removing objects that would have been removed as a result of a normal Unity scene change anyway.
+- ALT: TNGameServer is now all protected instead of private, making it possible to inherit from it easier.
+- ALT: TNGameServer's OnCustomPacket now accepts a byte ID instead of a Packet enum.
+- DEL: Got rid of Tools.FindType (use GetType instead). Its code is in TypeExtensions.GetType now.
 
 3.0.9
 - NEW: TNManager.Instantiate will now always assign a TNObject to the created object, even if there isn't one. If you want to create a local-only (non-networked) object, use an RFC instead.
