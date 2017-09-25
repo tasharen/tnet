@@ -196,7 +196,7 @@ namespace TNet
 				{
 					mParent.ownerID = value;
 				}
-				else
+				else if (ownerID != value)
 				{
 					var bw = TNManager.BeginSend(Packet.RequestSetOwner);
 					bw.Write(channelID);
@@ -1316,7 +1316,7 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Transfer this object to another channel. Only the object's owner can perform this action.
+		/// Transfer this object to another channel. Only the object's owner should perform this action.
 		/// Note that if the object has a nested TNObject hierarchy, newly entered clients won't see this hierarchy.
 		/// It's up to you, the developer, to set the hierarchy if you need it. You can do it by setting a custom RFC
 		/// with the hierarchy path (or simply the TNObject parent ID) before calling TransferToChannel.
@@ -1330,18 +1330,6 @@ namespace TNet
 
 				if (uid > 32767 && channelID != newChannelID)
 				{
-//#if W2 && UNITY_EDITOR
-//				var pv = ControllableEntity.controlled;
-
-//				if (pv != null && pv == GetComponent<ControllableEntity>())
-//				{
-//					var before = ProceduralTerrain.GetTile(channelID);
-//					var after = ProceduralTerrain.GetTile(newChannelID);
-//					Debug.Log("Transfer: " + name + " from " +
-//						(before != null ? before.ix + " " + before.iz : channelID.ToString()) + " to " +
-//						(after != null ? after.ix + " " + after.iz : newChannelID.ToString()) + "\n", this);
-//				}
-//#endif
 					mDestroyed = 2;
 
 					if (TNManager.isConnected)
