@@ -1088,7 +1088,7 @@ namespace TNet
 		{
 			if (msg.Contains("forcibly closed")) return;
 #if UNITY_EDITOR
-		UnityEngine.Debug.LogError(msg);
+			UnityEngine.Debug.LogError(msg);
 #else
 			msg = "ERROR: " + msg;
 			Tools.Print(msg);

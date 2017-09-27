@@ -53,6 +53,45 @@ namespace TNet
 			this.z = 0d;
 		}
 
+		static public bool operator == (Vector3D lhs, Vector3D rhs)
+		{
+			double temp = lhs.x - rhs.x;
+			if (temp < -0.00001 || temp > 0.00001) return false;
+
+			temp = lhs.y - rhs.y;
+			if (temp < -0.00001 || temp > 0.00001) return false;
+
+			temp = lhs.z - rhs.z;
+			if (temp < -0.00001 || temp > 0.00001) return false;
+			return true;
+		}
+
+		static public bool operator != (Vector3D lhs, Vector3D rhs)
+		{
+			return !(lhs == rhs);
+		}
+
+		static public implicit operator Vector3D (Vector3 v)
+		{
+			return new Vector3D((double)v.x, (double)v.y, (double)v.z);
+		}
+
+		static public implicit operator Vector3 (Vector3D v)
+		{
+			return new Vector3((float)v.x, (float)v.y, (float)v.z);
+		}
+
+		public override int GetHashCode ()
+		{
+			return x.GetHashCode() ^ y.GetHashCode() << 2 ^ z.GetHashCode() >> 2;
+		}
+
+		public override bool Equals (object other)
+		{
+			if (!(other is Vector3D)) return false;
+			return this == (Vector3D)other;
+		}
+
 #if !STANDALONE
 		public Vector3D normalized { get { return Vector3D.Normalize(this); } }
 		public double magnitude { get { return Math.Sqrt(x * x + y * y + z * z); } }
@@ -106,19 +145,6 @@ namespace TNet
 			return new Vector3D(a.x / d, a.y / d, a.z / d);
 		}
 
-		static public bool operator == (Vector3D lhs, Vector3D rhs)
-		{
-			double temp = lhs.x - rhs.x;
-			if (temp < -0.00001 || temp > 0.00001) return false;
-
-			temp = lhs.y - rhs.y;
-			if (temp < -0.00001 || temp > 0.00001) return false;
-
-			temp = lhs.z - rhs.z;
-			if (temp < -0.00001 || temp > 0.00001) return false;
-			return true;
-		}
-
 		public bool isNanOrInfinity
 		{
 			get
@@ -153,21 +179,6 @@ namespace TNet
 			temp = z - rhs.z;
 			if (temp < -threshold || temp > threshold) return false;
 			return true;
-		}
-
-		static public bool operator != (Vector3D lhs, Vector3D rhs)
-		{
-			return !(lhs == rhs);
-		}
-
-		static public implicit operator Vector3D (Vector3 v)
-		{
-			return new Vector3D((double)v.x, (double)v.y, (double)v.z);
-		}
-
-		static public implicit operator Vector3 (Vector3D v)
-		{
-			return new Vector3((float)v.x, (float)v.y, (float)v.z);
 		}
 
 		static public Vector3D Lerp (Vector3D from, Vector3D to, double factor)
@@ -257,17 +268,6 @@ namespace TNet
 		static public Vector3D Cross (Vector3D lhs, Vector3D rhs)
 		{
 			return new Vector3D(lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x);
-		}
-
-		public override int GetHashCode ()
-		{
-			return x.GetHashCode() ^ y.GetHashCode() << 2 ^ z.GetHashCode() >> 2;
-		}
-
-		public override bool Equals (object other)
-		{
-			if (!(other is Vector3D)) return false;
-			return this == (Vector3D)other;
 		}
 
 		static public Vector3D Reflect (Vector3D inDirection, Vector3D inNormal)

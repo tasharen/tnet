@@ -473,6 +473,15 @@ namespace TNet
 					return Quaternion.Euler((Vector3)value);
 				}
 #endif
+				else if (desiredType == typeof(Vector3D))
+				{
+					return (Vector3D)(Vector3)value;
+				}
+			}
+			else if (valueType == typeof(Vector3D))
+			{
+				if (desiredType == typeof(Vector3))
+					return (Vector3)(Vector3D)value;
 			}
 			else if (valueType == typeof(Color))
 			{
@@ -916,8 +925,8 @@ namespace TNet
 
 					switch (count)
 					{
-						case 2: type = typeof(Vector2); break;
-						case 3: type = typeof(Vector3); break;
+						case 2: type = (parts[0].Length > 10 || parts[1].Length > 10) ? typeof(Vector2D) : typeof(Vector2); break;
+						case 3: type = (parts[0].Length > 10 || parts[1].Length > 10 || parts[2].Length > 10) ? typeof(Vector3D) : typeof(Vector3); break;
 						case 4: type = typeof(Color); break;
 						case 8: type = typeof(BoneWeight); break;
 						case 6: type = typeof(Bounds); break;
