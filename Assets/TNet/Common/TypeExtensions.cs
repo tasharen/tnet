@@ -416,7 +416,7 @@ namespace TNet
 				{
 					var ent = new CachedType();
 					ent.type = t;
-					ent.name = t.ToString();
+					ent.name = t.ToString().Replace("UnityEngine.", "");
 					mTypeLookup[ent.name] = t;
 					mTypeDict[t] = ent;
 					mCachedTypes.Add(ent);

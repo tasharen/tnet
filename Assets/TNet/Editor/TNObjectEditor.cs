@@ -64,7 +64,7 @@ public class TNObjectEditor : Editor
 			var sp = serializedObject.FindProperty("ignoreWarnings");
 			EditorGUILayout.PropertyField(sp, new GUIContent("Ignore Warnings"));
 
-			PrefabType type = PrefabUtility.GetPrefabType(obj.gameObject);
+			var type = PrefabUtility.GetPrefabType(obj.gameObject);
 
 			if (type == PrefabType.Prefab)
 			{
@@ -79,7 +79,7 @@ public class TNObjectEditor : Editor
 			}
 			else
 			{
-				TNObject[] tnos = FindObjectsOfType<TNObject>();
+				var tnos = FindObjectsOfType<TNObject>();
 
 				foreach (TNObject o in tnos)
 				{

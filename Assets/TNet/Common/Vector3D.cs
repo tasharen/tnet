@@ -321,12 +321,26 @@ namespace TNet
 			return Math.Sqrt(x * x + y * y + z * z);
 		}
 
+		static public double FlatDistance (Vector3D a, Vector3D b)
+		{
+			double x = a.x - b.x;
+			double z = a.z - b.z;
+			return Math.Sqrt(x * x + z * z);
+		}
+
 		static public double SqrDistance (Vector3D a, Vector3D b)
 		{
 			double x = a.x - b.x;
 			double y = a.y - b.y;
 			double z = a.z - b.z;
 			return x * x + y * y + z * z;
+		}
+
+		static public double FlatSqrDistance (Vector3D a, Vector3D b)
+		{
+			double x = a.x - b.x;
+			double z = a.z - b.z;
+			return (x * x + z * z);
 		}
 
 		static public Vector3D ClampMagnitude (Vector3D vector, double maxLength)

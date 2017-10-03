@@ -400,6 +400,10 @@ namespace TNet
 				{
 					if (r.data != null) r.data.Recycle();
 					r.data = b;
+
+					// Move this RFC to the end of the list so that it gets called in correct order on load
+					rfcs.RemoveAt(i);
+					rfcs.Add(r);
 					return;
 				}
 			}

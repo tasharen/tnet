@@ -67,6 +67,12 @@ public abstract class TNBehaviour : MonoBehaviour
 	}
 
 	/// <summary>
+	/// Get the object-specific child data node.
+	/// </summary>
+
+	public DataNode Get (string name) { return tno != null ? mTNO.Get(name) : null; }
+
+	/// <summary>
 	/// Get the object-specific data.
 	/// </summary>
 

@@ -953,6 +953,12 @@ namespace TNet
 			mReceived = mCountReceived;
 			mCountSent = 0;
 			mCountReceived = 0;
+#if UNITY_EDITOR
+			var temp = TNObject.lastSentDictionary;
+			temp.Clear();
+			TNObject.lastSentDictionary = TNObject.sentDictionary;
+			TNObject.sentDictionary = temp;
+#endif
 		}
 
 		/// <summary>

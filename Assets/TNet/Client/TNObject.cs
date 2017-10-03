@@ -174,6 +174,10 @@ namespace TNet
 				var owner = this.owner;
 				return (owner != null) ? owner == TNManager.player : TNManager.IsHosting(channelID);
 			}
+			set
+			{
+				if (value) owner = TNManager.player;
+			}
 		}
 
 		/// <summary>
@@ -198,11 +202,21 @@ namespace TNet
 				}
 				else if (ownerID != value)
 				{
-					var bw = TNManager.BeginSend(Packet.RequestSetOwner);
-					bw.Write(channelID);
-					bw.Write(uid);
-					bw.Write(value);
-					TNManager.EndSend();
+					if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
+					{
+						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
+						bw.Write(channelID);
+						bw.Write(uid);
+						bw.Write(value);
+						TNManager.EndSend();
+#if UNITY_EDITOR
+						if (sentDictionary.ContainsKey("ownerID")) ++sentDictionary["ownerID"];
+						else sentDictionary["ownerID"] = 1;
+#endif
+					}
+#if UNITY_EDITOR
+					else Debug.LogWarning("Trying to assign an object's owner to someone who isn't in the object's channel", this);
+#endif
 				}
 			}
 		}
@@ -249,6 +263,12 @@ namespace TNet
 				else mParent.dataNode = value;
 			}
 		}
+
+		/// <summary>
+		/// Get the object-specific child data node.
+		/// </summary>
+
+		public DataNode Get (string name) { return (parent == null) ? (mData != null ? mData.GetChild(name) : null) : mParent.Get(name); }
 
 		/// <summary>
 		/// Get the object-specific data.
@@ -378,6 +398,10 @@ namespace TNet
 						bw.Write(channelID);
 						bw.Write(uid);
 						TNManager.EndSend(channelID, true);
+#if UNITY_EDITOR
+						if (sentDictionary.ContainsKey("DestroyNow")) ++sentDictionary["DestroyNow"];
+						else sentDictionary["DestroyNow"] = 1;
+#endif
 					}
 				}
 				else OnDestroyPacket();
@@ -1140,6 +1164,11 @@ namespace TNet
 							if (rfcID == 0) writer.Write(rfcName);
 							writer.WriteArray(objs);
 							TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR
+							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+							else sentDictionary[sid] = 1;
+#endif
 						}
 #if UNITY_EDITOR
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
@@ -1160,6 +1189,11 @@ namespace TNet
 							if (rfcID == 0) writer.Write(rfcName);
 							writer.WriteArray(objs);
 							TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR
+							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+							else sentDictionary[sid] = 1;
+#endif
 						}
 #if UNITY_EDITOR
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
@@ -1200,6 +1234,11 @@ namespace TNet
 							if (rfcID == 0) writer.Write(rfcName);
 							writer.WriteArray(objs);
 							TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR
+							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+							else sentDictionary[sid] = 1;
+#endif
 						}
 #if UNITY_EDITOR
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
@@ -1216,6 +1255,11 @@ namespace TNet
 			else mParent.SendRFC(rfcID, rfcName, target, reliable, objs);
 		}
 
+#if UNITY_EDITOR
+		// Used for debugging to determine what packets are sent too frequently
+		static internal Dictionary<string, int> sentDictionary = new Dictionary<string, int>();
+		static internal Dictionary<string, int> lastSentDictionary = new Dictionary<string, int>();
+#endif
 		/// <summary>
 		/// Send a new RFC call to the specified target.
 		/// </summary>
@@ -1242,6 +1286,11 @@ namespace TNet
 					writer.Write(channelID);
 					writer.Write(GetUID(uid, rfcID));
 					if (rfcID == 0) writer.Write(rfcName);
+#if UNITY_EDITOR
+					var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+					else sentDictionary[sid] = 1;
+#endif
 					writer.WriteArray(objs);
 					TNManager.EndSend(channelID, reliable);
 				}
@@ -1267,6 +1316,11 @@ namespace TNet
 					writer.Write(channelID);
 					writer.Write(GetUID(uid, rfcID));
 					if (rfcID == 0) writer.Write(rfcName);
+#if UNITY_EDITOR
+					var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+					else sentDictionary[sid] = 1;
+#endif
 					writer.WriteArray(objs);
 					TNManager.EndSend(channelID, reliable);
 				}
@@ -1295,6 +1349,11 @@ namespace TNet
 				if (rfcID == 0) writer.Write(rfcName);
 				writer.WriteArray(objs);
 				TNManager.EndSendToLAN(port);
+#if UNITY_EDITOR
+				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+				else sentDictionary[sid] = 1;
+#endif
 			}
 			else mParent.BroadcastToLAN(port, rfcID, rfcName, objs);
 		}
@@ -1312,6 +1371,11 @@ namespace TNet
 				writer.Write(GetUID(objID, rfcID));
 				if (rfcID == 0) writer.Write(funcName);
 				TNManager.EndSend(channelID, true);
+#if UNITY_EDITOR
+				var sid = "Remove RFC " + rfcID + " " + funcName;
+				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+				else sentDictionary[sid] = 1;
+#endif
 			}
 		}
 
@@ -1339,6 +1403,11 @@ namespace TNet
 						writer.Write(newChannelID);
 						writer.Write(uid);
 						TNManager.EndSend(channelID, true);
+#if UNITY_EDITOR
+						var sid = "TransferToChannel";
+						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+						else sentDictionary[sid] = 1;
+#endif
 					}
 					else FinalizeTransfer(newChannelID, TNObject.GetUniqueID(true));
 				}

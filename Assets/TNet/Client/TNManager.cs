@@ -492,6 +492,40 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Check to see if the specified player is present in the chosen channel.
+		/// </summary>
+
+		static public bool IsPlayerInChannel (Player p, int channelID)
+		{
+			if (IsInChannel(channelID))
+			{
+				if (p == player) return true;
+				var channel = GetChannel(channelID);
+				return channel.players.Contains(p);
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Check to see if the specified player is present in the chosen channel.
+		/// </summary>
+
+		static public bool IsPlayerInChannel (int playerID, int channelID)
+		{
+			if (IsInChannel(channelID))
+			{
+				if (playerID == TNManager.playerID) return true;
+				var channel = GetChannel(channelID);
+
+				for (int i = 0; i < channel.players.size; ++i)
+				{
+					if (channel.players.buffer[i].id == playerID) return true;
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
 		/// Get the player hosting the specified channel. Only works for the channels the player is in.
 		/// </summary>
 
@@ -617,12 +651,24 @@ namespace TNet
 #if UNITY_EDITOR
 				if (sentPackets > 60)
 				{
-					Debug.LogWarning("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+					var sb = new System.Text.StringBuilder();
+					sb.Append("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+
+					foreach (var ent in TNObject.lastSentDictionary)
+					{
+						sb.Append("\n");
+						sb.Append(ent.Key);
+						sb.Append(" = ");
+						sb.Append(ent.Value);
+					}
+
+					Debug.LogWarning(sb.ToString());
 					ResetPacketCount();
 				}
 #endif
 			}
 		};
+
 		public delegate void ProcessPacketsFunc ();
 
 		/// <summary>
