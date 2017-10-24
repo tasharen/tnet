@@ -1487,12 +1487,27 @@ namespace TNet
 				}
 				case Packet.RequestSetPlayerSave:
 				{
+					var path = reader.ReadString();
+
+					for (int i = 0; i < mPlayerList.size; ++i)
+					{
+						var p = mPlayerList.buffer[i];
+						if (p == player) continue;
+
+						if (p.savePath == path)
+						{
+							player.RespondWithError("Player already connected");
+							player.Disconnect(true);
+							break;
+						}
+					}
+
 					// Delete the previous save
 					if (!string.IsNullOrEmpty(player.savePath))
 						Tools.DeleteFile(player.savePath);
 
 					// Load and set the player's data from the specified file
-					player.savePath = reader.ReadString();
+					player.savePath = path;
 					player.saveType = (DataNode.SaveType)reader.ReadByte();
 					player.dataNode = DataNode.Read(player.savePath);
 

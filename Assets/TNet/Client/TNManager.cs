@@ -143,12 +143,14 @@ namespace TNet
 #else
 	static Player mPlayer = new Player("Guest");
 #endif
-
 		// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
 		static List<Player> mPlayers;
 
 		// Instance pointer
 		static TNManager mInstance;
+
+		// Used to stop processing incoming packets after a delayed disconnect operation
+		[System.NonSerialized] bool mDelayedDisconnect = false;
 
 		/// <summary>
 		/// Object owner is only valid during object creation. In most cases you will want to use tno.owner.
@@ -1001,8 +1003,10 @@ namespace TNet
 		{
 			if (!instance.mClient.isTryingToConnect)
 			{
-				instance.mClient.playerName = mPlayer.name;
-				instance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
+				mInstance.CancelInvoke("DisconnectDelayed");
+				mInstance.mDelayedDisconnect = false;
+				mInstance.mClient.playerName = mPlayer.name;
+				mInstance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 
 				if (TNServerInstance.isLocal)
 				{
@@ -1032,10 +1036,12 @@ namespace TNet
 		{
 			if (!instance.mClient.isTryingToConnect)
 			{
-				instance.mClient.Disconnect();
-				instance.mClient.playerName = mPlayer.name;
-				instance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
-				instance.mClient.Connect(externalIP, internalIP);
+				mInstance.CancelInvoke("DisconnectDelayed");
+				mInstance.mDelayedDisconnect = false;
+				mInstance.mClient.Disconnect();
+				mInstance.mClient.playerName = mPlayer.name;
+				mInstance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
+				mInstance.mClient.Connect(externalIP, internalIP);
 			}
 			else Debug.LogWarning("Already connecting...");
 		}
@@ -1045,6 +1051,21 @@ namespace TNet
 		/// </summary>
 
 		static public void Disconnect () { if (mInstance != null) mInstance.mClient.Disconnect(); }
+
+		/// <summary>
+		/// Disconnect after a specified delay in seconds.
+		/// </summary>
+
+		static public void Disconnect (float delay)
+		{
+			if (mInstance != null && !mInstance.mDelayedDisconnect)
+			{
+				mInstance.mDelayedDisconnect = true;
+				mInstance.Invoke("DisconnectDelayed", delay);
+			}
+		}
+
+		protected void DisconnectDelayed () { Disconnect(); }
 
 		/// <summary>
 		/// Join the specified channel.
@@ -2051,7 +2072,7 @@ namespace TNet
 		/// Process incoming packets in the update function.
 		/// </summary>
 
-		void Update () { ProcessPackets(); }
+		void Update () { if (!mDelayedDisconnect) ProcessPackets(); }
 
 		#endregion
 

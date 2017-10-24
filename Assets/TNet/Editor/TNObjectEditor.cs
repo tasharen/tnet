@@ -11,24 +11,10 @@ using TNet;
 [CustomEditor(typeof(TNObject), true)]
 public class TNObjectEditor : Editor
 {
-	static void Print (DataNode data, int ident)
+	static void Print (DataNode data)
 	{
-		var val = data.value;
-
-		var sb = new System.Text.StringBuilder();
-		for (int i = 0; i < ident; ++i) sb.Append("   ");
-		sb.Append(data.name);
-
-		if (val != null)
-		{
-			sb.Append(" = ");
-			sb.Append(val.ToString());
-		}
-
-		EditorGUILayout.LabelField(sb.ToString());
-		++ident;
-
-		for (int i = 0; i < data.children.size; ++i) Print(data.children[i], ident);
+		var lines = data.ToString().Split('\n');
+		foreach (var line in lines) EditorGUILayout.LabelField(line.Replace("\t", "  "));
 	}
 
 	public override void OnInspectorGUI ()
@@ -52,7 +38,7 @@ public class TNObjectEditor : Editor
 			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
 
 			var data = obj.dataNode;
-			if (data != null && data.children.size > 0) Print(data, 0);
+			if (data != null && data.children.size > 0) Print(data);
 
 			EditorGUI.EndDisabledGroup();
 		}

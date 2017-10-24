@@ -145,7 +145,7 @@ namespace TNet
 		/// Whether sending messages through this object is possible or not.
 		/// </summary>
 
-		public bool canSend { get { return !hasBeenDestroyed && !TNManager.IsJoiningChannel(channelID); } }
+		public bool canSend { get { return (parent == null) ? uid != 0 && !hasBeenDestroyed && !TNManager.IsJoiningChannel(channelID) && TNManager.IsInChannel(channelID) : parent.canSend; } }
 
 		/// <summary>
 		/// If you want to know when this object is getting destroyed, subscribe to this delegate.
@@ -229,6 +229,7 @@ namespace TNet
 		{
 			get
 			{
+				if (uid == 0) return TNManager.player;
 				return (parent == null) ? (mOwner ?? TNManager.GetHost(channelID)) : mParent.owner;
 			}
 			set

@@ -1072,15 +1072,17 @@ namespace TNet
 					var expectedTime = reader.ReadInt64();
 					/*var clients =*/ reader.ReadUInt16();
 					var diff = serverTime - expectedTime;
-					if (diff < 0) diff = -diff;
 
-					if (diff > 5000)
+					if ((diff < 0 ? -diff : diff) > 10000)
 					{
 #if W2
-						GameChat.NotifyAdmins("Server time is too different: " + diff + " milliseconds apart");
-#endif
-						if (onError != null) onError("Server time is too different: " + diff + " milliseconds apart");
+						GameChat.NotifyAdmins("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
+						if (onError != null) onError("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
+						TNManager.Disconnect(1f);
+#else
+						if (onError != null) onError("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
 						Disconnect();
+#endif
 						break;
 					}
 					break;

@@ -42,7 +42,11 @@ public class TNAutoSyncInspector : Editor
 			TNAutoSync.SavedEntry ent = new TNAutoSync.SavedEntry();
 			ent.target = components[0];
 			sync.entries.Add(ent);
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 		}
 		GUI.backgroundColor = Color.white;
 
@@ -61,7 +65,11 @@ public class TNAutoSyncInspector : Editor
 			sync.isSavedOnServer = persistent;
 			sync.isImportant = important;
 			sync.onlyOwnerCanSync = owner;
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 		}
 	}
 
@@ -97,7 +105,11 @@ public class TNAutoSyncInspector : Editor
 		if (ent.target == null)
 		{
 			ent.target = components[0];
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 		}
 
 		int oldIndex = 0;
@@ -120,7 +132,11 @@ public class TNAutoSyncInspector : Editor
 		if (delete)
 		{
 			sync.entries.RemoveAt(index);
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 			return false;
 		}
 
@@ -128,7 +144,11 @@ public class TNAutoSyncInspector : Editor
 		{
 			ent.target = (newIndex == 0) ? null : components[newIndex - 1];
 			ent.propertyName = "";
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 		}
 		return true;
 	}
@@ -169,7 +189,11 @@ public class TNAutoSyncInspector : Editor
 		if (newIndex != oldIndex)
 		{
 			saved.propertyName = (newIndex == 0) ? "" : names[newIndex];
+#if UNITY_4_7
 			EditorUtility.SetDirty(sync);
+#else
+			UnityEditorExtensions.SetDirty(sync);
+#endif
 		}
 	}
 }
