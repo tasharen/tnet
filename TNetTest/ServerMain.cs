@@ -156,9 +156,16 @@ public class Application : IDisposable
 						Console.WriteLine("  q -- Quit the application");
 						Console.WriteLine("  r -- Reload the server configuration");
 						Console.WriteLine("  c -- Release all unused memory");
+						Console.WriteLine("  http -- Enable or disable HTTP support");
 						Console.WriteLine("  ban <keyword> -- Ban this player, alias or IP");
 						Console.WriteLine("  unban <keyword> -- Unban this keyword");
-						Console.WriteLine("  http -- Enable or disable HTTP support");
+
+						if (mGameServer != null)
+						{
+							Console.WriteLine("  kick <player> -- Kick this player from the server");
+							Console.WriteLine("  admin <keyword> -- Add this admin keyword");
+							Console.WriteLine("  unadmin <keyword> -- Remove this admin keyword");
+						}
 					}
 
 					string command = Console.ReadLine();
@@ -173,6 +180,18 @@ public class Application : IDisposable
 					{
 						if (mLobbyServer != null) mLobbyServer.Unban(command.Substring(6));
 						if (mGameServer != null) mGameServer.Unban(command.Substring(6));
+					}
+					else if (command.StartsWith("admin "))
+					{
+						if (mGameServer != null) mGameServer.AddAdmin(command.Substring(4));
+					}
+					else if (command.StartsWith("unadmin "))
+					{
+						if (mGameServer != null) mGameServer.RemoveAdmin(command.Substring(6));
+					}
+					else if (command.StartsWith("kick "))
+					{
+						if (mGameServer != null) mGameServer.Kick(command.Substring(6));
 					}
 					else if (command == "c")
 					{

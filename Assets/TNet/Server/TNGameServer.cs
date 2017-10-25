@@ -2774,5 +2774,27 @@ namespace TNet
 			if (other != null) Ban(null, other);
 			else base.Ban(keyword);
 		}
+
+		/// <summary>
+		/// Add this keyword to the admin list.
+		/// </summary>
+
+		public void AddAdmin (string keyword) { mAdmin.Add(keyword, true); }
+
+		/// <summary>
+		/// Remove this keyword from the admin list.
+		/// </summary>
+
+		public void RemoveAdmin (string keyword) { mAdmin.Remove(keyword); }
+
+		/// <summary>
+		/// Kick the specified player from the server.
+		/// </summary>
+
+		public void Kick (string s)
+		{
+			var player = GetPlayer(s);
+			if (player != null) RemovePlayer(player);
+		}
 	}
 }
