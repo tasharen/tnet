@@ -96,7 +96,7 @@ namespace TNet
 		/// Whether the channel has data that can be saved.
 		/// </summary>
 
-		public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0; } }
+		public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0 || dataNode != null; } }
 
 		/// <summary>
 		/// Whether the channel can be joined.
