@@ -213,10 +213,10 @@ namespace TNet
 				}
 				catch (System.Exception ex)
 				{
-					RespondWithError(ex);
+					AddError(ex);
 				}
 			}
-			else RespondWithError("Unable to resolve the specified address");
+			else AddError("Unable to resolve the specified address");
 			return false;
 		}
 
@@ -258,7 +258,7 @@ namespace TNet
 
 								if (!ConnectToFallback())
 								{
-									RespondWithError("Unable to connect");
+									AddError("Unable to connect");
 									Close(false);
 								}
 							}
@@ -318,7 +318,7 @@ namespace TNet
 				}
 				else if (!ConnectToFallback())
 				{
-					RespondWithError(errMsg);
+					AddError(errMsg);
 					Close(false);
 				}
 			}
@@ -471,21 +471,37 @@ namespace TNet
 		/// Send the specified packet. Marks the buffer as used.
 		/// </summary>
 
-		public void SendTcpPacket (Buffer buffer)
+		public void SendTcpPacket (Buffer buffer, bool instant = false)
 		{
 			buffer.MarkAsUsed();
 			BinaryReader reader = buffer.BeginReading();
 
 #if DEBUG_PACKETS && !STANDALONE
-		Packet packet = (Packet)buffer.PeekByte(4);
-		if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
-			UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
+			Packet packet = (Packet)buffer.PeekByte(4);
+			if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
+				UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
 #endif
-
 			if (mSocket != null && mSocket.Connected)
 			{
 				lock (mOut)
 				{
+#if UNITY_WINRT
+					mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
+#else
+					if (instant)
+					{
+						try
+						{
+							var before = mSocket.NoDelay;
+							if (!before) mSocket.NoDelay = true;
+							mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
+							if (!before) mSocket.NoDelay = false;
+							buffer.Recycle();
+							return;
+						}
+						catch { }
+					}
+
 					mOut.Enqueue(buffer);
 
 					// If it's the first packet, let's begin the send process
@@ -493,19 +509,18 @@ namespace TNet
 					{
 						try
 						{
-#if !UNITY_WINRT
 							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
-#endif
 						}
 						catch (System.Exception ex)
 						{
 							mOut.Clear();
 							buffer.Recycle();
-							RespondWithError(ex);
+							AddError(ex);
 							CloseNotThreadSafe(false);
 						}
 					}
 				}
+#endif
 				return;
 			}
 
@@ -581,7 +596,7 @@ namespace TNet
 					}
 					catch (Exception ex)
 					{
-						RespondWithError(ex);
+						AddError(ex);
 						CloseNotThreadSafe(false);
 					}
 				}
@@ -605,7 +620,7 @@ namespace TNet
 						}
 						catch (Exception ex)
 						{
-							RespondWithError(ex);
+							AddError(ex);
 							CloseNotThreadSafe(false);
 						}
 					}
@@ -617,7 +632,7 @@ namespace TNet
 			{
 				bytes = 0;
 				Close(true);
-				RespondWithError(ex);
+				AddError(ex);
 			}
 		}
 
@@ -658,7 +673,7 @@ namespace TNet
 				}
 				catch (System.Exception ex)
 				{
-					if (!(ex is SocketException)) RespondWithError(ex);
+					if (!(ex is SocketException)) AddError(ex);
 					Disconnect(true);
 				}
 			}
@@ -702,7 +717,7 @@ namespace TNet
 			catch (System.Exception ex)
 			{
 				if (socket != mSocket) return;
-				if (!(ex is SocketException)) RespondWithError(ex);
+				if (!(ex is SocketException)) AddError(ex);
 				Disconnect(true);
 				return;
 			}
@@ -725,7 +740,7 @@ namespace TNet
 				}
 				catch (System.Exception ex)
 				{
-					if (!(ex is SocketException)) RespondWithError(ex);
+					if (!(ex is SocketException)) AddError(ex);
 					Close(false);
 				}
 			}
@@ -891,16 +906,29 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Add an error packet to the incoming queue.
+		/// Send the specified error message packet.
 		/// </summary>
 
-		public void RespondWithError (string error) { RespondWithError(Buffer.Create(), error); }
+		public void SendError (string error)
+		{
+			var b = Buffer.Create();
+			b.BeginPacket(Packet.Error).Write(error);
+			b.EndPacket();
+			SendTcpPacket(b, true);
+			b.Recycle();
+		}
 
 		/// <summary>
 		/// Add an error packet to the incoming queue.
 		/// </summary>
 
-		public void RespondWithError (Exception ex)
+		public void AddError (string error) { AddError(Buffer.Create(), error); }
+
+		/// <summary>
+		/// Add an error packet to the incoming queue.
+		/// </summary>
+
+		public void AddError (Exception ex)
 		{
 #if UNITY_EDITOR
 			Debug.LogError(ex.Message + "\n" + ex.StackTrace);
@@ -909,20 +937,7 @@ namespace TNet
 			var error = ex.Message;
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-
-			if (mSocket != null && mSocket.Connected)
-			{
-				try
-				{
-					var before = mSocket.NoDelay;
-					if (!before) mSocket.NoDelay = true;
-					mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
-					if (!before) mSocket.NoDelay = false;
-					buffer.Recycle();
-				}
-				catch { lock (mIn) mIn.Enqueue(buffer); }
-			}
-			else lock (mIn) mIn.Enqueue(buffer);
+			lock (mOut) mIn.Enqueue(buffer);
 			LogError(ex.Message, ex.StackTrace, true);
 		}
 
@@ -930,27 +945,14 @@ namespace TNet
 		/// Add an error packet to the incoming queue.
 		/// </summary>
 
-		void RespondWithError (Buffer buffer, string error)
+		void AddError (Buffer buffer, string error)
 		{
 #if UNITY_EDITOR
 			Debug.LogError(error);
 #endif
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-
-			if (mSocket != null && mSocket.Connected)
-			{
-				try
-				{
-					var before = mSocket.NoDelay;
-					if (!before) mSocket.NoDelay = true;
-					mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
-					if (!before) mSocket.NoDelay = false;
-					buffer.Recycle();
-				}
-				catch { lock (mIn) mIn.Enqueue(buffer); }
-			}
-			else lock (mIn) mIn.Enqueue(buffer);
+			lock (mIn) mIn.Enqueue(buffer);
 		}
 
 		/// <summary>
@@ -1000,7 +1002,7 @@ namespace TNet
 				else
 				{
 					id = 0;
-					RespondWithError("Version mismatch! Server is running a different protocol version!");
+					AddError("Version mismatch! Server is running a different protocol version!");
 					Close(false);
 					return false;
 				}
@@ -1008,7 +1010,7 @@ namespace TNet
 			else if (packet == Packet.Error)
 			{
 				string text = reader.ReadString();
-				RespondWithError("Expected a response ID, got " + packet + ": " + text);
+				AddError("Expected a response ID, got " + packet + ": " + text);
 				Close(false);
 #if UNITY_EDITOR
 				UnityEngine.Debug.LogWarning("[TNet] VerifyResponseID expected ResponseID, got " + packet + ": " + text);
@@ -1016,7 +1018,7 @@ namespace TNet
 				return false;
 			}
 
-			RespondWithError("Expected a response ID, got " + packet);
+			AddError("Expected a response ID, got " + packet);
 			Close(false);
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("[TNet] VerifyResponseID expected ResponseID, got " + packet);

@@ -1566,7 +1566,13 @@ namespace TNet
 					bw.WriteObject(val);
 					EndSend();
 				}
+#if UNITY_EDITOR
+				else Debug.LogWarning("Trying to SetChannelData on a locked channel: " + channelID);
+#endif
 			}
+#if UNITY_EDITOR
+			else Debug.LogWarning("Calling SetChannelData with invalid parameters: " + channelID + " = " + (ch != null) + ", " + path);
+#endif
 		}
 
 		public delegate void OnGetChannels (List<Channel.Info> list);

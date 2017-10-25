@@ -22,7 +22,7 @@ public class TNAutoSyncInspector : Editor
 		List<Component> components = GetComponents(sync);
 		string[] names = GetComponentNames(components);
 
-		for (int i = 0; i < sync.entries.Count; )
+		for (int i = 0; i < sync.entries.Count;)
 		{
 			GUILayout.BeginHorizontal();
 			{
@@ -101,7 +101,7 @@ public class TNAutoSyncInspector : Editor
 	static bool DrawTarget (TNAutoSync sync, int index, List<Component> components, string[] names)
 	{
 		TNAutoSync.SavedEntry ent = sync.entries[index];
-		
+
 		if (ent.target == null)
 		{
 			ent.target = components[0];
@@ -114,7 +114,7 @@ public class TNAutoSyncInspector : Editor
 
 		int oldIndex = 0;
 		string tname = (ent.target != null) ? ent.target.GetType().ToString() : "<None>";
-		
+
 		for (int i = 1; i < names.Length; ++i)
 		{
 			if (names[i] == tname)
@@ -172,7 +172,7 @@ public class TNAutoSyncInspector : Editor
 			if (fields[i].Name == saved.propertyName) oldIndex = names.size;
 			names.Add(fields[i].Name);
 		}
-		
+
 		for (int i = 0; i < properties.Length; ++i)
 		{
 			PropertyInfo pi = properties[i];

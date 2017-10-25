@@ -30,7 +30,7 @@ public class TNTcpLobbyClient : TNLobbyClient
 				Tools.ResolveEndPoint(remoteAddress, remotePort);
 
 			if (mRemoteAddress == null)
-				mTcp.RespondWithError("Invalid address: " + remoteAddress + ":" + remotePort);
+				mTcp.AddError("Invalid address: " + remoteAddress + ":" + remotePort);
 		}
 	}
 

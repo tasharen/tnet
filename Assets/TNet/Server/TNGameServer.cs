@@ -1488,27 +1488,52 @@ namespace TNet
 				case Packet.RequestSetPlayerSave:
 				{
 					var path = reader.ReadString();
+					var type = (DataNode.SaveType)reader.ReadByte();
 
-					for (int i = 0; i < mPlayerList.size; ++i)
+					if (player.savePath != path)
 					{
-						var p = mPlayerList.buffer[i];
-						if (p == player) continue;
-
-						if (p.savePath == path)
+						if (string.IsNullOrEmpty(player.savePath))
 						{
-							player.RespondWithError("Player already connected");
-							player.Disconnect(true);
-							break;
+							// First time setting the save file -- make sure it's unique and remove the already connected player that shares the same save file
+							for (int i = 0; i < mPlayerList.size; ++i)
+							{
+								var existing = mPlayerList.buffer[i];
+								if (existing == player) continue;
+
+								if (existing.savePath == path)
+								{
+									existing.AddError("Connected from another location");
+									existing.SendError("Connected from another location");
+									RemovePlayer(existing);
+									break;
+								}
+							}
+						}
+						else
+						{
+							// Changing the save file -- make sure it doesn't conflict with any existing player
+							for (int i = 0; i < mPlayerList.size; ++i)
+							{
+								var existing = mPlayerList.buffer[i];
+								if (existing == player) continue;
+
+								if (existing.savePath == path)
+								{
+									player.AddError("Already connected");
+									player.SendError("Already connected");
+									RemovePlayer(player);
+									return false;
+								}
+							}
+
+							// Delete the previous save
+							Tools.DeleteFile(player.savePath);
 						}
 					}
 
-					// Delete the previous save
-					if (!string.IsNullOrEmpty(player.savePath))
-						Tools.DeleteFile(player.savePath);
-
 					// Load and set the player's data from the specified file
 					player.savePath = path;
-					player.saveType = (DataNode.SaveType)reader.ReadByte();
+					player.saveType = type;
 					player.dataNode = DataNode.Read(player.savePath);
 
 					// The player data must be valid at this point
