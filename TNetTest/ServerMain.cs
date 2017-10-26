@@ -183,15 +183,15 @@ public class Application : IDisposable
 					}
 					else if (command.StartsWith("admin "))
 					{
-						if (mGameServer != null) mGameServer.AddAdmin(command.Substring(4));
+						if (mGameServer != null) mGameServer.AddAdmin(command.Substring(6));
 					}
 					else if (command.StartsWith("unadmin "))
 					{
-						if (mGameServer != null) mGameServer.RemoveAdmin(command.Substring(6));
+						if (mGameServer != null) mGameServer.RemoveAdmin(command.Substring(8));
 					}
 					else if (command.StartsWith("kick "))
 					{
-						if (mGameServer != null) mGameServer.Kick(command.Substring(6));
+						if (mGameServer != null) mGameServer.Kick(command.Substring(5));
 					}
 					else if (command == "c")
 					{
