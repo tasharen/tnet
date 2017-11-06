@@ -310,7 +310,14 @@ namespace TNet
 
 		static public double Angle (Vector3D from, Vector3D to)
 		{
-			return Math.Acos(MathD.Clamp(Vector3D.Dot(from.normalized, to.normalized), -1d, 1d)) * 57.29578d;
+			return Math.Acos(Clamp(Dot(from.normalized, to.normalized), -1d, 1d)) * 57.29578d;
+		}
+
+		static double Clamp (double value, double min, double max)
+		{
+			if (value < min) value = min;
+			else if (value > max) value = max;
+			return value;
 		}
 
 		static public double Distance (Vector3D a, Vector3D b)
@@ -387,10 +394,7 @@ namespace TNet
 
 		public Vector3D Round ()
 		{
-			return new Vector3D(
-				MathD.Round(x),
-				MathD.Round(y),
-				MathD.Round(z));
+			return new Vector3D(Math.Round(x), Math.Round(y), Math.Round(z));
 		}
 #endif // STANDALONE
 	}

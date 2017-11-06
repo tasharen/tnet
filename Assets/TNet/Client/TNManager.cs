@@ -3,6 +3,8 @@
 // Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+//#define COUNT_PACKETS
+
 using System.IO;
 using UnityEngine;
 using System.Net;
@@ -642,7 +644,6 @@ namespace TNet
 		{
 			if (mInstance != null && mInstance.mLoadingLevel.size == 0)
 			{
-
 #if UNITY_EDITOR && UNITY_5_5_OR_NEWER
 				UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.ProcessPackets()");
 				mInstance.mClient.ProcessPackets();
@@ -653,6 +654,7 @@ namespace TNet
 #if UNITY_EDITOR
 				if (sentPackets > 60)
 				{
+#if COUNT_PACKETS
 					var sb = new System.Text.StringBuilder();
 					sb.Append("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
 
@@ -665,6 +667,9 @@ namespace TNet
 					}
 
 					Debug.LogWarning(sb.ToString());
+#else
+					Debug.LogWarning("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+#endif
 					ResetPacketCount();
 				}
 #endif
@@ -1824,7 +1829,7 @@ namespace TNet
 				rebuildMethodList = true;
 				DontDestroyOnLoad(gameObject);
 #if FORCE_EN_US
-			Tools.SetCurrentCultureToEnUS();
+				Tools.SetCurrentCultureToEnUS();
 #endif
 				AddRCCs<TNManager>();
 				SetDefaultCallbacks();
@@ -1868,6 +1873,10 @@ namespace TNet
 			mClient.onJoinChannel = delegate (int channelID, bool success, string message) { lastChannelID = channelID; };
 			mClient.onLeaveChannel = delegate (int channelID)
 			{
+				UnityEngine.Profiling.Profiler.BeginSample("CleanupChannelObjects");
+				TNObject.CleanupChannelObjects(channelID);
+				UnityEngine.Profiling.Profiler.EndSample();
+
 				if (lastChannelID == channelID)
 				{
 					var chs = channels;
@@ -1903,6 +1912,7 @@ namespace TNet
 			mClient.onTransfer = OnTransferObject;
 			mClient.onChangeOwner = OnChangeOwner;
 			mClient.onForwardedPacket = OnForwardedPacket;
+			mClient.onPlayerLeave = TNObject.OnPlayerLeave;
 		}
 
 		/// <summary>

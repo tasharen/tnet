@@ -3,6 +3,10 @@
 // Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+#define USE_MAX_PACKET_TIME
+//#define COUNT_PACKETS
+//#define PROFILE_PACKETS
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -22,6 +26,11 @@ namespace TNet
 
 	public class GameClient : TNEvents
 	{
+#if USE_MAX_PACKET_TIME
+		// Maximum amount of time to spend processing packets per frame, in milliseconds.
+		// Useful for breaking up a stream of packets, ensuring that they get processed across multiple frames.
+		const long MaxPacketTime = 20;
+#endif
 		/// <summary>
 		/// Custom packet listeners. You can set these to handle custom packets.
 		/// </summary>
@@ -360,6 +369,8 @@ namespace TNet
 		{
 			if (isConnected)
 			{
+				if (mJoining.Contains(channelID)) return false;
+
 				for (int i = 0; i < mChannels.size; ++i)
 				{
 					Channel ch = mChannels[i];
@@ -897,6 +908,9 @@ namespace TNet
 			EndSend();
 		}
 
+#if USE_MAX_PACKET_TIME
+		[System.NonSerialized] System.Diagnostics.Stopwatch mSw;
+#endif
 		/// <summary>
 		/// Process all incoming packets.
 		/// </summary>
@@ -922,6 +936,18 @@ namespace TNet
 			Buffer buffer = null;
 			bool keepGoing = true;
 
+#if USE_MAX_PACKET_TIME
+			if (mSw == null)
+			{
+				mSw = System.Diagnostics.Stopwatch.StartNew();
+			}
+			else
+			{
+				mSw.Reset();
+				mSw.Start();
+			}
+#endif
+
 #if !UNITY_WEBPLAYER
 			IPEndPoint ip = null;
 
@@ -937,9 +963,16 @@ namespace TNet
 				++mCountReceived;
 				keepGoing = ProcessPacket(buffer, null);
 				buffer.Recycle();
+#if USE_MAX_PACKET_TIME
+				if (isJoiningChannel && mSw.ElapsedMilliseconds > MaxPacketTime) break;
+#endif
 			}
 
 			if (mNextReset < mMyTime) ResetPacketCount();
+
+#if USE_MAX_PACKET_TIME
+			mSw.Stop();
+#endif
 		}
 
 		/// <summary>
@@ -953,13 +986,17 @@ namespace TNet
 			mReceived = mCountReceived;
 			mCountSent = 0;
 			mCountReceived = 0;
-#if UNITY_EDITOR
+#if UNITY_EDITOR && COUNT_PACKETS
 			var temp = TNObject.lastSentDictionary;
 			temp.Clear();
 			TNObject.lastSentDictionary = TNObject.sentDictionary;
 			TNObject.sentDictionary = temp;
 #endif
 		}
+
+#if PROFILE_PACKETS
+		System.Collections.Generic.Dictionary<int, string> mPacketNames = new Dictionary<int, string>();
+#endif
 
 		/// <summary>
 		/// Process a single incoming packet. Returns whether we should keep processing packets or not.
@@ -1000,11 +1037,25 @@ namespace TNet
 				return true;
 			}
 
+#if PROFILE_PACKETS
+			string packetName;
+
+			if (!mPacketNames.TryGetValue(packetID, out packetName))
+			{
+				packetName = response.ToString();
+				mPacketNames.Add(packetID, packetName);
+			}
+
+			UnityEngine.Profiling.Profiler.BeginSample(packetName);
+#endif
 			OnPacket callback;
 
 			if (packetHandlers.TryGetValue((byte)response, out callback) && callback != null)
 			{
 				callback(response, reader, ip);
+#if PROFILE_PACKETS
+				UnityEngine.Profiling.Profiler.EndSample();
+#endif
 				return true;
 			}
 
@@ -1139,6 +1190,9 @@ namespace TNet
 					int channelID = reader.ReadInt32();
 					string scene = reader.ReadString();
 					if (onLoadLevel != null) onLoadLevel(channelID, scene);
+#if PROFILE_PACKETS
+					UnityEngine.Profiling.Profiler.EndSample();
+#endif
 					return false;
 				}
 				case Packet.ResponsePlayerJoined:
@@ -1241,7 +1295,7 @@ namespace TNet
 
 					for (int i = 0; i < mChannels.size; ++i)
 					{
-						Channel ch = mChannels[i];
+						var ch = mChannels[i];
 
 						if (ch.id == channelID)
 						{
@@ -1252,7 +1306,9 @@ namespace TNet
 
 					RebuildPlayerDictionary();
 					if (onLeaveChannel != null) onLeaveChannel(channelID);
-
+#if PROFILE_PACKETS
+					UnityEngine.Profiling.Profiler.EndSample();
+#endif
 					// Purposely exit after receiving a "left channel" notification so that other packets get handled in the next frame.
 					return false;
 				}
@@ -1473,6 +1529,9 @@ namespace TNet
 					break;
 				}
 			}
+#if PROFILE_PACKETS
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 			return true;
 		}
 
@@ -1491,7 +1550,7 @@ namespace TNet
 				for (int b = 0; b < ch.players.size; ++b)
 				{
 					Player p = ch.players[b];
-					mDictionary[p.id] = p;
+					if (!mDictionary.ContainsKey(p.id)) mDictionary[p.id] = p;
 				}
 			}
 		}

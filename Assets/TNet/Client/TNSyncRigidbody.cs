@@ -55,9 +55,9 @@ namespace TNet
 			mRb = GetComponent<Rigidbody>();
 		}
 
-		protected override void Start ()
+		public override void OnStart ()
 		{
-			base.Start();
+			base.OnStart();
 			mLastRot = mTrans.rotation;
 			UpdateInterval();
 #if W2

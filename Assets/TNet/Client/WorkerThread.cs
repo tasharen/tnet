@@ -38,6 +38,7 @@ namespace TNet
 
 		public delegate bool BoolFunc ();
 		public delegate void VoidFunc ();
+		public delegate System.Collections.IEnumerator EnumFunc ();
 
 		// Actual worker thread
 		Thread[] mThreads = null;
@@ -49,7 +50,9 @@ namespace TNet
 			public VoidFunc finished;
 			public BoolFunc mainBool;       // Return 'true' when done, 'false' to execute again next update
 			public BoolFunc finishedBool;   // Return 'true' when done, 'false' to execute again next update
+			public EnumFunc finishedEnum;
 			public long milliseconds = 0;
+			public System.Collections.IEnumerator en;
 		}
 
 		// List of callbacks executed in order by the worker thread
@@ -236,7 +239,7 @@ namespace TNet
 										ent.milliseconds += sw.ElapsedMilliseconds;
 
 										active.RemoveAt(b);
-										if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
+										if (ent.finished != null || ent.finishedBool != null || ent.finishedEnum != null) lock (mFinished) mFinished.Enqueue(ent);
 										else lock (mUnused) mUnused.Add(ent);
 										mLoad[threadID] = active.size;
 									}
@@ -245,7 +248,7 @@ namespace TNet
 										ent.milliseconds += sw.ElapsedMilliseconds;
 
 										active.RemoveAt(b);
-										if (ent.finished != null || ent.finishedBool != null) lock (mFinished) mFinished.Enqueue(ent);
+										if (ent.finished != null || ent.finishedBool != null || ent.finishedEnum != null) lock (mFinished) mFinished.Enqueue(ent);
 										else lock (mUnused) mUnused.Add(ent);
 										mLoad[threadID] = active.size;
 									}
@@ -352,19 +355,48 @@ namespace TNet
 						{
 							ent.finished();
 						}
-						else if (ent.finishedBool != null && !ent.finishedBool())
+						else if (ent.finishedEnum != null)
 						{
-							var elapsed = mStopwatch.ElapsedMilliseconds;
-							ent.milliseconds += elapsed - mLoopStart;
-							mTemp.Add(ent);
-							if (elapsed > maxMillisecondsPerFrame) break;
-							continue;
+							if (ent.en == null) ent.en = ent.finishedEnum();
+
+							var keepGoing = false;
+
+							while (ent.en.MoveNext())
+							{
+								var elapsed = mStopwatch.ElapsedMilliseconds;
+
+								if (elapsed > maxMillisecondsPerFrame)
+								{
+									ent.milliseconds += elapsed - mLoopStart;
+									keepGoing = true;
+									break;
+								}
+							}
+
+							if (keepGoing)
+							{
+								mTemp.Add(ent);
+								continue;
+							}
+						}
+						else if (ent.finishedBool != null)
+						{
+							if (!ent.finishedBool())
+							{
+								var elapsed = mStopwatch.ElapsedMilliseconds;
+								ent.milliseconds += elapsed - mLoopStart;
+								mTemp.Add(ent);
+								if (elapsed > maxMillisecondsPerFrame) break;
+								continue;
+							}
 						}
 
 						ent.main = null;
 						ent.finished = null;
 						ent.mainBool = null;
 						ent.finishedBool = null;
+						ent.finishedEnum = null;
+						ent.en = null;
 
 						lock (mUnused) mUnused.Add(ent);
 
@@ -412,6 +444,51 @@ namespace TNet
 
 			ent.main = main;
 			ent.finished = finished;
+			ent.milliseconds = 0;
+
+			if (main != null)
+			{
+				if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
+				else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
+			}
+			else lock (mInstance.mFinished) mInstance.mFinished.Enqueue(ent);
+#endif
+		}
+
+		/// <summary>
+		/// Add a new callback function to the worker thread.
+		/// </summary>
+
+		static public void Create (VoidFunc main, EnumFunc finished, bool highPriority = false)
+		{
+#if SINGLE_THREADED
+			if (main != null) main();
+			while (finished().MoveNext()) {}
+#else
+			if (mInstance == null)
+			{
+#if UNITY_EDITOR
+				if (!Application.isPlaying)
+				{
+					if (main != null) main();
+					if (finished != null) finished();
+					return;
+				}
+#endif
+				var go = new GameObject("Worker Thread");
+				mInstance = go.AddComponent<WorkerThread>();
+			}
+
+			Entry ent;
+
+			if (mInstance.mUnused.size != 0)
+			{
+				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
+			}
+			else ent = new Entry();
+
+			ent.main = main;
+			ent.finishedEnum = finished;
 			ent.milliseconds = 0;
 
 			if (main != null)

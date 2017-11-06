@@ -296,29 +296,40 @@ namespace TNet
 
 		public DataNode GetHierarchy (string path)
 		{
-			path = path.Replace("\\", "/");
-			string[] split = path.Split('/');
-			DataNode node = this;
-			int index = 0;
+			if (path.IndexOf('\\') != -1) path = path.Replace("\\", "/");
 
-			while (node != null && index < split.Length)
+			if (path.IndexOf('/') != -1)
 			{
-				bool found = false;
+#if UNITY_EDITOR && !UNITY_4_7
+				UnityEngine.Profiling.Profiler.BeginSample("DataNode.GetHierarchy(path)");
+#endif
+				string[] split = path.Split('/');
+				DataNode node = this;
+				int index = 0;
 
-				for (int i = 0; i < node.children.size; ++i)
+				while (node != null && index < split.Length)
 				{
-					if (node.children[i].name == split[index])
-					{
-						node = node.children[i];
-						++index;
-						found = true;
-						break;
-					}
-				}
+					bool found = false;
 
-				if (!found) return null;
+					for (int i = 0; i < node.children.size; ++i)
+					{
+						if (node.children[i].name == split[index])
+						{
+							node = node.children[i];
+							++index;
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) return null;
+				}
+#if UNITY_EDITOR && !UNITY_4_7
+				UnityEngine.Profiling.Profiler.EndSample();
+#endif
+				return node;
 			}
-			return node;
+			return GetChild(path);
 		}
 
 		/// <summary>
