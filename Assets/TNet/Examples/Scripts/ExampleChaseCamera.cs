@@ -21,9 +21,9 @@ public class ExampleChaseCamera : TNBehaviour
 	Quaternion mRot;
 	Transform mTrans;
 
-	protected override void Start ()
+	public override void OnStart ()
 	{
-		base.Start();
+		base.OnStart();
 
 		if (tno == null || tno.isMine)
 		{

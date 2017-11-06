@@ -252,7 +252,7 @@ namespace TNet
 
 		static public double Angle (Vector2D from, Vector2D to)
 		{
-			return Math.Acos(MathD.Clamp(Vector2D.Dot(from.normalized, to.normalized), -1d, 1d)) * 57.29578d;
+			return Math.Acos(Vector3D.Clamp(Dot(from.normalized, to.normalized), -1d, 1d)) * 57.29578d;
 		}
 
 		static public double Distance (Vector2D a, Vector2D b)

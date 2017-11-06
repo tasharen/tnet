@@ -313,7 +313,7 @@ namespace TNet
 			return Math.Acos(Clamp(Dot(from.normalized, to.normalized), -1d, 1d)) * 57.29578d;
 		}
 
-		static double Clamp (double value, double min, double max)
+		static public double Clamp (double value, double min, double max)
 		{
 			if (value < min) value = min;
 			else if (value > max) value = max;
