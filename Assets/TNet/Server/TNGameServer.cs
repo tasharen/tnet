@@ -100,7 +100,7 @@ namespace TNet
 		protected Dictionary<int, Channel> mChannelDict = new Dictionary<int, Channel>();
 
 		// List of admin keywords
-		protected List<string> mAdmin = new List<string>();
+		protected HashSet<string> mAdmin = new HashSet<string>();
 
 		// Random number generator.
 		protected System.Random mRandom = new System.Random();
@@ -132,6 +132,20 @@ namespace TNet
 			if (!string.IsNullOrEmpty(s) && !list.Contains(s))
 			{
 				list.Add(s);
+				return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Add a new entry to the list. Returns 'true' if a new entry was added.
+		/// </summary>
+
+		static bool AddUnique (HashSet<string> hash, string s)
+		{
+			if (!string.IsNullOrEmpty(s) && !hash.Contains(s))
+			{
+				hash.Add(s);
 				return true;
 			}
 			return false;
@@ -271,7 +285,7 @@ namespace TNet
 
 		public void LoadAdminList ()
 		{
-			Tools.Print("Admins: " + (Tools.LoadList(adminFilePath, mAdmin) ? mAdmin.size.ToString() : "file not found"));
+			Tools.Print("Admins: " + (Tools.LoadList(adminFilePath, mAdmin) ? mAdmin.Count.ToString() : "file not found"));
 		}
 
 		/// <summary>
@@ -296,13 +310,16 @@ namespace TNet
 			LoadBanList();
 			LoadAdminList();
 
+			var remove = new List<string>();
+
 			// Banning by IPs is only good as a temporary measure
-			for (int i = mBan.size; i > 0;)
+			foreach (var ban in mBan)
 			{
 				IPAddress ip;
-				if (IPAddress.TryParse(mBan[--i], out ip))
-					mBan.RemoveAt(i);
+				if (IPAddress.TryParse(ban, out ip)) remove.Add(ban);
 			}
+
+			foreach (var rem in remove) mBan.Remove(rem);
 
 			if (tcpPort > 0 && !Listen(tcpPort)) return false;
 
@@ -1797,11 +1814,13 @@ namespace TNet
 					string s = reader.ReadString();
 
 					// First administrator can't be removed
-					if (player.isAdmin && (mAdmin.size == 0 || mAdmin[0] != s))
+					if (player.isAdmin)
 					{
-						mAdmin.Remove(s);
-						player.Log("Removed an admin (" + s + ")");
-						SaveAdminList();
+						if (mAdmin.Remove(s))
+						{
+							player.Log("Removed an admin (" + s + ")");
+							SaveAdminList();
+						}
 					}
 					else
 					{
@@ -2779,7 +2798,7 @@ namespace TNet
 		/// Add this keyword to the admin list.
 		/// </summary>
 
-		public void AddAdmin (string keyword) { mAdmin.Add(keyword, true); }
+		public void AddAdmin (string keyword) { if (!mAdmin.Contains(keyword)) mAdmin.Add(keyword); }
 
 		/// <summary>
 		/// Remove this keyword from the admin list.

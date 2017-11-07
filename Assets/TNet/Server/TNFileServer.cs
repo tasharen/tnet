@@ -28,7 +28,7 @@ namespace TNet
 		protected Dictionary<string, byte[]> mSavedFiles = new Dictionary<string, byte[]>();
 
 		// List of banned keywords
-		protected List<string> mBan = new List<string>();
+		protected HashSet<string> mBan = new HashSet<string>();
 
 		/// <summary>
 		/// Save the specified file.
@@ -80,7 +80,7 @@ namespace TNet
 
 		public void LoadBanList ()
 		{
-			Tools.Print("Bans: " + (Tools.LoadList(banFilePath, mBan) ? mBan.size.ToString() : "file not found"));
+			Tools.Print("Bans: " + (Tools.LoadList(banFilePath, mBan) ? mBan.Count.ToString() : "file not found"));
 		}
 
 		/// <summary>
@@ -127,8 +127,7 @@ namespace TNet
 		public bool IsBanned (string keyword)
 		{
 			if (string.IsNullOrEmpty(keyword)) return false;
-			for (int i = 0; i < mBan.size; ++i) { if (mBan[i] == keyword || mBan[i].Contains(keyword)) return true; }
-			return false;
+			return mBan.Contains(keyword);
 		}
 	}
 }

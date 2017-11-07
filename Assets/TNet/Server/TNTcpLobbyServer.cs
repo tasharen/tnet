@@ -76,7 +76,7 @@ namespace TNet
 				return false;
 			}
 
-			Tools.Print("Bans: " + mBan.size);
+			Tools.Print("Bans: " + mBan.Count);
 			Tools.Print("TCP Lobby Server started on port " + listenPort);
 #else
 			catch (System.Exception) { return false; }
@@ -370,7 +370,7 @@ namespace TNet
 					ServerList.Entry ent = new ServerList.Entry();
 					ent.ReadFrom(reader);
 
-					if (mBan.size != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;
+					if (mBan.Count != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;
 
 					if (ent.externalAddress.Address.Equals(IPAddress.None) ||
 						ent.externalAddress.Address.Equals(IPAddress.IPv6None))

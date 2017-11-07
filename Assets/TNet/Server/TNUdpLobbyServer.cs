@@ -54,7 +54,7 @@ namespace TNet
 			mUdp = new UdpProtocol("Lobby Server");
 			if (!mUdp.Start(listenPort, UdpProtocol.defaultBroadcastInterface)) return false;
 #if STANDALONE
-			Tools.Print("Bans: " + mBan.size);
+			Tools.Print("Bans: " + mBan.Count);
 			Tools.Print("UDP Lobby Server started on port " + listenPort + " using interface " + UdpProtocol.defaultNetworkInterface);
 #endif
 			mThread = Tools.CreateThread(ThreadFunction);
@@ -132,7 +132,7 @@ namespace TNet
 
 		bool ProcessPacket (Buffer buffer, IPEndPoint ip)
 		{
-			if (mBan.size != 0 && mBan.Contains(ip.Address.ToString())) return false;
+			if (mBan.Count != 0 && mBan.Contains(ip.Address.ToString())) return false;
 
 			var reader = buffer.BeginReading();
 			var request = (Packet)reader.ReadByte();
@@ -154,7 +154,7 @@ namespace TNet
 					var ent = new ServerList.Entry();
 					ent.ReadFrom(reader);
 
-					if (mBan.size != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;
+					if (mBan.Count != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;
 
 					if (ent.externalAddress.Address.Equals(IPAddress.None) ||
 						ent.externalAddress.Address.Equals(IPAddress.IPv6None))

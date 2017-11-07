@@ -1179,6 +1179,65 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Save this configuration list.
+		/// </summary>
+
+		static internal void SaveList (string path, System.Collections.Generic.HashSet<string> hash)
+		{
+			if (hash.Count > 0)
+			{
+				if (!File.Exists(path) && !string.IsNullOrEmpty(Tools.applicationDirectory))
+					path = Tools.GetDocumentsPath(path);
+
+				string dir = Path.GetDirectoryName(path);
+				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+					Directory.CreateDirectory(dir);
+
+				StreamWriter sw = new StreamWriter(path, false);
+				foreach (var s in hash) sw.WriteLine(s);
+				sw.Close();
+			}
+			else Tools.DeleteFile(path);
+		}
+
+		/// <summary>
+		/// Helper function that loads a list from within specified file.
+		/// </summary>
+
+		static internal bool LoadList (string path, System.Collections.Generic.HashSet<string> hash)
+		{
+			if (path == null) return false;
+
+			hash.Clear();
+
+			bool exists = false;
+
+			if (File.Exists(path))
+			{
+				exists = true;
+			}
+			else if (!string.IsNullOrEmpty(Tools.applicationDirectory))
+			{
+				path = Tools.GetDocumentsPath(path);
+				if (File.Exists(path)) exists = true;
+			}
+
+			if (exists)
+			{
+				var reader = new StreamReader(path);
+
+				while (!reader.EndOfStream)
+				{
+					string s = reader.ReadLine();
+					if (!string.IsNullOrEmpty(s)) hash.Add(s);
+					else break;
+				}
+				reader.Close();
+			}
+			return exists;
+		}
+
+		/// <summary>
 		/// Format the version number like 1122334 into 2011-22-33.4
 		/// </summary>
 
