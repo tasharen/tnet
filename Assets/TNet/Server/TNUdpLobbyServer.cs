@@ -46,7 +46,7 @@ namespace TNet
 		{
 			Stop();
 
-			Tools.LoadList("LobbyConfig/ban.txt", mBan);
+			Tools.LoadList(banFilePath, mBan);
 
 #if FORCE_EN_US
 			Tools.SetCurrentCultureToEnUS();
@@ -80,7 +80,7 @@ namespace TNet
 				mUdp.Stop();
 				mUdp = null;
 
-				Tools.LoadList("LobbyConfig/ban.txt", mBan);
+				Tools.LoadList(banFilePath, mBan);
 			}
 			mList.Clear();
 		}

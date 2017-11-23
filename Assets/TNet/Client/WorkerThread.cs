@@ -353,11 +353,15 @@ namespace TNet
 
 						if (ent.finished != null)
 						{
+							//UnityEngine.Profiling.Profiler.BeginSample("Finished: " + (ent.finished.Target != null ? ent.finished.Target.GetType().ToString() : "null") + "." + ent.finished.Method.Name);
 							ent.finished();
+							//UnityEngine.Profiling.Profiler.EndSample();
 						}
 						else if (ent.finishedEnum != null)
 						{
 							if (ent.en == null) ent.en = ent.finishedEnum();
+
+							//UnityEngine.Profiling.Profiler.BeginSample("FinishedEnum: " + (ent.finishedEnum.Target != null ? ent.finishedEnum.Target.GetType().ToString() : "null") + "." + ent.finishedEnum.Method.Name);
 
 							var keepGoing = false;
 
@@ -372,6 +376,8 @@ namespace TNet
 									break;
 								}
 							}
+
+							//UnityEngine.Profiling.Profiler.EndSample();
 
 							if (keepGoing)
 							{

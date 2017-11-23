@@ -3,6 +3,8 @@
 // Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+//#define DEBUG_PACKETS
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -17,6 +19,18 @@ using UnityEngine;
 
 namespace TNet
 {
+	/// <summary>
+	/// For additional custom implementations, such as Steam's P2P networking.
+	/// </summary>
+
+	public interface IConnection
+	{
+		bool isConnected { get; }
+		bool SendPacket (Buffer buffer);
+		void ReceivePacket (out Buffer buffer);
+		void OnDisconnect ();
+	}
+
 	/// <summary>
 	/// Common network communication-based logic: sending and receiving of data via TCP.
 	/// </summary>
@@ -89,6 +103,12 @@ namespace TNet
 		IPEndPoint mFallback;
 		List<Socket> mConnecting = new List<Socket>();
 
+		/// <summary>
+		/// Custom connection, if used. This works in addition to the existing socket-based approach. An example would be using Steamworks' P2P networking.
+		/// </summary>
+
+		[System.NonSerialized] public IConnection custom;
+
 		// Static as it's temporary
 		static Buffer mBuffer;
 
@@ -121,7 +141,7 @@ namespace TNet
 		/// In most cases you should use 'isConnected' instead.
 		/// </summary>
 
-		public bool isSocketConnected { get { return mSocket != null && mSocket.Connected; } }
+		public bool isSocketConnected { get { return (mSocket != null && mSocket.Connected) || (custom != null && custom.isConnected); } }
 
 		/// <summary>
 		/// Whether we are currently trying to establish a new connection.
@@ -345,15 +365,7 @@ namespace TNet
 					}
 				}
 
-				if (mSocket != null)
-				{
-					Close(notify || mSocket.Connected);
-				}
-				else if (sendQueue != null)
-				{
-					Close(true);
-					sendQueue = null;
-				}
+				Close(notify || isSocketConnected);
 			}
 			catch (System.Exception)
 			{
@@ -377,15 +389,20 @@ namespace TNet
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
 
-			if (mSocket != null)
+			if (mSocket != null || custom != null)
 			{
-				try
+				if (mSocket != null)
 				{
-					if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
-					mSocket.Close();
+					try
+					{
+						if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
+						mSocket.Close();
+					}
+					catch (System.Exception) { }
+					mSocket = null;
 				}
-				catch (System.Exception) { }
-				mSocket = null;
+
+				if (custom != null) custom.OnDisconnect();
 
 				if (notify)
 				{
@@ -481,6 +498,12 @@ namespace TNet
 			if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
 				UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
 #endif
+			if (custom != null && (custom.SendPacket(buffer) || mSocket == null || !mSocket.Connected))
+			{
+				buffer.Recycle();
+				return;
+			}
+
 			if (mSocket != null && mSocket.Connected)
 			{
 				lock (mOut)
@@ -685,14 +708,26 @@ namespace TNet
 
 		public bool ReceivePacket (out Buffer buffer)
 		{
-			lock (mIn)
+			if (custom != null)
 			{
-				if (mIn.Count != 0)
+				custom.ReceivePacket(out buffer);
+
+				if (buffer != null)
+				{
+					lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
+					return buffer != null;
+				}
+			}
+
+			if (mIn.Count != 0)
+			{
+				lock (mIn)
 				{
 					buffer = mIn.Dequeue();
 					return buffer != null;
 				}
 			}
+
 			buffer = null;
 			return false;
 		}
@@ -721,6 +756,7 @@ namespace TNet
 				Disconnect(true);
 				return;
 			}
+
 			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
 			if (bytes == 0)
@@ -857,6 +893,12 @@ namespace TNet
 			}
 			return true;
 		}
+
+		/// <summary>
+		/// Add this packet to the incoming queue.
+		/// </summary>
+
+		public void AddPacket (Buffer buff) { lock (mIn) mIn.Enqueue(buff); lastReceivedTime = DateTime.UtcNow.Ticks / 10000; }
 
 		/// <summary>
 		/// Log an error message.

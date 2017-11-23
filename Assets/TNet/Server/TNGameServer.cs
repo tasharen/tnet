@@ -3,6 +3,8 @@
 // Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+//#define DEBUG_PACKETS
+
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -31,11 +33,13 @@ namespace TNet
 		public const bool isMultiThreaded = true;
 #endif
 
+		public const string defaultAdminPath = "ServerConfig/admin.txt";
+
 		/// <summary>
 		/// Path to the admin file. Can generally be left untouched, unless you really want to change it.
 		/// </summary>
 
-		public string adminFilePath = "ServerConfig/admin.txt";
+		public string adminFilePath = defaultAdminPath;
 
 		/// <summary>
 		/// You will want to make this a unique value.
@@ -83,6 +87,12 @@ namespace TNet
 		/// </summary>
 
 		public LobbyServerLink lobbyLink;
+
+		/// <summary>
+		/// Custom delegate called from the packet receiving thread.
+		/// </summary>
+
+		public System.Action onReceivePackets;
 
 		// List of players in a consecutive order for each looping.
 		protected List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
@@ -205,6 +215,12 @@ namespace TNet
 
 		public int playerCount { get { return isActive ? mPlayerDict.Count : 0; } }
 
+		/// <summary>
+		/// List of connected players.
+		/// </summary>
+
+		public List<TcpPlayer> players { get { return isActive ? mPlayerList : null; } }
+
 #if !STANDALONE
 		/// <summary>
 		/// Set to a client instance if not using sockets.
@@ -285,14 +301,14 @@ namespace TNet
 
 		public void LoadAdminList ()
 		{
-			Tools.Print("Admins: " + (Tools.LoadList(adminFilePath, mAdmin) ? mAdmin.Count.ToString() : "file not found"));
+			Tools.Print("Admins: " + (Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? adminFilePath : Path.Combine(rootDirectory, adminFilePath), mAdmin) ? mAdmin.Count.ToString() : "file not found"));
 		}
 
 		/// <summary>
 		/// Save the admin list back to the external file.
 		/// </summary>
 
-		public void SaveAdminList () { Tools.SaveList(adminFilePath, mAdmin); }
+		public void SaveAdminList () { Tools.SaveList(string.IsNullOrEmpty(rootDirectory) ? adminFilePath : Path.Combine(rootDirectory, adminFilePath), mAdmin); }
 
 		/// <summary>
 		/// Start listening to incoming connections on the specified port.
@@ -473,7 +489,10 @@ namespace TNet
 						}
 					}
 
-					// Process datagrams first
+					// Process custom packets
+					if (onReceivePackets != null) onReceivePackets();
+
+					// Process datagrams
 					while (mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
 					{
 						if (buffer.size > 0)
@@ -487,7 +506,7 @@ namespace TNet
 								try
 								{
 #if SINGLE_THREADED
-								ProcessPlayerPacket(buffer, player, false);
+									ProcessPlayerPacket(buffer, player, false);
 #else
 									if (ProcessPlayerPacket(buffer, player, false)) received = true;
 #endif
@@ -559,7 +578,7 @@ namespace TNet
 							if (buffer.size > 0)
 							{
 #if SINGLE_THREADED
-							ProcessPlayerPacket(buffer, player, true);
+								ProcessPlayerPacket(buffer, player, true);
 #else
 								try
 								{
@@ -624,12 +643,28 @@ namespace TNet
 		/// Add a new player entry.
 		/// </summary>
 
-		protected TcpPlayer AddPlayer (Socket socket)
+		public TcpPlayer AddPlayer (Socket socket)
 		{
-			TcpPlayer player = new TcpPlayer();
+			var player = new TcpPlayer();
 			player.id = 0;
 			player.name = "Guest";
+			player.stage = TcpProtocol.Stage.Verifying;
 			player.StartReceiving(socket);
+			mPlayerList.Add(player);
+			return player;
+		}
+
+		/// <summary>
+		/// Add a new player entry.
+		/// </summary>
+
+		public TcpPlayer AddPlayer (IConnection p)
+		{
+			var player = new TcpPlayer();
+			player.id = 0;
+			player.name = "Guest";
+			player.custom = p;
+			player.stage = TcpProtocol.Stage.Verifying;
 			mPlayerList.Add(player);
 			return player;
 		}
@@ -638,7 +673,33 @@ namespace TNet
 		/// Remove the specified player.
 		/// </summary>
 
-		protected void RemovePlayer (TcpPlayer p)
+		public void RemovePlayer (IConnection p)
+		{
+			var ex = FindPlayer(p);
+			if (ex != null) RemovePlayer(ex);
+		}
+
+		/// <summary>
+		/// Find a player with the specified custom protocol.
+		/// </summary>
+
+		public TcpPlayer FindPlayer (IConnection p)
+		{
+			if (p == null) return null;
+
+			for (int i = 0; i < mPlayerList.size; ++i)
+			{
+				var ex = mPlayerList.buffer[i];
+				if (ex.custom == p) return ex;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Remove the specified player.
+		/// </summary>
+
+		public void RemovePlayer (TcpPlayer p)
 		{
 			if (p != null)
 			{
@@ -654,6 +715,12 @@ namespace TNet
 					mDictionaryEP.Remove(p.udpEndPoint);
 					p.udpEndPoint = null;
 					p.udpIsUsable = false;
+				}
+
+				if (p.custom != null)
+				{
+					p.custom.OnDisconnect();
+					p.custom = null;
 				}
 
 				if (p.id != 0)
@@ -1278,6 +1345,9 @@ namespace TNet
 			{
 				if (player.VerifyRequestID(reader, buffer, true))
 				{
+#if DEBUG_PACKETS && !STANDALONE
+					Debug.Log("Protocol verified");
+#endif
 					player.isAdmin = (player.address == null ||
 						player.address == "0.0.0.0:0" ||
 						player.address.StartsWith("127.0.0.1:"));
@@ -1332,11 +1402,11 @@ namespace TNet
 
 #if DEBUG_PACKETS && !STANDALONE
 #if UNITY_EDITOR
-		if (request != Packet.RequestPing && request != Packet.ResponsePing)
-			UnityEngine.Debug.Log("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
+			if (request != Packet.RequestPing && request != Packet.ResponsePing)
+				UnityEngine.Debug.Log(player.name + ": " + request + " (" + buffer.size.ToString("N0") + " bytes)");
 #elif !SINGLE_THREADED
-		if (request != Packet.RequestPing && request != Packet.ResponsePing)
-			Tools.Print("Server: " + request + " (" + buffer.size.ToString("N0") + " bytes)");
+			if (request != Packet.RequestPing && request != Packet.ResponsePing)
+				Tools.Print(player.name + ": " + request + " (" + buffer.size.ToString("N0") + " bytes)");
 #endif
 #endif
 			switch (request)
@@ -1551,7 +1621,7 @@ namespace TNet
 					// Load and set the player's data from the specified file
 					player.savePath = path;
 					player.saveType = type;
-					player.dataNode = DataNode.Read(player.savePath);
+					player.dataNode = DataNode.Read(string.IsNullOrEmpty(rootDirectory) ? player.savePath : Path.Combine(rootDirectory, player.savePath));
 
 					// The player data must be valid at this point
 					if (player.dataNode == null) player.dataNode = new DataNode("Version", Player.version);
@@ -1774,6 +1844,8 @@ namespace TNet
 				case Packet.RequestVerifyAdmin:
 				{
 					string pass = reader.ReadString();
+
+					if (mAdmin.Count == 0) { mAdmin.Add(pass); SaveAdminList(); }
 
 					if (!string.IsNullOrEmpty(pass) && mAdmin.Contains(pass))
 					{
@@ -2726,7 +2798,7 @@ namespace TNet
 			{
 				try
 				{
-					byte[] data = File.ReadAllBytes(mFilename + ".config");
+					var data = Tools.ReadFile(mFilename + ".config");
 					mServerData = DataNode.Read(data, DataNode.SaveType.Text);
 				}
 				catch (Exception) { mServerData = null; }
@@ -2743,25 +2815,27 @@ namespace TNet
 
 		public bool Load (string fileName)
 		{
+			if (!string.IsNullOrEmpty(rootDirectory)) fileName = Path.Combine(rootDirectory, fileName);
+
 			mFilename = fileName;
 			mNextSave = 0;
 
 #if UNITY_WEBPLAYER || UNITY_FLASH
-		// There is no file access in the web player.
-		return false;
+			// There is no file access in the web player.
+			return false;
 #else
 			LoadConfig();
 
-			byte[] bytes = Tools.ReadFile(fileName);
+			var bytes = Tools.ReadFile(fileName);
 			if (bytes == null) return false;
 
-			MemoryStream stream = new MemoryStream(bytes);
+			var stream = new MemoryStream(bytes);
 
 			lock (mLock)
 			{
 				try
 				{
-					BinaryReader reader = new BinaryReader(stream);
+					var reader = new BinaryReader(stream);
 
 					int channels = reader.ReadInt32();
 
@@ -2769,7 +2843,7 @@ namespace TNet
 					{
 						int chID = reader.ReadInt32();
 						bool isNew;
-						Channel ch = CreateChannel(chID, out isNew);
+						var ch = CreateChannel(chID, out isNew);
 						if (isNew) ch.LoadFrom(reader);
 					}
 				}

@@ -274,7 +274,7 @@ namespace TNet
 							return;
 				}
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogWarning("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
+				UnityEngine.Debug.LogWarning("[TNet] " + value + " is not one of the local IP addresses. Strange things may happen.");
 #else
 				Tools.Print(value + " is not one of the local IP addresses. Strange things may happen.");
 #endif
@@ -836,6 +836,18 @@ namespace TNet
 			}
 #endif
 			return false;
+		}
+
+		/// <summary>
+		/// Get the directlry the specified file resides in.
+		/// </summary>
+
+		static public string GetDirectoryFromPath (string path)
+		{
+			if (path.Contains("\\")) path = path.Replace('\\', '/');
+			int pos = path.LastIndexOf('/');
+			if (pos == -1) return "";
+			return path.Substring(0, pos + 1);
 		}
 
 		/// <summary>

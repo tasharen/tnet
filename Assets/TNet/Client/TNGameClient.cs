@@ -50,6 +50,24 @@ namespace TNet
 		// TCP connection is the primary method of communication with the server.
 		TcpProtocol mTcp = new TcpProtocol();
 
+		/// <summary>
+		/// TCP Protocol the client is using.
+		/// </summary>
+
+		public TcpProtocol protocol { get { return mTcp; } }
+
+		/// <summary>
+		/// Custom protocol, if used.
+		/// </summary>
+
+		public IConnection custom { get { return mTcp.custom; } set { mTcp.custom = value; } }
+
+		/// <summary>
+		/// Current connection stage.
+		/// </summary>
+
+		public TcpProtocol.Stage stage { get { return mTcp.stage; } set { mTcp.stage = value; } }
+
 #if !UNITY_WEBPLAYER
 		// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 		// UDP is not available in the Unity web player because using UDP packets makes Unity request the
@@ -583,7 +601,7 @@ namespace TNet
 #if UNITY_EDITOR
 				writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Editor" : mTcp.name);
 #else
-			writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name);
+				writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name);
 #endif
 				writer.Write(mTcp.dataNode);
 				EndSend();
@@ -961,7 +979,9 @@ namespace TNet
 			while (keepGoing && isActive && mTcp.ReceivePacket(out buffer))
 			{
 				++mCountReceived;
+				UnityEngine.Profiling.Profiler.BeginSample("ProcessPacket");
 				keepGoing = ProcessPacket(buffer, null);
+				UnityEngine.Profiling.Profiler.EndSample();
 				buffer.Recycle();
 #if USE_MAX_PACKET_TIME
 				if (isJoiningChannel && mSw.ElapsedMilliseconds > MaxPacketTime) break;
@@ -995,7 +1015,7 @@ namespace TNet
 		}
 
 #if PROFILE_PACKETS
-		System.Collections.Generic.Dictionary<int, string> mPacketNames = new Dictionary<int, string>();
+		[System.NonSerialized] static System.Collections.Generic.Dictionary<int, string> mPacketNames = new Dictionary<int, string>();
 #endif
 
 		/// <summary>

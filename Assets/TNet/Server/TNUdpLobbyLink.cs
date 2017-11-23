@@ -121,7 +121,7 @@ public class UdpLobbyServerLink : LobbyServerLink
 			{
 				mNextSend = time + 3000;
 				Buffer buffer = Buffer.Create();
-				BinaryWriter writer = buffer.BeginPacket(Packet.RequestAddServer);
+				var writer = buffer.BeginPacket(Packet.RequestAddServer);
 				writer.Write(GameServer.gameID);
 				writer.Write(mGameServer.name);
 				writer.Write((short)mGameServer.playerCount);

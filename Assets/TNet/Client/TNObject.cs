@@ -26,6 +26,7 @@ namespace TNet
 
 		// List of network objs to quickly look up
 		static Dictionary<int, Dictionary<uint, TNObject>> mDictionary = new Dictionary<int, Dictionary<uint, TNObject>>();
+		static Stack<TNet.List<TNObject>> mUnused;
 
 		/// <summary>
 		/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
@@ -557,6 +558,10 @@ namespace TNet
 				if (item) Destroy(item.gameObject);
 			}
 
+			if (mUnused == null) mUnused = new Stack<List<TNObject>>();
+			list.Clear();
+			mUnused.Push(list);
+
 			mList.Remove(channelID);
 			mDictionary.Remove(channelID);
 		}
@@ -691,7 +696,8 @@ namespace TNet
 
 					if (!mList.TryGetValue(channelID, out list) || list == null)
 					{
-						list = new TNet.List<TNObject>();
+						if (mUnused != null && mUnused.Count > 0) list = mUnused.Pop();
+						else list = new TNet.List<TNObject>();
 						mList[channelID] = list;
 					}
 
@@ -729,7 +735,13 @@ namespace TNet
 					if (mList.TryGetValue(channelID, out list) && list != null)
 					{
 						list.Remove(this);
-						if (list.size == 0) mList.Remove(channelID);
+
+						if (list.size == 0)
+						{
+							if (mUnused == null) mUnused = new Stack<List<TNObject>>();
+							mUnused.Push(list);
+							mList.Remove(channelID);
+						}
 					}
 				}
 
@@ -750,7 +762,7 @@ namespace TNet
 
 				CachedFunc ent;
 
-				if (mDict0.TryGetValue(funcID, out ent))
+				if (mDict0 != null && mDict0.TryGetValue(funcID, out ent))
 				{
 					if (ent.parameters == null)
 						ent.parameters = ent.mi.GetParameters();
@@ -785,7 +797,7 @@ namespace TNet
 
 				CachedFunc ent;
 
-				if (mDict1.TryGetValue(funcName, out ent))
+				if (mDict1 != null && mDict1.TryGetValue(funcName, out ent))
 				{
 					if (ent.parameters == null)
 						ent.parameters = ent.mi.GetParameters();
@@ -870,8 +882,10 @@ namespace TNet
 		void RebuildMethodList ()
 		{
 			rebuildMethodList = false;
-			mDict0.Clear();
-			mDict1.Clear();
+			if (mDict0 != null) mDict0.Clear();
+			else mDict0 = new Dictionary<int, CachedFunc>();
+			if (mDict1 != null) mDict1.Clear();
+			else mDict1 = new Dictionary<string, CachedFunc>();
 			GetComponentsInChildren(true, mTempMono);
 
 			for (int i = 0, imax = mTempMono.Count; i < imax; ++i)

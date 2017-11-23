@@ -5,10 +5,7 @@
 
 #define RECYCLE_BUFFERS
 
-using System;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Collections.Generic;
 
@@ -188,34 +185,29 @@ namespace TNet
 		public bool Recycle ()
 		{
 #if RECYCLE_BUFFERS
-			lock (this)
+ #if UNITY_EDITOR
+			if (mCounter == 0)
 			{
-#if UNITY_EDITOR
-				if (mCounter == 0)
-				{
-#if DEBUG_BUFFERS
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool: " + mUniqueID);
-#else
-					UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
-#endif
-					return false;
-				}
-#endif
-				if (--mCounter > 0) return false;
-
-				lock (mPool)
-				{
-					ClearNotThreadSafe();
-					mPool.Add(this);
-#if DEBUG_BUFFERS
-					Log("Recycling " + mUniqueID + " (" + mPool.size + ")");
-#endif
-				}
-				return true;
+  #if DEBUG_BUFFERS
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool: " + mUniqueID);
+  #else
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+  #endif
+				return false;
 			}
-#else
-			return true;
+ #endif
+			if (Interlocked.Decrement(ref mCounter) > 0) return false;
+
+			lock (mPool)
+			{
+				Clear();
+				mPool.Add(this);
+#if DEBUG_BUFFERS
+				Log("Recycling " + mUniqueID + " (" + mPool.size + ")");
 #endif
+			}
+#endif
+			return true;
 		}
 
 		/// <summary>
@@ -323,7 +315,7 @@ namespace TNet
 		public void MarkAsUsed ()
 		{
 #if RECYCLE_BUFFERS
-			lock (this) ++mCounter;
+			Interlocked.Increment(ref mCounter);
 #endif
 		}
 
@@ -331,17 +323,7 @@ namespace TNet
 		/// Clear the buffer.
 		/// </summary>
 
-#if RECYCLE_BUFFERS
-		public void Clear () { lock (this) ClearNotThreadSafe(); }
-#else
-		public void Clear () { ClearNotThreadSafe(); }
-#endif
-
-		/// <summary>
-		/// Clear the buffer.
-		/// </summary>
-
-		void ClearNotThreadSafe ()
+		public void Clear ()
 		{
 			mSize = 0;
 #if RECYCLE_BUFFERS

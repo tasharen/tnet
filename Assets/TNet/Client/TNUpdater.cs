@@ -3,6 +3,8 @@
 // Copyright © 2012-2017 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+#define PROFILE_PACKETS
+
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -39,13 +41,37 @@ namespace TNet
 			if (mUpdateable.Count != 0) foreach (var inst in mUpdateable) inst.OnUpdate();
 		}
 
+#if UNITY_EDITOR && PROFILE_PACKETS
+		static System.Collections.Generic.Dictionary<System.Type, string> mTypeNames = new Dictionary<System.Type, string>();
+#endif
+
 		void LateUpdate ()
 		{
 			while (mStartable.Count != 0)
 			{
 				var q = mStartable.Dequeue();
 				var obj = q as MonoBehaviour;
-				if (obj && obj.enabled) q.OnStart();
+
+				if (obj && obj.enabled)
+				{
+#if UNITY_EDITOR && PROFILE_PACKETS
+					var type = obj.GetType();
+
+					string packetName;
+
+					if (!mTypeNames.TryGetValue(type, out packetName))
+					{
+						packetName = type.ToString() + ".OnStart()";
+						mTypeNames.Add(type, packetName);
+					}
+					
+					UnityEngine.Profiling.Profiler.BeginSample(packetName);
+					q.OnStart();
+					UnityEngine.Profiling.Profiler.EndSample();
+#else
+					q.OnStart();
+#endif
+				}
 			}
 
 			if (mLateUpdateable.Count != 0) foreach (var inst in mLateUpdateable) inst.OnLateUpdate();

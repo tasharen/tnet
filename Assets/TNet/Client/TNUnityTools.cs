@@ -674,10 +674,10 @@ namespace TNet
 
 		static public GameObject AddChild (this GameObject go, string name)
 		{
-			GameObject inst = new GameObject();
+			var inst = new GameObject();
 			inst.name = name;
 			inst.layer = go.layer;
-			Transform t = inst.transform;
+			var t = inst.transform;
 			t.parent = go.transform;
 			t.localPosition = Vector3.zero;
 			t.localRotation = Quaternion.identity;
@@ -696,13 +696,13 @@ namespace TNet
 
 			if (prefab != null)
 			{
-				GameObject inst = prefab.Instantiate();
-				Transform t = inst.transform;
-				t.parent = go.transform;
+				var inst = Object.Instantiate(prefab, go.transform);
+				inst.name = prefab.name;
+				var t = inst.transform;
 				t.localPosition = Vector3.zero;
 				t.localRotation = Quaternion.identity;
 				t.localScale = Vector3.one;
-				inst.SetActive(true);
+				if (!inst.activeSelf) inst.SetActive(true);
 				return inst;
 			}
 
@@ -720,13 +720,13 @@ namespace TNet
 
 			if (prefab != null)
 			{
-				GameObject inst = prefab.Instantiate();
-				Transform t = inst.transform;
-				t.parent = go.transform;
+				var inst = Object.Instantiate(prefab, go.transform);
+				inst.name = prefab.name;
+				var t = inst.transform;
 				t.localPosition = Vector3.zero;
 				t.localRotation = Quaternion.identity;
 				t.localScale = Vector3.one;
-				inst.SetActive(true);
+				if (!inst.activeSelf) inst.SetActive(true);
 				return inst.GetComponent<T>();
 			}
 
@@ -744,13 +744,14 @@ namespace TNet
 
 			if (prefab != null)
 			{
-				GameObject inst = prefab.Instantiate();
-				Transform t = inst.transform;
+				var inst = Object.Instantiate(prefab, go.transform);
+				inst.name = prefab.name;
+				var t = inst.transform;
 				t.parent = go.transform;
 				t.localPosition = Vector3.zero;
 				t.localRotation = Quaternion.identity;
 				t.localScale = Vector3.one;
-				inst.SetActive(true);
+				if (!inst.activeSelf) inst.SetActive(true);
 				return inst.GetComponentsInChildren<T>();
 			}
 

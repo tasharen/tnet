@@ -58,7 +58,7 @@ namespace TNet
 		{
 			Stop();
 
-			Tools.LoadList("LobbyConfig/ban.txt", mBan);
+			Tools.LoadList(banFilePath, mBan);
 
 #if FORCE_EN_US
 			Tools.SetCurrentCultureToEnUS();
@@ -104,7 +104,7 @@ namespace TNet
 				mListener.Stop();
 				mListener = null;
 
-				Tools.LoadList("LobbyConfig/ban.txt", mBan);
+				Tools.LoadList(banFilePath, mBan);
 			}
 		}
 
@@ -202,8 +202,6 @@ namespace TNet
 					{
 						RemoveServer(tc);
 						mTcp.RemoveAt(i);
-						var se = tc.Get<ServerList.Entry>("data");
-						if (se != null) Tools.Print("Warning: Orphaned connection detected. Removing " + se.name);
 						continue;
 					}
 #if STANDALONE
@@ -356,7 +354,10 @@ namespace TNet
 					writer.Write(mTime);
 					writer.Write((ushort)mList.list.size);
 					EndSend(tc);
-					break;
+
+					var ent = tc.Get<ServerList.Entry>("data");
+					if (ent != null) ent.recordTime = mTime;
+					return true;
 				}
 				case Packet.RequestServerList:
 				{
@@ -397,7 +398,7 @@ namespace TNet
 					string fileName = reader.ReadString();
 					byte[] data = reader.ReadBytes(reader.ReadInt32());
 					SaveFile(fileName, data);
-					break;
+					return true;
 				}
 				case Packet.RequestLoadFile:
 				{
@@ -414,12 +415,12 @@ namespace TNet
 					}
 					else writer.Write(0);
 					EndSend(tc);
-					break;
+					return true;
 				}
 				case Packet.RequestDeleteFile:
 				{
 					DeleteFile(reader.ReadString());
-					break;
+					return true;
 				}
 				case Packet.RequestHTTPGet:
 				{
@@ -493,7 +494,7 @@ namespace TNet
 						mBuffer.Recycle();
 						mBuffer = null;
 					}
-					break;
+					return false;
 				}
 				case Packet.Error:
 				{
@@ -501,7 +502,7 @@ namespace TNet
 				}
 			}
 #if STANDALONE
-		Tools.Print(tc.address + " sent a packet not handled by the lobby server: " + request);
+			Tools.Print(tc.address + " sent a packet not handled by the lobby server: " + request);
 #endif
 			return false;
 		}

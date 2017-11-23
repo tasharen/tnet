@@ -31,12 +31,18 @@ namespace TNet
 		protected HashSet<string> mBan = new HashSet<string>();
 
 		/// <summary>
+		/// Root directory that will be used for all file operations.
+		/// </summary>
+		
+		public string rootDirectory;
+
+		/// <summary>
 		/// Save the specified file.
 		/// </summary>
 
 		public bool SaveFile (string fileName, byte[] data)
 		{
-			if (Tools.WriteFile(fileName, data, true))
+			if (Tools.WriteFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName), data, true))
 			{
 				mSavedFiles[fileName] = data;
 				return true;
@@ -54,7 +60,7 @@ namespace TNet
 
 			if (!mSavedFiles.TryGetValue(fileName, out data))
 			{
-				data = Tools.ReadFile(fileName);
+				data = Tools.ReadFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName));
 				mSavedFiles[fileName] = data;
 			}
 			return data;
@@ -66,7 +72,7 @@ namespace TNet
 
 		public bool DeleteFile (string fileName)
 		{
-			if (Tools.DeleteFile(fileName))
+			if (Tools.DeleteFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName)))
 			{
 				mSavedFiles.Remove(fileName);
 				return true;
@@ -80,14 +86,14 @@ namespace TNet
 
 		public void LoadBanList ()
 		{
-			Tools.Print("Bans: " + (Tools.LoadList(banFilePath, mBan) ? mBan.Count.ToString() : "file not found"));
+			Tools.Print("Bans: " + (Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? banFilePath : Path.Combine(rootDirectory, banFilePath), mBan) ? mBan.Count.ToString() : "file not found"));
 		}
 
 		/// <summary>
 		/// Save the current ban list to a file.
 		/// </summary>
 
-		public void SaveBanList () { Tools.SaveList(banFilePath, mBan); }
+		public void SaveBanList () { Tools.SaveList(string.IsNullOrEmpty(rootDirectory) ? banFilePath : Path.Combine(rootDirectory, banFilePath), mBan); }
 
 		/// <summary>
 		/// Add the specified keyword to the ban list.

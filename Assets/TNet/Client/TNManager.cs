@@ -171,6 +171,23 @@ namespace TNet
 		[System.NonSerialized] List<int> mLoadingLevel = new List<int>();
 
 		/// <summary>
+		/// Custom protocol, if used.
+		/// </summary>
+
+		static public IConnection custom
+		{
+			get
+			{
+				return (mInstance != null) ? mInstance.mClient.custom : null;
+			}
+			set
+			{
+				var inst = instance;
+				if (inst != null) inst.mClient.custom = value;
+			}
+		}
+
+		/// <summary>
 		/// Whether the player has verified himself as an administrator.
 		/// </summary>
 
@@ -1030,7 +1047,9 @@ namespace TNet
 					else instance.mClient.Connect(ip, null);
 				}
 			}
+#if UNITY_EDITOR
 			else Debug.LogWarning("Already connecting...");
+#endif
 		}
 
 		/// <summary>
@@ -1048,7 +1067,9 @@ namespace TNet
 				mInstance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 				mInstance.mClient.Connect(externalIP, internalIP);
 			}
+#if UNITY_EDITOR
 			else Debug.LogWarning("Already connecting...");
+#endif
 		}
 
 		/// <summary>
@@ -2068,7 +2089,10 @@ namespace TNet
 				try
 				{
 					funcName = reader.ReadString();
-					TNObject.FindAndExecute(channelID, objID, funcName, reader.ReadArray());
+					UnityEngine.Profiling.Profiler.BeginSample(funcName);
+					var array = reader.ReadArray();
+					TNObject.FindAndExecute(channelID, objID, funcName, array);
+					UnityEngine.Profiling.Profiler.EndSample();
 				}
 				catch (Exception ex)
 				{
@@ -2079,10 +2103,20 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Called from TNManager's Update() function.
+		/// </summary>
+
+		[System.NonSerialized] static public Action onUpdate;
+
+		/// <summary>
 		/// Process incoming packets in the update function.
 		/// </summary>
 
-		void Update () { if (!mDelayedDisconnect) ProcessPackets(); }
+		void Update ()
+		{
+			if (onUpdate != null) onUpdate();
+			if (!mDelayedDisconnect) ProcessPackets();
+		}
 
 		#endregion
 
