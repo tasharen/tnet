@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Note on the UDP lobby: Although it's a better choice than TCP (and plus it allows LAN broadcasts),
@@ -9,7 +9,6 @@
 
 using System;
 using TNet;
-using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Net;
@@ -155,6 +154,7 @@ public class Application : IDisposable
 						Console.WriteLine("[TNet] Server is now active. Optional command list:");
 						Console.WriteLine("  q -- Quit the application");
 						Console.WriteLine("  r -- Reload the server configuration");
+						Console.WriteLine("  s -- Immediately save the game server's data");
 						Console.WriteLine("  c -- Release all unused memory");
 						Console.WriteLine("  http -- Enable or disable HTTP support");
 						Console.WriteLine("  ban <keyword> -- Ban this player, alias or IP");
@@ -162,6 +162,8 @@ public class Application : IDisposable
 
 						if (mGameServer != null)
 						{
+							Console.WriteLine("  lm -- Low memory footprint on/off");
+							Console.WriteLine("  name <name> -- Change the server's name");
 							Console.WriteLine("  kick <player> -- Kick this player from the server");
 							Console.WriteLine("  admin <keyword> -- Add this admin keyword");
 							Console.WriteLine("  unadmin <keyword> -- Remove this admin keyword");
@@ -196,6 +198,15 @@ public class Application : IDisposable
 					else if (command == "c")
 					{
 						TNet.Buffer.ReleaseUnusedMemory();
+					}
+					else if (command == "s")
+					{
+						mGameServer.Save();
+					}
+					else if (command == "lm")
+					{
+						Console.WriteLine("Low memory mode: " + !Channel.lowMemoryFootprint);
+						mGameServer.Sleep(!Channel.lowMemoryFootprint);
 					}
 					else if (command == "r")
 					{
@@ -397,10 +408,24 @@ public class Application : IDisposable
 			else ++i;
 		}
 
-		TcpProtocol.defaultListenerInterface = useIPv6 ? System.Net.IPAddress.IPv6Any : System.Net.IPAddress.Any;
-		TcpProtocol.httpGetSupport = http;
-		Application app = new Application();
-		app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, fn);
+		try
+		{
+			TcpProtocol.defaultListenerInterface = useIPv6 ? IPAddress.IPv6Any : IPAddress.Any;
+			TcpProtocol.httpGetSupport = http;
+			Application app = new Application();
+			app.Start(serverName, tcpPort, udpPort, lobbyAddress, lobbyPort, tcpLobby, service, fn);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine(ex.Message);
+			Console.WriteLine(ex.StackTrace);
+
+			if (!service)
+			{
+				Console.WriteLine("Press Enter to exit...");
+				Console.ReadKey();
+			}
+		}
 		return 0;
 	}
 }
