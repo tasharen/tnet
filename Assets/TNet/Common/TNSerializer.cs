@@ -1978,7 +1978,7 @@ namespace TNet
 			if (string.IsNullOrEmpty(node.name))
 			{
 				writer.Write("Version");
-				if (node.value == null) writer.Write(Player.version);
+				if (node.value == null) writer.WriteObject(Player.version);
 				else writer.WriteObject(node.value);
 			}
 			else
