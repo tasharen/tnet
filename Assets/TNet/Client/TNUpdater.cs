@@ -1,6 +1,6 @@
 ﻿//-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #define PROFILE_PACKETS
@@ -52,7 +52,7 @@ namespace TNet
 				var q = mStartable.Dequeue();
 				var obj = q as MonoBehaviour;
 
-				if (obj && obj.enabled)
+				if (obj && obj.enabled && obj.gameObject.activeInHierarchy)
 				{
 #if UNITY_EDITOR && PROFILE_PACKETS
 					var type = obj.GetType();

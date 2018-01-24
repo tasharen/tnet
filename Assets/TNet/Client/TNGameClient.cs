@@ -1,11 +1,13 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #define USE_MAX_PACKET_TIME
 //#define COUNT_PACKETS
 //#define PROFILE_PACKETS
+
+#pragma warning disable 0162
 
 using System;
 using System.IO;
@@ -119,6 +121,7 @@ namespace TNet
 
 		// Server configuration data
 		DataNode mConfig = new DataNode("Version", Player.version);
+		int mDataHash = 0;
 
 		/// <summary>
 		/// Whether the player has verified himself as an administrator.
@@ -135,6 +138,16 @@ namespace TNet
 			mIsAdmin = true;
 			BeginSend(Packet.RequestVerifyAdmin).Write(pass);
 			EndSend();
+		}
+
+		/// <summary>
+		/// Perform the server configuration hash validation against the current data in memory. Useful for detecting memory modification.
+		/// </summary>
+
+		public bool ValidateHash ()
+		{
+			if (mConfig.children.size == 0) return true;
+			return mDataHash == mConfig.CalculateHash();
 		}
 
 		/// <summary>
@@ -274,6 +287,7 @@ namespace TNet
 			}
 		}
 
+#if UNITY_EDITOR
 		/// <summary>
 		/// Server data associated with the connected server. Don't try to change it manually.
 		/// </summary>
@@ -296,6 +310,7 @@ namespace TNet
 				}
 			}
 		}
+#endif
 
 		/// <summary>
 		/// Return the local player.
@@ -353,6 +368,19 @@ namespace TNet
 		public Queue<Buffer> sendQueue { get { return mTcp.sendQueue; } set { mTcp.sendQueue = value; } }
 
 		/// <summary>
+		/// Immediately sync the player data. Call if it changing the player's DataNode manually.
+		/// </summary>
+
+		public void SyncPlayerData ()
+		{
+			var writer = BeginSend(Packet.RequestSetPlayerData);
+			writer.Write(mTcp.id);
+			writer.Write("");
+			writer.WriteObject(mTcp.dataNode);
+			EndSend();
+		}
+
+		/// <summary>
 		/// Set the specified value on the player.
 		/// </summary>
 
@@ -362,7 +390,7 @@ namespace TNet
 
 			if (isConnected)
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestSetPlayerData);
+				var writer = BeginSend(Packet.RequestSetPlayerData);
 				writer.Write(mTcp.id);
 				writer.Write(path);
 				writer.WriteObject(val);
@@ -627,10 +655,35 @@ namespace TNet
 		{
 			if (mLocalServer != null)
 			{
+				if (onLeaveChannel != null)
+				{
+					while (mChannels.size > 0)
+					{
+						int index = mChannels.size - 1;
+						Channel ch = mChannels[index];
+						mChannels.RemoveAt(index);
+						onLeaveChannel(ch.id);
+					}
+				}
+
+				mChannels.Clear();
+				mGetChannelsCallbacks.Clear();
+				mDictionary.Clear();
+				mTcp.Close(false);
+				mLoadFiles.Clear();
+				mGetFiles.Clear();
+				mJoining.Clear();
+				mIsAdmin = false;
 				mLocalServer.localClient = null;
 				mLocalServer = null;
+				mConfig = new DataNode("Version", Player.version);
+
+#if !UNITY_WEBPLAYER
+				mUdp.Stop();
+#endif
+				if (onDisconnect != null) onDisconnect();
 			}
-			mTcp.Disconnect();
+			else mTcp.Disconnect();
 		}
 
 		/// <summary>
@@ -711,13 +764,17 @@ namespace TNet
 				writer.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
 				writer.Write(persistent);
 				writer.Write((ushort)playerLimit);
-				EndSend();
+				EndSend(true);
 
 				// Prevent all further packets from going out until the join channel response arrives.
 				// This prevents the situation where packets are sent out between LoadLevel / JoinChannel
 				// requests and the arrival of the OnJoinChannel/OnLoadLevel responses, which cause RFCs
 				// from the previous scene to be executed in the new one.
 				mJoining.Add(channelID);
+
+				#if LEIF
+				FastLog.Log("JOINING " + channelID + " " + isActive);
+				#endif
 			}
 		}
 
@@ -1030,16 +1087,20 @@ namespace TNet
 
 			int packetID = reader.ReadByte();
 			var response = (Packet)packetID;
+#if LEIF
+			if (!mTcp.joined) FastLog.Log("ProcessPacket " + response + " " + (buffer.size + 1));
+#endif
 
 #if DEBUG_PACKETS && !STANDALONE
-			if (response != Packet.ResponsePing && response != Packet.Broadcast)
-				UnityEngine.Debug.Log("Client: " + response + " (" + buffer.size + " bytes) " + ((ip == null) ? "(TCP)" : "(UDP)"));
+			if (response != Packet.ResponsePing)
+				UnityEngine.Debug.Log("Client: " + response + " (" + buffer.size + " bytes) " + ((ip == null) ? "(TCP)" : "(UDP)") + " " + UnityEngine.Time.time);
 #endif
 			// Verification step must be passed first
 			if (response == Packet.ResponseID || mTcp.stage == TcpProtocol.Stage.Verifying)
 			{
 				if (mTcp.VerifyResponseID(response, reader))
 				{
+					mMyTime = DateTime.UtcNow.Ticks / 10000;
 					mTimeDifference = reader.ReadInt64() - mMyTime;
 					mStartTime = reader.ReadInt64();
 
@@ -1052,7 +1113,6 @@ namespace TNet
 					}
 #endif
 					mCanPing = true;
-					if (onConnect != null) onConnect(true, null);
 				}
 				return true;
 			}
@@ -1140,22 +1200,23 @@ namespace TNet
 					}
 
 					// Trivial time speed hack check
-					var expectedTime = reader.ReadInt64();
-					/*var clients =*/ reader.ReadUInt16();
-					var diff = serverTime - expectedTime;
+					/*var expectedTime = reader.ReadInt64();
+					reader.ReadUInt16();
+					var diff = (serverTime - expectedTime) - ping;
 
 					if ((diff < 0 ? -diff : diff) > 10000)
 					{
 #if W2
-						GameChat.NotifyAdmins("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
-						if (onError != null) onError("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
+						var s = "Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping;
+						GameChat.NotifyAdmins(s);
+						if (onError != null) onError(s);
 						TNManager.Disconnect(1f);
 #else
 						if (onError != null) onError("Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping);
 						Disconnect();
 #endif
 						break;
-					}
+					}*/
 					break;
 				}
 				case Packet.ResponseSetUDP:
@@ -1285,6 +1346,9 @@ namespace TNet
 				}
 				case Packet.ResponseJoinChannel:
 				{
+				#if LEIF
+					mTcp.joined = true;
+				#endif
 					int channelID = reader.ReadInt32();
 					bool success = reader.ReadBoolean();
 					string msg = success ? null : reader.ReadString();
@@ -1305,6 +1369,9 @@ namespace TNet
 					}
 #if UNITY_EDITOR
 					if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
+#endif
+#if LEIF
+					FastLog.Log("!!! ResponseJoinChannel " + channelID + " callback : " + (onJoinChannel != null) + " " + UnityEngine.Time.time);
 #endif
 					if (onJoinChannel != null) onJoinChannel(channelID, success, msg);
 					break;
@@ -1344,10 +1411,10 @@ namespace TNet
 				{
 					if (onCreate != null)
 					{
-						int playerID = reader.ReadInt32();
+						packetSourceID = reader.ReadInt32();
 						int channelID = reader.ReadInt32();
 						uint objID = reader.ReadUInt32();
-						onCreate(channelID, playerID, objID, reader);
+						onCreate(channelID, packetSourceID, objID, reader);
 					}
 					break;
 				}
@@ -1355,6 +1422,7 @@ namespace TNet
 				{
 					if (onDestroy != null)
 					{
+						packetSourceID = reader.ReadInt32();
 						int channelID = reader.ReadInt32();
 						int count = reader.ReadUInt16();
 
@@ -1370,6 +1438,7 @@ namespace TNet
 				{
 					if (onTransfer != null)
 					{
+						packetSourceID = reader.ReadInt32();
 						int from = reader.ReadInt32();
 						int to = reader.ReadInt32();
 						uint id0 = reader.ReadUInt32();
@@ -1497,13 +1566,20 @@ namespace TNet
 					if (obj != null)
 					{
 						DataNode node = mConfig.SetHierarchy(path, obj);
+						mDataHash = mConfig.CalculateHash();
 						if (onSetServerData != null) onSetServerData(path, node);
 					}
 					else
 					{
 						DataNode node = mConfig.RemoveHierarchy(path);
+						mDataHash = mConfig.CalculateHash();
 						if (onSetServerData != null) onSetServerData(path, node);
 					}
+					break;
+				}
+				case Packet.ResponseConnected:
+				{
+					if (onConnect != null) onConnect(true, null);
 					break;
 				}
 				case Packet.ResponseChannelList:

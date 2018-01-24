@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -21,81 +21,117 @@ static internal class DataNodeExporter
 	{
 		if (data == null || string.IsNullOrEmpty(path)) return;
 
+		EditorUtility.DisplayCancelableProgressBar("Working", "Saving...", 1f);
 		data.Write(path, type);
+		EditorUtility.ClearProgressBar();
 
 		AssetDatabase.Refresh(ImportAssetOptions.Default);
-		TextAsset asset = AssetDatabase.LoadAssetAtPath(FileUtil.GetProjectRelativePath(path), typeof(TextAsset)) as TextAsset;
+		var asset = AssetDatabase.LoadAssetAtPath(FileUtil.GetProjectRelativePath(path), typeof(TextAsset)) as TextAsset;
 
 		if (asset != null)
 		{
 			// Saved in the project folder -- select the saved asset
 			Selection.activeObject = asset;
-			if (asset != null) Debug.Log("Saved as " + path + " (" + asset.bytes.Length.ToString("N0") + " bytes)", asset);
 		}
-		else
+		else if (System.IO.File.Exists(path))
 		{
-			// Saved outside of the project folder -- simply print its size
-			System.IO.FileStream fs = System.IO.File.OpenRead(path);
-
-			if (fs != null)
-			{
-				long pos = fs.Seek(0, System.IO.SeekOrigin.End);
-				Debug.Log("Saved as " + path + " (" + pos.ToString("N0") + " bytes)");
-				fs.Close();
-			}
+			System.Diagnostics.Process.Start("explorer.exe", "/select," + path.Replace('/', '\\'));
 		}
 	}
 
+	static bool IsSelectingSingleGameObject ()
+	{
+		var objects = Selection.objects;
+		if (objects == null || objects.Length > 1) return false;
+		return (Selection.activeGameObject != null);
+	}
+
 	[MenuItem("Assets/DataNode/Export Selected/as Text", true)]
-	static internal bool ExportA0 () { return (Selection.activeGameObject != null); }
+	static internal bool ExportA0 () { return (Selection.activeObject != null); }
 
 	[MenuItem("Assets/DataNode/Export Selected/as Text", false, 0)]
 	static internal void ExportA ()
 	{
-		GameObject go = Selection.activeGameObject;
-		DataNode node = go.Serialize(true);
-		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
-		Save(node, path, DataNode.SaveType.Text);
+		if (IsSelectingSingleGameObject())
+		{
+			var go = Selection.activeGameObject;
+			var path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+
+				var data = go.Serialize(true, true, true);
+				if (data != null) Save(data, path, DataNode.SaveType.Text);
+
+				EditorUtility.ClearProgressBar();
+			}
+		}
+		else ExportAssets(DataNode.SaveType.Text);
 	}
 
 	[MenuItem("Assets/DataNode/Export Selected/as Binary", true)]
-	static internal bool ExportB0 () { return (Selection.activeGameObject != null); }
+	static internal bool ExportB0 () { return (Selection.activeObject != null); }
 
 	[MenuItem("Assets/DataNode/Export Selected/as Binary", false, 0)]
 	static internal void ExportB ()
 	{
-		GameObject go = Selection.activeGameObject;
-		DataNode node = go.Serialize(true);
-		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
-		Save(node, path, DataNode.SaveType.Binary);
+		if (IsSelectingSingleGameObject())
+		{
+			var go = Selection.activeGameObject;
+			var path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+
+				var data = go.Serialize(true, true, true);
+				if (data != null) Save(data, path, DataNode.SaveType.Binary);
+
+				EditorUtility.ClearProgressBar();
+			}
+		}
+		else ExportAssets(DataNode.SaveType.Binary);
 	}
 
 	[MenuItem("Assets/DataNode/Export Selected/as Compressed", true)]
-	static internal bool ExportC0 () { return (Selection.activeGameObject != null); }
+	static internal bool ExportC0 () { return (Selection.activeObject != null); }
 
 	[MenuItem("Assets/DataNode/Export Selected/as Compressed", false, 0)]
 	static internal void ExportC ()
 	{
-		GameObject go = Selection.activeGameObject;
-		DataNode node = go.Serialize(true);
-		string path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
-		Save(node, path, DataNode.SaveType.Compressed);
+		if (IsSelectingSingleGameObject())
+		{
+			var go = Selection.activeGameObject;
+			var path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", go.name);
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+
+				var data = go.Serialize(true, true, true);
+				if (data != null) Save(data, path, DataNode.SaveType.Compressed);
+
+				EditorUtility.ClearProgressBar();
+			}
+		}
+		else ExportAssets(DataNode.SaveType.Compressed);
 	}
 
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7 || ASSET_BUNDLE_EXPORT
 	[MenuItem("Assets/DataNode/Export Selected/as AssetBundle", true)]
-	static internal bool ExportD0 () { return (Selection.activeGameObject != null); }
+	static internal bool ExportD0 () { return (Selection.activeObject != null); }
 
 	[MenuItem("Assets/DataNode/Export Selected/as AssetBundle", false, 0)]
 	static internal void ExportD ()
 	{
-		GameObject go = Selection.activeGameObject;
-		DataNode node = new DataNode(go.name, go.GetInstanceID());
-		string path = UnityEditorExtensions.ShowExportDialog("Export AssetBundle", go.name);
+		var go = Selection.activeGameObject;
+		var path = UnityEditorExtensions.ShowExportDialog("Export AssetBundle", go.name);
 
 		if (!string.IsNullOrEmpty(path))
 		{
-			Object[] selection = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
+			var node = new DataNode(go.name, go.GetInstanceID());
+			var selection = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
 
 			if (BuildPipeline.BuildAssetBundle(Selection.activeObject, selection, path,
 				BuildAssetBundleOptions.CollectDependencies |
@@ -103,12 +139,46 @@ static internal class DataNodeExporter
 				BuildTarget.StandaloneWindows))
 			{
 				node.AddChild("assetBundle", System.IO.File.ReadAllBytes(path));
+				Save(node, path, DataNode.SaveType.Binary);
 			}
 		}
-
-		Save(node, path, DataNode.SaveType.Binary);
 	}
 #endif
+
+	/// <summary>
+	/// Asset Bundle-like export, except using DataNode's deep serialization.
+	/// </summary>
+
+	static internal void ExportAssets (DataNode.SaveType type)
+	{
+		var path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", "Assets");
+
+		if (!string.IsNullOrEmpty(path))
+		{
+			EditorUtility.DisplayCancelableProgressBar("Working", "Collecting references...", 0f);
+
+			ComponentSerialization.ClearReferences();
+
+			var objects = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
+
+			foreach (var obj in objects)
+			{
+				var go = obj as GameObject;
+				if (go != null) go.CollectReferencedPrefabs(true);
+				else ComponentSerialization.AddReference(obj);
+			}
+
+			foreach (var pair in ComponentSerialization.referencedPrefabs) pair.Value.CollectReferencedResources();
+
+			EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+
+			var data = ComponentSerialization.SerializeBundle();
+			if (data != null && data.children.size > 0) Save(data, path, type);
+			else Debug.LogWarning("No assets found to serialize");
+
+			EditorUtility.ClearProgressBar();
+		}
+	}
 
 	[MenuItem("Assets/DataNode/Convert/to Text", false, 30)]
 	static internal void ConvertA ()
@@ -156,8 +226,13 @@ static internal class DataNodeExporter
 
 		if (!string.IsNullOrEmpty(path))
 		{
-			DataNode node = DataNode.Read(path, true);
-			if (node != null) Selection.activeGameObject = node.Instantiate();
+			var node = DataNode.Read(path, true);
+
+			if (node != null)
+			{
+				if (node.GetChild("Prefabs") != null) ComponentSerialization.DeserializeBundle(node);
+				else Selection.activeGameObject = node.Instantiate();
+			}
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
 		}
 	}

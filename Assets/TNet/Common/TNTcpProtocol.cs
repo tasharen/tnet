@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define DEBUG_PACKETS
@@ -91,8 +91,17 @@ namespace TNet
 		Queue<Buffer> mIn = new Queue<Buffer>();
 		Queue<Buffer> mOut = new Queue<Buffer>();
 
+		/// <summary>
+		/// Current size of the incoming queue. Don't try to modify this.
+		/// </summary>
+
+		[System.NonSerialized]
+		public int incomingQueueSize = 0;
+
+		const int defaultBufferSize = 8192;
+
 		// Buffer used for receiving incoming data
-		byte[] mTemp = new byte[8192];
+		byte[] mTemp = new byte[defaultBufferSize];
 
 		// Current incoming buffer
 		Buffer mReceiveBuffer;
@@ -297,7 +306,7 @@ namespace TNet
 
 		void OnConnectResult (IAsyncResult result)
 		{
-			Socket sock = (Socket)result.AsyncState;
+			var sock = (Socket)result.AsyncState;
 
 			// Windows handles async sockets differently than other platforms, it seems.
 			// If a socket is closed, OnConnectResult() is never called on Windows.
@@ -328,7 +337,7 @@ namespace TNet
 				{
 					// Request a player ID
 					stage = Stage.Verifying;
-					BinaryWriter writer = BeginSend(Packet.RequestID);
+					var writer = BeginSend(Packet.RequestID);
 					writer.Write(version);
 					writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
 					writer.Write(dataNode);
@@ -414,6 +423,7 @@ namespace TNet
 					{
 						Buffer.Recycle(mIn);
 						mIn.Enqueue(buffer);
+						incomingQueueSize = buffer.size;
 					}
 				}
 				else lock (mIn) Buffer.Recycle(mIn);
@@ -429,6 +439,7 @@ namespace TNet
 				{
 					Buffer.Recycle(mIn);
 					mIn.Enqueue(buffer);
+					incomingQueueSize = buffer.size;
 				}
 			}
 
@@ -498,9 +509,14 @@ namespace TNet
 			if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
 				UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
 #endif
-			if (custom != null && (custom.SendPacket(buffer) || mSocket == null || !mSocket.Connected))
+			if (custom != null)
 			{
-				buffer.Recycle();
+				if (!custom.SendPacket(buffer))
+				{
+					buffer.Recycle();
+					Disconnect();
+				}
+				else buffer.Recycle();
 				return;
 			}
 
@@ -563,7 +579,6 @@ namespace TNet
 
 				if (size == buffer.size)
 				{
-					// Note that after this the buffer can no longer be used again as its offset is +4
 					lock (sendQueue) sendQueue.Enqueue(buffer);
 					return;
 				}
@@ -573,14 +588,12 @@ namespace TNet
 				{
 					for (;;)
 					{
-						byte[] bytes = reader.ReadBytes(size);
-
-						Buffer temp = Buffer.Create();
-						BinaryWriter writer = temp.BeginWriting();
+						var bytes = reader.ReadBytes(size);
+						var temp = Buffer.Create();
+						var writer = temp.BeginWriting();
 						writer.Write(size);
 						writer.Write(bytes);
 						temp.BeginReading(4);
-						temp.EndWriting();
 						sendQueue.Enqueue(temp);
 
 						if (buffer.size > 0) size = reader.ReadInt32();
@@ -691,11 +704,14 @@ namespace TNet
 					// Save the address
 					tcpEndPoint = (IPEndPoint)mSocket.RemoteEndPoint;
 #if !UNITY_WINRT
-					mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
+					mSocket.BeginReceive(mTemp, 0, defaultBufferSize, SocketFlags.None, OnReceive, mSocket);
 #endif
 				}
 				catch (System.Exception ex)
 				{
+#if UNITY_EDITOR
+					Debug.Log(ex.Message + "\n" + ex.StackTrace);
+#endif
 					if (!(ex is SocketException)) AddError(ex);
 					Disconnect(true);
 				}
@@ -724,6 +740,7 @@ namespace TNet
 				lock (mIn)
 				{
 					buffer = mIn.Dequeue();
+					incomingQueueSize -= buffer.size;
 					return buffer != null;
 				}
 			}
@@ -757,13 +774,7 @@ namespace TNet
 				return;
 			}
 
-			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
-
-			if (bytes == 0)
-			{
-				Close(true);
-			}
-			else if (ProcessBuffer(bytes))
+			if (OnReceive(mTemp, bytes))
 			{
 				if (stage == Stage.NotConnected) return;
 
@@ -771,7 +782,7 @@ namespace TNet
 				{
 #if !UNITY_WINRT
 					// Queue up the next read operation
-					mSocket.BeginReceive(mTemp, 0, mTemp.Length, SocketFlags.None, OnReceive, mSocket);
+					mSocket.BeginReceive(mTemp, 0, defaultBufferSize, SocketFlags.None, OnReceive, mSocket);
 #endif
 				}
 				catch (System.Exception ex)
@@ -780,30 +791,64 @@ namespace TNet
 					Close(false);
 				}
 			}
-			else Close(true);
+		}
+
+		/// <summary>
+		/// Receive the specified amount of bytes.
+		/// </summary>
+
+		public bool OnReceive (byte[] bytes, int byteCount)
+		{
+			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
+
+			if (byteCount == 0)
+			{
+				Close(true);
+				return false;
+			}
+			else if (ProcessBuffer(bytes, byteCount))
+			{
+				return true;
+			}
+			else
+			{
+#if UNITY_EDITOR
+				if (bytes != null && bytes.Length > 0)
+				{
+					var temp = new byte[byteCount];
+					for (int i = 0; i < byteCount; ++i) temp[i] = bytes[i];
+
+					var fn = "error_" + (System.DateTime.UtcNow.Ticks / 10000) + ".packet";
+					Tools.WriteFile(fn, temp);
+					Debug.Log("Packet saved as " + fn);
+				}
+#endif
+				Close(true);
+				return false;
+			}
 		}
 
 		/// <summary>
 		/// See if the received packet can be processed and split it up into different ones.
 		/// </summary>
 
-		bool ProcessBuffer (int bytes)
+		bool ProcessBuffer (byte[] bytes, int byteCount)
 		{
 			if (mReceiveBuffer == null)
 			{
 				// Create a new packet buffer
 				mReceiveBuffer = Buffer.Create();
-				mReceiveBuffer.BeginWriting(false).Write(mTemp, 0, bytes);
+				mReceiveBuffer.BeginWriting(false).Write(bytes, 0, byteCount);
 				mExpected = 0;
 				mOffset = 0;
 			}
 			else
 			{
 				// Append this data to the end of the last used buffer
-				mReceiveBuffer.BeginWriting(true).Write(mTemp, 0, bytes);
+				mReceiveBuffer.BeginWriting(true).Write(bytes, 0, byteCount);
 			}
 
-			for (int available = mReceiveBuffer.size - mOffset; available >= 4;)
+			for (int available = mReceiveBuffer.size - mOffset; available > 4;)
 			{
 				// Figure out the expected size of the packet
 				if (mExpected == 0)
@@ -822,7 +867,7 @@ namespace TNet
 								mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
 								mReceiveBuffer.EndPacket();
 								mReceiveBuffer.BeginReading(4);
-								lock (mIn) mIn.Enqueue(mReceiveBuffer);
+								lock (mIn) { mIn.Enqueue(mReceiveBuffer); incomingQueueSize += mReceiveBuffer.size; }
 								mReceiveBuffer = null;
 								mExpected = 0;
 								mOffset = 0;
@@ -840,9 +885,9 @@ namespace TNet
 					else if (mExpected < 0 || mExpected > 16777216)
 					{
 #if UNITY_EDITOR
-						UnityEngine.Debug.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+						LogError("Malformed data packet: offset " + mOffset + ", available " + available + " of expected " + mExpected + ", (" + bytes.Length + " - " + byteCount + ")");
 #else
-					Tools.LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+						LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
 #endif
 						mReceiveBuffer.Recycle();
 						mReceiveBuffer = null;
@@ -863,7 +908,7 @@ namespace TNet
 					mReceiveBuffer.BeginReading(mOffset + 4);
 
 					// This packet is now ready to be processed
-					lock (mIn) mIn.Enqueue(mReceiveBuffer);
+					lock (mIn) { mIn.Enqueue(mReceiveBuffer); incomingQueueSize += mReceiveBuffer.size; }
 
 					mReceiveBuffer = null;
 					mExpected = 0;
@@ -874,15 +919,16 @@ namespace TNet
 				{
 					// There is more than one packet. Extract this packet fully.
 					int realSize = mExpected + 4;
-					Buffer temp = Buffer.Create();
+					var temp = Buffer.Create();
 
 					// Extract the packet and move past its size component
-					BinaryWriter bw = temp.BeginWriting(false);
+					var bw = temp.BeginWriting();
+					mReceiveBuffer.BeginReading(0);
 					bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
 					temp.BeginReading(4);
 
 					// This packet is now ready to be processed
-					lock (mIn) mIn.Enqueue(temp);
+					lock (mIn) { mIn.Enqueue(temp); incomingQueueSize += temp.size; }
 
 					// Skip this packet
 					available -= mExpected;
@@ -898,7 +944,16 @@ namespace TNet
 		/// Add this packet to the incoming queue.
 		/// </summary>
 
-		public void AddPacket (Buffer buff) { lock (mIn) mIn.Enqueue(buff); lastReceivedTime = DateTime.UtcNow.Ticks / 10000; }
+		public void AddPacket (Buffer buff)
+		{
+			lock (mIn)
+			{
+				mIn.Enqueue(buff);
+				incomingQueueSize += buff.size;
+			}
+
+			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
+		}
 
 		/// <summary>
 		/// Log an error message.
@@ -979,7 +1034,7 @@ namespace TNet
 			var error = ex.Message;
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mOut) mIn.Enqueue(buffer);
+			lock (mOut) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
 			LogError(ex.Message, ex.StackTrace, true);
 		}
 
@@ -994,7 +1049,7 @@ namespace TNet
 #endif
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mIn) mIn.Enqueue(buffer);
+			lock (mIn) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
 		}
 
 		/// <summary>
@@ -1016,8 +1071,8 @@ namespace TNet
 					name = reader.ReadString();
 					dataNode = reader.ReadDataNode();
 					stage = TcpProtocol.Stage.Connected;
-#if STANDALONE
-				if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");
+#if STANDALONE || UNITY_EDITOR
+					if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");
 #endif
 					return true;
 				}

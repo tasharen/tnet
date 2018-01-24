@@ -1,10 +1,17 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
+
+// Enabling this would allow you to create IDataNodeSerializable-like serialization on all classes via extensions, such as:
+//		void Serialize (this CustomClassType obj, DataNode node);
+//		void Deserialize (this CustomClassType obj, DataNode node);
+// Note that this would also only affect DataNode's text serialization, since IBinarySerializable is used for binary saves.
+
+#define SERIALIZATION_WITHOUT_INTERFACE
 #endif
 
 using System;
@@ -479,7 +486,7 @@ namespace TNet
 
 		public T GetChild<T> (string name)
 		{
-			DataNode node = GetChild(name);
+			var node = GetChild(name);
 			if (node == null) return default(T);
 			return node.Get<T>();
 		}
@@ -490,7 +497,7 @@ namespace TNet
 
 		public T GetChild<T> (string name, T defaultValue)
 		{
-			DataNode node = GetChild(name);
+			var node = GetChild(name);
 			if (node == null) return defaultValue;
 			return node.Get<T>();
 		}
@@ -537,22 +544,22 @@ namespace TNet
 		public bool Write (string path, SaveType type = SaveType.Text, bool inMyDocuments = false, bool allowConfigAccess = false)
 		{
 			bool retVal = false;
-			MemoryStream stream = new MemoryStream();
+			var stream = new MemoryStream();
 
 			if (type == SaveType.Binary)
 			{
-				BinaryWriter writer = new BinaryWriter(stream);
+				var writer = new BinaryWriter(stream);
 				writer.WriteObject(this);
 				retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
 				writer.Close();
 			}
 			else if (type == SaveType.Compressed)
 			{
-				BinaryWriter writer = new BinaryWriter(stream);
+				var writer = new BinaryWriter(stream);
 				writer.WriteObject(this);
 
 				stream.Position = 0;
-				MemoryStream comp = LZMA.Compress(stream, mLZMA);
+				var comp = LZMA.Compress(stream, mLZMA);
 
 				if (comp != null)
 				{
@@ -564,7 +571,7 @@ namespace TNet
 			}
 			else
 			{
-				StreamWriter writer = new StreamWriter(stream);
+				var writer = new StreamWriter(stream);
 				Write(writer, 0);
 				retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
 				writer.Close();
@@ -697,15 +704,21 @@ namespace TNet
 		public void Write (StreamWriter writer, int tab = 0)
 		{
 			// Only proceed if this node has some data associated with it
-			if (isSerializable)
-			{
-				Write(writer, string.IsNullOrEmpty(name) ? "DataNode" : name, value, tab);
-				writer.Write('\n');
+			if (tab == 0 && string.IsNullOrEmpty(name)) Write(writer, "Version", value != null ? value : Player.version);
+			else Write(writer, string.IsNullOrEmpty(name) ? "DataNode" : name, value, tab);
 
-				// Iterate through children
-				for (int i = 0; i < children.size; ++i)
+			// Iterate through children
+			for (int i = 0; i < children.size; ++i)
+			{
+				var child = children[i];
+
+				if (child.isSerializable)
+				{
+					writer.Write('\n');
 					children[i].Write(writer, tab + 1);
+				}
 			}
+
 			if (tab == 0) writer.Flush();
 		}
 
@@ -730,29 +743,44 @@ namespace TNet
 
 			if (value != null && !writer.WriteObject(value, prefix))
 			{
-				Type type = value.GetType();
+				var type = value.GetType();
 
 #if !STANDALONE
 				if (value is AnimationCurve)
 				{
-					AnimationCurve ac = value as AnimationCurve;
-					Keyframe[] kfs = ac.keys;
-
+					var ac = value as AnimationCurve;
+					var kfs = ac.keys;
 					type = typeof(Vector4[]);
+					var imax = kfs.Length;
+					var vs = new Vector4[imax];
 
-					Vector4[] vs = new Vector4[kfs.Length];
-
-					for (int i = 0, imax = kfs.Length; i < imax; ++i)
+					for (int i = 0; i < imax; ++i)
 					{
-						Keyframe kf = kfs[i];
+						var kf = kfs[i];
 						vs[i] = new Vector4(kf.time, kf.value, kf.inTangent, kf.outTangent);
 					}
 					value = vs;
 				}
 #endif
+				// Save cloth skinning coefficients as a Vector2 array
+				if (value is ClothSkinningCoefficient[])
+				{
+					var cf = value as ClothSkinningCoefficient[];
+					type = typeof(Vector2[]);
+					var imax = cf.Length;
+					var vs = new Vector2[imax];
+
+					for (int i = 0; i < imax; ++i)
+					{
+						vs[i].x = cf[i].maxDistance;
+						vs[i].y = cf[i].collisionSphereDistance;
+					}
+					value = vs;
+				}
+
 				if (value is TList)
 				{
-					TList list = value as TList;
+					var list = value as TList;
 
 					if (prefix) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
@@ -770,7 +798,7 @@ namespace TNet
 
 				if (value is System.Collections.IList)
 				{
-					System.Collections.IList list = value as System.Collections.IList;
+					var list = value as System.Collections.IList;
 
 					if (prefix) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
@@ -786,25 +814,51 @@ namespace TNet
 					return;
 				}
 
+				// IDataNodeSerializable interface has serialization functions
 				if (value is IDataNodeSerializable)
 				{
-					IDataNodeSerializable ser = value as IDataNodeSerializable;
-					DataNode node = new DataNode();
-					ser.Serialize(node);
+					var ser = value as IDataNodeSerializable;
+					if (mTemp == null) mTemp = new DataNode();
+					ser.Serialize(mTemp);
 
 					if (prefix) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
-					writer.Write('\n');
 
-					for (int i = 0; i < node.children.size; ++i)
+					for (int i = 0; i < mTemp.children.size; ++i)
 					{
-						DataNode child = node.children[i];
+						var child = mTemp.children[i];
+						writer.Write('\n');
 						child.Write(writer, tab + 1);
 					}
+
+					mTemp.Clear();
 					return;
 				}
 
 #if REFLECTION_SUPPORT
+#if SERIALIZATION_WITHOUT_INTERFACE
+				// Try custom serialization first
+				if (type.HasDataNodeSerialization())
+				{
+					if (mTemp == null) mTemp = new DataNode();
+
+					if (value.Invoke("Serialize", mTemp))
+					{
+						if (prefix) writer.Write(" = ");
+						writer.Write(Serialization.TypeToName(type));
+
+						for (int i = 0; i < mTemp.children.size; ++i)
+						{
+							var child = mTemp.children[i];
+							writer.Write('\n');
+							child.Write(writer, tab + 1);
+						}
+						mTemp.Clear();
+						return;
+					}
+				}
+#endif
+
 				if (prefix) writer.Write(" = ");
 				writer.Write(Serialization.TypeToName(type));
 				var fields = type.GetSerializableFields();
@@ -812,7 +866,7 @@ namespace TNet
 				// We have fields to serialize
 				for (int i = 0; i < fields.size; ++i)
 				{
-					FieldInfo field = fields[i];
+					var field = fields[i];
 					object val = field.GetValue(value);
 
 					if (val != null)
@@ -845,6 +899,8 @@ namespace TNet
 #endif
 			}
 		}
+
+		[System.NonSerialized] static DataNode mTemp;
 
 		/// <summary>
 		/// Read the node hierarchy from the stream reader containing data in text format.
@@ -1007,22 +1063,34 @@ namespace TNet
 				}
 				else if (type.Implements(typeof(IDataNodeSerializable)))
 				{
-					IDataNodeSerializable ds = (IDataNodeSerializable)type.Create();
+					var ds = (IDataNodeSerializable)type.Create();
 					ds.Deserialize(this);
 					mValue = ds;
 					return false;
 				}
-#if !STANDALONE
-				else if (type == typeof(AnimationCurve))
+#if SERIALIZATION_WITHOUT_INTERFACE
+				else if (type.HasDataNodeSerialization())
 				{
+					mValue = type.Create();
+					mValue.Invoke("Deserialize", this);
+					mValue = TypeExtensions.invokedObject; // Failing to do this will break structs. See note in the Invoke() function.
+					return false;
+				}
+#endif
+#if !STANDALONE
+				else if (type == typeof(AnimationCurve)) // NOTE: This is no longer used since AnimationCurves get serialized out as Vector4 arrays.
+				{
+#if UNITY_EDITOR
+					Debug.Log("Still used");
+#endif
 					if (children.size != 0)
 					{
-						AnimationCurve cv = new AnimationCurve();
-						Keyframe[] kfs = new Keyframe[children.size];
+						var cv = new AnimationCurve();
+						var kfs = new Keyframe[children.size];
 
 						for (int i = 0; i < children.size; ++i)
 						{
-							DataNode child = children[i];
+							var child = children[i];
 
 							if (child.value == null)
 							{
@@ -1030,12 +1098,12 @@ namespace TNet
 								child.mResolved = false;
 								child.ResolveValue(typeof(Vector4));
 
-								Vector4 v = (Vector4)child.mValue;
+								var v = (Vector4)child.mValue;
 								kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
 							}
 							else
 							{
-								Vector4 v = (Vector4)child.mValue;
+								var v = (Vector4)child.mValue;
 								kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
 							}
 						}
@@ -1053,7 +1121,7 @@ namespace TNet
 #endif
 				else
 #if !STANDALONE
-			if (!type.IsSubclassOf(typeof(Component)))
+				if (!type.IsSubclassOf(typeof(Component)))
 #endif
 				{
 					bool isIList = type.Implements(typeof(System.Collections.IList));
@@ -1145,8 +1213,8 @@ namespace TNet
 			return true;
 		}
 
-		#endregion
-		#region Static Helper Functions
+#endregion
+#region Static Helper Functions
 
 		/// <summary>
 		/// Get the next line from the stream reader.
@@ -1180,6 +1248,20 @@ namespace TNet
 			}
 			return 0;
 		}
-		#endregion
+#endregion
+
+		/// <summary>
+		/// Sum up the hashes of the entire DataNode tree to use for quick validation.
+		/// </summary>
+
+		public int CalculateHash () { return CalculateHash(this); }
+
+		static int CalculateHash (DataNode node)
+		{
+			var hash = node.name.GetHashCode();
+			if (node.value != null) hash += node.value.GetHashCode();
+			for (int i = 0; i < node.children.size; ++i) hash += CalculateHash(node.children.buffer[i]);
+			return hash;
+		}
 	}
 }

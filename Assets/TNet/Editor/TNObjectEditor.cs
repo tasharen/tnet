@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -26,6 +26,7 @@ public class TNObjectEditor : Editor
 			EditorGUI.BeginDisabledGroup(true);
 			EditorGUILayout.LabelField("Channel", obj.channelID.ToString("N0"));
 			EditorGUILayout.LabelField("ID", obj.uid.ToString("N0"));
+			EditorGUILayout.LabelField("Creator", obj.creatorPlayerID.ToString("N0"));
 
 			if (obj.owner != null)
 			{

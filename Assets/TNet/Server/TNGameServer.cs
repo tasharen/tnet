@@ -1,9 +1,11 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define DEBUG_PACKETS
+
+#pragma warning disable 0162
 
 using System;
 using System.IO;
@@ -132,6 +134,24 @@ namespace TNet
 		protected bool mIsActive = false;
 		protected bool mServerDataChanged = false;
 		protected long mStartTime = 0;
+
+		/// <summary>
+		/// Put the server to sleep or wake it up.
+		/// </summary>
+
+		public void Sleep (bool val)
+		{
+			Channel.lowMemoryFootprint = val;
+
+			lock (mLock)
+			{
+				foreach (var ch in mChannelList)
+				{
+					if (val) ch.Sleep();
+					else ch.Wake();
+				}
+			}
+		}
 
 		/// <summary>
 		/// Add a new entry to the list. Returns 'true' if a new entry was added.
@@ -418,12 +438,19 @@ namespace TNet
 				mListener.Stop();
 				mListener = null;
 			}
+
 			mUdp.Stop();
 
 			// Remove all connected players and clear the list of channels
 			for (int i = mPlayerList.size; i > 0;) RemovePlayer(mPlayerList[--i]);
+			mPlayerList.Clear();
+			mPlayerDict.Clear();
+			mDictionaryEP.Clear();
 			mChannelList.Clear();
 			mChannelDict.Clear();
+			mSavedFiles.Clear();
+			mBan.Clear();
+			mAdmin.Clear();
 
 			// Player counter should be reset
 			Player.ResetPlayerCounter();
@@ -432,6 +459,7 @@ namespace TNet
 			mLocalClient = null;
 #endif
 			mIsActive = false;
+			mServerData = null;
 			mListenerPort = 0;
 		}
 
@@ -704,7 +732,7 @@ namespace TNet
 			if (p != null)
 			{
 				SavePlayer(p);
-#if STANDALONE
+#if STANDALONE || UNITY_EDITOR
 				if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
 				LeaveAllChannels(p);
@@ -1065,6 +1093,7 @@ namespace TNet
 					if (mTemp.size > 0)
 					{
 						writer = BeginSend(Packet.ResponseDestroyObject);
+						writer.Write(player.id);
 						writer.Write(ch.id);
 						writer.Write((ushort)mTemp.size);
 						for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
@@ -1094,6 +1123,9 @@ namespace TNet
 					EndSend(true, player);
 				}
 			}
+
+			// Put the channel to sleep after all players leave
+			if (ch.players.size == 0) ch.Sleep();
 		}
 
 		/// <summary>
@@ -1178,6 +1210,9 @@ namespace TNet
 		{
 			if (player.IsInChannel(channel.id)) return;
 
+			// Load the channel's data into memory
+			channel.Wake();
+
 			// Set the player's channel
 			player.channels.Add(channel);
 
@@ -1237,7 +1272,7 @@ namespace TNet
 			// Send the list of objects that have been created
 			for (int i = 0; i < channel.created.size; ++i)
 			{
-				Channel.CreatedObject obj = channel.created.buffer[i];
+				var obj = channel.created.buffer[i];
 
 				bool isPresent = false;
 
@@ -1265,6 +1300,7 @@ namespace TNet
 			if (channel.destroyed.size != 0)
 			{
 				writer = buffer.BeginPacket(Packet.ResponseDestroyObject, offset);
+				writer.Write(0);
 				writer.Write(channel.id);
 				writer.Write((ushort)channel.destroyed.size);
 				for (int i = 0; i < channel.destroyed.size; ++i)
@@ -1289,12 +1325,19 @@ namespace TNet
 			}
 
 			// The join process is now complete
-			buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
+			writer = buffer.BeginPacket(Packet.ResponseJoinChannel, offset);
 			writer.Write(channel.id);
 			writer.Write(true);
 			offset = buffer.EndTcpPacketStartingAt(offset);
 
-			// Send the entire buffer
+#if UNITY_EDITOR
+			if (buffer.size > 1000000)
+			{
+				Tools.WriteFile("dump.txt", buffer.buffer, false, false, buffer.size);
+				Debug.Log(buffer.size.ToString("N0"));
+			}
+#endif
+
 			player.SendTcpPacket(buffer);
 			buffer.Recycle();
 
@@ -1336,8 +1379,8 @@ namespace TNet
 
 		protected bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 		{
-			// Save every 30 seconds
-			if (mNextSave == 0) mNextSave = mTime + 30000;
+			// Save every 5 minutes
+			if (mNextSave == 0) mNextSave = mTime + 300000;
 			BinaryReader reader = buffer.BeginReading();
 
 			// If the player has not yet been verified, the first packet must be an ID request
@@ -1346,11 +1389,9 @@ namespace TNet
 				if (player.VerifyRequestID(reader, buffer, true))
 				{
 #if DEBUG_PACKETS && !STANDALONE
-					Debug.Log("Protocol verified");
+					UnityEngine.Debug.Log("Protocol verified");
 #endif
-					player.isAdmin = (player.address == null ||
-						player.address == "0.0.0.0:0" ||
-						player.address.StartsWith("127.0.0.1:"));
+					player.isAdmin = (player.custom == null) && (player.address == null || player.address == "0.0.0.0:0" || player.address.StartsWith("127.0.0.1:"));
 
 					if (player.isAdmin || !mBan.Contains(player.name))
 					{
@@ -1377,6 +1418,10 @@ namespace TNet
 							player.EndSend();
 						}
 
+						// Connection has now been established and the player should be notified of such
+						player.BeginSend(Packet.ResponseConnected);
+						player.EndSend();
+
 						if (lobbyLink != null) lobbyLink.SendUpdate(this);
 						if (onPlayerConnect != null) onPlayerConnect(player);
 						return true;
@@ -1402,7 +1447,7 @@ namespace TNet
 
 #if DEBUG_PACKETS && !STANDALONE
 #if UNITY_EDITOR
-			if (request != Packet.RequestPing && request != Packet.ResponsePing)
+			if (request != Packet.RequestPing && request != Packet.ResponsePing && request != Packet.ForwardToOthersSaved)
 				UnityEngine.Debug.Log(player.name + ": " + request + " (" + buffer.size.ToString("N0") + " bytes)");
 #elif !SINGLE_THREADED
 			if (request != Packet.RequestPing && request != Packet.ResponsePing)
@@ -1576,9 +1621,46 @@ namespace TNet
 				{
 					var path = reader.ReadString();
 					var type = (DataNode.SaveType)reader.ReadByte();
+					var hash = reader.ReadInt();
+
+					// Load and set the player's data from the specified file
+					player.dataNode = DataNode.Read(string.IsNullOrEmpty(rootDirectory) ? path : Path.Combine(rootDirectory, path));
+
+					// The player data must be valid at this point
+					if (player.dataNode == null)
+					{
+						player.dataNode = new DataNode("Version", Player.version);
+						if (hash != 0) player.dataNode.AddChild("hash", hash);
+					}
+					else
+					{
+						player.saveNeeded = false;
+						var existing = player.dataNode.GetChild("hash", 0);
+
+						if (hash != existing)
+						{
+							if (existing == 0 || (mServerData != null && mServerData.GetChild<bool>("ignoreHashChecks", false))
+							#if !STANDALONE
+								|| TNServerInstance.isActive
+							#endif
+							)
+							{
+								player.dataNode.SetChild("hash", hash);
+								player.saveNeeded = true;
+							}
+							else
+							{
+								player.LogError("Player file hash mismatch: " + hash + " vs " + existing);
+								player.SendError("Player file hash mismatch");
+								RemovePlayer(player);
+								return false;
+							}
+						}
+					}
 
 					if (player.savePath != path)
 					{
+						// This handling will prevent the new player from connecting
 						if (string.IsNullOrEmpty(player.savePath))
 						{
 							// First time setting the save file -- make sure it's unique and remove the already connected player that shares the same save file
@@ -1589,7 +1671,46 @@ namespace TNet
 
 								if (existing.savePath == path)
 								{
-									existing.AddError("Connected from another location");
+									player.LogError("Already connected (" + existing.address + ")");
+									player.SendError("Already connected");
+									RemovePlayer(player);
+									return false;
+								}
+							}
+						}
+						else
+						{
+							// Changing the save file -- make sure it doesn't conflict with any existing player
+							for (int i = 0; i < mPlayerList.size; ++i)
+							{
+								var existing = mPlayerList.buffer[i];
+								if (existing == player) continue;
+
+								if (existing.savePath == path)
+								{
+									player.LogError("Already connected (" + existing.address + ")");
+									player.SendError("Already connected");
+									RemovePlayer(player);
+									return false;
+								}
+							}
+
+							// Delete the previous save
+							Tools.DeleteFile(player.savePath);
+						}
+
+						// This handling would kick the existing player off
+						/*if (string.IsNullOrEmpty(player.savePath))
+						{
+							// First time setting the save file -- make sure it's unique and remove the already connected player that shares the same save file
+							for (int i = 0; i < mPlayerList.size; ++i)
+							{
+								var existing = mPlayerList.buffer[i];
+								if (existing == player) continue;
+
+								if (existing.savePath == path)
+								{
+									existing.LogError("Connected from another location");
 									existing.SendError("Connected from another location");
 									RemovePlayer(existing);
 									break;
@@ -1606,7 +1727,7 @@ namespace TNet
 
 								if (existing.savePath == path)
 								{
-									player.AddError("Already connected");
+									player.LogError("Already connected");
 									player.SendError("Already connected");
 									RemovePlayer(player);
 									return false;
@@ -1615,17 +1736,11 @@ namespace TNet
 
 							// Delete the previous save
 							Tools.DeleteFile(player.savePath);
-						}
+						}*/
 					}
 
-					// Load and set the player's data from the specified file
 					player.savePath = path;
 					player.saveType = type;
-					player.dataNode = DataNode.Read(string.IsNullOrEmpty(rootDirectory) ? player.savePath : Path.Combine(rootDirectory, player.savePath));
-
-					// The player data must be valid at this point
-					if (player.dataNode == null) player.dataNode = new DataNode("Version", Player.version);
-					else player.saveNeeded = false;
 
 					// We want to record the player's login time so that we can automatically keep track of that player's /played time
 					player.dataNode.GetChild("Server", true).SetChild("lastSave", mTime);
@@ -1735,9 +1850,10 @@ namespace TNet
 				case Packet.ServerLog:
 				{
 #if UNITY_EDITOR
-					reader.ReadString();
+					var s = reader.ReadString();
+					Debug.Log(s);
 #else
-					string s = reader.ReadString();
+					var s = reader.ReadString();
 					player.Log(s);
 #endif
 					break;
@@ -2266,7 +2382,9 @@ namespace TNet
 					}
 				}
 
+#if STANDALONE
 				player.Log("Passed a ban check: " + s);
+#endif
 				if (player.aliases == null) player.aliases = new List<string>();
 				AddUnique(player.aliases, s);
 				return true;
@@ -2447,6 +2565,7 @@ namespace TNet
 					{
 						// Inform all players in the channel that the object should be destroyed
 						BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
+						writer.Write(player.id);
 						writer.Write(ch.id);
 						writer.Write((ushort)1);
 						writer.Write(objectID);
@@ -2476,6 +2595,7 @@ namespace TNet
 								{
 									// The player is also present in the other channel -- inform them of the transfer
 									var writer = p.BeginSend(Packet.ResponseTransferObject);
+									writer.Write(player.id);
 									writer.Write(from.id);
 									writer.Write(to.id);
 									writer.Write(objectID);
@@ -2485,7 +2605,8 @@ namespace TNet
 								else
 								{
 									// The player is not present in the other channel -- delete this object
-									BinaryWriter writer = p.BeginSend(Packet.ResponseDestroyObject);
+									var writer = p.BeginSend(Packet.ResponseDestroyObject);
+									writer.Write(player.id);
 									writer.Write(from.id);
 									writer.Write((ushort)1);
 									writer.Write(objectID);
@@ -2689,19 +2810,23 @@ namespace TNet
 		// Cached to reduce memory allocation
 		protected MemoryStream mWriteStream = null;
 		protected BinaryWriter mWriter = null;
+		protected bool mWriting = false;
 #endif
-
 		/// <summary>
 		/// Save the server's current state into the file that was loaded previously with Load().
 		/// </summary>
 
-		protected void Save ()
+		public void Save ()
 		{
 			mNextSave = 0;
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
-			if (!isActive || string.IsNullOrEmpty(mFilename)) return;
+			if (mWriting || !isActive || string.IsNullOrEmpty(mFilename)) return;
 
+#if STANDALONE
+			var timer = System.Diagnostics.Stopwatch.StartNew();
+#endif
+			mWriting = true;
 			SaveBanList();
 			SaveAdminList();
 
@@ -2716,6 +2841,8 @@ namespace TNet
 				mWriteStream.SetLength(0);
 			}
 
+			long length = 0;
+
 			lock (mLock)
 			{
 				mWriter.Write(0);
@@ -2723,7 +2850,7 @@ namespace TNet
 
 				for (int i = 0; i < mChannelList.size; ++i)
 				{
-					Channel ch = mChannelList[i];
+					var ch = mChannelList[i];
 
 					if (!ch.closed && ch.persistent && ch.hasData)
 					{
@@ -2735,6 +2862,7 @@ namespace TNet
 
 				if (count > 0)
 				{
+					length = mWriteStream.Position;
 					mWriteStream.Seek(0, SeekOrigin.Begin);
 					mWriter.Write(count);
 				}
@@ -2753,6 +2881,12 @@ namespace TNet
 			// Save the player data
 			for (int i = 0; i < mPlayerList.size; ++i)
 				SavePlayer(mPlayerList[i]);
+
+#if STANDALONE
+			var elapsed = timer.ElapsedMilliseconds;
+			Console.WriteLine("Saving took " + elapsed + " ms");
+#endif
+			mWriting = false;
 #endif
 		}
 
@@ -2844,7 +2978,7 @@ namespace TNet
 						int chID = reader.ReadInt32();
 						bool isNew;
 						var ch = CreateChannel(chID, out isNew);
-						if (isNew) ch.LoadFrom(reader);
+						if (isNew) ch.LoadFrom(reader, false);
 					}
 				}
 				catch (System.Exception ex)
@@ -2853,6 +2987,8 @@ namespace TNet
 					return false;
 				}
 			}
+
+			TNet.Buffer.ReleaseUnusedMemory();
 			return true;
 #endif
 		}

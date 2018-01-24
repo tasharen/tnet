@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #if UNITY_EDITOR || !UNITY_FLASH
@@ -163,18 +163,18 @@ namespace TNet
 			/// Collect all serializable fields on the class of specified type.
 			/// </summary>
 
-			public List<FieldInfo> GetSerializableFields (bool includePrivate = false)
+			public List<FieldInfo> GetSerializableFields ()
 			{
 				if (mFieldDict == null)
 				{
 					mFieldDict = new List<FieldInfo>();
 
 					var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-					bool serializable = type.IsDefined(typeof(SerializableAttribute), true);
+					//bool serializable = type.IsDefined(typeof(SerializableAttribute), true);
 
 					for (int i = 0, imax = fields.Length; i < imax; ++i)
 					{
-						FieldInfo field = fields[i];
+						var field = fields[i];
 
 						// Don't do anything with static fields
 						if ((field.Attributes & FieldAttributes.Static) != 0) continue;
@@ -185,10 +185,7 @@ namespace TNet
 #endif
 						{
 							// Class is not serializable
-							if (!serializable) continue;
-
-							// It's not a public field
-							if (!includePrivate && (field.Attributes & FieldAttributes.Public) == 0) continue;
+							if (!field.IsPublic) continue;
 						}
 
 						// Ignore fields that were marked as non-serializable
@@ -231,17 +228,17 @@ namespace TNet
 			/// Collect all serializable properties on the class of specified type.
 			/// </summary>
 
-			public List<PropertyInfo> GetSerializableProperties (bool includePrivate = false)
+			public List<PropertyInfo> GetSerializableProperties ()
 			{
 				if (mPropDict == null)
 				{
 					mPropDict = new List<PropertyInfo>();
 
-					var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+					var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
 
 					for (int i = 0, imax = props.Length; i < imax; ++i)
 					{
-						PropertyInfo prop = props[i];
+						var prop = props[i];
 						if (!prop.CanRead || !prop.CanWrite) continue;
 
 						if (prop.IsDefined(typeof(System.ObsoleteAttribute), true)) continue;
@@ -292,6 +289,44 @@ namespace TNet
 
 		static Dictionary<string, Dictionary<Type, List<ExtesionType>>> mCache =
 			new Dictionary<string, Dictionary<Type, List<ExtesionType>>>();
+
+		/// <summary>
+		/// Retrieve a specific extension method for the type that matches the function parameters.
+		/// Each result gets cached, so subsequent calls are going to be much faster and won't cause any GC allocation.
+		/// </summary>
+
+		static public MethodInfo GetMethodOrExtension (this Type type, string name, Type paramType)
+		{
+			Dictionary<Type, List<ExtesionType>> cachedMethod;
+
+			if (!mCache.TryGetValue(name, out cachedMethod) || cachedMethod == null)
+			{
+				cachedMethod = new Dictionary<Type, List<ExtesionType>>();
+				mCache.Add(name, cachedMethod);
+			}
+
+			List<ExtesionType> cachedList = null;
+
+			if (!cachedMethod.TryGetValue(type, out cachedList) || cachedList == null)
+			{
+				cachedList = new List<ExtesionType>();
+				cachedMethod.Add(type, cachedList);
+			}
+
+			for (int b = 0; b < cachedList.size; ++b)
+			{
+				var item = cachedList[b];
+				if (item.paramTypes.Length == 1 && item.paramTypes[0] == paramType) return item.method;
+			}
+
+			var paramTypes = new Type[] { paramType };
+			var ci = new ExtesionType();
+			ci.method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, null, paramTypes, null);
+			if (ci.method == null) ci.method = type.GetExtensionMethod(name, paramTypes);
+			ci.paramTypes = paramTypes;
+			cachedList.Add(ci);
+			return ci.method;
+		}
 
 		/// <summary>
 		/// Retrieve a specific extension method for the type that matches the function parameters.
@@ -664,6 +699,65 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Convenience function that checks if the specified type has the desired function with the desired arguments.
+		/// </summary>
+
+		static public bool HasFunc (this Type type, string methodName, Type paramType)
+		{
+			return type.GetMethodOrExtension(methodName, paramType) != null;
+		}
+
+		/// <summary>
+		/// Convenience function that checks if the specified type has the desired function with the desired arguments.
+		/// </summary>
+
+		static public bool HasFunc (this Type type, string methodName, params Type[] paramTypes)
+		{
+			return type.GetMethodOrExtension(methodName, paramTypes) != null;
+		}
+
+		[System.NonSerialized] static public Dictionary<Type, bool> mHasDataNodeSerialization = new Dictionary<Type, bool>();
+		[System.NonSerialized] static public Dictionary<Type, bool> mHasBinarySerialization = new Dictionary<Type, bool>();
+
+		/// <summary>
+		/// Whether this type has DataNode serialization functions.
+		/// </summary>
+
+		static public bool HasDataNodeSerialization (this Type type)
+		{
+			bool val;
+			if (mHasDataNodeSerialization.TryGetValue(type, out val)) return val;
+			val = type.HasFunc("Serialize", typeof(DataNode)) && type.HasFunc("Deserialize", typeof(DataNode));
+			mHasDataNodeSerialization[type] = val;
+			return val;
+		}
+
+		/// <summary>
+		/// Whether this type has BinaryWriter/BinaryReader-based serialization functions.
+		/// </summary>
+
+		static public bool HasBinarySerialization (this Type type)
+		{
+			bool val;
+			if (mHasDataNodeSerialization.TryGetValue(type, out val)) return val;
+			val = type.HasFunc("Serialize", typeof(System.IO.BinaryWriter)) && type.HasFunc("Deserialize", typeof(System.IO.BinaryReader));
+			mHasDataNodeSerialization[type] = val;
+			return val;
+		}
+
+		/// <summary>
+		/// Due to limitation of structs always being passed by copy rather than by reference, it's normally not possible to implement
+		/// serialization function extensions for structs because 'this' will be a copy. Due to this limitation, 'invokedObject' value
+		/// must be set to the 'this' object at the end of the invoked serialization function.
+		/// </summary>
+
+		[System.NonSerialized]
+		static public object invokedObject;
+
+		[System.NonSerialized] static object[] mTemp;
+		[System.NonSerialized] static object[] mTempExtended;
+
+		/// <summary>
 		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
 		/// </summary>
 
@@ -679,14 +773,9 @@ namespace TNet
 			// Extension methods need to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
 			{
-				object[] extended = new object[parameters.Length + 1];
+				var extended = new object[parameters.Length + 1];
 				extended[0] = null;
-				for (int i = 0, imax = parameters.Length; i < imax; ++i)
-					extended[i + 1] = parameters[i];
-
-				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-				// will not propagate outside that function. It seems to be a limitation of how the variable
-				// is passed to the extension function (as a part of the 'extended array').
+				for (int i = 0, imax = parameters.Length; i < imax; ++i) extended[i + 1] = parameters[i];
 				mi.Invoke(null, extended);
 				return true;
 			}
@@ -703,6 +792,8 @@ namespace TNet
 		{
 			if (obj == null) return false;
 
+			invokedObject = obj;
+
 			var type = obj.GetType();
 			var types = new Type[parameters.Length];
 			for (int i = 0, imax = parameters.Length; i < imax; ++i)
@@ -714,14 +805,13 @@ namespace TNet
 			// Extension methods need to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
 			{
-				object[] extended = new object[parameters.Length + 1];
+				var extended = new object[parameters.Length + 1];
 				extended[0] = obj;
-				for (int i = 0, imax = parameters.Length; i < imax; ++i)
-					extended[i + 1] = parameters[i];
+				for (int i = 0, imax = parameters.Length; i < imax; ++i) extended[i + 1] = parameters[i];
 
-				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-				// will not propagate outside that function. It seems to be a limitation of how the variable
-				// is passed to the extension function (as a part of the 'extended array').
+				// NOTE: If 'obj' is a struct, any changes to the 'obj' done inside the invocation will not propagate outside that function.
+				// It's likely tied to the limitation of structs always being passed by copy. Due to this, the invoked function MUST set
+				// TypeExtensions.invokedObject to the final object's value ('this') before exiting the scope.
 				mi.Invoke(obj, extended);
 				return true;
 			}
@@ -732,11 +822,49 @@ namespace TNet
 
 		/// <summary>
 		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+		/// This is the faster version of Invoke() that accepts arbitrary parameters for when only one parameter is needed, such as for serialization.
+		/// </summary>
+
+		static public bool Invoke (this object obj, string methodName, object arg)
+		{
+			if (obj == null) return false;
+
+			invokedObject = obj;
+
+			var type = obj.GetType();
+			var mi = type.GetMethodOrExtension(methodName, arg.GetType());
+
+			if (mi == null) return false;
+
+			// Extension methods need to pass the object as the first parameter ('this' reference)
+			if (mi.IsStatic && mi.ReflectedType != type)
+			{
+				if (mTempExtended == null) mTempExtended = new object[2];
+				mTempExtended[0] = obj;
+				mTempExtended[1] = arg;
+
+				// NOTE: If 'obj' is a struct, any changes to the 'obj' done inside the invocation will not propagate outside that function.
+				// It's likely tied to the limitation of structs always being passed by copy. Due to this, the invoked function MUST set
+				// TypeExtensions.invokedObject to the final object's value ('this') before exiting the scope.
+				mi.Invoke(obj, mTempExtended);
+				return true;
+			}
+
+			if (mTemp == null) mTemp = new object[1];
+			mTemp[0] = arg;
+			mi.Invoke(obj, mTemp);
+			return true;
+		}
+
+		/// <summary>
+		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
 		/// </summary>
 
 		static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)
 		{
 			if (obj == null) return null;
+
+			invokedObject = obj;
 
 			var type = obj.GetType();
 			var types = new Type[parameters.Length];
@@ -749,14 +877,13 @@ namespace TNet
 			// Extension methods need to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
 			{
-				object[] extended = new object[parameters.Length + 1];
+				var extended = new object[parameters.Length + 1];
 				extended[0] = obj;
-				for (int i = 0, imax = parameters.Length; i < imax; ++i)
-					extended[i + 1] = parameters[i];
+				for (int i = 0, imax = parameters.Length; i < imax; ++i) extended[i + 1] = parameters[i];
 
-				// Note that if 'Type' is a struct, any changes to the 'obj' done inside the invocation
-				// will not propagate outside that function. It seems to be a limitation of how the variable
-				// is passed to the extension function (as a part of the 'extended array').
+				// NOTE: If 'obj' is a struct, any changes to the 'obj' done inside the invocation will not propagate outside that function.
+				// It's likely tied to the limitation of structs always being passed by copy. Due to this, the invoked function MUST set
+				// TypeExtensions.invokedObject to the final object's value ('this') before exiting the scope.
 				return mi.Invoke(obj, extended);
 			}
 
@@ -770,9 +897,9 @@ namespace TNet
 		/// Collect all serializable fields on the class of specified type.
 		/// </summary>
 
-		static public List<FieldInfo> GetSerializableFields (this Type type, bool includePrivate = false)
+		static public List<FieldInfo> GetSerializableFields (this Type type)
 		{
-			return type.GetCache().GetSerializableFields(includePrivate);
+			return type.GetCache().GetSerializableFields();
 		}
 
 		//[System.NonSerialized] static Dictionary<Type, Dictionary<string, FieldInfo>> mSerFieldCache = new Dictionary<Type, Dictionary<string, FieldInfo>>();
@@ -793,9 +920,9 @@ namespace TNet
 		/// Collect all serializable properties on the class of specified type.
 		/// </summary>
 
-		static public List<PropertyInfo> GetSerializableProperties (this Type type, bool includePrivate = false)
+		static public List<PropertyInfo> GetSerializableProperties (this Type type)
 		{
-			return type.GetCache().GetSerializableProperties(includePrivate);
+			return type.GetCache().GetSerializableProperties();
 		}
 
 		//[System.NonSerialized] static Dictionary<Type, Dictionary<string, PropertyInfo>> mSerPropCache = new Dictionary<Type, Dictionary<string, PropertyInfo>>();

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.Net;
@@ -665,6 +665,7 @@ namespace TNet
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (!IsAllowedToAccess(directory)) return null;
+			if (!Directory.Exists(directory)) return null;
 			string[] files = Directory.GetFiles(directory, fileName);
 			return (files.Length == 0) ? null : files[0];
 #else
@@ -680,6 +681,7 @@ namespace TNet
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (!IsAllowedToAccess(directory)) return null;
+			if (!Directory.Exists(directory)) return null;
 			var files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
 			return (files.Length == 0) ? null : files;
 #else
@@ -687,6 +689,9 @@ namespace TNet
 #endif
 		}
 
+#if !STANDALONE
+		[System.NonSerialized] static string mPer = null;
+#endif
 		/// <summary>
 		/// Whether the application should be allowed to access the specified path.
 		/// The path must be inside the same folder or in the Documents folder.
@@ -694,11 +699,14 @@ namespace TNet
 
 		static public bool IsAllowedToAccess (string path, bool allowConfigAccess = false)
 		{
-#if UNITY_EDITOR
-		return true;
-#elif !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			// Relative paths are not allowed
 			if (path.Contains("../") || path.Contains("..\\")) return false;
+
+#if !STANDALONE
+			if (mPer == null) mPer = UnityEngine.Application.persistentDataPath.Replace('\\', '/');
+			if (path.StartsWith(mPer)) return true;
+#endif
 
 			// Config folder is restricted by default
 			if (!allowConfigAccess && path.IndexOf("ServerConfig", System.StringComparison.CurrentCultureIgnoreCase) != -1)
@@ -709,7 +717,7 @@ namespace TNet
 
 			try
 			{
-				fullPath = System.IO.Path.GetFullPath(path).Replace("\\", "/");
+				fullPath = System.IO.Path.GetFullPath(path).Replace('\\', '/');
 			}
 			catch (System.Exception ex)
 			{
@@ -721,7 +729,7 @@ namespace TNet
 			if (fullPath.Contains("/workshop/content/")) return true;
 
 			// Path is inside the current folder
-			string current = System.Environment.CurrentDirectory.Replace("\\", "/");
+			string current = System.Environment.CurrentDirectory.Replace('\\', '/');
 			if (fullPath.Contains(current)) return true;
 
 			// Path is inside My Documents
@@ -730,7 +738,7 @@ namespace TNet
 			if (!string.IsNullOrEmpty(applicationDirectory))
 			{
 				docs = Path.Combine(docs, applicationDirectory);
-				docs = docs.Replace("\\", "/");
+				docs = docs.Replace('\\', '/');
 			}
 			if (fullPath.Contains(docs)) return true;
 
@@ -782,7 +790,7 @@ namespace TNet
 		/// Write the specified file, creating all the subdirectories in the process.
 		/// </summary>
 
-		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false)
+		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1)
 		{
 #if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (inMyDocuments) path = GetDocumentsPath(path);
@@ -799,7 +807,7 @@ namespace TNet
 				if (!IsAllowedToAccess(path, allowConfigAccess))
 				{
 #if !STANDALONE
-				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+					UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 					return false;
 				}
@@ -822,10 +830,22 @@ namespace TNet
 						}
 					}
 
-					File.WriteAllBytes(path, data);
+					if (maxBytes == -1)
+					{
+						File.WriteAllBytes(path, data);
+					}
+					else
+					{
+						var stream = new FileStream(path, FileMode.Create);
+						var bw = new BinaryWriter(stream);
+						bw.Write(data, 0, maxBytes);
+						stream.Flush();
+						stream.Close();
+					}
+
 					if (File.Exists(path)) return true;
 #if !STANDALONE
-				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+					UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 				}
 #if STANDALONE
@@ -885,7 +905,7 @@ namespace TNet
 			if (!IsAllowedToAccess(path, allowConfigAccess))
 			{
 #if !STANDALONE
-			UnityEngine.Debug.LogWarning("Unable to write to " + path);
+				UnityEngine.Debug.LogWarning("Unable to access " + path);
 #endif
 				return false;
 			}
@@ -907,7 +927,7 @@ namespace TNet
 
 					if (File.Exists(path))
 					{
-						FileAttributes att = File.GetAttributes(path);
+						var att = File.GetAttributes(path);
 
 						if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
 						{
@@ -916,19 +936,20 @@ namespace TNet
 						}
 					}
 
-					FileStream fs = new FileStream(path, FileMode.Create);
+					var fs = new FileStream(path, FileMode.Create);
 					data.Seek(0, SeekOrigin.Begin);
 					data.WriteTo(fs);
+					fs.Flush();
 					fs.Close();
 					if (File.Exists(path)) return true;
 #if !STANDALONE
-				UnityEngine.Debug.LogWarning("Unable to write to " + path);
+					UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
 				}
 #if STANDALONE
 				catch (System.Exception) { }
 #else
-			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+				catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
 #endif
 			}
 #endif
@@ -1100,7 +1121,7 @@ namespace TNet
 		{
 			if (msg.Contains("forcibly closed")) return;
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogError(msg);
+			UnityEngine.Debug.LogError(msg + "\n");
 #else
 			msg = "ERROR: " + msg;
 			Tools.Print(msg);
@@ -1188,6 +1209,29 @@ namespace TNet
 				reader.Close();
 			}
 			return exists;
+		}
+
+		/// <summary>
+		/// Helper function that loads a list from memory.
+		/// </summary>
+
+		static internal bool LoadList (byte[] bytes, List<string> list)
+		{
+			if (bytes == null) return false;
+
+			list.Clear();
+
+			var ms = new MemoryStream(bytes);
+			var reader = new StreamReader(ms);
+
+			while (!reader.EndOfStream)
+			{
+				string s = reader.ReadLine();
+				if (!string.IsNullOrEmpty(s)) list.Add(s);
+				else break;
+			}
+			reader.Close();
+			return (list.size != 0);
 		}
 
 		/// <summary>

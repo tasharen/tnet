@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // NOTE: This class is meant to be internal. It provides efficient serialization for basic types such as Vector3, Vector3D, etc.
@@ -10,6 +10,13 @@
 
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
 #define REFLECTION_SUPPORT
+
+// Enabling this would allow you to create IBinarySerializable-like serialization on all classes via extensions, such as:
+//		void Serialize (this CustomClassType obj, BinaryWriter writer);
+//		void Deserialize (this CustomClassType obj, BinaryReader reader);
+// Note that this would also only affect binary serialization, since IDataNodeSerializable is used for text saves.
+
+#define SERIALIZATION_WITHOUT_INTERFACE
 #endif
 
 // If you want to see exceptions instead of error messages, comment this out
@@ -49,6 +56,14 @@ public struct Vector2
 	public float y;
 
 	public Vector2 (float xx, float yy) { x = xx; y = yy; }
+}
+
+public struct ClothSkinningCoefficient
+{
+	public float maxDistance;
+	public float collisionSphereDistance;
+
+	public ClothSkinningCoefficient (float xx, float yy) { maxDistance = xx; collisionSphereDistance = yy; }
 }
 
 public struct Vector3
@@ -167,8 +182,9 @@ public struct WheelFrictionCurve
 namespace TNet
 {
 	/// <summary>
-	/// If custom or simply more efficient serialization is desired, derive your class from IBinarySerializable.
-	/// Ideal use case would be to reduce the amount of data sent over the network via RFCs.
+	/// If custom or simply more efficient serialization is desired, derive your class from IBinarySerializable. Ideal use case
+	/// would be to reduce the amount of data sent over the network via RFCs. When DataNode saves binary form data,
+	/// IBinarySerializable's functions will also be called. DataNode's text-based serialization uses IDataNodeSerializable.
 	/// </summary>
 
 	public interface IBinarySerializable
@@ -233,7 +249,7 @@ namespace TNet
 	// binaryWriter.Write(data);
 	// binaryReader.Read<DataType>();
 
-	static public class Serialization
+	static public partial class Serialization
 	{
 #if REFLECTION_SUPPORT
 		/// <summary>
@@ -256,6 +272,12 @@ namespace TNet
 			if (!mNameToType.TryGetValue(name, out type) || type == null)
 			{
 				if (name == "string") type = typeof(string);
+				else if (name == "short") type = typeof(Int16);
+				else if (name == "int") type = typeof(Int32);
+				else if (name == "long") type = typeof(Int64);
+				else if (name == "ushort") type = typeof(UInt16);
+				else if (name == "uint") type = typeof(UInt32);
+				else if (name == "ulong") type = typeof(UInt64);
 				else if (name == "string[]") type = typeof(string[]);
 				else if (name == "int[]") type = typeof(int[]);
 				else if (name == "float[]") type = typeof(float[]);
@@ -264,6 +286,11 @@ namespace TNet
 				else if (name == "Vector3[]") type = typeof(Vector3[]);
 				else if (name == "Vector2D[]") type = typeof(Vector2D[]);
 				else if (name == "Vector3D[]") type = typeof(Vector3D[]);
+#if !STANDALONE
+				else if (name == "KeyCode") type = typeof(KeyCode);
+				else if (name == "MMC") type = typeof(ParticleSystem.MinMaxCurve);
+				else if (name == "MMG") type = typeof(ParticleSystem.MinMaxGradient);
+#endif
 				else if (name.EndsWith("[]"))
 				{
 					try
@@ -294,6 +321,10 @@ namespace TNet
 						if (elemType != null) type = typeof(TNet.List<>).MakeGenericType(elemType);
 					}
 					else Tools.LogError("Malformed type: " + name);
+				}
+				else if (name.StartsWith("1E-") || name.StartsWith("1E+"))
+				{
+					type = typeof(float);
 				}
 				else if (name == "null" || string.IsNullOrEmpty(name))
 				{
@@ -338,6 +369,12 @@ namespace TNet
 			if (!mTypeToName.TryGetValue(type, out name) || name == null)
 			{
 				if (type == typeof(string)) name = "string";
+				else if (type == typeof(Int16)) name = "short";
+				else if (type == typeof(Int32)) name = "int";
+				else if (type == typeof(Int64)) name = "long";
+				else if (type == typeof(UInt16)) name = "ushort";
+				else if (type == typeof(UInt32)) name = "uint";
+				else if (type == typeof(UInt64)) name = "ulong";
 				else if (type == typeof(string[])) name = "string[]";
 				else if (type == typeof(int[])) name = "int[]";
 				else if (type == typeof(float[])) name = "float[]";
@@ -348,26 +385,20 @@ namespace TNet
 				else if (type == typeof(Vector3D[])) name = "Vector3D[]";
 				else if (type.Implements(typeof(IList)))
 				{
-					Type arg = type.GetGenericArgument();
-
-					if (arg != null)
-					{
-						string sub = arg.ToString().Replace("UnityEngine.", "");
-						name = "IList<" + sub + ">";
-					}
+					var arg = type.GetGenericArgument();
+					if (arg != null) name = "IList<" + TypeToName(arg) + ">";
 					else name = type.ToString().Replace("UnityEngine.", "");
 				}
 				else if (type.Implements(typeof(TList)))
 				{
-					Type arg = type.GetGenericArgument();
-
-					if (arg != null)
-					{
-						string sub = arg.ToString().Replace("UnityEngine.", "");
-						name = "TList<" + sub + ">";
-					}
+					var arg = type.GetGenericArgument();
+					if (arg != null) name = "TList<" + TypeToName(arg) + ">";
 					else name = type.ToString().Replace("UnityEngine.", "");
 				}
+#if !STANDALONE
+				else if (type == typeof(ParticleSystem.MinMaxCurve)) return "MMC";
+				else if (type == typeof(ParticleSystem.MinMaxGradient)) return "MMG";
+#endif
 				else name = type.ToString().Replace("UnityEngine.", "");
 
 				mTypeToName[type] = name;
@@ -388,7 +419,7 @@ namespace TNet
 
 		static object CastValue (object value, Type desiredType)
 		{
-			Type valueType = value.GetType();
+			var valueType = value.GetType();
 			if (valueType == desiredType) return value;
 			if (desiredType.IsAssignableFrom(valueType)) return value;
 
@@ -436,17 +467,45 @@ namespace TNet
 			}
 			else if (valueType == typeof(long))
 			{
+				if (desiredType == typeof(byte)) return (byte)(long)value;
+				if (desiredType == typeof(short)) return (short)(long)value;
+				if (desiredType == typeof(ushort)) return (ushort)(long)value;
 				if (desiredType == typeof(int)) return (int)(long)value;
+				if (desiredType == typeof(uint)) return (uint)(long)value;
 				if (desiredType == typeof(ulong)) return (ulong)(long)value;
-				if (desiredType == typeof(DateTime)) return new DateTime((long)value, DateTimeKind.Utc);
 				if (desiredType == typeof(double)) return (double)(long)value;
+				if (desiredType == typeof(DateTime)) return new DateTime((long)value, DateTimeKind.Utc);
 			}
 			else if (valueType == typeof(ulong))
 			{
+				if (desiredType == typeof(byte)) return (byte)(ulong)value;
+				if (desiredType == typeof(short)) return (short)(ulong)value;
+				if (desiredType == typeof(ushort)) return (ushort)(ulong)value;
 				if (desiredType == typeof(int)) return (int)(ulong)value;
+				if (desiredType == typeof(uint)) return (uint)(ulong)value;
 				if (desiredType == typeof(long)) return (long)(ulong)value;
 				if (desiredType == typeof(double)) return (double)(ulong)value;
 				if (desiredType == typeof(DateTime)) return new DateTime((long)(ulong)value, DateTimeKind.Utc);
+			}
+			else if (valueType == typeof(ushort))
+			{
+				if (desiredType == typeof(byte)) return (byte)(ushort)value;
+				if (desiredType == typeof(short)) return (short)(ushort)value;
+				if (desiredType == typeof(int)) return (int)(ushort)value;
+				if (desiredType == typeof(uint)) return (uint)(ushort)value;
+				if (desiredType == typeof(long)) return (long)(ushort)value;
+				if (desiredType == typeof(ulong)) return (ulong)(ushort)value;
+				if (desiredType == typeof(double)) return (double)(ushort)value;
+			}
+			else if (valueType == typeof(byte))
+			{
+				if (desiredType == typeof(short)) return (short)(byte)value;
+				if (desiredType == typeof(ushort)) return (ushort)(byte)value;
+				if (desiredType == typeof(int)) return (int)(byte)value;
+				if (desiredType == typeof(uint)) return (uint)(byte)value;
+				if (desiredType == typeof(long)) return (long)(byte)value;
+				if (desiredType == typeof(ulong)) return (ulong)(byte)value;
+				if (desiredType == typeof(double)) return (double)(byte)value;
 			}
 			else if (valueType == typeof(ObsInt))
 			{
@@ -456,8 +515,36 @@ namespace TNet
 			{
 				if (desiredType == typeof(Color))
 				{
-					Color32 c = (Color32)value;
+					var c = (Color32)value;
 					return new Color(c.r / 255f, c.g / 255f, c.b / 255f, c.a / 255f);
+				}
+				else if (desiredType == typeof(Vector4))
+				{
+					var c = (Color32)value;
+					return new Vector4(c.r / 255f, c.g / 255f, c.b / 255f, c.a / 255f);
+				}
+			}
+			else if (valueType == typeof(Vector4))
+			{
+				if (desiredType == typeof(Color))
+				{
+					var c = (Vector4)value;
+					return new Color(c.x, c.y, c.z, c.w);
+				}
+				else if (desiredType == typeof(Color32))
+				{
+					var c = (Vector4)value;
+					return new Color32((byte)Math.Round(c.x * 255f), (byte)Math.Round(c.y * 255f), (byte)Math.Round(c.z * 255f), (byte)Math.Round(c.w * 255f));
+				}
+				else if (desiredType == typeof(Quaternion))
+				{
+					var c = (Vector4)value;
+					return new Quaternion(c.x, c.y, c.z, c.w);
+				}
+				else if (desiredType == typeof(Rect))
+				{
+					var c = (Vector4)value;
+					return new Rect(c.x, c.y, c.z, c.w);
 				}
 			}
 			else if (valueType == typeof(Vector3))
@@ -487,18 +574,23 @@ namespace TNet
 			{
 				if (desiredType == typeof(Quaternion))
 				{
-					Color c = (Color)value;
+					var c = (Color)value;
 					return new Quaternion(c.r, c.g, c.b, c.a);
 				}
 				else if (desiredType == typeof(Rect))
 				{
-					Color c = (Color)value;
+					var c = (Color)value;
 					return new Rect(c.r, c.g, c.b, c.a);
 				}
 				else if (desiredType == typeof(Vector4))
 				{
-					Color c = (Color)value;
+					var c = (Color)value;
 					return new Vector4(c.r, c.g, c.b, c.a);
+				}
+				else if (desiredType == typeof(Color32))
+				{
+					var c = (Color)value;
+					return new Color32((byte)Math.Round(c.r * 255f), (byte)Math.Round(c.g * 255f), (byte)Math.Round(c.b * 255f), (byte)Math.Round(c.a * 255f));
 				}
 			}
 			else if (valueType == typeof(DateTime))
@@ -515,14 +607,14 @@ namespace TNet
 #if !STANDALONE
 			else if (valueType == typeof(Vector4[]) && desiredType == typeof(AnimationCurve))
 			{
-				Vector4[] vs = (Vector4[])value;
-				AnimationCurve cv = new AnimationCurve();
-				int keyCount = vs.Length;
-				Keyframe[] kfs = new Keyframe[keyCount];
+				var vs = (Vector4[])value;
+				var cv = new AnimationCurve();
+				var keyCount = vs.Length;
+				var kfs = new Keyframe[keyCount];
 
 				for (int i = 0; i < keyCount; ++i)
 				{
-					Vector4 v = vs[i];
+					var v = vs[i];
 					kfs[i] = new Keyframe(v.x, v.y, v.z, v.w);
 				}
 
@@ -531,20 +623,57 @@ namespace TNet
 			}
 			else if (valueType == typeof(AnimationCurve) && desiredType == typeof(Vector4[]))
 			{
-				AnimationCurve av = (AnimationCurve)value;
-				Keyframe[] kfs = av.keys;
-				int keyCount = kfs.Length;
-				Vector4[] vs = new Vector4[keyCount];
+				var av = (AnimationCurve)value;
+				var kfs = av.keys;
+				var keyCount = kfs.Length;
+				var vs = new Vector4[keyCount];
 
 				for (int i = 0; i < keyCount; ++i)
 				{
-					Keyframe kf = kfs[i];
+					var kf = kfs[i];
 					vs[i] = new Vector4(kf.time, kf.value, kf.inTangent, kf.outTangent);
 				}
 				return vs;
 			}
 			else if (valueType == typeof(LayerMask) && desiredType == typeof(int)) return (int)(LayerMask)value;
 #endif
+			else if (desiredType == typeof(ClothSkinningCoefficient) && valueType == typeof(Vector2))
+			{
+				var v = (Vector2)value;
+				var c = new ClothSkinningCoefficient();
+				c.maxDistance = v.x;
+				c.collisionSphereDistance = v.y;
+				return c;
+			}
+			else if (valueType == typeof(ClothSkinningCoefficient) && desiredType == typeof(Vector2))
+			{
+				var c = (ClothSkinningCoefficient)value;
+				return new Vector2(c.maxDistance, c.collisionSphereDistance);
+			}
+			else if (desiredType == typeof(ClothSkinningCoefficient[]) && valueType == typeof(Vector2[]))
+			{
+				var arr = (Vector2[])value;
+				var imax = arr.Length;
+				var ret = new ClothSkinningCoefficient[imax];
+
+				for (int i = 0; i < imax; ++i)
+				{
+					var v = arr[i];
+					var c = new ClothSkinningCoefficient();
+					c.maxDistance = v.x;
+					c.collisionSphereDistance = v.y;
+					ret[i] = c;
+				}
+				return ret;
+			}
+			else if (valueType == typeof(ClothSkinningCoefficient[]) && desiredType == typeof(Vector2[]))
+			{
+				var arr = (ClothSkinningCoefficient[])value;
+				var imax = arr.Length;
+				var ret = new Vector2[imax];
+				for (int i = 0; i < imax; ++i) ret[i] = new Vector2(arr[i].maxDistance, arr[i].collisionSphereDistance);
+				return ret;
+			}
 #if REFLECTION_SUPPORT
 			if (desiredType.IsEnum)
 			{
@@ -609,21 +738,15 @@ namespace TNet
 		{
 			if (value == null) return null;
 
-			Type valueType = value.GetType();
+			var valueType = value.GetType();
 			if (valueType == desiredType) return value;
 			if (desiredType.IsAssignableFrom(valueType)) return value;
 
-			object retVal = CastValue(value, desiredType);
+			var retVal = CastValue(value, desiredType);
 			if (retVal != null) return retVal;
 
-#if !STANDALONE
-			if (valueType == typeof(string) && typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
-			{
-				if (go != null) return go.StringToReference((string)value);
-				else Debug.LogWarning("Game object reference is needed for a path-based reference (" + (string)value + ")");
-			}
-#if REFLECTION_SUPPORT
-			else if (valueType == typeof(string[]) && desiredType.IsArray)
+#if !STANDALONE && REFLECTION_SUPPORT
+			if (valueType == typeof(string[]) && desiredType.IsArray)
 			{
 				var elemType = desiredType.GetElementType();
 
@@ -634,9 +757,33 @@ namespace TNet
 
 					for (int i = 0, imax = list.Length; i < imax; ++i)
 					{
-						object obj = go.StringToReference(list[i]);
-						if (go != null) newList[i] = System.Convert.ChangeType(obj, elemType);
-						else Debug.LogWarning("Game object reference is needed for a path-based reference");
+						var obj = ConvertObject(list[i], elemType, go);
+						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
+			else if (valueType == typeof(int[]) && desiredType.IsArray)
+			{
+				var elemType = desiredType.GetElementType();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (int[])value;
+					var newList = desiredType.Create(list.Length) as IList;
+
+					for (int i = 0, imax = list.Length; i < imax; ++i)
+					{
+						var obj = ConvertObject(list[i], elemType, go);
+						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
 					}
 					return newList;
 				}
@@ -653,13 +800,124 @@ namespace TNet
 
 					for (int i = 0, imax = list.Length; i < imax; ++i)
 					{
-						if (go != null) newList.Add(go.StringToReference(list[i]));
-						else Debug.LogWarning("Game object reference is needed for a path-based reference");
+						var obj = ConvertObject(list[i], elemType, go);
+						if (obj != null) newList.Add(obj);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
 					}
 					return newList;
 				}
 			}
+			else if (valueType == typeof(int[]) && desiredType.IsGenericType)
+			{
+				var elemType = desiredType.GetGenericArgument();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (int[])value;
+					var arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+					var newList = (IList)Activator.CreateInstance(arrType);
+
+					for (int i = 0, imax = list.Length; i < imax; ++i)
+					{
+						var obj = ConvertObject(list[i], elemType, go);
+						if (obj != null) newList.Add(obj);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
 #endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
+			else if (valueType == typeof(List<string>) && desiredType.IsArray)
+			{
+				var elemType = desiredType.GetElementType();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (List<string>)value;
+					var newList = desiredType.Create(list.size) as IList;
+
+					for (int i = 0; i < list.size; ++i)
+					{
+						var obj = ConvertObject(list.buffer[i], elemType, go);
+						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
+			else if (valueType == typeof(List<int>) && desiredType.IsArray)
+			{
+				var elemType = desiredType.GetElementType();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (List<int>)value;
+					var newList = desiredType.Create(list.size) as IList;
+
+					for (int i = 0; i < list.size; ++i)
+					{
+						var obj = ConvertObject(list.buffer[i], elemType, go);
+						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
+			else if (valueType == typeof(List<string>) && desiredType.IsGenericType)
+			{
+				var elemType = desiredType.GetGenericArgument();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (List<string>)value;
+					var arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+					var newList = (IList)Activator.CreateInstance(arrType);
+
+					for (int i = 0; i < list.size; ++i)
+					{
+						var obj = ConvertObject(list.buffer[i], elemType, go);
+						if (obj != null) newList.Add(obj);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
+			else if (valueType == typeof(List<int>) && desiredType.IsGenericType)
+			{
+				var elemType = desiredType.GetGenericArgument();
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(elemType))
+				{
+					var list = (List<string>)value;
+					var arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(elemType);
+					var newList = (IList)Activator.CreateInstance(arrType);
+
+					for (int i = 0; i < list.size; ++i)
+					{
+						var obj = ConvertObject(list.buffer[i], elemType, go);
+						if (obj != null) newList.Add(obj);
+#if !STANDALONE
+						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+#endif
+						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+					}
+					return newList;
+				}
+			}
 #endif
 			// Object to string conversion
 			if (desiredType == typeof(string))
@@ -684,13 +942,52 @@ namespace TNet
 				return mTempReader.ReadLine();
 			}
 
+#if !STANDALONE
+			var intRef = 0;
+
+			if (valueType == typeof(int))
+			{
+				intRef = (int)value;
+			}
+			else if (valueType == typeof(string))
+			{
+				int.TryParse((string)value, out intRef);
+			}
+
+			if (intRef != 0)
+			{
+				if (desiredType == typeof(Texture)) return ComponentSerialization.GetTexture(intRef);
+				if (desiredType == typeof(Texture2D)) return ComponentSerialization.GetTexture(intRef) as Texture2D;
+				if (desiredType == typeof(Mesh)) return ComponentSerialization.GetMesh(intRef);
+				if (desiredType == typeof(Material)) return ComponentSerialization.GetMaterial(intRef);
+				if (desiredType == typeof(AudioClip)) return ComponentSerialization.GetAudioClip(intRef);
+				if (desiredType == typeof(GameObject)) return ComponentSerialization.GetPrefab(intRef);
+			}
+#endif
 			// String to object conversion
 			if (valueType == typeof(string))
 			{
+#if !STANDALONE
+				if (typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
+				{
+					if (go != null) return go.StringToReference((string)value);
+					else Debug.LogWarning("Game object reference is needed for a path-based reference (" + (string)value + ")");
+				}
+#endif
 				object obj;
 				return (ReadObject((string)value, out obj) && obj != null) ? CastValue(obj, desiredType) : null;
 			}
 
+#if REFLECTION_SUPPORT
+			// Deserialize the DataNode hierarchy into the object
+			if (valueType == typeof(DataNode))
+			{
+				var obj = desiredType.Create();
+				var node = (DataNode)value;
+				foreach (var child in node.children) obj.SetFieldOrPropertyValue(child.name, child.value, go);
+				return obj;
+			}
+#endif
 			Tools.LogError("Unable to convert " + valueType + " (" + value.ToString() + ") to " + desiredType);
 			return null;
 		}
@@ -1128,7 +1425,7 @@ namespace TNet
 				return true;
 			}
 
-			Type type = value.GetType();
+			var type = value.GetType();
 
 			if (type == typeof(string))
 			{
@@ -1202,7 +1499,7 @@ namespace TNet
 
 			if (type == typeof(ObsInt))
 			{
-				ObsInt o = (ObsInt)value;
+				var o = (ObsInt)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write("ObsInt(");
 				writer.Write((int)o);
@@ -1212,7 +1509,7 @@ namespace TNet
 
 			if (type == typeof(Vector2))
 			{
-				Vector2 v = (Vector2)value;
+				var v = (Vector2)value;
 				writer.Write(prefix ? " = (" : "(");
 				writer.WriteFloat(v.x);
 				writer.Write(", ");
@@ -1223,7 +1520,7 @@ namespace TNet
 
 			if (type == typeof(Vector3))
 			{
-				Vector3 v = (Vector3)value;
+				var v = (Vector3)value;
 				writer.Write(prefix ? " = (" : "(");
 				writer.WriteFloat(v.x);
 				writer.Write(", ");
@@ -1275,7 +1572,7 @@ namespace TNet
 
 			if (type == typeof(Color32))
 			{
-				Color32 c = (Color32)value;
+				var c = (Color32)value;
 				writer.Write(prefix ? " = 0x" : "0x");
 
 				if (c.a == 255)
@@ -1293,7 +1590,7 @@ namespace TNet
 
 			if (type == typeof(Vector4))
 			{
-				Vector4 v = (Vector4)value;
+				var v = (Vector4)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write('(');
 				writer.WriteFloat(v.x);
@@ -1309,7 +1606,7 @@ namespace TNet
 
 			if (type == typeof(Quaternion))
 			{
-				Quaternion q = (Quaternion)value;
+				var q = (Quaternion)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write('(');
 				writer.WriteFloat(q.x);
@@ -1325,7 +1622,7 @@ namespace TNet
 
 			if (type == typeof(Rect))
 			{
-				Rect r = (Rect)value;
+				var r = (Rect)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write('(');
 				writer.WriteFloat(r.x);
@@ -1341,7 +1638,7 @@ namespace TNet
 
 			if (type == typeof(Matrix4x4))
 			{
-				Matrix4x4 m = (Matrix4x4)value;
+				var m = (Matrix4x4)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write('(');
 				writer.WriteFloat(m.m00); writer.Write(", ");
@@ -1369,7 +1666,7 @@ namespace TNet
 
 			if (type == typeof(BoneWeight))
 			{
-				BoneWeight bw = (BoneWeight)value;
+				var bw = (BoneWeight)value;
 				if (prefix) writer.Write(" = ");
 				writer.Write('(');
 				writer.WriteFloat(bw.boneIndex0); writer.Write(", ");
@@ -1386,7 +1683,7 @@ namespace TNet
 
 			if (type == typeof(Bounds))
 			{
-				Bounds b = (Bounds)value;
+				var b = (Bounds)value;
 				Vector3 c = b.center;
 				Vector3 s = b.size;
 				if (prefix) writer.Write(" = ");
@@ -1415,9 +1712,20 @@ namespace TNet
 				return true;
 			}
 
-			if (value is UnityEngine.Object)
+			if (value is UnityEngine.Component)
 			{
-				Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.");
+				var obj = (value as Component);
+				if (!obj) Debug.LogError("Trying to serialize a destroyed " + value.GetType());
+				else Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.\n" + UnityTools.GetHierarchy(obj.transform));
+				writer.Write(" // ERROR");
+				return true;
+			}
+			else if (value is UnityEngine.Object)
+			{
+				var obj = (value as UnityEngine.Object);
+				if (!obj) Debug.LogError("Trying to serialize a destroyed " + value.GetType());
+				else Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.");
+				writer.Write(" // ERROR");
 				return true;
 			}
 #endif
@@ -1540,7 +1848,39 @@ namespace TNet
 			return size;
 		}
 
-		#region Write
+		/// <summary>
+		/// Custom user-set function that makes it possible to add custom short-form data types. Should return 'null' by default.
+		/// onGetTypeByPrefix, onGetPrefixByType, onWriteObject and onReadObject must be all implemented.
+		/// </summary>
+
+		static public GetTypeByPrefixFunc onGetTypeByPrefix;
+		public delegate Type GetTypeByPrefixFunc (int prefix);
+
+		/// <summary>
+		/// Custom user-set function that makes it possible to add custom short-form data types. Should return '0' by default.
+		/// onGetTypeByPrefix, onGetPrefixByType, onWriteObject and onReadObject must be all implemented.
+		/// </summary>
+
+		static public GetPrefixByTypeFunc onGetPrefixByType;
+		public delegate int GetPrefixByTypeFunc (Type type);
+
+		/// <summary>
+		/// Custom user-set function that makes it possible to add custom short-form data types. Should return 'false' by default or 'true' if the object was written.
+		/// onGetTypeByPrefix, onGetPrefixByType, onWriteObject and onReadObject must be all implemented.
+		/// </summary>
+
+		static public OnWriteObject onWriteObject;
+		public delegate bool OnWriteObject (int prefix, object obj, BinaryWriter bw);
+
+		/// <summary>
+		/// Custom user-set function that makes it possible to add custom short-form data types. Should return 'null' by default.
+		/// onGetTypeByPrefix, onGetPrefixByType, onWriteObject and onReadObject must be all implemented.
+		/// </summary>
+
+		static public OnReadObject onReadObject;
+		public delegate object OnReadObject (int prefix, BinaryReader reader);
+
+#region Write
 
 		/// <summary>
 		/// Write an integer value using the smallest number of bytes possible.
@@ -1557,6 +1897,12 @@ namespace TNet
 				bw.Write((byte)255);
 				bw.Write(val);
 			}
+		}
+
+		static public void WriteBytes (this BinaryWriter writer, string text)
+		{
+			var len = text.Length;
+			for (int i = 0; i < len; ++i) writer.Write((byte)text[i]);
 		}
 
 		static public void Write (this BinaryWriter writer, Vector2 v)
@@ -1626,16 +1972,25 @@ namespace TNet
 			if (node == null)
 			{
 				writer.Write("");
+				return;
+			}
+
+			if (string.IsNullOrEmpty(node.name))
+			{
+				writer.Write("Version");
+				if (node.value == null) writer.Write(Player.version);
+				else writer.WriteObject(node.value);
 			}
 			else
 			{
-				writer.Write(string.IsNullOrEmpty(node.name) ? "DataNode" : node.name);
+				writer.Write(node.name);
 				writer.WriteObject(node.value);
-				writer.WriteInt(node.children.size);
-
-				for (int i = 0, imax = node.children.size; i < imax; ++i)
-					writer.Write(node.children[i]);
 			}
+
+			writer.WriteInt(node.children.size);
+
+			for (int i = 0, imax = node.children.size; i < imax; ++i)
+				writer.Write(node.children[i]);
 		}
 
 		/// <summary>
@@ -1692,6 +2047,148 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Write a cloth skinning coefficient to the stream.
+		/// </summary>
+
+		static public void Write (this BinaryWriter writer, ClothSkinningCoefficient c)
+		{
+			writer.Write(c.maxDistance);
+			writer.Write(c.collisionSphereDistance);
+		}
+
+		/// <summary>
+		/// Read a previously encoded cloth skinning coefficient from the reader.
+		/// </summary>
+
+		static public ClothSkinningCoefficient ReadClothSkinningCoefficient (this BinaryReader reader)
+		{
+			var c = new ClothSkinningCoefficient();
+			c.maxDistance = reader.ReadSingle();
+			c.collisionSphereDistance = reader.ReadSingle();
+			return c;
+		}
+
+#if !STANDALONE
+		/// <summary>
+		/// Write a color gradient to the stream.
+		/// </summary>
+
+		static public void Write (this BinaryWriter writer, Gradient c)
+		{
+			var colors = c.colorKeys;
+			var alphas = c.alphaKeys;
+			var count = colors.Length;
+			writer.Write((byte)count);
+
+			for (int i = 0; i < count; ++i)
+			{
+				writer.Write((Color32)colors[i].color);
+				writer.Write(colors[i].time);
+			}
+
+			count = alphas.Length;
+			writer.Write((byte)count);
+
+			for (int i = 0; i < count; ++i)
+			{
+				writer.Write(alphas[i].alpha);
+				writer.Write(alphas[i].time);
+			}
+		}
+
+		/// <summary>
+		/// Read a previously encoded color gradient from the reader.
+		/// </summary>
+
+		static public Gradient ReadGradient (this BinaryReader reader)
+		{
+			var c = new Gradient();
+
+			var count = reader.ReadByte();
+			var colors = new GradientColorKey[count];
+
+			for (int i = 0; i < count; ++i)
+			{
+				colors[i].color = reader.ReadColor32();
+				colors[i].time = reader.ReadSingle();
+			}
+
+			c.colorKeys = colors;
+
+			count = reader.ReadByte();
+
+			var alphas = new GradientAlphaKey[count];
+
+			for (int i = 0; i < count; ++i)
+			{
+				alphas[i].alpha = reader.ReadSingle();
+				alphas[i].time = reader.ReadSingle();
+			}
+
+			c.alphaKeys = alphas;
+			return c;
+		}
+
+		/// <summary>
+		/// Write a particle system's MinMax curve to the stream.
+		/// </summary>
+
+		static public void Write (this BinaryWriter writer, ParticleSystem.MinMaxCurve c)
+		{
+			writer.Write((byte)c.mode);
+			var mode = c.mode;
+
+			if (mode == ParticleSystemCurveMode.Curve)
+			{
+				writer.WriteObject(c.curve);
+				writer.Write(c.curveMultiplier);
+			}
+			else if (mode == ParticleSystemCurveMode.TwoCurves)
+			{
+				writer.WriteObject(c.curveMin);
+				writer.WriteObject(c.curveMax);
+				writer.Write(c.curveMultiplier);
+			}
+			else if (mode == ParticleSystemCurveMode.TwoConstants)
+			{
+				writer.Write(c.constantMin);
+				writer.Write(c.constantMax);
+			}
+			else writer.Write(c.constant);
+		}
+
+		/// <summary>
+		/// Read a previously serialized MinMaxCurve from the stream.
+		/// </summary>
+
+		static public ParticleSystem.MinMaxCurve ReadMinMaxCurve (this BinaryReader reader)
+		{
+			var c = new ParticleSystem.MinMaxCurve();
+			var mode = (ParticleSystemCurveMode)reader.ReadByte();
+			c.mode = mode;
+
+			if (mode == ParticleSystemCurveMode.Curve)
+			{
+				c.curve = reader.ReadObject<AnimationCurve>();
+				c.curveMultiplier = reader.ReadSingle();
+			}
+			else if (mode == ParticleSystemCurveMode.TwoCurves)
+			{
+				c.curveMin = reader.ReadObject<AnimationCurve>();
+				c.curveMax = reader.ReadObject<AnimationCurve>();
+				c.curveMultiplier = reader.ReadSingle();
+			}
+			else if (mode == ParticleSystemCurveMode.TwoConstants)
+			{
+				c.constantMin = reader.ReadSingle();
+				c.constantMax = reader.ReadSingle();
+			}
+			else c.constant = reader.ReadSingle();
+			return c;
+		}
+#endif
+
+		/// <summary>
 		/// Write a counter value to this stream.
 		/// </summary>
 
@@ -1702,7 +2199,7 @@ namespace TNet
 		/// If this is not one of the common types, the returned value will be 254 if reflection is supported and 255 otherwise.
 		/// </summary>
 
-		static int GetPrefix (Type type)
+		static public int GetPrefix (Type type, bool useUserTypes = true)
 		{
 			// This would result in less data saved, but also in unreadable values after read-back
 			// http://www.tasharen.com/forum/index.php?topic=15060.0
@@ -1736,7 +2233,11 @@ namespace TNet
 			if (type == typeof(Counter)) return 24;
 			if (type == typeof(Vector2D)) return 25;
 			if (type == typeof(Vector3D)) return 26;
-
+			if (type == typeof(ClothSkinningCoefficient)) return 27;
+#if !STANDALONE
+			if (type == typeof(Gradient)) return 28;
+			if (type == typeof(ParticleSystem.MinMaxCurve)) return 29;
+#endif
 			if (type == typeof(bool[])) return 101;
 			if (type == typeof(byte[])) return 102;
 			if (type == typeof(ushort[])) return 103;
@@ -1764,6 +2265,23 @@ namespace TNet
 			if (type == typeof(Counter[])) return 124;
 			if (type == typeof(Vector2D[])) return 125;
 			if (type == typeof(Vector3D[])) return 126;
+			if (type == typeof(ClothSkinningCoefficient[])) return 127;
+
+#if !STANDALONE
+			if (mForcedLazySer == null)
+			{
+				mForcedLazySer = new HashSet<Type>();
+				for (int i = 0, len = forcedLazySerializationTypes.Length; i < len; ++i)
+					mForcedLazySer.Add(forcedLazySerializationTypes[i]);
+			}
+
+			if (mForcedLazySer.Contains(type)) return 14;
+#endif
+			if (useUserTypes && onGetPrefixByType != null)
+			{
+				var ret = onGetPrefixByType(type);
+				if (ret != 0) return ret;
+			}
 
 #if REFLECTION_SUPPORT
 			return 254;
@@ -1772,11 +2290,47 @@ namespace TNet
 #endif
 		}
 
+#if !STANDALONE
+		/// <summary>
+		/// Due to Unity's Shuriken particle system being designed poorly, all its structs-that-are-not-really-structs
+		/// have to be kept as a list of properties rather than as whole objects.
+		/// </summary>
+
+		[System.NonSerialized]
+		static public Type[] forcedLazySerializationTypes = new Type[]
+		{
+			typeof(ParticleSystem.MainModule),
+			typeof(ParticleSystem.EmissionModule),
+			typeof(ParticleSystem.ShapeModule),
+			typeof(ParticleSystem.VelocityOverLifetimeModule),
+			typeof(ParticleSystem.LimitVelocityOverLifetimeModule),
+			typeof(ParticleSystem.InheritVelocityModule),
+			typeof(ParticleSystem.ForceOverLifetimeModule),
+			typeof(ParticleSystem.ColorOverLifetimeModule),
+			typeof(ParticleSystem.ColorBySpeedModule),
+			typeof(ParticleSystem.SizeOverLifetimeModule),
+			typeof(ParticleSystem.SizeBySpeedModule),
+			typeof(ParticleSystem.RotationOverLifetimeModule),
+			typeof(ParticleSystem.RotationBySpeedModule),
+			typeof(ParticleSystem.ExternalForcesModule),
+			typeof(ParticleSystem.NoiseModule),
+			typeof(ParticleSystem.CollisionModule),
+			typeof(ParticleSystem.TriggerModule),
+			typeof(ParticleSystem.SubEmittersModule),
+			typeof(ParticleSystem.TextureSheetAnimationModule),
+			typeof(ParticleSystem.LightsModule),
+			typeof(ParticleSystem.TrailModule),
+			typeof(ParticleSystem.CustomDataModule),
+		};
+
+		[System.NonSerialized] static HashSet<Type> mForcedLazySer = null;
+#endif
+
 		/// <summary>
 		/// Given the prefix identifier, return the associated type.
 		/// </summary>
 
-		static Type GetType (int prefix)
+		static public Type GetType (int prefix, bool useUserTypes = true)
 		{
 			switch (prefix)
 			{
@@ -1808,7 +2362,11 @@ namespace TNet
 				case 24: return typeof(Counter);
 				case 25: return typeof(Vector2D);
 				case 26: return typeof(Vector3D);
-
+				case 27: return typeof(ClothSkinningCoefficient);
+#if !STANDALONE
+				case 28: return typeof(Gradient);
+				case 29: return typeof(ParticleSystem.MinMaxCurve);
+#endif
 				case 101: return typeof(bool[]);
 				case 102: return typeof(byte[]);
 				case 103: return typeof(ushort[]);
@@ -1836,7 +2394,10 @@ namespace TNet
 				case 124: return typeof(Counter[]);
 				case 125: return typeof(Vector2D[]);
 				case 126: return typeof(Vector3D[]);
+				case 127: return typeof(ClothSkinningCoefficient[]);
 			}
+
+			if (useUserTypes && onGetTypeByPrefix != null) return onGetTypeByPrefix(prefix);
 			return null;
 		}
 
@@ -1915,27 +2476,52 @@ namespace TNet
 			// AnimationCurve should be sent as an array of Vector4 values since it's not serializable on its own
 			if (obj is AnimationCurve) obj = Convert<Vector4[]>(obj);
 #endif
+			Type type;
+
 			if (obj is DateTime)
 			{
 				// Convert date to ticks
 				obj = ((DateTime)obj).Ticks;
-			}
-			else if (obj is IBinarySerializable && !(obj is Counter))
-			{
-				// The object implements IBinarySerializable
-				if (!typeIsKnown) bw.Write(253, obj.GetType());
-				(obj as IBinarySerializable).Serialize(bw);
-				return;
-			}
 
-			Type type;
-
-			if (!typeIsKnown)
-			{
-				type = obj.GetType();
-				prefix = GetPrefix(type);
+				if (!typeIsKnown)
+				{
+					type = obj.GetType();
+					prefix = GetPrefix(type);
+				}
+				else type = GetType(prefix);
 			}
-			else type = GetType(prefix);
+			else
+			{
+				if (!typeIsKnown)
+				{
+					type = obj.GetType();
+					prefix = GetPrefix(type);
+				}
+				else
+				{
+					type = GetType(prefix);
+					if (type == null) type = obj.GetType();
+				}
+
+				if (!(obj is Counter))
+				{
+					if (obj is IBinarySerializable)
+					{
+						// The object implements IBinarySerializable
+						if (!typeIsKnown) bw.Write(253, type);
+						(obj as IBinarySerializable).Serialize(bw);
+						return;
+					}
+#if SERIALIZATION_WITHOUT_INTERFACE
+					else if (prefix == 252 || type.HasBinarySerialization())
+					{
+						if (!typeIsKnown) bw.Write(252, type);
+						obj.Invoke("Serialize", bw);
+						return;
+					}
+#endif
+				}
+			}
 
 			// If this is a custom type, there is more work to be done
 			if (prefix > 250)
@@ -1951,7 +2537,8 @@ namespace TNet
 
 				if (obj is Component)
 				{
-					Debug.LogError("It's not possible to send components as parameters because Unity has no consistent way to identify them.");
+					Debug.LogError("It's not possible to send components as parameters because Unity has no consistent way to identify them.\n" +
+						"Serializing " + obj.GetType() + " (" + UnityTools.GetHierarchy((obj as Component).transform) + ")");
 					bw.Write((byte)0);
 					return;
 				}
@@ -1962,7 +2549,7 @@ namespace TNet
 #if REFLECTION_SUPPORT
 					if (useReflection)
 					{
-						Type elemType = type.GetGenericArgument();
+						var elemType = type.GetGenericArgument();
 
 						if (elemType != null)
 						{
@@ -2068,7 +2655,25 @@ namespace TNet
 				case 11: bw.Write((Quaternion)obj); break;
 				case 12: bw.Write((Color32)obj); break;
 				case 13: bw.Write((Color)obj); break;
-				case 14: bw.Write((DataNode)obj); break;
+				case 14:
+				{
+					if (obj == null || obj is DataNode)
+					{
+						bw.Write((DataNode)obj);
+					}
+					else
+					{
+						// Non-DataNode object that should be serialized in DataNode form (for example ParticleSystem modules)
+						var node = new DataNode("Data");
+#if REFLECTION_SUPPORT
+						node.AddAllFields(obj);
+#else
+						Debug.LogError("Reflection-based serialization is not supported on this platform.");
+#endif
+						bw.Write(node);
+					}
+					break;
+				}
 				case 15: bw.Write((double)obj); break;
 				case 16: bw.Write((short)obj); break;
 #if !STANDALONE
@@ -2089,6 +2694,11 @@ namespace TNet
 				case 24: bw.Write((Counter)obj); break;
 				case 25: bw.Write((Vector2D)obj); break;
 				case 26: bw.Write((Vector3D)obj); break;
+				case 27: bw.Write((ClothSkinningCoefficient)obj); break;
+#if !STANDALONE
+				case 28: bw.Write((Gradient)obj); break;
+				case 29: bw.Write((ParticleSystem.MinMaxCurve)obj); break;
+#endif
 				case 101:
 				{
 					var arr = (bool[])obj;
@@ -2272,6 +2882,13 @@ namespace TNet
 					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 					break;
 				}
+				case 127:
+				{
+					var arr = (ClothSkinningCoefficient[])obj;
+					bw.WriteInt(arr.Length);
+					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+					break;
+				}
 				case 254: // Serialization using Reflection
 				{
 #if REFLECTION_SUPPORT
@@ -2299,6 +2916,7 @@ namespace TNet
 				}
 				default:
 				{
+					if (onWriteObject != null && onWriteObject(prefix, obj, bw)) break;
 #if !STANDALONE
 					Debug.LogError("Prefix " + prefix + " is not supported");
 #else
@@ -2314,6 +2932,16 @@ namespace TNet
 		static List<object> mFieldValues = new List<object>();
 
 		/// <summary>
+		/// Add all of the object's serializable fields to the specified DataNode.
+		/// </summary>
+
+		static public void AddAllFields (this DataNode node, object obj)
+		{
+			FilterFields(obj);
+			for (int i = 0, imax = mFieldNames.size; i < imax; ++i) node.AddChild(mFieldNames[i], mFieldValues[i]);
+		}
+
+		/// <summary>
 		/// Helper function that retrieves all serializable fields on the specified object and filters them, removing those with null values.
 		/// </summary>
 
@@ -2327,7 +2955,7 @@ namespace TNet
 
 			for (int i = 0; i < fields.size; ++i)
 			{
-				FieldInfo f = fields[i];
+				var f = fields[i];
 				object val = f.GetValue(obj);
 
 				if (val != null)
@@ -2346,22 +2974,33 @@ namespace TNet
 				{
 					for (int i = 0; i < props.size; ++i)
 					{
-						var prop = props[i];
-						object val = prop.GetValue(obj, null);
-
-						if (val != null)
+						try
 						{
-							mFieldNames.Add(prop.Name);
-							mFieldValues.Add(val);
+							var prop = props[i];
+							var val = prop.GetValue(obj, null);
+
+							if (val != null)
+							{
+								mFieldNames.Add(prop.Name);
+								mFieldValues.Add(val);
+							}
 						}
+#if UNITY_EDITOR
+						catch (Exception ex)
+						{
+							Debug.LogWarning(obj.GetType() + "." + props[i].Name + ": " + ex.Message + "\n" + ex.StackTrace, obj as UnityEngine.Object);
+						}
+#else
+						catch (Exception) { }
+#endif
 					}
 				}
 			}
 		}
 #endif
 
-		#endregion
-		#region Read
+#endregion
+#region Read
 
 		/// <summary>
 		/// Read the previously saved integer value.
@@ -2496,20 +3135,28 @@ namespace TNet
 
 		static public DataNode ReadDataNode (this BinaryReader reader)
 		{
-			string str = reader.ReadString();
+			var str = reader.ReadString();
 			if (string.IsNullOrEmpty(str)) return null;
-			DataNode node = new DataNode(str);
+			var node = new DataNode(str);
 
 #if IGNORE_ERRORS
 			try
 			{
 #endif
-				node.value = reader.ReadObject();
+				var obj = reader.ReadObject();
+
+				if (obj is DataNode)
+				{
+					var child = obj as DataNode;
+					foreach (var sub in child.children) node.children.Add(sub);
+				}
+				else node.value = obj;
+
 				int count = reader.ReadInt();
 
 				for (int i = 0; i < count; ++i)
 				{
-					DataNode dn = reader.ReadDataNode();
+					var dn = reader.ReadDataNode();
 					if (dn != null) node.children.Add(dn);
 				}
 #if IGNORE_ERRORS
@@ -2525,7 +3172,7 @@ namespace TNet
 
 		static public Matrix4x4 ReadMatrix (this BinaryReader reader)
 		{
-			Matrix4x4 m = new Matrix4x4();
+			var m = new Matrix4x4();
 			m.m00 = reader.ReadSingle();
 			m.m10 = reader.ReadSingle();
 			m.m20 = reader.ReadSingle();
@@ -2576,7 +3223,7 @@ namespace TNet
 
 		static public BoneWeight ReadBoneWeight (this BinaryReader reader)
 		{
-			BoneWeight w = new BoneWeight();
+			var w = new BoneWeight();
 			w.boneIndex0 = reader.ReadByte();
 			w.boneIndex1 = reader.ReadByte();
 			w.boneIndex2 = reader.ReadByte();
@@ -2616,7 +3263,7 @@ namespace TNet
 		{
 			object obj = ReadObject(reader);
 			if (obj == null) return default(T);
-			return (T)obj;
+			return (T)CastValue(obj, typeof(T));
 		}
 
 		/// <summary>
@@ -2638,7 +3285,6 @@ namespace TNet
 		static object ReadObject (this BinaryReader reader, object obj, int prefix, Type type, bool typeIsKnown)
 		{
 			if (!typeIsKnown) type = reader.ReadType(out prefix);
-			if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
 
 #if IGNORE_ERRORS
 			try
@@ -2690,6 +3336,11 @@ namespace TNet
 					case 24: return reader.ReadCounter();
 					case 25: return reader.ReadVector2D();
 					case 26: return reader.ReadVector3D();
+					case 27: return reader.ReadClothSkinningCoefficient();
+#if !STANDALONE
+					case 28: return reader.ReadGradient();
+					case 29: return reader.ReadMinMaxCurve();
+#endif
 					case 98: // TNet.List
 					{
 						type = reader.ReadType(out prefix);
@@ -2704,17 +3355,24 @@ namespace TNet
 						else
 						{
 #if REFLECTION_SUPPORT
-							Type arrType = typeof(TNet.List<>).MakeGenericType(type);
+							var arrType = typeof(TNet.List<>).MakeGenericType(type);
 							arr = (TList)Activator.CreateInstance(arrType);
 #else
 							Debug.LogError("Reflection-based serialization is not supported on this platform");
 #endif
 						}
 
-						for (int i = 0; i < elements; ++i)
+						if (elements != 0)
 						{
-							object val = reader.ReadObject(null, prefix, type, sameType);
-							if (arr != null) arr.Add(val);
+							if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+							else if (type.HasBinarySerialization()) prefix = 252;
+#endif
+							for (int i = 0; i < elements; ++i)
+							{
+								object val = reader.ReadObject(null, prefix, type, sameType);
+								if (arr != null) arr.Add(val);
+							}
 						}
 						return arr;
 					}
@@ -2732,17 +3390,24 @@ namespace TNet
 						else
 						{
 #if REFLECTION_SUPPORT
-							Type arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(type);
+							var arrType = typeof(System.Collections.Generic.List<>).MakeGenericType(type);
 							arr = (IList)Activator.CreateInstance(arrType);
 #else
 							Debug.LogError("Reflection-based serialization is not supported on this platform");
 #endif
 						}
 
-						for (int i = 0; i < elements; ++i)
+						if (elements != 0)
 						{
-							object val = reader.ReadObject(null, prefix, type, sameType);
-							if (arr != null) arr.Add(val);
+							if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+							else if (type.HasBinarySerialization()) prefix = 252;
+#endif
+							for (int i = 0; i < elements; ++i)
+							{
+								object val = reader.ReadObject(null, prefix, type, sameType);
+								if (arr != null) arr.Add(val);
+							}
 						}
 						return arr;
 					}
@@ -2769,10 +3434,16 @@ namespace TNet
 
 						if (arr != null)
 						{
-							type = type.GetElementType();
-							prefix = GetPrefix(type);
-							for (int i = 0; i < elements; ++i)
-								arr[i] = reader.ReadObject(null, prefix, type, sameType);
+							if (elements != 0)
+							{
+								type = type.GetElementType();
+								if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+								else if (type.HasBinarySerialization()) prefix = 252;
+#endif
+								else if (prefix != 254) prefix = GetPrefix(type);
+								for (int i = 0; i < elements; ++i) arr[i] = reader.ReadObject(null, prefix, type, sameType);
+							}
 						}
 						else Tools.LogError("Failed to create a " + type);
 						return arr;
@@ -2784,7 +3455,7 @@ namespace TNet
 					case 101:
 					{
 						int elements = reader.ReadInt();
-						bool[] arr = new bool[elements];
+						var arr = new bool[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBoolean();
 						return arr;
 					}
@@ -2796,144 +3467,142 @@ namespace TNet
 					case 103:
 					{
 						int elements = reader.ReadInt();
-						ushort[] arr = new ushort[elements];
+						var arr = new ushort[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt16();
 						return arr;
 					}
 					case 104:
 					{
 						int elements = reader.ReadInt();
-						int[] arr = new int[elements];
+						var arr = new int[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt32();
 						return arr;
 					}
 					case 105:
 					{
 						int elements = reader.ReadInt();
-						uint[] arr = new uint[elements];
+						var arr = new uint[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt32();
 						return arr;
 					}
 					case 106:
 					{
 						int elements = reader.ReadInt();
-						float[] arr = new float[elements];
+						var arr = new float[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadSingle();
 						return arr;
 					}
 					case 107:
 					{
 						int elements = reader.ReadInt();
-						string[] arr = new string[elements];
+						var arr = new string[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadString();
 						return arr;
 					}
 					case 108:
 					{
 						int elements = reader.ReadInt();
-						Vector2[] arr = new Vector2[elements];
+						var arr = new Vector2[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadVector2();
 						return arr;
 					}
 					case 109:
 					{
 						int elements = reader.ReadInt();
-						Vector3[] arr = new Vector3[elements];
+						var arr = new Vector3[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadVector3();
 						return arr;
 					}
 					case 110:
 					{
 						int elements = reader.ReadInt();
-						Vector4[] arr = new Vector4[elements];
+						var arr = new Vector4[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadVector4();
 						return arr;
 					}
 					case 111:
 					{
 						int elements = reader.ReadInt();
-						Quaternion[] arr = new Quaternion[elements];
+						var arr = new Quaternion[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadQuaternion();
 						return arr;
 					}
 					case 112:
 					{
 						int elements = reader.ReadInt();
-						Color32[] arr = new Color32[elements];
+						var arr = new Color32[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadColor32();
 						return arr;
 					}
 					case 113:
 					{
 						int elements = reader.ReadInt();
-						Color[] arr = new Color[elements];
+						var arr = new Color[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadColor();
 						return arr;
 					}
 					case 115:
 					{
 						int elements = reader.ReadInt();
-						double[] arr = new double[elements];
+						var arr = new double[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadDouble();
 						return arr;
 					}
 					case 116:
 					{
 						int elements = reader.ReadInt();
-						short[] arr = new short[elements];
-						for (int b = 0; b < elements; ++b)
-							arr[b] = reader.ReadInt16();
+						var arr = new short[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt16();
 						return arr;
 					}
 #if !STANDALONE
 					case 117:
 					{
 						int elements = reader.ReadInt();
-						TNObject[] arr = new TNObject[elements];
-						for (int b = 0; b < elements; ++b)
-							arr[b] = TNObject.Find(reader.ReadInt32(), reader.ReadUInt32());
+						var arr = new TNObject[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = TNObject.Find(reader.ReadInt32(), reader.ReadUInt32());
 						return arr;
 					}
 #endif
 					case 118:
 					{
 						int elements = reader.ReadInt();
-						long[] arr = new long[elements];
+						var arr = new long[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadInt64();
 						return arr;
 					}
 					case 119:
 					{
 						int elements = reader.ReadInt();
-						ulong[] arr = new ulong[elements];
+						var arr = new ulong[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadUInt64();
 						return arr;
 					}
 					case 120:
 					{
 						int elements = reader.ReadInt();
-						ObsInt[] arr = new ObsInt[elements];
+						var arr = new ObsInt[elements];
 						for (int b = 0; b < elements; ++b) arr[b].obscured = reader.ReadInt32();
 						return arr;
 					}
 					case 121:
 					{
 						int elements = reader.ReadInt();
-						Matrix4x4[] arr = new Matrix4x4[elements];
+						var arr = new Matrix4x4[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadMatrix();
 						return arr;
 					}
 					case 122:
 					{
 						int elements = reader.ReadInt();
-						BoneWeight[] arr = new BoneWeight[elements];
+						var arr = new BoneWeight[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBoneWeight();
 						return arr;
 					}
 					case 123:
 					{
 						int elements = reader.ReadInt();
-						Bounds[] arr = new Bounds[elements];
+						var arr = new Bounds[elements];
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadBounds();
 						return arr;
 					}
@@ -2958,9 +3627,24 @@ namespace TNet
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadVector3D();
 						return arr;
 					}
+					case 127:
+					{
+						int elements = reader.ReadInt();
+						var arr = new ClothSkinningCoefficient[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadClothSkinningCoefficient();
+						return arr;
+					}
+#if SERIALIZATION_WITHOUT_INTERFACE
+					case 252:
+					{
+						var ser = (obj != null) ? obj : type.Create();
+						if (ser != null && !ser.Invoke("Deserialize", reader)) Tools.LogError("Unable to find custom deserialization for " + type);
+						return ser;
+					}
+#endif
 					case 253:
 					{
-						IBinarySerializable ser = (obj != null) ? (IBinarySerializable)obj : (IBinarySerializable)type.Create();
+						var ser = (obj != null) ? (IBinarySerializable)obj : (IBinarySerializable)type.Create();
 						if (ser != null) ser.Deserialize(reader);
 						return ser;
 					}
@@ -3011,6 +3695,11 @@ namespace TNet
 					}
 					default:
 					{
+						if (onReadObject != null)
+						{
+							var retVal = onReadObject(prefix, reader);
+							if (retVal != null) return retVal;
+						}
 						Tools.LogError("Unknown prefix: " + prefix + " at position " + reader.BaseStream.Position);
 						return null;
 					}
@@ -3019,11 +3708,12 @@ namespace TNet
 			}
 			catch (Exception ex)
 			{
-				Tools.LogError(ex.Message + " at position " + reader.BaseStream.Position);
+				if (ex.InnerException != null) ex = ex.InnerException;
+				Tools.LogError("Exception: " + ex.Message + " (at position " + reader.BaseStream.Position + ")\n" + ex.StackTrace);
 			}
 			return null;
 #endif
 		}
-		#endregion
+#endregion
 	}
 }

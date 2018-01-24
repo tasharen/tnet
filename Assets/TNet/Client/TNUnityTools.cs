@@ -1,10 +1,11 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
 using System.Reflection;
+using System.IO;
 
 namespace TNet
 {
@@ -328,25 +329,26 @@ namespace TNet
 		static public string LocateResource (Object obj, bool allowPrefabInstances = false)
 		{
 #if UNITY_EDITOR
-			Object prefab = UnityEditor.PrefabUtility.GetPrefabParent(obj) ?? obj;
+			var prefab = UnityEditor.PrefabUtility.GetPrefabParent(obj);
+			if (prefab == null) prefab = obj;
 
 			if (prefab != null)
 			{
 				if (!allowPrefabInstances && prefab != obj) return null;
 
-				string childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
+				var childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
 
 				if (!string.IsNullOrEmpty(childPrefabPath) && childPrefabPath.Contains("/Resources/"))
 				{
-					int index = childPrefabPath.IndexOf("/Resources/");
+					var index = childPrefabPath.IndexOf("/Resources/");
 
 					if (index != -1)
 					{
 						childPrefabPath = childPrefabPath.Substring(index + "/Resources/".Length);
 						childPrefabPath = Tools.GetFilePathWithoutExtension(childPrefabPath).Replace("\\", "/");
 
-						Object loaded = Resources.Load(childPrefabPath);
-						if (loaded != null && loaded.GetType() == obj.GetType()) return childPrefabPath;
+						var loaded = Resources.Load(childPrefabPath, obj.GetType());
+						if (loaded != null) return childPrefabPath;
 					}
 				}
 			}
@@ -399,8 +401,11 @@ namespace TNet
 
 		static public string GetHierarchy (this Transform target, Transform source)
 		{
-			List<Transform> sourceList = new List<Transform>();
-			List<Transform> targetList = new List<Transform>();
+			if (target == source) return "";
+			if (!target.IsChildOf(source) && !source.IsChildOf(target) && source.root != target.root) return null;
+
+			var sourceList = new List<Transform>();
+			var targetList = new List<Transform>();
 
 			sourceList.Add(source);
 			targetList.Add(target);
@@ -451,32 +456,36 @@ namespace TNet
 		{
 			if (obj == null) return null;
 
+			var type = obj.GetType();
+
 			if (obj is Shader)
 			{
-				return "asset|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + (obj as Shader).name;
+				return "asset|" + type.ToString().Replace("UnityEngine.", "") + "|" + obj.name;
 			}
 			else
 			{
+				var gobj = obj as GameObject;
+				var comp = obj as Component;
+				var src = (gobj != null ? gobj : (comp != null ? comp.gameObject : null));
+
+				if (src != null)
+				{
+					if (src == go) return "ref|" + type.ToString().Replace("UnityEngine.", "");
+					string path = src.transform.GetHierarchy(go.transform);
+					if (!string.IsNullOrEmpty(path)) return "ref|" + type.ToString().Replace("UnityEngine.", "") + "|" + path;
+				}
 #if UNITY_EDITOR
 				string assetPath = UnityEditor.AssetDatabase.GetAssetPath(obj);
 
 				if (!string.IsNullOrEmpty(assetPath))
 				{
 					int index = assetPath.IndexOf("Resources/");
-					if (index != -1) assetPath = assetPath.Substring(index + "Resources/".Length);
+					if (index == -1) return null;
+					assetPath = assetPath.Substring(index + "Resources/".Length);
 					assetPath = Tools.GetFilePathWithoutExtension(assetPath).Replace('\\', '/');
-					return "asset|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + assetPath;
+					return "asset|" + type.ToString().Replace("UnityEngine.", "") + "|" + assetPath;
 				}
 #endif
-				UnityEngine.GameObject gobj = obj as UnityEngine.GameObject;
-				UnityEngine.Component comp = obj as UnityEngine.Component;
-
-				if (comp != null || gobj != null)
-				{
-					string path = (gobj ?? comp.gameObject).transform.GetHierarchy(go.transform);
-					if (!string.IsNullOrEmpty(path))
-						return "ref|" + obj.GetType().ToString().Replace("UnityEngine.", "") + "|" + path;
-				}
 			}
 			return null;
 		}
@@ -488,7 +497,7 @@ namespace TNet
 		static public UnityEngine.Object StringToReference (this GameObject go, string path)
 		{
 			if (string.IsNullOrEmpty(path)) return null;
-			string[] split = path.Split(new char[] { '|' }, 3);
+			var split = path.Split(new char[] { '|' }, 3);
 
 			if (split.Length == 3)
 			{
@@ -502,13 +511,12 @@ namespace TNet
 					}
 					else if (split[0] == "asset")
 					{
-						return Resources.Load(split[2], myType);
+						return LoadResource(split[2], myType);
 					}
 					else if (split[0] == "ref")
 					{
-						Transform t = go.transform;
-
-						string[] splitPath = split[2].Split('/');
+						var t = go.transform;
+						var splitPath = split[2].Split('/');
 
 						for (int i = 0; i < splitPath.Length; ++i)
 						{
@@ -533,6 +541,17 @@ namespace TNet
 						}
 						else Debug.LogWarning("Hierarchy path not found: " + split[2], go);
 					}
+				}
+			}
+			else if (split.Length == 2 && split[0] == "ref")
+			{
+				var t = go.transform;
+				var myType = UnityTools.GetType(split[1]);
+
+				if (t != null && myType != null)
+				{
+					if (myType == typeof(GameObject)) return t.gameObject;
+					return t.GetComponent(myType);
 				}
 			}
 			return null;
@@ -609,30 +628,32 @@ namespace TNet
 				if (onLoadPrefab != null) prefab = onLoadPrefab(path);
 
 				// Load it from resources as a Game Object
-				if (prefab == null) prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
-
 				if (prefab == null)
 				{
-					// Load it from resources as a binary asset
-					byte[] bytes = UnityTools.LoadBinary(path);
+					prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
 
-					if (bytes != null)
+					if (prefab == null)
 					{
-						// Parse the DataNode hierarchy
-						DataNode data = DataNode.Read(bytes);
+						// Load it from resources as a binary asset
+						var bytes = UnityTools.LoadBinary(path);
 
-						if (data != null)
+						if (bytes != null)
 						{
-							// Instantiate and immediately disable the object
-							prefab = data.Instantiate();
+							// Parse the DataNode hierarchy
+							var data = DataNode.Read(bytes);
 
-							if (prefab != null)
+							if (data != null)
 							{
-								mPrefabs.Add(path, prefab);
-								Object.DontDestroyOnLoad(prefab);
-								prefab.transform.parent = prefabRoot;
-								prefab.SetActive(false);
-								return prefab;
+								// Instantiate and immediately disable the object
+								prefab = data.Instantiate(null, false);
+
+								if (prefab != null)
+								{
+									mPrefabs.Add(path, prefab);
+									Object.DontDestroyOnLoad(prefab);
+									prefab.transform.parent = prefabRoot;
+									return prefab;
+								}
 							}
 						}
 					}
@@ -833,6 +854,82 @@ namespace TNet
 				mCachedBundles[assetBytes] = ab;
 			}
 			return ab;
+		}
+
+		/// <summary>
+		/// Parse the bytes of the specified WAV file and return a ready-to-use AudioClip.
+		/// </summary>
+
+		static public AudioClip CreateAudioClip (byte[] bytes, string name = "audio", bool stream = false)
+		{
+			int offset = System.BitConverter.ToInt32(bytes, 16) + 20;
+			int format = System.BitConverter.ToInt16(bytes, 20);
+			int channels = System.BitConverter.ToInt16(bytes, 22);
+			int rate = System.BitConverter.ToInt32(bytes, 24);
+			int sampleSize = System.BitConverter.ToInt16(bytes, 34) / 8;
+
+			for (int i = offset; i < bytes.Length; ++i)
+			{
+				if (bytes[i] == 'd' && bytes[i + 1] == 'a' && bytes[i + 2] == 't' && bytes[i + 3] == 'a')
+				{
+					offset = i + 4;
+					break;
+				}
+			}
+
+			int samples = System.BitConverter.ToInt32(bytes, offset) / sampleSize;
+			offset += 4;
+
+			if (format == 1)
+			{
+				var buffer = new float[samples];
+
+				for (int i = 0; i < samples; i++)
+				{
+					int sampleIndex = offset + i * sampleSize;
+					buffer[i] = System.BitConverter.ToInt16(bytes, sampleIndex) / 32768f;
+				}
+
+				var audioClip = AudioClip.Create(name, samples, channels, rate, stream);
+				audioClip.SetData(buffer, 0);
+				return audioClip;
+			}
+
+			Debug.LogError("Unable to parse compressed WAV files");
+			return null;
+		}
+
+		/// <summary>
+		/// Return the AudioClip's audio data. This is only possible to WAV-based AudioClips, and only while in the Unity Editor.
+		/// </summary>
+
+		static public byte[] GetBytes (this AudioClip clip)
+		{
+			var samples = new float[clip.samples];
+			clip.GetData(samples, 0);
+
+			var stream = new MemoryStream();
+			var writer = new BinaryWriter(stream);
+
+			writer.WriteBytes("RIFF");
+			writer.Write(samples.Length * 2 + 36);
+			writer.WriteBytes("WAVEfmt ");
+			writer.Write(16);
+			writer.Write((ushort)1);
+			writer.Write((ushort)clip.channels);
+			writer.Write(clip.frequency);
+			writer.Write(clip.frequency * clip.channels * 2);
+			writer.Write((ushort)(clip.channels * 2));
+			writer.Write((ushort)16);
+			writer.WriteBytes("data");
+			writer.Write(samples.Length * 2);
+
+			for (int i = 0; i < samples.Length; ++i) writer.Write((short)Mathf.RoundToInt(samples[i] * 32768f));
+
+			stream.Flush();
+			var retVal = stream.ToArray();
+			writer.Close();
+			return retVal;
 		}
 	}
 }

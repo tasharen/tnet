@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 namespace TNet
@@ -70,7 +70,7 @@ namespace TNet
 		/// Protocol version.
 		/// </summary>
 
-		public const int version = 20170922;
+		public const int version = 20171213;
 
 		/// <summary>
 		/// All players have a unique identifier given by the server.
@@ -85,9 +85,8 @@ namespace TNet
 #if UNITY_EDITOR
 		public string name = "Editor";
 #else
-	public string name = "Guest";
+		public string name = "Guest";
 #endif
-
 		/// <summary>
 		/// Player's known aliases. These will be checked against the ban list.
 		/// Ideal usage: Steam ID, computer ID, account ID, etc.

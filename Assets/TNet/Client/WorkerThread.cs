@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Use this for debugging purposes
@@ -35,6 +35,13 @@ namespace TNet
 		// Note that this value simply means that if it's exceeded, no more functions will be executed on this frame, not that it will pause mid-execution.
 		static public long maxMillisecondsPerFrame = 4;
 		static WorkerThread mInstance = null;
+
+		/// <summary>
+		/// Set to 'true' if the application is shutting down.
+		/// </summary>
+
+		[System.NonSerialized]
+		static public bool isShuttingDown = false;
 
 		public delegate bool BoolFunc ();
 		public delegate void VoidFunc ();
@@ -134,6 +141,8 @@ namespace TNet
 		void StartThreads ()
 		{
 			if (mThreads != null) return;
+
+			isShuttingDown = false;
 
 			int maxThreads = System.Environment.ProcessorCount * threadsPerCore;
 			if (maxThreads < 1) maxThreads = 1;
@@ -261,8 +270,8 @@ namespace TNet
 							}
 						}
 
-					// Sleep for a short amount
-					try { Thread.Sleep(1); }
+						// Sleep for a short amount
+						try { Thread.Sleep(1); }
 						catch (System.Threading.ThreadInterruptedException) { return; }
 					}
 				});
@@ -278,6 +287,8 @@ namespace TNet
 
 		void StopThreads ()
 		{
+			isShuttingDown = true;
+
 			if (mThreads != null)
 			{
 				for (int i = 0; i < mThreads.Length; ++i)

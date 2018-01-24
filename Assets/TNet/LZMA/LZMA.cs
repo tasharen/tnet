@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.IO;
@@ -65,9 +65,9 @@ public class LZMA
 	{
 		try
 		{
-			MemoryStream output = new MemoryStream();
-			long length = input.Length - input.Position;
-			Encoder enc = new Encoder();
+			var output = new MemoryStream();
+			var length = input.Length - input.Position;
+			var enc = new Encoder();
 
 			// Write the prefix
 			if (prefix != null) output.Write(prefix, 0, prefix.Length);
@@ -107,14 +107,15 @@ public class LZMA
 
 	static public byte[] Compress (byte[] data, byte[] prefix = null)
 	{
-		MemoryStream stream = new MemoryStream();
+		var stream = new MemoryStream();
 		stream.Write(data, 0, data.Length);
 		stream.Position = 0;
-		MemoryStream outStream = LZMA.Compress(stream, prefix);
+		var outStream = LZMA.Compress(stream, prefix);
 		stream.Close();
-		if (outStream != null) data = outStream.ToArray();
+		byte[] retVal = null;
+		if (outStream != null) retVal = outStream.ToArray();
 		outStream.Close();
-		return null;
+		return retVal;
 	}
 
 	/// <summary>

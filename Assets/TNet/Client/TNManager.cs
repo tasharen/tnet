@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -143,7 +143,7 @@ namespace TNet
 #if UNITY_EDITOR
 		static Player mPlayer = new Player("Editor");
 #else
-	static Player mPlayer = new Player("Guest");
+		static Player mPlayer = new Player("Guest");
 #endif
 		// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
 		static List<Player> mPlayers;
@@ -153,6 +153,12 @@ namespace TNet
 
 		// Used to stop processing incoming packets after a delayed disconnect operation
 		[System.NonSerialized] bool mDelayedDisconnect = false;
+
+		/// <summary>
+		/// Delayed disconnect had been initiated.
+		/// </summary>
+
+		static public bool isDisconnecting { get { return mInstance != null && mInstance.mDelayedDisconnect; } }
 
 		/// <summary>
 		/// Object owner is only valid during object creation. In most cases you will want to use tno.owner.
@@ -382,6 +388,12 @@ namespace TNet
 		static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
 
 		/// <summary>
+		/// Size of the packets that are currently queued up for processing, in bytes.
+		/// </summary>
+
+		static public int incomingQueueSize { get { return mInstance != null ? mInstance.mClient.protocol.incomingQueueSize : 0; } }
+
+		/// <summary>
 		/// Whether we can use unreliable packets (UDP) to communicate with the server.
 		/// </summary>
 
@@ -434,11 +446,17 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Forward and Create type packets write down their source.
+		/// Forward, Create and Destroy type packets write down their source.
 		/// If the packet was sent by the server instead of another player, the ID will be 0.
 		/// </summary>
 
-		static public int packetSourceID { get { return (mInstance != null) ? mInstance.mClient.packetSourceID : 0; } }
+		static public int packetSourceID { get { return (mInstance != null) ? mInstance.mClient.packetSourceID : 0; } set { if (mInstance != null) mInstance.mClient.packetSourceID = value; } }
+
+		/// <summary>
+		/// Forward, Create and Destroy type packets write down their source.
+		/// </summary>
+
+		static public Player packetSourcePlayer { get { return (mInstance != null) ? GetPlayer(mInstance.mClient.packetSourceID) : null; } }
 
 		/// <summary>
 		/// Address from which the packet was received. Only available during packet processing callbacks.
@@ -577,7 +595,7 @@ namespace TNet
 				if (playerName != value)
 				{
 					mPlayer.name = value;
-					if (isConnected) mInstance.mClient.playerName = value;
+					if (mInstance.mClient != null) mInstance.mClient.playerName = value;
 				}
 			}
 		}
@@ -695,6 +713,7 @@ namespace TNet
 
 		public delegate void ProcessPacketsFunc ();
 
+#if UNITY_EDITOR
 		/// <summary>
 		/// Server configuration is set by administrators.
 		/// In most cases you should use GetServerData and SetServerData functions instead.
@@ -714,6 +733,7 @@ namespace TNet
 		}
 
 		static DataNode mDummyNode = new DataNode("Version", Player.version);
+#endif
 
 		/// <summary>
 		/// Retrieve the specified server option.
@@ -914,18 +934,7 @@ namespace TNet
 		/// Set the specified value on our player.
 		/// </summary>
 
-		static public void SetPlayerData (string path, object val)
-		{
-			if (isConnected)
-			{
-				mInstance.mClient.SetPlayerData(path, val);
-			}
-			else
-			{
-				var dn = player.Set(path, val);
-				if (onSetPlayerData != null) onSetPlayerData(player, path, dn);
-			}
-		}
+		static public void SetPlayerData (string path, object val) { if (mInstance != null) mInstance.mClient.SetPlayerData(path, val); }
 
 		/// <summary>
 		/// Set the specified value on our player using key = value notation.
@@ -952,7 +961,7 @@ namespace TNet
 		/// Get a list of channels from the server.
 		/// </summary>
 
-		static public void GetChannelList (GameClient.OnGetChannels callback) { if (isConnected) mInstance.mClient.GetChannelList(callback); }
+		static public void GetChannelList (GameClient.OnGetChannels callback) { if (mInstance != null) mInstance.mClient.GetChannelList(callback); }
 
 		/// <summary>
 		/// Set the following function to handle this type of packets.
@@ -1372,13 +1381,14 @@ namespace TNet
 		/// will automatically save the player file for you every time you use TNManager.SetPlayerData afterwards.
 		/// </summary>
 
-		static public void SetPlayerSave (string filename, DataNode.SaveType type = DataNode.SaveType.Binary)
+		static public void SetPlayerSave (string filename, DataNode.SaveType type = DataNode.SaveType.Binary, int hash = 0)
 		{
 			if (isConnected)
 			{
 				var writer = BeginSend(Packet.RequestSetPlayerSave);
 				writer.Write(filename);
 				writer.Write((byte)type);
+				writer.Write(hash);
 				EndSend();
 			}
 			else
@@ -1973,7 +1983,8 @@ namespace TNet
 
 		void OnCreateObject (int channelID, int creator, uint objectID, BinaryReader reader)
 		{
-			currentObjectOwner = GetPlayer(creator) ?? player;
+			currentObjectOwner = GetPlayer(creator) ?? GetHost(channelID);
+
 			TNManager.lastChannelID = channelID;
 			byte rccID = reader.ReadByte();
 			string funcName = (rccID == 0) ? reader.ReadString() : null;
@@ -1990,7 +2001,7 @@ namespace TNet
 #if UNITY_EDITOR
 				if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\". Make sure it's in the Resources folder.");
 #else
-			if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
+				if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
 #endif
 			}
 
@@ -2166,8 +2177,8 @@ namespace TNet
 		[System.Obsolete("Use TNManager.playerData")]
 		static public DataNode playerDataNode { get { return playerData; } }
 
-		[Obsolete("Use TNManager.serverData instead")]
-		static public DataNode serverOptions { get { return serverData; } }
+		//[Obsolete("Use TNManager.serverData instead")]
+		//static public DataNode serverOptions { get { return serverData; } }
 
 		[System.Obsolete("Use TNManager.SetServerData instead")]
 		static public void SetServerOption (string text) { SetServerData(text); }

@@ -1,9 +1,8 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
-using System;
 using System.IO;
 
 namespace TNet
@@ -15,6 +14,14 @@ namespace TNet
 
 	public class Channel : DataNodeContainer
 	{
+		/// <summary>
+		/// If set, the channel data will be kept in a low-memory footprint format rather than in their de-serialized state.
+		/// Low memory footprint also makes the saving process take less time. The downside is that the process of joining and leaving channels is a bit slower.
+		/// </summary>
+
+		[System.NonSerialized]
+		static public bool lowMemoryFootprint = true;
+
 		/// <summary>
 		/// Remote function call entry stored within the channel.
 		/// </summary>
@@ -89,14 +96,17 @@ namespace TNet
 		// Key = Object ID. Value is 'true'. This dictionary is used for a quick lookup checking to see
 		// if the object actually exists. It's used to store RFCs. RFCs for objects that don't exist are not stored.
 		[System.NonSerialized]
-		System.Collections.Generic.Dictionary<uint, bool> mCreatedObjectDictionary =
-			new System.Collections.Generic.Dictionary<uint, bool>();
+		System.Collections.Generic.Dictionary<uint, bool> mCreatedObjectDictionary = new System.Collections.Generic.Dictionary<uint, bool>();
+
+		// Channel data is not parsed until it's actually needed, saving memory
+		byte[] mSource;
+		int mSourceSize;
 
 		/// <summary>
 		/// Whether the channel has data that can be saved.
 		/// </summary>
 
-		public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0 || dataNode != null; } }
+		public bool hasData { get { return rfcs.size > 0 || created.size > 0 || destroyed.size > 0 || dataNode != null || mSource != null; } }
 
 		/// <summary>
 		/// Whether the channel can be joined.
@@ -184,6 +194,7 @@ namespace TNet
 			destroyed.Clear();
 			mCreatedObjectDictionary.Clear();
 			objectCounter = 0xFFFFFF;
+			mSource = null;
 		}
 
 		/// <summary>
@@ -444,6 +455,12 @@ namespace TNet
 
 		public void SaveTo (BinaryWriter writer)
 		{
+			if (mSource != null)
+			{
+				writer.Write(mSource, 0, mSourceSize);
+				return;
+			}
+
 			writer.Write(Player.version);
 			writer.Write(level);
 			writer.Write(dataNode);
@@ -523,9 +540,11 @@ namespace TNet
 		/// Load the channel's data from the specified file.
 		/// </summary>
 
-		public bool LoadFrom (BinaryReader reader)
+		public bool LoadFrom (BinaryReader reader, bool keepInMemory = false)
 		{
+			var start = reader.BaseStream.Position;
 			int version = reader.ReadInt32();
+
 			if (version < 20160207)
 			{
 #if UNITY_EDITOR
@@ -537,7 +556,7 @@ namespace TNet
 			// Clear all RFCs, just in case
 			for (int i = 0; i < rfcs.size; ++i)
 			{
-				RFC r = rfcs[i];
+				var r = rfcs[i];
 				if (r.data != null) r.data.Recycle();
 			}
 
@@ -557,10 +576,10 @@ namespace TNet
 
 			for (int i = 0; i < size; ++i)
 			{
-				RFC rfc = new RFC();
+				var rfc = new RFC();
 				rfc.uid = reader.ReadUInt32();
 				if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
-				Buffer b = Buffer.Create();
+				var b = Buffer.Create();
 				b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 				b.EndWriting();
 				rfc.data = b;
@@ -571,11 +590,13 @@ namespace TNet
 
 			for (int i = 0; i < size; ++i)
 			{
-				CreatedObject co = new CreatedObject();
+				var co = new CreatedObject();
 				co.playerID = reader.ReadInt32();
 				co.objectID = reader.ReadUInt32();
+				co.playerID = 0; // The player ID is no longer valid as player IDs reset on reload
 				co.type = 1;
-				Buffer b = Buffer.Create();
+
+				var b = Buffer.Create();
 				b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
 				b.EndWriting();
 				co.buffer = b;
@@ -591,7 +612,61 @@ namespace TNet
 			}
 
 			isLocked = reader.ReadBoolean();
+			mSource = null;
+
+#if STANDALONE
+			if (!keepInMemory && players.size == 0)
+			{
+				Reset();
+				var end = reader.BaseStream.Position;
+				reader.BaseStream.Position = start;
+				mSourceSize = (int)(end - start);
+				mSource = reader.ReadBytes(mSourceSize);
+			}
+#endif
 			return true;
+		}
+
+		/// <summary>
+		/// When channels have no players in them, they can be put to sleep in order to reduce the server's memory footprint.
+		/// </summary>
+
+		public void Sleep ()
+		{
+#if STANDALONE
+			if (lowMemoryFootprint && players.size == 0 && mSource == null)
+			{
+				var ms = new MemoryStream();
+				var writer = new BinaryWriter(ms);
+				SaveTo(writer);
+				Reset();
+				mSourceSize = (int)ms.Position;
+
+				if (mSourceSize > 0)
+				{
+					mSource = ms.GetBuffer();
+					System.Array.Resize(ref mSource, mSourceSize);
+				}
+			}
+#else
+			mSourceSize = 0;
+#endif
+		}
+
+		/// <summary>
+		/// Ensure that the channel's data has been loaded.
+		/// </summary>
+
+		public void Wake ()
+		{
+			if (mSource != null)
+			{
+				var stream = new MemoryStream(mSource);
+				var reader = new BinaryReader(stream);
+				LoadFrom(reader, true);
+				reader.Close();
+				mSource = null;
+			}
 		}
 	}
 }

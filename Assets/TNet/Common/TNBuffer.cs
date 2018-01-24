@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #define RECYCLE_BUFFERS
@@ -17,7 +17,8 @@ namespace TNet
 
 	public class Buffer
 	{
-		static List<Buffer> mPool = new List<Buffer>();
+		static Queue<Buffer> mPool = new Queue<Buffer>();
+		static int mPoolCount = 0;
 
 		MemoryStream mStream;
 		BinaryWriter mWriter;
@@ -105,7 +106,7 @@ namespace TNet
 		/// Number of buffers in the recycled list.
 		/// </summary>
 
-		static public int recycleQueue { get { return mPool.size; } }
+		static public int recycleQueue { get { return mPool.Count; } }
 
 #if DEBUG_BUFFERS
 #if !UNITY_EDITOR
@@ -142,7 +143,7 @@ namespace TNet
 		{
 			Buffer b = null;
 
-			if (mPool.size == 0)
+			if (mPool.Count == 0)
 			{
 				b = new Buffer();
 #if DEBUG_BUFFERS
@@ -153,11 +154,12 @@ namespace TNet
 			{
 				lock (mPool)
 				{
-					if (mPool.size != 0)
+					if (mPoolCount > 0)
 					{
-						b = mPool.Pop();
+						--mPoolCount;
+						b = mPool.Dequeue();
 #if DEBUG_BUFFERS
-						Log("Existing " + b.mUniqueID + " (" + mPool.size + ")");
+						Log("Existing " + b.mUniqueID + " (" + mPool.Count + ")");
 #endif
 					}
 					else
@@ -182,7 +184,7 @@ namespace TNet
 		/// Release the buffer into the reusable pool.
 		/// </summary>
 
-		public bool Recycle ()
+		public bool Recycle (bool threadSafe = true)
 		{
 #if RECYCLE_BUFFERS
  #if UNITY_EDITOR
@@ -198,15 +200,31 @@ namespace TNet
  #endif
 			if (Interlocked.Decrement(ref mCounter) > 0) return false;
 
-			lock (mPool)
+			Clear();
+
+			if (mPoolCount < 250)
 			{
-				Clear();
-				mPool.Add(this);
+				if (threadSafe)
+				{
+					lock (mPool)
+					{
+						++mPoolCount;
+						mPool.Enqueue(this);
 #if DEBUG_BUFFERS
-				Log("Recycling " + mUniqueID + " (" + mPool.size + ")");
+						Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
 #endif
+					}
+#endif
+				}
+				else
+				{
+					++mPoolCount;
+					mPool.Enqueue(this);
+#if DEBUG_BUFFERS
+					Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
+#endif
+				}
 			}
-#endif
 			return true;
 		}
 
@@ -221,8 +239,8 @@ namespace TNet
 			{
 				while (list.Count != 0)
 				{
-					Buffer b = list.Dequeue();
-					b.Recycle();
+					var b = list.Dequeue();
+					b.Recycle(false);
 				}
 			}
 #else
@@ -245,7 +263,7 @@ namespace TNet
 
 					if (dg.buffer != null)
 					{
-						dg.buffer.Recycle();
+						dg.buffer.Recycle(false);
 						dg.buffer = null;
 					}
 				}
@@ -267,7 +285,7 @@ namespace TNet
 				for (int i = 0; i < list.size; ++i)
 				{
 					Buffer b = list[i];
-					b.Recycle();
+					b.Recycle(false);
 				}
 				list.Clear();
 			}
@@ -291,7 +309,7 @@ namespace TNet
 
 					if (dg.buffer != null)
 					{
-						dg.buffer.Recycle();
+						dg.buffer.Recycle(false);
 						dg.buffer = null;
 					}
 				}
@@ -306,7 +324,22 @@ namespace TNet
 		/// Release all currently unused memory sitting in the memory pool.
 		/// </summary>
 
-		static public void ReleaseUnusedMemory () { lock (mPool) mPool.Release(); }
+		static public void ReleaseUnusedMemory ()
+		{
+#if STANDALONE
+			var timer = System.Diagnostics.Stopwatch.StartNew();
+#endif
+			lock (mPool)
+			{
+				mPoolCount = 0;
+				mPool.Clear();
+			}
+
+			System.GC.Collect();
+#if STANDALONE
+			System.Console.WriteLine("GC took " + timer.ElapsedMilliseconds + " ms");
+#endif
+		}
 
 		/// <summary>
 		/// Mark the buffer as being in use.
@@ -362,8 +395,16 @@ namespace TNet
 		{
 			if (!mWriting)
 			{
-				mStream.Seek(0, SeekOrigin.Begin);
-				mSize = 0;
+				if (append)
+				{
+					mStream.Seek(mSize, SeekOrigin.Begin);
+				}
+				else
+				{
+					mStream.Seek(0, SeekOrigin.Begin);
+					mSize = 0;
+				}
+
 				mWriting = true;
 			}
 			else if (!append)

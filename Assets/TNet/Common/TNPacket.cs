@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 namespace TNet
@@ -315,6 +315,7 @@ namespace TNet
 		/// <summary>
 		/// Notification that the specified object has been transferred to another channel.
 		/// This notification is only sent to players that are in both channels.
+		/// int32: ID of the player that sent the request packet.
 		/// int32: Old channel ID.
 		/// int32: New channel ID.
 		/// uint32: Old object ID.
@@ -333,6 +334,7 @@ namespace TNet
 
 		/// <summary>
 		/// Delete the specified Unique Identifier and its associated entry.
+		/// int32: ID of the player that sent the request packet.
 		/// int32: Channel ID.
 		/// ushort: Number of objects that will follow.
 		/// uint32[] Unique Identifiers (aka Object IDs).
@@ -710,6 +712,7 @@ namespace TNet
 		/// TNet will automatically save the player's data into this file from this moment onward.
 		/// string: Filename to use for player saves.
 		/// byte: Save type. 0 = Text. 1 = Binary. 2 = Compressed.
+		/// int: Verification hash, automatically stored as "hash" and matched against the existing value prior to sending back the data.
 		/// </summary>
 
 		RequestSetPlayerSave,
@@ -731,6 +734,12 @@ namespace TNet
 		/// </summary>
 
 		ResponseSetOwner,
+
+		/// <summary>
+		/// Notification sent at the end of the connection process after the server's configuration and player admin state has been sent.
+		/// </summary>
+
+		ResponseConnected,
 
 		/// <summary>
 		/// Begin custom packets here.

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2017 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -35,6 +35,9 @@ namespace TNet
 
 		[SerializeField, UnityEngine.Serialization.FormerlySerializedAs("id")] int mStaticID = 0;
 		[System.NonSerialized] uint mDynamicID = 0;
+
+		// ID of the player that created this object. May or may not actually be connected.
+		[System.NonSerialized] public int creatorPlayerID = 0;
 
 		/// <summary>
 		/// If set to 'true', missing RFCs won't produce warning messages.
@@ -313,7 +316,7 @@ namespace TNet
 
 				if (enabled && uid != 0)
 				{
-					if (isMine) Send("OnSetData", Target.OthersSaved, mData);
+					if (isMine) Send(2, Target.OthersSaved, mData);
 					else Send("OnSet", ownerID, name, val);
 				}
 			}
@@ -328,12 +331,12 @@ namespace TNet
 				if (mData == null) mData = new DataNode("ObjectData");
 				mData.SetHierarchy(name, val);
 				OnSetData(mData);
-				Send("OnSetData", Target.OthersSaved, mData);
+				Send(2, Target.OthersSaved, mData);
 			}
 			else mParent.OnSet(name, val);
 		}
 
-		[RFC]
+		[RFC(2)]
 		void OnSetData (DataNode data)
 		{
 			if (parent != null)
@@ -444,6 +447,11 @@ namespace TNet
 				}
 				else Object.Destroy(gameObject);
 			}
+			else
+			{
+				Unregister();
+				Object.Destroy(gameObject);
+			}
 		}
 
 		/// <summary>
@@ -470,6 +478,7 @@ namespace TNet
 		{
 			mOwner = TNManager.isConnected ? TNManager.currentObjectOwner : TNManager.player;
 			channelID = TNManager.lastChannelID;
+			creatorPlayerID = TNManager.packetSourceID;
 			TNUpdater.AddStart(this);
 		}
 
@@ -479,13 +488,15 @@ namespace TNet
 
 		static internal void OnPlayerLeave (int channelID, Player p)
 		{
+			if (p == null) return;
+
 			List<TNObject> list;
 			if (!mList.TryGetValue(channelID, out list)) return;
 
 			for (int i = 0; i < list.size; ++i)
 			{
 				var item = list.buffer[i];
-				if (p != null && item.mOwner == p) item.mOwner = TNManager.GetHost(channelID);
+				if (item.mOwner == p) item.mOwner = TNManager.GetHost(channelID);
 			}
 		}
 
@@ -619,6 +630,12 @@ namespace TNet
 				}
 			}
 		}
+
+		[ContextMenu("Export data as Text")]
+		void ExportDataText () { dataNode.Write("data.txt", DataNode.SaveType.Text); }
+
+		[ContextMenu("Export data as Binary")]
+		void ExportDataBin () { dataNode.Write("data.bin", DataNode.SaveType.Binary); }
 #endif
 
 		/// <summary>
@@ -929,6 +946,7 @@ namespace TNet
 					{
 						if (ci.rfc.id < 256) mDict0[ci.rfc.id] = ent;
 						else Debug.LogError("RFC IDs need to be between 1 and 255 (1 byte). If you need more, just don't specify an ID and use the function's name instead.");
+						mDict1[ci.name] = ent;
 					}
 					else if (ci.rfc.property != null)
 					{
@@ -1257,6 +1275,7 @@ namespace TNet
 
 				if (targetName == TNManager.playerName)
 				{
+					TNManager.packetSourceID = TNManager.playerID;
 					if (rfcID != 0) Execute(rfcID, objs);
 					else Execute(rfcName, objs);
 				}
