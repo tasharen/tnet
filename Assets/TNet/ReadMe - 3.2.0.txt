@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2017 Tasharen Entertainment Inc.
-                  Version 3.1.0
+                  Version 3.2.0
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -108,6 +108,30 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.2.0
+- NEW: DataNode can now export entire bundles (think AssetBundle, but with DataNode). Just select a folder (or multiple files) and use the Assets->DataNode->Export feature. It's up to you to determine what to do about importing the bundles (I use a custom Prefab Manager in Sightseer for example), but an example import functionality and function is included (Assets->DataNode->Import supports them).
+- NEW: DataNode can now export audio clips.
+- NEW: DataNode now exports textures in their native compressed state, rather than forcing RGBA.
+- NEW: It's now possible to add custom serialization functions for all data types by using extensions, without the need for an interface. Read comments above #define SERIALIZATION_WITHOUT_INTERFACE for more info. This makes it possible to add custom serialization for all Unity and 3rd party data types as well.
+- NEW: Made it possible to specify custom protocol handling which would bypass sockets. Immediate use: Steam's networking API.
+- NEW: Added a low memory footprint mode to the game server. Use the 'lm' keyword to enable it once the server is running. LM mode means once the last player leaves, channel data will be unloaded. Can save memory at the expense of extra time spent loading channel data when players rejoin.
+- NEW: Made it possible to assign a custom connection to both the TNManager, and individual connections of the Game Server. I used it in Sightseer to add support for Steam networking: basically instead of using sockets, TNet can now also use Steam's Networking API.
+- NEW: It's now possible to specify the root directory on the file server (game server's parent class) to use for all file-based operations.
+- NEW: Numerous DataNode serialization fixes and improvements to make it possible for it to serialize prefabs properly, including iffy types like ParticleSystems.
+- NEW: Added a Max Packet Time to the game client that TNet will spend processing packets each Update. Can be used to automatically split up packet processing across multiple frames.
+- NEW: Added #define options to the game client to provide packet profiling. If enabled, all incoming packets will show up in the Unity's Profiler.
+- NEW: WorkerThread now supports coroutines for the main thread's callback.
+- NEW: Replaced TNObject/TNBehaviour's Start functions with a custom setup to avoid a bug in Unity that causes disabling components with a Start() function to take 100+ times longer than normal.
+- NEW: Added TNManager.Disconnect(delay). Can be useful if there are still packets that need to be sent out before disconnecting. Will prevent all further packets from being sent out or being received.
+- NEW: Added a built-in server side check that prevents multiple players from requesting the same player save file.
+- NEW: TNet now keeps a list of sent RFC names with their count while in the editor so that you can track which RFCs happen to be called too frequently.
+- NEW: Added Vector2D and Vector3D -- double precision version of Unity's vectors.
+- FIX: Updating a saved RFC on the server will now move it to the end of the saved RFC list, ensuring that it's called in the correct order on load.
+- FIX: Fixed the Tcp Lobby link sending server updates every 5 seconds even if nothing changed. It now sends Ping packets instead.
+- FIX: Changed ban and admin lists to be hashsets instead for faster lookups.
+- FIX: Fixed DataNode's GetHierarchy causing GC allocations.
+- FIX: Calling SetChannelData should now persist, even if nothing was actually instantiated in that channel.
 
 3.1.0
 - NEW: Added the ability to compile entire projects at runtime using RuntimeCode.Add(source file code). Requires Unity 5+.
