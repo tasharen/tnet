@@ -20,25 +20,90 @@ namespace TNet
 
 	static public class ComponentSerialization
 	{
+		// Temporary references kept while deserializing prefabs. Used to allow ID references to objects and components.
+		[System.NonSerialized] static Dictionary<int, Object> mLocalReferences = new Dictionary<int, Object>();
+
+		// Permanent objects (prefabs and resources)
 		[System.NonSerialized] static public Dictionary<int, GameObject> referencedPrefabs = new Dictionary<int, GameObject>();
 		[System.NonSerialized] static public Dictionary<int, Texture> referencedTextures = new Dictionary<int, Texture>();
 		[System.NonSerialized] static public Dictionary<int, Material> referencedMaterials = new Dictionary<int, Material>();
 		[System.NonSerialized] static public Dictionary<int, Mesh> referencedMeshes = new Dictionary<int, Mesh>();
 		[System.NonSerialized] static public Dictionary<int, AudioClip> referencedClips = new Dictionary<int, AudioClip>();
 
-		static public void AddReference (GameObject o) { var id = o.GetInstanceID(); if (!referencedPrefabs.ContainsKey(id)) referencedPrefabs[id] = o; }
-		static public void AddReference (Texture o) { var id = o.GetInstanceID(); if (!referencedTextures.ContainsKey(id)) referencedTextures[id] = o; }
-		static public void AddReference (Material o) { var id = o.GetInstanceID(); if (!referencedMaterials.ContainsKey(id)) referencedMaterials[id] = o; }
-		static public void AddReference (Mesh o) { var id = o.GetInstanceID(); if (!referencedMeshes.ContainsKey(id)) referencedMeshes[id] = o; }
-		static public void AddReference (AudioClip o) { var id = o.GetInstanceID(); if (!referencedClips.ContainsKey(id)) referencedClips[id] = o; }
+		static void AddReference (GameObject o, int id) { if (!referencedPrefabs.ContainsKey(id)) referencedPrefabs[id] = o; }
+		static void AddReference (Texture o, int id) { if (!referencedTextures.ContainsKey(id)) referencedTextures[id] = o; }
+		static void AddReference (Material o, int id) { if (!referencedMaterials.ContainsKey(id)) referencedMaterials[id] = o; }
+		static void AddReference (Mesh o, int id) { if (!referencedMeshes.ContainsKey(id)) referencedMeshes[id] = o; }
+		static void AddReference (AudioClip o, int id) { if (!referencedClips.ContainsKey(id)) referencedClips[id] = o; }
 
 		static public void AddReference (Object o)
 		{
-			if (o is GameObject) AddReference(o as GameObject);
-			else if (o is Texture) AddReference(o as Texture);
-			else if (o is Material) AddReference(o as Material);
-			else if (o is Mesh) AddReference(o as Mesh);
-			else if (o as AudioClip) AddReference(o as AudioClip);
+			if (o == null) return;
+
+			var id = o.GetInstanceID();
+
+			if (o is Transform) id = (o as Transform).gameObject.GetInstanceID();
+
+			if (!mLocalReferences.ContainsKey(id))
+			{
+				mLocalReferences[id] = o;
+				if (o is GameObject) AddReference(o as GameObject);
+				else if (o is Texture) AddReference(o as Texture);
+				else if (o is Material) AddReference(o as Material);
+				else if (o is Mesh) AddReference(o as Mesh);
+				else if (o as AudioClip) AddReference(o as AudioClip);
+			}
+		}
+
+		static void AddReference (Object o, int id)
+		{
+			if (o == null) return;
+
+			if (!mLocalReferences.ContainsKey(id))
+			{
+				mLocalReferences[id] = o;
+				if (o is GameObject) AddReference(o as GameObject);
+				else if (o is Texture) AddReference(o as Texture);
+				else if (o is Material) AddReference(o as Material);
+				else if (o is Mesh) AddReference(o as Mesh);
+				else if (o as AudioClip) AddReference(o as AudioClip);
+			}
+		}
+
+		/// <summary>
+		/// Retrieve an object by its instance ID. This will only work during serialization operations.
+		/// </summary>
+
+		static public Object GetObject (int instanceID)
+		{
+			Object o;
+			mLocalReferences.TryGetValue(instanceID, out o);
+			return null;
+		}
+
+		/// <summary>
+		/// Retrieve an object by its instance ID. This will only work during serialization operations.
+		/// </summary>
+
+		static public T GetObject<T> (int instanceID) where T : Component
+		{
+			Object o;
+			mLocalReferences.TryGetValue(instanceID, out o);
+			var retVal = o as T;
+			if (retVal == null && o is GameObject) return (o as GameObject).GetComponent(typeof(T)) as T;
+			return null;
+		}
+
+		/// <summary>
+		/// Retrieve an object by its instance ID. This will only work during serialization operations.
+		/// </summary>
+
+		static public Object GetObject (int instanceID, System.Type type)
+		{
+			Object o;
+			mLocalReferences.TryGetValue(instanceID, out o);
+			if (typeof(Object).IsAssignableFrom(type)) return o;
+			return (o is GameObject && typeof(Component).IsAssignableFrom(type)) ? (o as GameObject).GetComponent(type) : null;
 		}
 
 		static public GameObject GetPrefab (int instanceID) { GameObject go; referencedPrefabs.TryGetValue(instanceID, out go); return go; }
@@ -53,6 +118,7 @@ namespace TNet
 
 		static public void ClearReferences ()
 		{
+			mLocalReferences.Clear();
 			referencedPrefabs.Clear();
 			referencedMeshes.Clear();
 			referencedMaterials.Clear();
@@ -98,8 +164,7 @@ namespace TNet
 				for (int f = 0; f < fields.size; ++f)
 				{
 					var field = fields[f];
-
-					object val = field.GetValue(c);
+					var val = field.GetValue(c);
 					if (val == null) continue;
 
 					val = EncodeReference(go, val);
@@ -284,11 +349,11 @@ namespace TNet
 		static void Serialize (this SkinnedMeshRenderer ren, DataNode root)
 		{
 			var bones = ren.bones;
-			var boneList = new string[bones.Length];
-			for (int i = 0; i < bones.Length; ++i) boneList[i] = ren.gameObject.ReferenceToString(bones[i]);
+			var boneList = new int[bones.Length];
+			for (int i = 0; i < bones.Length; ++i) boneList[i] = bones[i].gameObject.GetInstanceID();
 
 			var rb = ren.rootBone;
-			if (rb != null) root.AddChild("root", ren.gameObject.ReferenceToString(rb));
+			if (rb != null) root.AddChild("root", rb.gameObject.GetInstanceID());
 			root.AddChild("bones", boneList);
 
 			var sm = ren.sharedMesh;
@@ -314,20 +379,36 @@ namespace TNet
 		static void Deserialize (this SkinnedMeshRenderer ren, DataNode data)
 		{
 			var go = ren.gameObject;
-			ren.rootBone = go.StringToReference(data.GetChild<string>("root")) as Transform;
+			var boneIDs = data.GetChild<int[]>("bones");
 
-			var boneList = data.GetChild<string[]>("bones");
-
-			if (boneList != null)
+			if (boneIDs != null)
 			{
-				var bones = new Transform[boneList.Length];
+				ren.rootBone = GetObject<Transform>(data.GetChild<int>("root"));
+				var bones = new Transform[boneIDs.Length];
 
-				for (int i = 0; i < bones.Length; ++i)
+				for (int i = 0; i < boneIDs.Length; ++i)
 				{
-					bones[i] = go.StringToReference(boneList[i]) as Transform;
-					if (bones[i] == null) Debug.LogWarning("Bone not found: " + boneList[i], go);
+					bones[i] = GetObject<Transform>(boneIDs[i]);
+					if (bones[i] == null) Debug.LogWarning("Bone not found: " + boneIDs[i], go);
 				}
 				ren.bones = bones;
+			}
+			else
+			{
+				ren.rootBone = go.StringToReference(data.GetChild<string>("root")) as Transform;
+				var boneList = data.GetChild<string[]>("bones");
+
+				if (boneList != null)
+				{
+					var bones = new Transform[boneList.Length];
+
+					for (int i = 0; i < bones.Length; ++i)
+					{
+						bones[i] = go.StringToReference(boneList[i]) as Transform;
+						if (bones[i] == null) Debug.LogWarning("Bone not found: " + boneList[i], go);
+					}
+					ren.bones = bones;
+				}
 			}
 
 			var meshNode = data.GetChild("Mesh");
@@ -351,14 +432,14 @@ namespace TNet
 		{
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
 			root.AddChild("castShadows", ren.castShadows);
-			if (ren.lightProbeAnchor != null) root.AddChild("probeAnchor", ren.gameObject.ReferenceToString(ren.lightProbeAnchor));
+			if (ren.lightProbeAnchor != null) root.AddChild("probeAnchor", ren.lightProbeAnchor.GetInstanceID());
 #else
 			var sm = ren.shadowCastingMode;
 			if (sm == UnityEngine.Rendering.ShadowCastingMode.Off) root.AddChild("castShadows", false);
 			else if (sm == UnityEngine.Rendering.ShadowCastingMode.On) root.AddChild("castShadows", true);
 			else root.AddChild("shadowCasting", ren.shadowCastingMode);
 			root.AddChild("reflectionProbes", ren.reflectionProbeUsage);
-			if (ren.probeAnchor != null) root.AddChild("probeAnchor", ren.gameObject.ReferenceToString(ren.probeAnchor));
+			if (ren.probeAnchor != null) root.AddChild("probeAnchor", ren.probeAnchor.GetInstanceID());
 #endif
 			root.AddChild("receiveShadows", ren.receiveShadows);
 #if UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3
@@ -527,7 +608,7 @@ namespace TNet
 
 				if (mat != null)
 				{
-					referencedMaterials[id] = mat;
+					AddReference(mat, id);
 					return mat;
 				}
 			}
@@ -694,7 +775,7 @@ namespace TNet
 				if (bytes != null) clip = UnityTools.CreateAudioClip(bytes, name, node.GetChild<bool>("stream"));
 			}
 
-			referencedClips[id] = clip;
+			AddReference(clip, id);
 			return clip;
 		}
 
@@ -756,7 +837,8 @@ namespace TNet
 
 				mesh.RecalculateBounds();
 			}
-			referencedMeshes[id] = mesh;
+
+			AddReference(mesh, id);
 			return mesh;
 		}
 
@@ -830,7 +912,7 @@ namespace TNet
 
 				if (tex != null)
 				{
-					referencedTextures[id] = tex;
+					AddReference(tex, id);
 					return tex;
 				}
 			}
@@ -989,7 +1071,8 @@ namespace TNet
 						}
 						else if (c.value is Component || c.value is GameObject || c.value is Shader)
 						{
-							c.value = UnityTools.ReferenceToString(sys.gameObject, c.value as Object);
+							/*c.value = UnityTools.ReferenceToString(sys.gameObject, c.value as Object);
+							if (c.value == null)*/ c.value = (c.value as Object).GetInstanceID();
 						}
 					}
 
@@ -1006,6 +1089,12 @@ namespace TNet
 		static public void Deserialize (this ParticleSystem sys, DataNode root)
 		{
 			var go = sys.gameObject;
+
+			// Forcing these to be off unless actually turned on
+			var em = sys.emission;
+			var sp = sys.shape;
+			em.enabled = false;
+			sp.enabled = false;
 
 			foreach (var node in root.children)
 			{
@@ -1133,7 +1222,11 @@ namespace TNet
 							id = val.GetInstanceID();
 
 							// We want to include all local prefabs that have been referenced via scripts and happen to lie outside the Resources folder
-							if (!referencedPrefabs.ContainsKey(id) && UnityEditor.PrefabUtility.GetPrefabType(mb) == UnityEditor.PrefabType.Prefab)
+							if (!referencedPrefabs.ContainsKey(id)
+#if UNITY_EDITOR
+								&& UnityEditor.PrefabUtility.GetPrefabType(mb) == UnityEditor.PrefabType.Prefab
+#endif
+								)
 							{
 								var prefab = UnityTools.LocateResource(go, false);
 								if (prefab != null) val.CollectReferencedPrefabs(true);
@@ -1408,7 +1501,7 @@ namespace TNet
 					var child = prefabs.children.buffer[i];
 					var id = child.Get<int>();
 					if (referencedPrefabs.ContainsKey(id)) continue;
-					referencedPrefabs[id] = new GameObject(child.name);
+					AddReference(new GameObject(child.name), id);
 				}
 
 				// Next run through all the newly created prefabs and actually deserialize them
@@ -1544,7 +1637,8 @@ namespace TNet
 				var obj = val as Object;
 				if (obj == null) return null;
 
-				if (obj is Texture) { if (referencedTextures.ContainsValue(obj as Texture)) return obj.GetInstanceID(); }
+				if (val is Transform) return (val as Transform).gameObject.GetInstanceID();
+				else if (obj is Texture) { if (referencedTextures.ContainsValue(obj as Texture)) return obj.GetInstanceID(); }
 				else if (obj is Material) { if (referencedMaterials.ContainsValue(obj as Material)) return obj.GetInstanceID(); }
 				else if (obj is Mesh) { if (referencedMeshes.ContainsValue(obj as Mesh)) return obj.GetInstanceID(); }
 				else if (obj is AudioClip) { if (referencedClips.ContainsValue(obj as AudioClip)) return obj.GetInstanceID(); }
@@ -1555,13 +1649,7 @@ namespace TNet
 					var ret = go.ReferenceToString(obj);
 					if (ret != null) return ret;
 				}
-
-				var type = obj.GetType().ToString().Replace("UnityEngine.", "");
-
-				Debug.LogWarning("Unable to reference " + type + " " + obj.name + " properly as it's not in the hierarchy or in the Resource folder.\n" +
-					"Assuming it will be exported separately and referencing it as an asset.", obj);
-
-				return "asset|" + type + "|" + obj.name;
+				return obj.GetInstanceID();
 			}
 			else if (val is IList)
 			{
@@ -1647,6 +1735,7 @@ namespace TNet
 			}
 
 			mSerList.Clear();
+			mLocalReferences.Clear();
 		}
 
 		/// <summary>
@@ -1660,6 +1749,8 @@ namespace TNet
 			trans.localEulerAngles = root.GetChild("rotation", trans.localEulerAngles);
 			trans.localScale = root.GetChild("scale", trans.localScale);
 			go.layer = root.GetChild("layer", go.layer);
+
+			mLocalReferences[root.Get<int>()] = go;
 
 			if (!root.GetChild<bool>("active", true)) go.SetActive(false);
 
@@ -1681,6 +1772,8 @@ namespace TNet
 					t.localPosition = Vector3.zero;
 					t.localRotation = Quaternion.identity;
 					t.localScale = Vector3.one;
+
+					AddReference(child, node.Get<int>());
 
 					child.DeserializeHierarchy(node);
 				}
@@ -1709,6 +1802,8 @@ namespace TNet
 					if (type == typeof(ParticleSystemRenderer)) comp = go.GetComponent(type);
 					if (comp == null) comp = go.AddComponent(type);
 					if (comp == null) continue; // Can happen if two ParticleSystemRenderer get added to the same game object, for example
+
+					AddReference(comp, node.Get<int>());
 
 					var dc = new SerializationEntry();
 					dc.comp = comp;

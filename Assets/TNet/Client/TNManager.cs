@@ -1100,6 +1100,23 @@ namespace TNet
 			}
 		}
 
+		/// <summary>
+		/// Log an error, complete with a stack trace, and disconnect from the server.
+		/// </summary>
+
+		static public void DisconnectWithException (string text)
+		{
+			try
+			{
+				throw new Exception(text);
+			}
+			catch (Exception ex)
+			{
+				Log("ERROR: " + ex.Message + "\n" + ex.StackTrace);
+				Disconnect(1f);
+			}
+		}
+
 		protected void DisconnectDelayed () { Disconnect(); }
 
 		/// <summary>

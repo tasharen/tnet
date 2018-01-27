@@ -383,14 +383,15 @@ namespace TNet
 		/// Returns the hierarchy of the object in a human-readable format.
 		/// </summary>
 
-		static public string GetHierarchy (this Transform obj)
+		static public string GetHierarchy (this Transform trans)
 		{
-			string path = obj.name;
+			if (trans == null) return "";
+			string path = trans.name;
 
-			while (obj.parent != null)
+			while (trans.parent != null)
 			{
-				obj = obj.parent;
-				path = obj.name + "/" + path;
+				trans = trans.parent;
+				path = trans.name + "/" + path;
 			}
 			return path;
 		}
@@ -464,16 +465,16 @@ namespace TNet
 			}
 			else
 			{
-				var gobj = obj as GameObject;
-				var comp = obj as Component;
-				var src = (gobj != null ? gobj : (comp != null ? comp.gameObject : null));
+				//var gobj = obj as GameObject;
+				//var comp = obj as Component;
+				//var src = (gobj != null ? gobj : (comp != null ? comp.gameObject : null));
 
-				if (src != null)
-				{
-					if (src == go) return "ref|" + type.ToString().Replace("UnityEngine.", "");
-					string path = src.transform.GetHierarchy(go.transform);
-					if (!string.IsNullOrEmpty(path)) return "ref|" + type.ToString().Replace("UnityEngine.", "") + "|" + path;
-				}
+				//if (src != null)
+				//{
+				//	if (src == go) return "ref|" + type.ToString().Replace("UnityEngine.", "");
+				//	string path = src.transform.GetHierarchy(go.transform);
+				//	if (!string.IsNullOrEmpty(path)) return "ref|" + type.ToString().Replace("UnityEngine.", "") + "|" + path;
+				//}
 #if UNITY_EDITOR
 				string assetPath = UnityEditor.AssetDatabase.GetAssetPath(obj);
 
@@ -513,7 +514,7 @@ namespace TNet
 					{
 						return LoadResource(split[2], myType);
 					}
-					else if (split[0] == "ref")
+					else if (split[0] == "ref") // No longer used, but kept for backwards compatibility
 					{
 						var t = go.transform;
 						var splitPath = split[2].Split('/');

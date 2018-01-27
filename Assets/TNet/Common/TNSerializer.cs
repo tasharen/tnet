@@ -414,11 +414,18 @@ namespace TNet
 		static int Round (double val) { return (int)Math.Round(val); }
 
 		/// <summary>
+		/// Cast the value from one type to another.
+		/// </summary>
+
+		static public T Cast<T> (this object value) { return (T)CastValue(value, typeof(T)); }
+
+		/// <summary>
 		/// Cast the specified object into the desired type.
 		/// </summary>
 
-		static object CastValue (object value, Type desiredType)
+		static public object CastValue (object value, Type desiredType)
 		{
+			if (value == null) return null;
 			var valueType = value.GetType();
 			if (valueType == desiredType) return value;
 			if (desiredType.IsAssignableFrom(valueType)) return value;
@@ -439,6 +446,12 @@ namespace TNet
 				if (desiredType == typeof(Vector2)) return new Vector2((int)value, (int)value);
 #if !STANDALONE
 				if (desiredType == typeof(LayerMask)) return (LayerMask)(int)value;
+
+				if (typeof(UnityEngine.Object).IsAssignableFrom(desiredType))
+				{
+					var obj = ComponentSerialization.GetObject((int)value, desiredType);
+					return CastValue(obj, desiredType);
+				}
 #endif
 			}
 			else if (valueType == typeof(float))
@@ -700,6 +713,26 @@ namespace TNet
 						//    if (enumNames[i] == strVal)
 						//        return Enum.GetValues(desiredType).GetValue(i);
 					}
+				}
+			}
+#endif
+#if !STANDALONE
+			if (typeof(UnityEngine.Object).IsAssignableFrom(valueType))
+			{
+				if (desiredType == typeof(int))
+				{
+					if (value is Transform) return (value as Transform).gameObject.GetInstanceID();
+					return ((UnityEngine.Object)value).GetInstanceID();
+				}
+				else if (value is GameObject)
+				{
+					return (value as GameObject).GetComponent(desiredType);
+				}
+				else if (value is Component)
+				{
+					var comp = (value as Component);
+					if (desiredType == typeof(GameObject)) return comp.gameObject;
+					return comp.GetComponent(desiredType);
 				}
 			}
 #endif
@@ -2516,7 +2549,7 @@ namespace TNet
 					else if (prefix == 252 || type.HasBinarySerialization())
 					{
 						if (!typeIsKnown) bw.Write(252, type);
-						obj.Invoke("Serialize", bw);
+						if (!obj.Invoke("Serialize", bw)) Debug.LogError("Failed to invoke the binary serialization function on " + type, obj as UnityEngine.Object);
 						return;
 					}
 #endif
@@ -3364,10 +3397,6 @@ namespace TNet
 
 						if (elements != 0)
 						{
-							if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
-#if SERIALIZATION_WITHOUT_INTERFACE
-							else if (type.HasBinarySerialization()) prefix = 252;
-#endif
 							for (int i = 0; i < elements; ++i)
 							{
 								object val = reader.ReadObject(null, prefix, type, sameType);
@@ -3399,10 +3428,6 @@ namespace TNet
 
 						if (elements != 0)
 						{
-							if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
-#if SERIALIZATION_WITHOUT_INTERFACE
-							else if (type.HasBinarySerialization()) prefix = 252;
-#endif
 							for (int i = 0; i < elements; ++i)
 							{
 								object val = reader.ReadObject(null, prefix, type, sameType);
@@ -3638,7 +3663,7 @@ namespace TNet
 					case 252:
 					{
 						var ser = (obj != null) ? obj : type.Create();
-						if (ser != null && !ser.Invoke("Deserialize", reader)) Tools.LogError("Unable to find custom deserialization for " + type);
+						if (ser != null && !ser.Invoke("Deserialize", reader)) Tools.LogError("Unable to find binary deserialization for " + type);
 						return ser;
 					}
 #endif

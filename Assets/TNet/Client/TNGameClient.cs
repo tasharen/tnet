@@ -771,10 +771,6 @@ namespace TNet
 				// requests and the arrival of the OnJoinChannel/OnLoadLevel responses, which cause RFCs
 				// from the previous scene to be executed in the new one.
 				mJoining.Add(channelID);
-
-				#if LEIF
-				FastLog.Log("JOINING " + channelID + " " + isActive);
-				#endif
 			}
 		}
 
@@ -1087,9 +1083,6 @@ namespace TNet
 
 			int packetID = reader.ReadByte();
 			var response = (Packet)packetID;
-#if LEIF
-			if (!mTcp.joined) FastLog.Log("ProcessPacket " + response + " " + (buffer.size + 1));
-#endif
 
 #if DEBUG_PACKETS && !STANDALONE
 			if (response != Packet.ResponsePing)
@@ -1346,9 +1339,6 @@ namespace TNet
 				}
 				case Packet.ResponseJoinChannel:
 				{
-				#if LEIF
-					mTcp.joined = true;
-				#endif
 					int channelID = reader.ReadInt32();
 					bool success = reader.ReadBoolean();
 					string msg = success ? null : reader.ReadString();
@@ -1369,9 +1359,6 @@ namespace TNet
 					}
 #if UNITY_EDITOR
 					if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
-#endif
-#if LEIF
-					FastLog.Log("!!! ResponseJoinChannel " + channelID + " callback : " + (onJoinChannel != null) + " " + UnityEngine.Time.time);
 #endif
 					if (onJoinChannel != null) onJoinChannel(channelID, success, msg);
 					break;
