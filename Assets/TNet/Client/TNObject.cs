@@ -842,7 +842,7 @@ namespace TNet
 
 		static public void FindAndExecute (int channelID, uint objID, byte funcID, params object[] parameters)
 		{
-			TNObject obj = TNObject.Find(channelID, objID);
+			var obj = TNObject.Find(channelID, objID);
 
 			if (obj != null)
 			{
@@ -864,7 +864,7 @@ namespace TNet
 
 		static public void FindAndExecute (int channelID, uint objID, string funcName, params object[] parameters)
 		{
-			TNObject obj = TNObject.Find(channelID, objID);
+			var obj = TNObject.Find(channelID, objID);
 
 			if (obj != null)
 			{
@@ -1155,6 +1155,7 @@ namespace TNet
 				{
 					if (connected)
 					{
+#if !MODDING
 						if (uid != 0)
 						{
 							BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
@@ -1173,6 +1174,7 @@ namespace TNet
 #if UNITY_EDITOR
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
 #endif
+#endif
 					}
 					else executeLocally = true;
 				}
@@ -1180,6 +1182,7 @@ namespace TNet
 				{
 					if (connected)
 					{
+#if !MODDING
 						if (uid != 0)
 						{
 							BinaryWriter writer = TNManager.BeginSend(Packet.BroadcastAdmin);
@@ -1197,6 +1200,7 @@ namespace TNet
 						}
 #if UNITY_EDITOR
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
+#endif
 #endif
 					}
 					else executeLocally = true;
@@ -1221,7 +1225,7 @@ namespace TNet
 							executeLocally = true;
 						}
 					}
-
+#if !MODDING
 					if (connected && TNManager.IsInChannel(channelID))
 					{
 						if (uid != 0)
@@ -1244,6 +1248,7 @@ namespace TNet
 						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
 #endif
 					}
+#endif
 				}
 
 				if (executeLocally)
@@ -1281,7 +1286,8 @@ namespace TNet
 				}
 				else
 				{
-					BinaryWriter writer = TNManager.BeginSend(Packet.ForwardByName);
+#if !MODDING
+					var writer = TNManager.BeginSend(Packet.ForwardByName);
 					writer.Write(TNManager.playerID);
 					writer.Write(targetName);
 					writer.Write(channelID);
@@ -1294,6 +1300,7 @@ namespace TNet
 #endif
 					writer.WriteArray(objs);
 					TNManager.EndSend(channelID, reliable);
+#endif
 				}
 			}
 			else mParent.SendRFC(rfcID, rfcName, targetName, reliable, objs);
@@ -1311,7 +1318,8 @@ namespace TNet
 
 				if (TNManager.isConnected)
 				{
-					BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+#if !MODDING
+					var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
 					writer.Write(TNManager.playerID);
 					writer.Write(target);
 					writer.Write(channelID);
@@ -1324,6 +1332,7 @@ namespace TNet
 #endif
 					writer.WriteArray(objs);
 					TNManager.EndSend(channelID, reliable);
+#endif
 				}
 				else if (target == TNManager.playerID)
 				{
@@ -1340,6 +1349,7 @@ namespace TNet
 
 		void BroadcastToLAN (int port, byte rfcID, string rfcName, params object[] objs)
 		{
+#if !MODDING
 			if (parent == null)
 			{
 				if (hasBeenDestroyed || uid == 0) return;
@@ -1357,6 +1367,7 @@ namespace TNet
 #endif
 			}
 			else mParent.BroadcastToLAN(port, rfcID, rfcName, objs);
+#endif
 		}
 
 		/// <summary>
@@ -1365,9 +1376,10 @@ namespace TNet
 
 		static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, string funcName)
 		{
+#if !MODDING
 			if (TNManager.IsInChannel(channelID))
 			{
-				BinaryWriter writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
+				var writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
 				writer.Write(channelID);
 				writer.Write(GetUID(objID, rfcID));
 				if (rfcID == 0) writer.Write(funcName);
@@ -1378,6 +1390,7 @@ namespace TNet
 				else sentDictionary[sid] = 1;
 #endif
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1389,6 +1402,7 @@ namespace TNet
 
 		public void TransferToChannel (int newChannelID)
 		{
+#if !MODDING
 			if (parent == null)
 			{
 				if (mDestroyed != 0) return;
@@ -1414,6 +1428,7 @@ namespace TNet
 				}
 			}
 			else parent.TransferToChannel(newChannelID);
+#endif
 		}
 
 		/// <summary>
@@ -1422,6 +1437,7 @@ namespace TNet
 
 		internal void FinalizeTransfer (int newChannel, uint newObjectID)
 		{
+#if !MODDING
 			if (onTransfer != null) onTransfer(newChannel, newObjectID);
 
 			if (parent == null)
@@ -1433,6 +1449,7 @@ namespace TNet
 				mDestroyed = 0;
 			}
 			else parent.FinalizeTransfer(newChannel, newObjectID);
+#endif
 		}
 	}
 }

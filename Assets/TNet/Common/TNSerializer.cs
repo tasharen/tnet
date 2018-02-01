@@ -272,20 +272,19 @@ namespace TNet
 			if (!mNameToType.TryGetValue(name, out type) || type == null)
 			{
 				if (name == "string") type = typeof(string);
+				else if (name == "byte") type = typeof(byte);
 				else if (name == "short") type = typeof(Int16);
 				else if (name == "int") type = typeof(Int32);
+				else if (name == "float") type = typeof(float);
+				else if (name == "double") type = typeof(double);
 				else if (name == "long") type = typeof(Int64);
 				else if (name == "ushort") type = typeof(UInt16);
 				else if (name == "uint") type = typeof(UInt32);
 				else if (name == "ulong") type = typeof(UInt64);
-				else if (name == "string[]") type = typeof(string[]);
-				else if (name == "int[]") type = typeof(int[]);
-				else if (name == "float[]") type = typeof(float[]);
-				else if (name == "byte[]") type = typeof(byte[]);
-				else if (name == "Vector2[]") type = typeof(Vector2[]);
-				else if (name == "Vector3[]") type = typeof(Vector3[]);
-				else if (name == "Vector2D[]") type = typeof(Vector2D[]);
-				else if (name == "Vector3D[]") type = typeof(Vector3D[]);
+				else if (name == "Vector2") type = typeof(Vector2);
+				else if (name == "Vector3") type = typeof(Vector3);
+				else if (name == "Vector2D") type = typeof(Vector2D);
+				else if (name == "Vector3D") type = typeof(Vector3D);
 #if !STANDALONE
 				else if (name == "KeyCode") type = typeof(KeyCode);
 				else if (name == "MMC") type = typeof(ParticleSystem.MinMaxCurve);
@@ -295,11 +294,7 @@ namespace TNet
 				{
 					try
 					{
-#if STANDALONE
-						type = Type.GetType(name.Substring(0, name.Length - 2));
-#else
-						type = UnityTools.GetType(name.Substring(0, name.Length - 2));
-#endif
+						type = NameToType(name.Substring(0, name.Length - 2));
 						if (type != null) type = type.MakeArrayType();
 					}
 					catch (Exception) { }
@@ -369,20 +364,23 @@ namespace TNet
 			if (!mTypeToName.TryGetValue(type, out name) || name == null)
 			{
 				if (type == typeof(string)) name = "string";
+				else if (type == typeof(byte)) name = "byte";
 				else if (type == typeof(Int16)) name = "short";
 				else if (type == typeof(Int32)) name = "int";
+				else if (type == typeof(float)) name = "float";
+				else if (type == typeof(double)) name = "double";
 				else if (type == typeof(Int64)) name = "long";
 				else if (type == typeof(UInt16)) name = "ushort";
 				else if (type == typeof(UInt32)) name = "uint";
 				else if (type == typeof(UInt64)) name = "ulong";
-				else if (type == typeof(string[])) name = "string[]";
-				else if (type == typeof(int[])) name = "int[]";
-				else if (type == typeof(float[])) name = "float[]";
-				else if (type == typeof(byte[])) name = "byte[]";
-				else if (type == typeof(Vector2[])) name = "Vector2[]";
-				else if (type == typeof(Vector3[])) name = "Vector3[]";
-				else if (type == typeof(Vector2D[])) name = "Vector2D[]";
-				else if (type == typeof(Vector3D[])) name = "Vector3D[]";
+				else if (type == typeof(Vector2)) name = "Vector2";
+				else if (type == typeof(Vector3)) name = "Vector3";
+				else if (type == typeof(Vector2D)) name = "Vector2D";
+				else if (type == typeof(Vector3D)) name = "Vector3D";
+				else if (type.IsArray)
+				{
+					name = TypeToName(type.GetElementType()) + "[]";
+				}
 				else if (type.Implements(typeof(IList)))
 				{
 					var arg = type.GetGenericArgument();
@@ -396,8 +394,8 @@ namespace TNet
 					else name = type.ToString().Replace("UnityEngine.", "");
 				}
 #if !STANDALONE
-				else if (type == typeof(ParticleSystem.MinMaxCurve)) return "MMC";
-				else if (type == typeof(ParticleSystem.MinMaxGradient)) return "MMG";
+				else if (type == typeof(ParticleSystem.MinMaxCurve)) name = "MMC";
+				else if (type == typeof(ParticleSystem.MinMaxGradient)) name = "MMG";
 #endif
 				else name = type.ToString().Replace("UnityEngine.", "");
 
@@ -1462,9 +1460,18 @@ namespace TNet
 
 			if (type == typeof(string))
 			{
-				if (prefix) writer.Write(" = \"");
-				writer.Write(Escape((string)value));
-				if (prefix) writer.Write('"');
+				if (prefix)
+				{
+					writer.Write(" = \"");
+					writer.Write(Escape((string)value));
+					writer.Write('"');
+				}
+				else
+				{
+					writer.Write('"');
+					writer.Write(Escape((string)value));
+					writer.Write('"');
+				}
 				return true;
 			}
 
@@ -2168,8 +2175,8 @@ namespace TNet
 
 		static public void Write (this BinaryWriter writer, ParticleSystem.MinMaxCurve c)
 		{
-			writer.Write((byte)c.mode);
 			var mode = c.mode;
+			writer.Write((byte)mode);
 
 			if (mode == ParticleSystemCurveMode.Curve)
 			{
@@ -2299,6 +2306,10 @@ namespace TNet
 			if (type == typeof(Vector2D[])) return 125;
 			if (type == typeof(Vector3D[])) return 126;
 			if (type == typeof(ClothSkinningCoefficient[])) return 127;
+#if !STANDALONE
+			if (type == typeof(Gradient[])) return 128;
+			if (type == typeof(ParticleSystem.MinMaxCurve[])) return 129;
+#endif
 
 #if !STANDALONE
 			if (mForcedLazySer == null)
@@ -2428,6 +2439,10 @@ namespace TNet
 				case 125: return typeof(Vector2D[]);
 				case 126: return typeof(Vector3D[]);
 				case 127: return typeof(ClothSkinningCoefficient[]);
+#if !STANDALONE
+				case 128: return typeof(Gradient[]);
+				case 129: return typeof(ParticleSystem.MinMaxCurve[]);
+#endif
 			}
 
 			if (useUserTypes && onGetTypeByPrefix != null) return onGetTypeByPrefix(prefix);
@@ -2549,7 +2564,15 @@ namespace TNet
 					else if (prefix == 252 || type.HasBinarySerialization())
 					{
 						if (!typeIsKnown) bw.Write(252, type);
-						if (!obj.Invoke("Serialize", bw)) Debug.LogError("Failed to invoke the binary serialization function on " + type, obj as UnityEngine.Object);
+
+						if (!obj.Invoke("Serialize", bw))
+						{
+#if UNITY_EDITOR
+							Debug.LogError("Failed to invoke the binary serialization function on " + type, obj as UnityEngine.Object);
+#else
+							Tools.LogError("Failed to invoke the binary serialization function on " + type);
+#endif
+						}
 						return;
 					}
 #endif
@@ -2922,6 +2945,22 @@ namespace TNet
 					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
 					break;
 				}
+#if !STANDALONE
+				case 128:
+				{
+					var arr = (Gradient[])obj;
+					bw.WriteInt(arr.Length);
+					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+					break;
+				}
+				case 129:
+				{
+					var arr = (ParticleSystem.MinMaxCurve[])obj;
+					bw.WriteInt(arr.Length);
+					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+					break;
+				}
+#endif
 				case 254: // Serialization using Reflection
 				{
 #if REFLECTION_SUPPORT
@@ -3659,6 +3698,22 @@ namespace TNet
 						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadClothSkinningCoefficient();
 						return arr;
 					}
+#if !STANDALONE
+					case 128:
+					{
+						int elements = reader.ReadInt();
+						var arr = new Gradient[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadGradient();
+						return arr;
+					}
+					case 129:
+					{
+						int elements = reader.ReadInt();
+						var arr = new ParticleSystem.MinMaxCurve[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadMinMaxCurve();
+						return arr;
+					}
+#endif
 #if SERIALIZATION_WITHOUT_INTERFACE
 					case 252:
 					{

@@ -310,7 +310,7 @@ namespace TNet
 #if UNITY_EDITOR && !UNITY_4_7
 				UnityEngine.Profiling.Profiler.BeginSample("DataNode.GetHierarchy(path)");
 #endif
-				string[] split = path.Split('/');
+				var split = path.Split('/');
 				DataNode node = this;
 				int index = 0;
 
@@ -388,7 +388,7 @@ namespace TNet
 				else
 				{
 					path = path.Replace("\\", "/");
-					string[] names = path.Split('/');
+					var names = path.Split('/');
 					DataNode parent = null;
 					int index = 0;
 
@@ -645,9 +645,9 @@ namespace TNet
 
 			if (type == SaveType.Text)
 			{
-				MemoryStream stream = new MemoryStream(bytes);
-				StreamReader reader = new StreamReader(stream);
-				DataNode node = Read(reader);
+				var stream = new MemoryStream(bytes);
+				var reader = new StreamReader(stream);
+				var node = Read(reader);
 				reader.Close();
 				return node;
 			}
@@ -667,9 +667,9 @@ namespace TNet
 				bytes = LZMA.Decompress(bytes, skipPrefix ? 4 : 0);
 			}
 			{
-				MemoryStream stream = new MemoryStream(bytes);
-				BinaryReader reader = new BinaryReader(stream);
-				DataNode node = reader.ReadObject<DataNode>();
+				var stream = new MemoryStream(bytes);
+				var reader = new BinaryReader(stream);
+				var node = reader.ReadObject<DataNode>();
 				reader.Close();
 				return node;
 			}
@@ -683,9 +683,9 @@ namespace TNet
 		{
 			if (compressed)
 			{
-				LZMA lzma = new LZMA();
+				var lzma = new LZMA();
 				lzma.BeginWriting().WriteObject(this);
-				byte[] data = lzma.Compress();
+				var data = lzma.Compress();
 
 				if (data != null)
 				{
@@ -704,7 +704,10 @@ namespace TNet
 		public void Write (StreamWriter writer, int tab = 0)
 		{
 			// Only proceed if this node has some data associated with it
-			if (tab == 0 && string.IsNullOrEmpty(name)) Write(writer, "Version", value != null ? value : Player.version);
+			if (tab == 0 && string.IsNullOrEmpty(name))
+			{
+				Write(writer, "Version", value != null ? value : Player.version);
+			}
 			else Write(writer, string.IsNullOrEmpty(name) ? "DataNode" : name, value, tab);
 
 			// Iterate through children
@@ -744,7 +747,6 @@ namespace TNet
 			if (value != null && !writer.WriteObject(value, prefix))
 			{
 				var type = value.GetType();
-
 #if !STANDALONE
 				if (value is AnimationCurve)
 				{
@@ -867,7 +869,7 @@ namespace TNet
 				for (int i = 0; i < fields.size; ++i)
 				{
 					var field = fields[i];
-					object val = field.GetValue(value);
+					var val = field.GetValue(value);
 
 					if (val != null)
 					{
@@ -908,9 +910,9 @@ namespace TNet
 
 		static public DataNode Read (TextReader reader)
 		{
-			string line = GetNextLine(reader);
-			int offset = CalculateTabs(line);
-			DataNode node = new DataNode();
+			var line = GetNextLine(reader);
+			var offset = CalculateTabs(line);
+			var node = new DataNode();
 			node.Read(reader, line, ref offset);
 			return node;
 		}
@@ -947,13 +949,13 @@ namespace TNet
 		public override string ToString ()
 		{
 			if (!isSerializable) return "";
-			MemoryStream stream = new MemoryStream();
-			StreamWriter writer = new StreamWriter(stream);
+			var stream = new MemoryStream();
+			var writer = new StreamWriter(stream);
 			Write(writer, 0);
 
 			stream.Seek(0, SeekOrigin.Begin);
-			StreamReader reader = new StreamReader(stream);
-			string text = reader.ReadToEnd();
+			var reader = new StreamReader(stream);
+			var text = reader.ReadToEnd();
 			stream.Close();
 			return text;
 		}
@@ -964,20 +966,20 @@ namespace TNet
 
 		public byte[] ToArray (SaveType type = SaveType.Binary)
 		{
-			MemoryStream stream = new MemoryStream();
+			var stream = new MemoryStream();
 
 			if (type == SaveType.Text)
 			{
-				StreamWriter writer = new StreamWriter(stream);
+				var writer = new StreamWriter(stream);
 				Write(writer);
 			}
 			else
 			{
-				BinaryWriter writer = new BinaryWriter(stream);
+				var writer = new BinaryWriter(stream);
 				Write(writer, type == SaveType.Compressed);
 			}
 
-			byte[] data = stream.ToArray();
+			var data = stream.ToArray();
 			stream.Close();
 			return data;
 		}

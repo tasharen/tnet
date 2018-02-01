@@ -70,7 +70,7 @@ namespace TNet
 
 		public TcpProtocol.Stage stage { get { return mTcp.stage; } set { mTcp.stage = value; } }
 
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !MODDING
 		// UDP can be used for transmission of frequent packets, network broadcasts and NAT requests.
 		// UDP is not available in the Unity web player because using UDP packets makes Unity request the
 		// policy file every time the packet gets sent... which is obviously quite retarded.
@@ -81,16 +81,19 @@ namespace TNet
 		// Current time, time when the last ping was sent out, and time when connection was started
 		long mTimeDifference = 0;
 		long mMyTime = 0;
-		long mPingTime = 0;
 		long mStartTime = 0;
 
-		// Used to keep track of how many packets get sent / received per second
-		int mSent = 0, mReceived = 0, mCountSent = 0, mCountReceived = 0;
+#if !MODDING
+		long mPingTime = 0;
+		int mCountReceived = 0;
 		long mNextReset = 0;
+		bool mCanPing = false;
+#endif
+		// Used to keep track of how many packets get sent / received per second
+		int mSent = 0, mReceived = 0, mCountSent = 0;
 
 		// Last ping, and whether we can ping again
 		int mPing = 0;
-		bool mCanPing = false;
 
 		// List of channels we're in
 		TNet.List<Channel> mChannels = new TNet.List<Channel>();
@@ -103,21 +106,22 @@ namespace TNet
 		Dictionary<string, OnLoadFile> mLoadFiles = new Dictionary<string, OnLoadFile>();
 		public delegate void OnLoadFile (string filename, byte[] data);
 
+#if !MODDING
 		// Server's UDP address
 		IPEndPoint mServerUdpEndPoint;
 
 		// Source of the UDP packet (available during callbacks)
 		IPEndPoint mPacketSource;
 
+		// Local server is used for socket-less mode
+		GameServer mLocalServer;
+#endif
 		// Temporary, not important
 		Buffer mBuffer;
 		bool mIsAdmin = false;
 
 		// List of channels we are currently in the process of joining
 		List<int> mJoining = new List<int>();
-
-		// Local server is used for socket-less mode
-		GameServer mLocalServer;
 
 		// Server configuration data
 		DataNode mConfig = new DataNode("Version", Player.version);
@@ -184,8 +188,11 @@ namespace TNet
 		/// Whether the client is currently connected to the server.
 		/// </summary>
 
+#if MODDING
+		public bool isConnected { get { return false; } }
+#else
 		public bool isConnected { get { return mTcp.isConnected || mLocalServer != null; } }
-
+#endif
 		/// <summary>
 		/// Whether we are currently trying to establish a new connection.
 		/// </summary>
@@ -219,8 +226,8 @@ namespace TNet
 		{
 			get
 			{
-#if UNITY_WEBPLAYER
-			return 0;
+#if UNITY_WEBPLAYER || MODDING
+				return 0;
 #else
 				return mUdp.listeningPort;
 #endif
@@ -238,7 +245,11 @@ namespace TNet
 		/// Source of the last packet.
 		/// </summary>
 
+#if MODDING
+		public IPEndPoint packetSourceIP { get { return null; } }
+#else
 		public IPEndPoint packetSourceIP { get { return mPacketSource != null ? mPacketSource : mTcp.tcpEndPoint; } }
+#endif
 
 		/// <summary>
 		/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
@@ -279,8 +290,8 @@ namespace TNet
 		{
 			get
 			{
-#if UNITY_WEBPLAYER
-			return false;
+#if UNITY_WEBPLAYER || MODDING
+				return false;
 #else
 				return mUdp.isActive && mServerUdpEndPoint != null;
 #endif
@@ -303,10 +314,12 @@ namespace TNet
 				if (isAdmin)
 				{
 					mConfig = value;
+#if !MODDING
 					var writer = BeginSend(Packet.RequestSetServerData);
 					writer.Write("");
 					writer.WriteObject(value);
 					EndSend();
+#endif
 				}
 			}
 		}
@@ -338,6 +351,7 @@ namespace TNet
 			{
 				if (mTcp.name != value)
 				{
+#if !MODDING
 					if (isConnected)
 					{
 						BinaryWriter writer = BeginSend(Packet.RequestSetName);
@@ -345,6 +359,9 @@ namespace TNet
 						EndSend();
 					}
 					else mTcp.name = value;
+#else
+					mTcp.name = value;
+#endif
 				}
 			}
 		}
@@ -373,11 +390,13 @@ namespace TNet
 
 		public void SyncPlayerData ()
 		{
+#if !MODDING
 			var writer = BeginSend(Packet.RequestSetPlayerData);
 			writer.Write(mTcp.id);
 			writer.Write("");
 			writer.WriteObject(mTcp.dataNode);
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -386,8 +405,8 @@ namespace TNet
 
 		public void SetPlayerData (string path, object val)
 		{
-			DataNode node = mTcp.Set(path, val);
-
+			var node = mTcp.Set(path, val);
+#if !MODDING
 			if (isConnected)
 			{
 				var writer = BeginSend(Packet.RequestSetPlayerData);
@@ -396,7 +415,7 @@ namespace TNet
 				writer.WriteObject(val);
 				EndSend();
 			}
-
+#endif
 			if (onSetPlayerData != null)
 				onSetPlayerData(mTcp, path, node);
 		}
@@ -563,8 +582,8 @@ namespace TNet
 
 			if (isActive)
 			{
-#if UNITY_WEBPLAYER
-			mTcp.SendTcpPacket(mBuffer);
+#if UNITY_WEBPLAYER || MODDING
+				mTcp.SendTcpPacket(mBuffer);
 #else
 				if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
 				{
@@ -587,7 +606,7 @@ namespace TNet
 			if (mBuffer == null) return;
 			++mCountSent;
 			mBuffer.EndPacket();
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !MODDING
 			if (isActive) mUdp.Broadcast(mBuffer, port);
 #endif
 			mBuffer.Recycle();
@@ -603,7 +622,7 @@ namespace TNet
 			if (mBuffer == null) return;
 			++mCountSent;
 			mBuffer.EndPacket();
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !MODDING
 			if (isActive) mUdp.Send(mBuffer, target);
 #endif
 			mBuffer.Recycle();
@@ -616,6 +635,7 @@ namespace TNet
 
 		public void Connect (GameServer server)
 		{
+#if !MODDING
 			Disconnect();
 
 			if (server != null)
@@ -634,6 +654,7 @@ namespace TNet
 				writer.Write(mTcp.dataNode);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -642,9 +663,11 @@ namespace TNet
 
 		public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 		{
+#if !MODDING
 			Disconnect();
 			if (externalIP == null) UnityEngine.Debug.LogError("Expecting a valid IP address or a local server to be running");
 			else mTcp.Connect(externalIP, internalIP);
+#endif
 		}
 
 		/// <summary>
@@ -653,6 +676,7 @@ namespace TNet
 
 		public void Disconnect ()
 		{
+#if !MODDING
 			if (mLocalServer != null)
 			{
 				if (onLeaveChannel != null)
@@ -684,6 +708,7 @@ namespace TNet
 				if (onDisconnect != null) onDisconnect();
 			}
 			else mTcp.Disconnect();
+#endif
 		}
 
 		/// <summary>
@@ -692,6 +717,7 @@ namespace TNet
 
 		public bool StartUDP (int udpPort)
 		{
+#if !MODDING
 #if !UNITY_WEBPLAYER
 			if (mLocalServer == null)
 			{
@@ -719,6 +745,7 @@ namespace TNet
 				}
 			}
 #endif
+#endif
 			return false;
 		}
 
@@ -728,6 +755,7 @@ namespace TNet
 
 		public void StopUDP ()
 		{
+#if !MODDING
 #if !UNITY_WEBPLAYER
 			if (mUdp.isActive)
 			{
@@ -739,6 +767,7 @@ namespace TNet
 				mUdp.Stop();
 				mUdpIsUsable = false;
 			}
+#endif
 #endif
 		}
 
@@ -753,12 +782,13 @@ namespace TNet
 
 		public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 		{
+#if !MODDING
 			if (isConnected && !IsInChannel(channelID) && !mJoining.Contains(channelID))
 			{
 				if (playerLimit > 65535) playerLimit = 65535;
 				else if (playerLimit < 0) playerLimit = 0;
 
-				BinaryWriter writer = BeginSend(Packet.RequestJoinChannel);
+				var writer = BeginSend(Packet.RequestJoinChannel);
 				writer.Write(channelID);
 				writer.Write(string.IsNullOrEmpty(password) ? "" : password);
 				writer.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
@@ -772,6 +802,7 @@ namespace TNet
 				// from the previous scene to be executed in the new one.
 				mJoining.Add(channelID);
 			}
+#endif
 		}
 
 		/// <summary>
@@ -781,12 +812,14 @@ namespace TNet
 
 		public bool CloseChannel (int channelID)
 		{
+#if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
 				BeginSend(Packet.RequestCloseChannel).Write(channelID);
 				EndSend();
 				return true;
 			}
+#endif
 			return false;
 		}
 
@@ -796,6 +829,7 @@ namespace TNet
 
 		public bool LeaveChannel (int channelID)
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				for (int i = 0; i < mChannels.size; ++i)
@@ -811,6 +845,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 			return false;
 		}
 
@@ -820,18 +855,20 @@ namespace TNet
 
 		public void LeaveAllChannels ()
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				mJoining.Clear();
 
 				for (int i = mChannels.size; i > 0;)
 				{
-					Channel ch = mChannels[--i];
+					var ch = mChannels[--i];
 					BeginSend(Packet.RequestLeaveChannel).Write(ch.id);
 					EndSend();
 					mChannels.RemoveAt(i);
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -840,6 +877,7 @@ namespace TNet
 
 		public void DeleteChannel (int id, bool disconnect)
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				BinaryWriter writer = BeginSend(Packet.RequestDeleteChannel);
@@ -847,6 +885,7 @@ namespace TNet
 				writer.Write(disconnect);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -855,6 +894,7 @@ namespace TNet
 
 		public void SetPlayerLimit (int channelID, int max)
 		{
+#if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
 				BinaryWriter writer = BeginSend(Packet.RequestSetPlayerLimit);
@@ -862,6 +902,7 @@ namespace TNet
 				writer.Write((ushort)max);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -870,6 +911,7 @@ namespace TNet
 
 		public bool LoadLevel (int channelID, string levelName)
 		{
+#if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
 				BinaryWriter writer = BeginSend(Packet.RequestLoadLevel);
@@ -878,6 +920,7 @@ namespace TNet
 				EndSend();
 				return true;
 			}
+#endif
 			return false;
 		}
 
@@ -887,6 +930,7 @@ namespace TNet
 
 		public void SetHost (int channelID, Player player)
 		{
+#if !MODDING
 			if (isConnected && GetHost(channelID) == mTcp)
 			{
 				BinaryWriter writer = BeginSend(Packet.RequestSetHost);
@@ -894,6 +938,7 @@ namespace TNet
 				writer.Write(player.id);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -904,11 +949,13 @@ namespace TNet
 
 		public void SetTimeout (int seconds)
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				BeginSend(Packet.RequestSetTimeout).Write(seconds);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -917,10 +964,12 @@ namespace TNet
 
 		public void Ping (IPEndPoint udpEndPoint, OnPing callback)
 		{
+#if !MODDING
 			onPing = callback;
 			mPingTime = DateTime.UtcNow.Ticks / 10000;
 			BeginSend(Packet.RequestPing);
 			EndSend(udpEndPoint);
+#endif
 		}
 
 		/// <summary>
@@ -929,10 +978,12 @@ namespace TNet
 
 		public void GetFiles (string path, OnGetFiles callback)
 		{
+#if !MODDING
 			mGetFiles[path] = callback;
-			BinaryWriter writer = BeginSend(Packet.RequestGetFileList);
+			var writer = BeginSend(Packet.RequestGetFileList);
 			writer.Write(path);
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -941,10 +992,12 @@ namespace TNet
 
 		public void LoadFile (string filename, OnLoadFile callback)
 		{
+#if !MODDING
 			mLoadFiles[filename] = callback;
-			BinaryWriter writer = BeginSend(Packet.RequestLoadFile);
+			var writer = BeginSend(Packet.RequestLoadFile);
 			writer.Write(filename);
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -953,19 +1006,21 @@ namespace TNet
 
 		public void SaveFile (string filename, byte[] data)
 		{
+#if !MODDING
 			if (data != null)
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestSaveFile);
+				var writer = BeginSend(Packet.RequestSaveFile);
 				writer.Write(filename);
 				writer.Write(data.Length);
 				writer.Write(data);
 			}
 			else
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestDeleteFile);
+				var writer = BeginSend(Packet.RequestDeleteFile);
 				writer.Write(filename);
 			}
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -974,12 +1029,14 @@ namespace TNet
 
 		public void DeleteFile (string filename)
 		{
-			BinaryWriter writer = BeginSend(Packet.RequestDeleteFile);
+#if !MODDING
+			var writer = BeginSend(Packet.RequestDeleteFile);
 			writer.Write(filename);
 			EndSend();
+#endif
 		}
 
-#if USE_MAX_PACKET_TIME
+#if USE_MAX_PACKET_TIME && !MODDING
 		[System.NonSerialized] System.Diagnostics.Stopwatch mSw;
 #endif
 		/// <summary>
@@ -988,6 +1045,7 @@ namespace TNet
 
 		public void ProcessPackets ()
 		{
+#if !MODDING
 			mMyTime = DateTime.UtcNow.Ticks / 10000;
 
 			// Request pings every so often, letting the server know we're still here.
@@ -1046,6 +1104,7 @@ namespace TNet
 #if USE_MAX_PACKET_TIME
 			mSw.Stop();
 #endif
+#endif
 		}
 
 		/// <summary>
@@ -1054,6 +1113,7 @@ namespace TNet
 
 		public void ResetPacketCount ()
 		{
+#if !MODDING
 			mNextReset = mMyTime + 1000;
 			mSent = mCountSent;
 			mReceived = mCountReceived;
@@ -1065,12 +1125,14 @@ namespace TNet
 			TNObject.lastSentDictionary = TNObject.sentDictionary;
 			TNObject.sentDictionary = temp;
 #endif
+#endif
 		}
 
 #if PROFILE_PACKETS
 		[System.NonSerialized] static System.Collections.Generic.Dictionary<int, string> mPacketNames = new Dictionary<int, string>();
 #endif
 
+#if !MODDING
 		/// <summary>
 		/// Process a single incoming packet. Returns whether we should keep processing packets or not.
 		/// </summary>
@@ -1617,6 +1679,7 @@ namespace TNet
 #endif
 			return true;
 		}
+#endif // !MODDING
 
 		/// <summary>
 		/// Rebuild the player dictionary from the list of players in all of the channels we're currently in.
@@ -1662,10 +1725,12 @@ namespace TNet
 
 		public void SetServerData (DataNode node)
 		{
-			BinaryWriter writer = BeginSend(Packet.RequestSetServerData);
+#if !MODDING
+			var writer = BeginSend(Packet.RequestSetServerData);
 			writer.Write(node.name);
 			writer.WriteObject(node);
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -1674,10 +1739,12 @@ namespace TNet
 
 		public void SetServerData (string key, object val)
 		{
-			BinaryWriter writer = BeginSend(Packet.RequestSetServerData);
+#if !MODDING
+			var writer = BeginSend(Packet.RequestSetServerData);
 			writer.Write(key);
 			writer.WriteObject(val);
 			EndSend();
+#endif
 		}
 
 		/// <summary>
@@ -1686,7 +1753,8 @@ namespace TNet
 
 		public void SetChannelData (int channelID, string path, object val)
 		{
-			Channel ch = GetChannel(channelID);
+#if !MODDING
+			var ch = GetChannel(channelID);
 
 			if (ch != null && !string.IsNullOrEmpty(path))
 			{
@@ -1702,7 +1770,7 @@ namespace TNet
 
 					node.SetHierarchy(path, val);
 
-					BinaryWriter bw = BeginSend(Packet.RequestSetChannelData);
+					var bw = BeginSend(Packet.RequestSetChannelData);
 					bw.Write(channelID);
 					bw.Write(path);
 					bw.WriteObject(val);
@@ -1715,6 +1783,7 @@ namespace TNet
 #if UNITY_EDITOR
 			else Debug.LogWarning("Calling SetChannelData with invalid parameters: " + channelID + " = " + (ch != null) + ", " + path);
 #endif
+#endif
 		}
 
 		public delegate void OnGetChannels (List<Channel.Info> list);
@@ -1726,9 +1795,11 @@ namespace TNet
 
 		public void GetChannelList (OnGetChannels callback)
 		{
+#if !MODDING
 			mGetChannelsCallbacks.Enqueue(callback);
 			BeginSend(Packet.RequestChannelList);
 			EndSend();
+#endif
 		}
 	}
 }

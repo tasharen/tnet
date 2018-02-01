@@ -1333,8 +1333,8 @@ namespace TNet
 #if UNITY_EDITOR
 			if (buffer.size > 1000000)
 			{
-				Tools.WriteFile("dump.txt", buffer.buffer, false, false, buffer.size);
-				Debug.Log(buffer.size.ToString("N0"));
+				//Tools.WriteFile("dump.txt", buffer.buffer, false, false, buffer.size);
+				Debug.Log("Packet size: " + buffer.size.ToString("N0"));
 			}
 #endif
 
@@ -1344,7 +1344,7 @@ namespace TNet
 			// Inform the channel that a new player is joining
 			for (int i = 0; i < channel.players.size; ++i)
 			{
-				TcpPlayer p = (TcpPlayer)channel.players[i];
+				var p = (TcpPlayer)channel.players[i];
 
 				writer = p.BeginSend(Packet.ResponsePlayerJoined);
 				{
@@ -2210,15 +2210,15 @@ namespace TNet
 				}
 				case Packet.RequestGetFileList:
 				{
-					string original = reader.ReadString();
-					string path = Tools.FindDirectory(original, player.isAdmin);
+					var original = reader.ReadString();
+					var path = Tools.FindDirectory(original, player.isAdmin);
 
-					BinaryWriter writer = player.BeginSend(Packet.ResponseGetFileList);
+					var writer = player.BeginSend(Packet.ResponseGetFileList);
 					writer.Write(original);
 
 					if (!string.IsNullOrEmpty(path))
 					{
-						string[] files = Tools.GetFiles(path);
+						var files = Tools.GetFiles(path);
 						writer.Write(files.Length);
 						for (int i = 0, imax = files.Length; i < imax; ++i)
 							writer.Write(files[i]);
@@ -2868,6 +2868,7 @@ namespace TNet
 				}
 			}
 
+#if !NO_SAVING
 			Tools.WriteFile(mFilename, mWriteStream);
 
 			// Save the server configuration data
@@ -2879,8 +2880,8 @@ namespace TNet
 			}
 
 			// Save the player data
-			for (int i = 0; i < mPlayerList.size; ++i)
-				SavePlayer(mPlayerList[i]);
+			for (int i = 0; i < mPlayerList.size; ++i) SavePlayer(mPlayerList[i]);
+#endif
 
 #if STANDALONE
 			var elapsed = timer.ElapsedMilliseconds;

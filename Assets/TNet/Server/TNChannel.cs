@@ -42,13 +42,17 @@ namespace TNet
 
 			public int WritePacket (int channelID, Buffer buffer, int offset)
 			{
-				BinaryWriter writer = buffer.BeginPacket(Packet.ForwardToOthers, offset);
+#if !MODDING
+				var writer = buffer.BeginPacket(Packet.ForwardToOthers, offset);
 				writer.Write(0);
 				writer.Write(channelID);
 				writer.Write(uid);
 				if (functionID == 0) writer.Write(functionName);
 				writer.Write(data.buffer, 0, data.size);
 				return buffer.EndTcpPacketStartingAt(offset);
+#else
+				return 0;
+#endif
 			}
 		}
 
@@ -100,8 +104,9 @@ namespace TNet
 
 		// Channel data is not parsed until it's actually needed, saving memory
 		byte[] mSource;
+#if !MODDING
 		int mSourceSize;
-
+#endif
 		/// <summary>
 		/// Whether the channel has data that can be saved.
 		/// </summary>
@@ -156,7 +161,7 @@ namespace TNet
 		{
 			for (int i = 0; i < players.size; ++i)
 			{
-				Player p = players[i];
+				var p = players[i];
 				if (p.id == pid) return p;
 			}
 			return null;
@@ -170,7 +175,8 @@ namespace TNet
 		{
 			for (int i = 0; i < players.size; ++i)
 			{
-				Player p = players[i];
+				var p = players[i];
+
 				if (p.id == pid)
 				{
 					players.RemoveAt(i);
@@ -203,6 +209,7 @@ namespace TNet
 
 		public void RemovePlayer (TcpPlayer p, List<uint> destroyedObjects)
 		{
+#if !MODDING
 			destroyedObjects.Clear();
 
 			if (players.Remove(p))
@@ -247,6 +254,7 @@ namespace TNet
 					rfcs.Clear();
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -255,6 +263,7 @@ namespace TNet
 
 		public bool ChangeObjectOwner (uint objID, int playerID)
 		{
+#if !MODDING
 			if (objID < 32768) return false;
 
 			if (mCreatedObjectDictionary.ContainsKey(objID))
@@ -271,6 +280,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 			return false;
 		}
 
@@ -317,12 +327,12 @@ namespace TNet
 		{
 			for (int i = rfcs.size; i > 0;)
 			{
-				RFC r = rfcs[--i];
+				var rfc = rfcs[--i];
 
-				if (r.objectID == objectID)
+				if (rfc.objectID == objectID)
 				{
 					rfcs.RemoveAt(i);
-					r.data.Recycle();
+					rfc.data.Recycle();
 				}
 			}
 		}
@@ -333,6 +343,7 @@ namespace TNet
 
 		public CreatedObject TransferObject (uint objectID, Channel other)
 		{
+#if !MODDING
 			if (objectID < 32768)
 			{
 				Tools.LogError("Transferring objects only works with objects that were instantiated at run-time.");
@@ -383,6 +394,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 			return null;
 		}
 
@@ -392,6 +404,7 @@ namespace TNet
 
 		public void AddRFC (uint uid, string funcName, Buffer buffer)
 		{
+#if !MODDING
 			if (closed || buffer == null) return;
 			uint objID = (uid >> 8);
 
@@ -424,6 +437,7 @@ namespace TNet
 			rfc.data = b;
 			rfc.functionName = funcName;
 			rfcs.Add(rfc);
+#endif
 		}
 
 		/// <summary>
@@ -432,16 +446,18 @@ namespace TNet
 
 		public void DeleteRFC (uint inID, string funcName)
 		{
+#if !MODDING
 			for (int i = 0; i < rfcs.size; ++i)
 			{
-				RFC r = rfcs[i];
+				var rfc = rfcs[i];
 
-				if (r.uid == inID && r.functionName == funcName)
+				if (rfc.uid == inID && rfc.functionName == funcName)
 				{
 					rfcs.RemoveAt(i);
-					r.data.Recycle();
+					rfc.data.Recycle();
 				}
 			}
+#endif
 		}
 
 		// Cached to reduce memory allocations
@@ -455,6 +471,7 @@ namespace TNet
 
 		public void SaveTo (BinaryWriter writer)
 		{
+#if !MODDING
 			if (mSource != null)
 			{
 				writer.Write(mSource, 0, mSourceSize);
@@ -534,6 +551,7 @@ namespace TNet
 			mCreatedRFCs.Clear();
 
 			writer.Write(isLocked);
+#endif
 		}
 
 		/// <summary>
@@ -542,6 +560,7 @@ namespace TNet
 
 		public bool LoadFrom (BinaryReader reader, bool keepInMemory = false)
 		{
+#if !MODDING
 			var start = reader.BaseStream.Position;
 			int version = reader.ReadInt32();
 
@@ -624,6 +643,7 @@ namespace TNet
 				mSource = reader.ReadBytes(mSourceSize);
 			}
 #endif
+#endif
 			return true;
 		}
 
@@ -633,6 +653,7 @@ namespace TNet
 
 		public void Sleep ()
 		{
+#if !MODDING
 #if STANDALONE
 			if (lowMemoryFootprint && players.size == 0 && mSource == null)
 			{
@@ -651,6 +672,7 @@ namespace TNet
 #else
 			mSourceSize = 0;
 #endif
+#endif
 		}
 
 		/// <summary>
@@ -659,6 +681,7 @@ namespace TNet
 
 		public void Wake ()
 		{
+#if !MODDING
 			if (mSource != null)
 			{
 				var stream = new MemoryStream(mSource);
@@ -667,6 +690,7 @@ namespace TNet
 				reader.Close();
 				mSource = null;
 			}
+#endif
 		}
 	}
 }

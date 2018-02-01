@@ -211,11 +211,13 @@ namespace TNet
 
 		static public void AddAdmin (string passKey)
 		{
-			if (TNManager.isAdmin)
+#if !MODDING
+			if (isAdmin)
 			{
-				TNManager.BeginSend(Packet.RequestCreateAdmin).Write(passKey);
-				TNManager.EndSend();
+				BeginSend(Packet.RequestCreateAdmin).Write(passKey);
+				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -224,11 +226,13 @@ namespace TNet
 
 		static public void RemoveAdmin (string passKey)
 		{
-			if (TNManager.isAdmin)
+#if !MODDING
+			if (isAdmin)
 			{
-				TNManager.BeginSend(Packet.RequestRemoveAdmin).Write(passKey);
-				TNManager.EndSend();
+				BeginSend(Packet.RequestRemoveAdmin).Write(passKey);
+				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -240,11 +244,13 @@ namespace TNet
 
 		static public void SetAlias (string alias)
 		{
+#if !MODDING
 			if (mInstance)
 			{
 				BeginSend(Packet.RequestSetAlias).Write(alias);
 				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -480,7 +486,7 @@ namespace TNet
 		{
 			if (mInstance != null && mInstance.mClient != null)
 			{
-				Channel ch = mInstance.mClient.GetChannel(channelID);
+				var ch = mInstance.mClient.GetChannel(channelID);
 				return (ch != null && ch.isLocked);
 			}
 			return false;
@@ -671,6 +677,7 @@ namespace TNet
 			}
 		}
 
+#if !MODDING
 		/// <summary>
 		/// If you want to do custom logic for when packets can be processed and when they can't be, overwrite this delegate.
 		/// </summary>
@@ -712,6 +719,7 @@ namespace TNet
 		};
 
 		public delegate void ProcessPacketsFunc ();
+#endif
 
 #if UNITY_EDITOR
 		/// <summary>
@@ -1032,6 +1040,7 @@ namespace TNet
 
 		static public void Connect (string address, int port)
 		{
+#if !MODDING
 			if (!instance.mClient.isTryingToConnect)
 			{
 				mInstance.CancelInvoke("DisconnectDelayed");
@@ -1059,6 +1068,7 @@ namespace TNet
 #if UNITY_EDITOR
 			else Debug.LogWarning("Already connecting...");
 #endif
+#endif
 		}
 
 		/// <summary>
@@ -1067,6 +1077,7 @@ namespace TNet
 
 		static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 		{
+#if !MODDING
 			if (!instance.mClient.isTryingToConnect)
 			{
 				mInstance.CancelInvoke("DisconnectDelayed");
@@ -1078,6 +1089,7 @@ namespace TNet
 			}
 #if UNITY_EDITOR
 			else Debug.LogWarning("Already connecting...");
+#endif
 #endif
 		}
 
@@ -1400,6 +1412,7 @@ namespace TNet
 
 		static public void SetPlayerSave (string filename, DataNode.SaveType type = DataNode.SaveType.Binary, int hash = 0)
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				var writer = BeginSend(Packet.RequestSetPlayerSave);
@@ -1413,6 +1426,7 @@ namespace TNet
 				playerData = DataNode.Read(filename);
 				if (onSetPlayerData != null) onSetPlayerData(player, "", playerData);
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1421,6 +1435,7 @@ namespace TNet
 
 		static public void DeleteFile (string filename)
 		{
+#if !MODDING
 			if (isConnected)
 			{
 				mInstance.mClient.DeleteFile(filename);
@@ -1436,6 +1451,7 @@ namespace TNet
 					Debug.LogError(ex.Message + " (" + filename + ")");
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1476,13 +1492,15 @@ namespace TNet
 
 		static public void LockChannel (int channelID, bool locked)
 		{
+#if !MODDING
 			if (mInstance != null && isAdmin)
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestLockChannel);
+				var writer = BeginSend(Packet.RequestLockChannel);
 				writer.Write(channelID);
 				writer.Write(locked);
 				EndSend(channelID, true);
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1552,6 +1570,7 @@ namespace TNet
 				{
 					Debug.LogError("Unable to locate RCC " + rccID + " " + funcName);
 				}
+#if !MODDING
 				else if (isConnected)
 				{
 					if (IsJoiningChannel(channelID))
@@ -1597,6 +1616,7 @@ namespace TNet
 					writer.WriteArray(objs);
 					EndSend(channelID, true);
 				}
+#endif
 				else
 				{
 					// Offline mode
@@ -1759,11 +1779,15 @@ namespace TNet
 #if UNITY_EDITOR
 			if (!TNServerInstance.isActive) Debug.Log(text);
 #endif
+#if MODDING
+			Debug.Log(text);
+#else
 			if (isConnected)
 			{
-				TNManager.BeginSend(Packet.ServerLog).Write(text);
-				TNManager.EndSend();
+				BeginSend(Packet.ServerLog).Write(text);
+				EndSend();
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1859,7 +1883,7 @@ namespace TNet
 			return null;
 		}
 
-		#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
+#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
 		/// <summary>
 		/// Ensure that there is only one instance of this class present.
@@ -2143,10 +2167,12 @@ namespace TNet
 		void Update ()
 		{
 			if (onUpdate != null) onUpdate();
+#if !MODDING
 			if (!mDelayedDisconnect) ProcessPackets();
+#endif
 		}
 
-		#endregion
+#endregion
 
 		/// <summary>
 		/// Load level coroutine handling asynchronous loading of levels.

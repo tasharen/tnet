@@ -41,33 +41,26 @@ namespace TNet
 			if (o == null) return;
 
 			var id = o.GetInstanceID();
-
 			if (o is Transform) id = (o as Transform).gameObject.GetInstanceID();
+			if (!mLocalReferences.ContainsKey(id)) mLocalReferences[id] = o;
 
-			if (!mLocalReferences.ContainsKey(id))
-			{
-				mLocalReferences[id] = o;
-				if (o is GameObject) AddReference(o as GameObject);
-				else if (o is Texture) AddReference(o as Texture);
-				else if (o is Material) AddReference(o as Material);
-				else if (o is Mesh) AddReference(o as Mesh);
-				else if (o as AudioClip) AddReference(o as AudioClip);
-			}
+			if (o is GameObject) AddReference(o as GameObject, id);
+			else if (o is Texture) AddReference(o as Texture, id);
+			else if (o is Material) AddReference(o as Material, id);
+			else if (o is Mesh) AddReference(o as Mesh, id);
+			else if (o as AudioClip) AddReference(o as AudioClip, id);
 		}
 
 		static void AddReference (Object o, int id)
 		{
 			if (o == null) return;
+			if (!mLocalReferences.ContainsKey(id)) mLocalReferences[id] = o;
 
-			if (!mLocalReferences.ContainsKey(id))
-			{
-				mLocalReferences[id] = o;
-				if (o is GameObject) AddReference(o as GameObject);
-				else if (o is Texture) AddReference(o as Texture);
-				else if (o is Material) AddReference(o as Material);
-				else if (o is Mesh) AddReference(o as Mesh);
-				else if (o as AudioClip) AddReference(o as AudioClip);
-			}
+			if (o is GameObject) AddReference(o as GameObject, id);
+			else if (o is Texture) AddReference(o as Texture, id);
+			else if (o is Material) AddReference(o as Material, id);
+			else if (o is Mesh) AddReference(o as Mesh, id);
+			else if (o as AudioClip) AddReference(o as AudioClip, id);
 		}
 
 		/// <summary>
@@ -614,12 +607,22 @@ namespace TNet
 			}
 
 			// Material can only be created if there is a shader to work with
-			string shaderName = matNode.GetChild<string>("shader");
-			Shader shader = Shader.Find(shaderName);
+			var shaderName = matNode.GetChild<string>("shader");
+			Shader shader;
 
-			if (shader == null)
+			if (!string.IsNullOrEmpty(shaderName))
 			{
-				Debug.LogWarning("Shader '" + shaderName + "' was not found");
+				shader = Shader.Find(shaderName);
+
+				if (shader == null)
+				{
+					Debug.LogWarning("Shader '" + shaderName + "' was not found", mat);
+					shader = Shader.Find("Diffuse");
+				}
+			}
+			else
+			{
+				Debug.LogWarning("Material has no shader, assuming the default one" + "\n" + matNode.ToString() + "\n", mat);
 				shader = Shader.Find("Diffuse");
 			}
 
@@ -1205,6 +1208,12 @@ namespace TNet
 
 			foreach (var mb in mbs)
 			{
+				if (!mb)
+				{
+					Debug.LogWarning("Invalid MonoBehaviour on " + UnityTools.GetHierarchy(go.transform), go);
+					continue;
+				}
+
 				var type = mb.GetType();
 				var fields = type.GetSerializableFields();
 
@@ -1242,7 +1251,7 @@ namespace TNet
 		/// Determine the game object's shared resources and cache them in the local list for later usage.
 		/// </summary>
 
-		static public void CollectReferencedResources (this GameObject go)
+		static public void CollectReferencedResources (this GameObject go, bool includeMaterials = true)
 		{
 			var filters = go.GetComponentsInChildren<MeshFilter>(true);
 			var rens = go.GetComponentsInChildren<MeshRenderer>(true);
@@ -1265,20 +1274,26 @@ namespace TNet
 				var id = m.GetInstanceID();
 				if (!referencedMeshes.ContainsKey(id)) referencedMeshes[id] = m;
 
-				var mats = sk.sharedMaterials;
-				foreach (Material mt in mats) referencedMaterials[mt.GetInstanceID()] = mt;
+				if (includeMaterials)
+				{
+					var mats = sk.sharedMaterials;
+					foreach (Material mt in mats) referencedMaterials[mt.GetInstanceID()] = mt;
+				}
 			}
 
-			foreach (var r in rens)
+			if (includeMaterials)
 			{
-				var mats = r.sharedMaterials;
-				foreach (Material m in mats) if (m != null) referencedMaterials[m.GetInstanceID()] = m;
-			}
+				foreach (var r in rens)
+				{
+					var mats = r.sharedMaterials;
+					foreach (Material m in mats) if (m != null) referencedMaterials[m.GetInstanceID()] = m;
+				}
 
-			foreach (var s in psrs)
-			{
-				var mats = s.sharedMaterials;
-				foreach (Material m in mats) if (m != null) referencedMaterials[m.GetInstanceID()] = m;
+				foreach (var s in psrs)
+				{
+					var mats = s.sharedMaterials;
+					foreach (Material m in mats) if (m != null) referencedMaterials[m.GetInstanceID()] = m;
+				}
 			}
 
 			foreach (var a in aud)
@@ -1295,6 +1310,7 @@ namespace TNet
 
 			foreach (var mb in mbs)
 			{
+				if (!mb) continue;
 				var type = mb.GetType();
 				var fields = type.GetSerializableFields();
 
@@ -1306,7 +1322,7 @@ namespace TNet
 					if (ft == typeof(Material))
 					{
 						var val = field.GetValue(mb) as Material;
-						if (val != null) referencedMaterials[val.GetInstanceID()] = val;
+						if (val != null && includeMaterials) referencedMaterials[val.GetInstanceID()] = val;
 					}
 					else if (ft == typeof(AudioClip))
 					{
@@ -1325,11 +1341,25 @@ namespace TNet
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Save all previously collected shared resources in the specified DataNode.
+		/// </summary>
+
+		static public void SerializeReferencedResources (DataNode root, bool progressBar = false)
+		{
+			mFullSerialization = true;
+
+			var node = root.GetChild("Resources", true);
+			var size = referencedTextures.Count;
+			var i = 0;
 
 #if UNITY_EDITOR
 			foreach (var pair in referencedMaterials)
 			{
 				var mat = pair.Value;
+
 				var s = mat.shader;
 				if (s == null) continue;
 
@@ -1348,19 +1378,6 @@ namespace TNet
 				}
 			}
 #endif
-		}
-
-		/// <summary>
-		/// Save all previously collected shared resources in the specified DataNode.
-		/// </summary>
-
-		static public void SerializeReferencedResources (DataNode root, bool progressBar = false)
-		{
-			mFullSerialization = true;
-
-			var node = root.GetChild("Resources", true);
-			var size = referencedTextures.Count;
-			var i = 0;
 
 			foreach (var pair in referencedTextures)
 			{

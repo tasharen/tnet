@@ -163,8 +163,17 @@ static internal class DataNodeExporter
 
 			foreach (var obj in objects)
 			{
+				if (obj is SceneAsset) continue;
+				if (obj is MonoScript) continue;
+
 				var go = obj as GameObject;
-				if (go != null) go.CollectReferencedPrefabs(true);
+
+				if (go != null)
+				{
+					var pf = PrefabUtility.GetPrefabType(go);
+					if (pf != PrefabType.ModelPrefab && pf != PrefabType.ModelPrefabInstance) go.CollectReferencedPrefabs(true);
+					else go.CollectReferencedResources(false);
+				}
 				else ComponentSerialization.AddReference(obj);
 			}
 

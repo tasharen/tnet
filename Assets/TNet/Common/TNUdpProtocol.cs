@@ -56,13 +56,14 @@ public class UdpProtocol
 
 	// Port used to listen and socket used to send and receive
 	int mPort = -1;
-	Socket mSocket;
 	//List<UdpClient> mClients = new List<UdpClient>();
 
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !MODDING
 	// Buffer used for receiving incoming data
 	byte[] mTemp = new byte[8192];
 
+	Socket mSocket;
+	
 	// End point of where the data is coming from
 	EndPoint mEndPoint;
 	bool mMulticast = true;
@@ -98,7 +99,7 @@ public class UdpProtocol
 
 	public bool Start () { return Start(0); }
 
-#if UNITY_FLASH || UNITY_WEBPLAYER
+#if UNITY_FLASH || UNITY_WEBPLAYER || MODDING
 	// UDP is not supported by Flash.
 	public bool Start (int port)
 	{
@@ -191,6 +192,7 @@ public class UdpProtocol
 
 	public void Stop ()
 	{
+#if !MODDING
 		mPort = -1;
 
 		if (mSocket != null)
@@ -201,9 +203,10 @@ public class UdpProtocol
 
 		Buffer.Recycle(mIn);
 		Buffer.Recycle(mOut);
+#endif
 	}
 
-#if !UNITY_WEBPLAYER
+#if !UNITY_WEBPLAYER && !MODDING
 	/// <summary>
 	/// Receive incoming data.
 	/// </summary>
@@ -259,6 +262,7 @@ public class UdpProtocol
 
 	public bool ReceivePacket (out Buffer buffer, out IPEndPoint source)
 	{
+#if !MODDING
 		if (mPort == 0)
 		{
 			Stop();
@@ -274,6 +278,7 @@ public class UdpProtocol
 				return true;
 			}
 		}
+#endif
 		buffer = null;
 		source = null;
 		return false;
@@ -287,11 +292,13 @@ public class UdpProtocol
 
 	public void SendEmptyPacket (IPEndPoint ip)
 	{
-		Buffer buffer = Buffer.Create();
+#if !MODDING
+		var buffer = Buffer.Create();
 		buffer.BeginPacket(Packet.Empty);
 		buffer.EndPacket();
 		Send(buffer, ip);
 		buffer.Recycle();
+#endif
 	}
 
 	/// <summary>
@@ -300,6 +307,7 @@ public class UdpProtocol
 
 	public void Broadcast (Buffer buffer, int port)
 	{
+#if !MODDING
 		if (buffer != null)
 		{
 #if UNITY_WEBPLAYER || UNITY_FLASH
@@ -320,6 +328,7 @@ public class UdpProtocol
 			}
 #endif
 		}
+#endif
 	}
 
 	/// <summary>
@@ -328,6 +337,7 @@ public class UdpProtocol
 
 	public void Send (Buffer buffer, IPEndPoint ip)
 	{
+#if !MODDING
 		if (ip.Address.Equals(IPAddress.Broadcast))
 		{
 			Broadcast(buffer, ip.Port);
@@ -372,8 +382,10 @@ public class UdpProtocol
 			}
 		}
 		else Tools.LogError("The socket is null. Did you forget to call UdpProtocol.Start()?");
+#endif
 	}
 
+#if !MODDING
 	/// <summary>
 	/// Send completion callback. Recycles the datagram.
 	/// </summary>
@@ -409,6 +421,7 @@ public class UdpProtocol
 			}
 		}
 	}
+#endif
 
 	/// <summary>
 	/// Add an error packet to the incoming queue.
@@ -419,14 +432,16 @@ public class UdpProtocol
 #if UNITY_EDITOR
 		UnityEngine.Debug.LogError(error);
 #endif
-		Buffer buffer = Buffer.Create();
+#if !MODDING
+		var buffer = Buffer.Create();
 		buffer.BeginPacket(Packet.Error).Write(error);
 		buffer.EndTcpPacketWithOffset(4);
 
-		Datagram dg = new Datagram();
+		var dg = new Datagram();
 		dg.buffer = buffer;
 		dg.ip = ip;
 		lock (mIn) mIn.Enqueue(dg);
+#endif
 	}
 }
 }

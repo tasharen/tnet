@@ -103,13 +103,31 @@ namespace TNet
 		// Buffer used for receiving incoming data
 		byte[] mTemp = new byte[defaultBufferSize];
 
+#if !MODDING
 		// Current incoming buffer
 		Buffer mReceiveBuffer;
 		int mExpected = 0;
 		int mOffset = 0;
-		Socket mSocket;
 		bool mNoDelay = false;
 		IPEndPoint mFallback;
+		Socket mSocket;
+
+		/// <summary>
+		/// Socket used for communication.
+		/// </summary>
+
+		public Socket socket { get { return mSocket; } }
+
+		/// <summary>
+		/// Whether the socket is currently connected. A socket can be connected while verifying the connection.
+		/// In most cases you should use 'isConnected' instead.
+		/// </summary>
+
+		public bool isSocketConnected { get { return (mSocket != null && mSocket.Connected) || (custom != null && custom.isConnected); } }
+#else
+		public Socket socket { get { return null; } }
+		public bool isSocketConnected { get { return false; } }
+#endif
 		List<Socket> mConnecting = new List<Socket>();
 
 		/// <summary>
@@ -128,12 +146,6 @@ namespace TNet
 		public bool isConnected { get { return stage == Stage.Connected; } }
 
 		/// <summary>
-		/// Socket used for communication.
-		/// </summary>
-
-		public Socket socket { get { return mSocket; } }
-
-		/// <summary>
 		/// If sockets are not used, an outgoing queue can be specified instead.
 		/// </summary>
 
@@ -146,18 +158,12 @@ namespace TNet
 		public Queue<Buffer> receiveQueue { get { return mIn; } }
 
 		/// <summary>
-		/// Whether the socket is currently connected. A socket can be connected while verifying the connection.
-		/// In most cases you should use 'isConnected' instead.
-		/// </summary>
-
-		public bool isSocketConnected { get { return (mSocket != null && mSocket.Connected) || (custom != null && custom.isConnected); } }
-
-		/// <summary>
 		/// Whether we are currently trying to establish a new connection.
 		/// </summary>
 
 		public bool isTryingToConnect { get { return mConnecting.size != 0; } }
 
+#if !MODDING
 		/// <summary>
 		/// Enable or disable the Nagle's buffering algorithm (aka NO_DELAY flag).
 		/// Enabling this flag will improve latency at the cost of increased bandwidth.
@@ -181,6 +187,9 @@ namespace TNet
 				}
 			}
 		}
+#else
+		public bool noDelay { get { return false; } set { } }
+#endif
 
 		/// <summary>
 		/// Connected target's address.
@@ -194,6 +203,7 @@ namespace TNet
 
 		public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 		{
+#if !MODDING
 			Disconnect();
 
 			lock (mIn) Buffer.Recycle(mIn);
@@ -215,8 +225,10 @@ namespace TNet
 				}
 				ConnectToTcpEndPoint();
 			}
+#endif
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Try to establish a connection with the current tcpEndPoint.
 		/// </summary>
@@ -355,6 +367,7 @@ namespace TNet
 			// We are no longer trying to connect via this socket
 			lock (mConnecting) mConnecting.Remove(sock);
 		}
+#endif
 
 		/// <summary>
 		/// Disconnect the player, freeing all resources.
@@ -362,6 +375,7 @@ namespace TNet
 
 		public void Disconnect (bool notify = false)
 		{
+#if !MODDING
 			try
 			{
 				lock (mConnecting)
@@ -381,6 +395,7 @@ namespace TNet
 				lock (mConnecting) mConnecting.Clear();
 				mSocket = null;
 			}
+#endif
 		}
 
 		/// <summary>
@@ -395,6 +410,7 @@ namespace TNet
 
 		void CloseNotThreadSafe (bool notify)
 		{
+#if !MODDING
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
 
@@ -448,6 +464,7 @@ namespace TNet
 				mReceiveBuffer.Recycle();
 				mReceiveBuffer = null;
 			}
+#endif
 		}
 
 		/// <summary>
@@ -501,6 +518,7 @@ namespace TNet
 
 		public void SendTcpPacket (Buffer buffer, bool instant = false)
 		{
+#if !MODDING
 			buffer.MarkAsUsed();
 			BinaryReader reader = buffer.BeginReading();
 
@@ -601,10 +619,11 @@ namespace TNet
 					}
 				}
 			}
-
+#endif
 			buffer.Recycle();
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Send completion callback. Recycles the buffer.
 		/// </summary>
@@ -671,6 +690,7 @@ namespace TNet
 				AddError(ex);
 			}
 		}
+#endif
 
 		/// <summary>
 		/// Start receiving incoming messages on the current socket.
@@ -684,6 +704,7 @@ namespace TNet
 
 		public void StartReceiving (Socket socket)
 		{
+#if !MODDING
 			if (socket != null)
 			{
 				Close(false);
@@ -716,6 +737,7 @@ namespace TNet
 					Disconnect(true);
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -724,6 +746,7 @@ namespace TNet
 
 		public bool ReceivePacket (out Buffer buffer)
 		{
+#if !MODDING
 			if (custom != null)
 			{
 				custom.ReceivePacket(out buffer);
@@ -744,11 +767,12 @@ namespace TNet
 					return buffer != null;
 				}
 			}
-
+#endif
 			buffer = null;
 			return false;
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Receive incoming data.
 		/// </summary>
@@ -939,6 +963,7 @@ namespace TNet
 			}
 			return true;
 		}
+#endif
 
 		/// <summary>
 		/// Add this packet to the incoming queue.
@@ -1008,11 +1033,13 @@ namespace TNet
 
 		public void SendError (string error)
 		{
+#if !MODDING
 			var b = Buffer.Create();
 			b.BeginPacket(Packet.Error).Write(error);
 			b.EndPacket();
 			SendTcpPacket(b, true);
 			b.Recycle();
+#endif
 		}
 
 		/// <summary>
@@ -1030,12 +1057,14 @@ namespace TNet
 #if UNITY_EDITOR
 			Debug.LogError(ex.Message + "\n" + ex.StackTrace);
 #endif
+#if !MODDING
 			var buffer = Buffer.Create();
 			var error = ex.Message;
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
 			lock (mOut) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
 			LogError(ex.Message, ex.StackTrace, true);
+#endif
 		}
 
 		/// <summary>
@@ -1047,9 +1076,11 @@ namespace TNet
 #if UNITY_EDITOR
 			Debug.LogError(error);
 #endif
+#if !MODDING
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
 			lock (mIn) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
+#endif
 		}
 
 		/// <summary>
@@ -1058,7 +1089,8 @@ namespace TNet
 
 		public bool VerifyRequestID (BinaryReader reader, Buffer buffer, bool uniqueID)
 		{
-			Packet request = (Packet)reader.ReadByte();
+#if !MODDING
+			var request = (Packet)reader.ReadByte();
 
 			if (request == Packet.RequestID)
 			{
@@ -1077,6 +1109,7 @@ namespace TNet
 					return true;
 				}
 			}
+#endif
 			return false;
 		}
 
@@ -1086,6 +1119,7 @@ namespace TNet
 
 		public bool VerifyResponseID (Packet packet, BinaryReader reader)
 		{
+#if !MODDING
 			if (packet == Packet.ResponseID)
 			{
 				int serverVersion = reader.ReadInt32();
@@ -1119,6 +1153,7 @@ namespace TNet
 			Close(false);
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("[TNet] VerifyResponseID expected ResponseID, got " + packet);
+#endif
 #endif
 			return false;
 		}

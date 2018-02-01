@@ -677,7 +677,7 @@ namespace TNet
 		/// Find all files matching the specified pattern, such as "*.txt".
 		/// </summary>
 
-		static public string[] FindFiles (string directory, string pattern)
+		static public string[] FindFiles (string directory, string pattern = "*.*")
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (!IsAllowedToAccess(directory)) return null;
