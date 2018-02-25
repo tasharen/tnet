@@ -666,7 +666,7 @@ namespace TNet
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (!IsAllowedToAccess(directory)) return null;
 			if (!Directory.Exists(directory)) return null;
-			string[] files = Directory.GetFiles(directory, fileName);
+			var files = Directory.GetFiles(directory, fileName, SearchOption.AllDirectories);
 			return (files.Length == 0) ? null : files[0];
 #else
 		return null;
@@ -689,7 +689,7 @@ namespace TNet
 #endif
 		}
 
-#if !STANDALONE
+#if !UNITY_EDITOR && !STANDALONE
 		[System.NonSerialized] static string mPer = null;
 #endif
 		/// <summary>
@@ -699,6 +699,9 @@ namespace TNet
 
 		static public bool IsAllowedToAccess (string path, bool allowConfigAccess = false)
 		{
+#if UNITY_EDITOR
+			return true;
+#else
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			// Relative paths are not allowed
 			if (path.Contains("../") || path.Contains("..\\")) return false;
@@ -747,6 +750,7 @@ namespace TNet
 #else
 			return false;
 #endif
+#endif
 		}
 
 		/// <summary>
@@ -790,7 +794,7 @@ namespace TNet
 		/// Write the specified file, creating all the subdirectories in the process.
 		/// </summary>
 
-		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1)
+		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1, int offset = 0)
 		{
 #if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (inMyDocuments) path = GetDocumentsPath(path);
@@ -830,7 +834,7 @@ namespace TNet
 						}
 					}
 
-					if (maxBytes == -1)
+					if (maxBytes == -1 && offset == 0)
 					{
 						File.WriteAllBytes(path, data);
 					}
@@ -838,7 +842,7 @@ namespace TNet
 					{
 						var stream = new FileStream(path, FileMode.Create);
 						var bw = new BinaryWriter(stream);
-						bw.Write(data, 0, maxBytes);
+						bw.Write(data, offset, maxBytes);
 						stream.Flush();
 						stream.Close();
 					}
@@ -851,7 +855,7 @@ namespace TNet
 #if STANDALONE
 				catch (System.Exception) { }
 #else
-			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+				catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
 #endif
 			}
 #endif
@@ -1074,7 +1078,7 @@ namespace TNet
 			else if (!appendTime) System.Console.WriteLine(text);
 			else System.Console.WriteLine("[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + text);
 #elif UNITY_EDITOR
-		if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(text);
+			if (!string.IsNullOrEmpty(text)) UnityEngine.Debug.Log(text);
 #endif
 		}
 
@@ -1085,7 +1089,7 @@ namespace TNet
 		static public void Log (string msg, bool logInFile = true)
 		{
 #if UNITY_EDITOR
-		UnityEngine.Debug.Log(msg);
+			UnityEngine.Debug.Log(msg);
 #else
 			msg = "[" + System.DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] " + msg;
 			Tools.Print(msg, false);

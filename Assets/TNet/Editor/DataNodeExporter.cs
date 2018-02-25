@@ -6,6 +6,7 @@
 using UnityEngine;
 using UnityEditor;
 using TNet;
+using Tools = TNet.Tools;
 
 /// <summary>
 /// DataNode export/import menu options, found under Assets/TNet.
@@ -60,10 +61,10 @@ static internal class DataNodeExporter
 			if (!string.IsNullOrEmpty(path))
 			{
 				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
-
+				ComponentSerialization.ClearReferences();
 				var data = go.Serialize(true, true, true);
 				if (data != null) Save(data, path, DataNode.SaveType.Text);
-
+				ComponentSerialization.ClearReferences();
 				EditorUtility.ClearProgressBar();
 			}
 		}
@@ -84,10 +85,10 @@ static internal class DataNodeExporter
 			if (!string.IsNullOrEmpty(path))
 			{
 				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
-
+				ComponentSerialization.ClearReferences();
 				var data = go.Serialize(true, true, true);
 				if (data != null) Save(data, path, DataNode.SaveType.Binary);
-
+				ComponentSerialization.ClearReferences();
 				EditorUtility.ClearProgressBar();
 			}
 		}
@@ -108,10 +109,10 @@ static internal class DataNodeExporter
 			if (!string.IsNullOrEmpty(path))
 			{
 				EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
-
+				ComponentSerialization.ClearReferences();
 				var data = go.Serialize(true, true, true);
 				if (data != null) Save(data, path, DataNode.SaveType.Compressed);
-
+				ComponentSerialization.ClearReferences();
 				EditorUtility.ClearProgressBar();
 			}
 		}
@@ -152,41 +153,69 @@ static internal class DataNodeExporter
 	static internal void ExportAssets (DataNode.SaveType type)
 	{
 		var path = UnityEditorExtensions.ShowExportDialog("Export to DataNode", "Assets");
+		if (!string.IsNullOrEmpty(path)) ExportAssets(type, path);
+	}
 
-		if (!string.IsNullOrEmpty(path))
+	/// <summary>
+	/// Asset Bundle-like export, except using DataNode's deep serialization.
+	/// </summary>
+
+	static public void ExportAssets (DataNode.SaveType type, string path)
+	{
+		EditorUtility.DisplayCancelableProgressBar("Working", "Collecting references...", 0f);
+
+		ComponentSerialization.ClearReferences();
+
+		var objects = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
+		var components = new System.Collections.Generic.HashSet<string>();
+
+		foreach (var obj in objects)
 		{
-			EditorUtility.DisplayCancelableProgressBar("Working", "Collecting references...", 0f);
-
-			ComponentSerialization.ClearReferences();
-
-			var objects = Selection.GetFiltered(typeof(Object), SelectionMode.DeepAssets);
-
-			foreach (var obj in objects)
+			if (obj is MonoScript)
 			{
-				if (obj is SceneAsset) continue;
-				if (obj is MonoScript) continue;
-
-				var go = obj as GameObject;
-
-				if (go != null)
-				{
-					var pf = PrefabUtility.GetPrefabType(go);
-					if (pf != PrefabType.ModelPrefab && pf != PrefabType.ModelPrefabInstance) go.CollectReferencedPrefabs(true);
-					else go.CollectReferencedResources(false);
-				}
-				else ComponentSerialization.AddReference(obj);
+				var s = obj.name;
+				if (!components.Contains(s)) components.Add(s);
+				continue;
 			}
 
-			foreach (var pair in ComponentSerialization.referencedPrefabs) pair.Value.CollectReferencedResources();
+			var go = obj as GameObject;
 
-			EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+			if (go)
+			{
+				go.CollectReferencedPrefabs(true);
+				var comps = go.GetComponentsInChildren<MonoBehaviour>(true);
 
-			var data = ComponentSerialization.SerializeBundle();
-			if (data != null && data.children.size > 0) Save(data, path, type);
-			else Debug.LogWarning("No assets found to serialize");
-
-			EditorUtility.ClearProgressBar();
+				foreach (var comp in comps)
+				{
+					var t = comp.GetType().ToString();
+					if (!components.Contains(t)) components.Add(t);
+				}
+			}
+			else ComponentSerialization.AddReference(obj);
 		}
+
+		EditorUtility.DisplayCancelableProgressBar("Working", "Copying scripts...", 0f);
+
+		var dir = Tools.GetDirectoryFromPath(path);
+
+		// Copy the scripts
+		foreach (var c in components)
+		{
+			var fn = c + ".cs";
+			var p = Tools.FindFile(Application.dataPath, fn);
+			if (!string.IsNullOrEmpty(p)) System.IO.File.Copy(p, System.IO.Path.Combine(dir, fn), true);
+		}
+
+		EditorUtility.DisplayCancelableProgressBar("Working", "Creating a DataNode...", 0f);
+
+		foreach (var pair in ComponentSerialization.referencedPrefabs) pair.Value.CollectReferencedResources();
+
+		var data = ComponentSerialization.SerializeBundle();
+		if (data != null && data.children.size > 0) Save(data, path, type);
+		else Debug.LogWarning("No assets found to serialize");
+
+		ComponentSerialization.ClearReferences();
+		EditorUtility.ClearProgressBar();
 	}
 
 	[MenuItem("Assets/DataNode/Convert/to Text", false, 30)]

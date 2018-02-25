@@ -719,8 +719,8 @@ namespace TNet
 			{
 				if (desiredType == typeof(int))
 				{
-					if (value is Transform) return (value as Transform).gameObject.GetInstanceID();
-					return ((UnityEngine.Object)value).GetInstanceID();
+					if (value is Transform) return (value as Transform).gameObject.GetUniqueID();
+					return ((UnityEngine.Object)value).GetUniqueID();
 				}
 				else if (value is GameObject)
 				{
@@ -993,6 +993,9 @@ namespace TNet
 				if (desiredType == typeof(Material)) return ComponentSerialization.GetMaterial(intRef);
 				if (desiredType == typeof(AudioClip)) return ComponentSerialization.GetAudioClip(intRef);
 				if (desiredType == typeof(GameObject)) return ComponentSerialization.GetPrefab(intRef);
+
+				var obj = ComponentSerialization.GetObject(intRef, desiredType);
+				if (obj != null) return obj;
 			}
 #endif
 			// String to object conversion
@@ -1752,20 +1755,36 @@ namespace TNet
 				return true;
 			}
 
-			if (value is UnityEngine.Component)
+			if (value is Component)
 			{
 				var obj = (value as Component);
-				if (!obj) Debug.LogError("Trying to serialize a destroyed " + value.GetType());
-				else Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.\n" + UnityTools.GetHierarchy(obj.transform));
-				writer.Write(" // ERROR");
+
+				if (obj)
+				{
+					if (prefix) writer.Write(" = ");
+					writer.Write(obj.GetUniqueID());
+				}
+				else
+				{
+					Debug.LogError("Trying to serialize a destroyed " + value.GetType());
+					writer.Write(" // ERROR " + obj.GetUniqueID());
+				}
 				return true;
 			}
 			else if (value is UnityEngine.Object)
 			{
 				var obj = (value as UnityEngine.Object);
-				if (!obj) Debug.LogError("Trying to serialize a destroyed " + value.GetType());
-				else Debug.LogWarning("It's not possible to serialize " + value.GetType() + " directly. Use GameObject.Serialize instead.");
-				writer.Write(" // ERROR");
+
+				if (obj)
+				{
+					if (prefix) writer.Write(" = ");
+					writer.Write(obj.GetUniqueID());
+				}
+				else
+				{
+					Debug.LogError("Trying to serialize a destroyed " + value.GetType());
+					writer.Write(" // ERROR " + obj.GetUniqueID());
+				}
 				return true;
 			}
 #endif
@@ -2561,14 +2580,14 @@ namespace TNet
 						return;
 					}
 #if SERIALIZATION_WITHOUT_INTERFACE
-					else if (prefix == 252 || type.HasBinarySerialization())
+					else if (prefix == 252 || (prefix == 255 && type.HasBinarySerialization()))
 					{
 						if (!typeIsKnown) bw.Write(252, type);
 
 						if (!obj.Invoke("Serialize", bw))
 						{
 #if UNITY_EDITOR
-							Debug.LogError("Failed to invoke the binary serialization function on " + type, obj as UnityEngine.Object);
+							Debug.LogError("Failed to invoke the binary serialization function on " + type + " " + prefix + " " + type.HasBinarySerialization(), obj as UnityEngine.Object);
 #else
 							Tools.LogError("Failed to invoke the binary serialization function on " + type);
 #endif
@@ -2609,7 +2628,7 @@ namespace TNet
 
 						if (elemType != null)
 						{
-							TList list = obj as TList;
+							var list = obj as TList;
 
 							// Determine the prefix for this type
 							int elemPrefix = GetPrefix(elemType);
@@ -2633,8 +2652,24 @@ namespace TNet
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
 
-							for (int i = 0, imax = list.Count; i < imax; ++i)
-								bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
+#if SERIALIZATION_WITHOUT_INTERFACE
+							if (elemType.HasBinarySerialization())
+							{
+								for (int i = 0, imax = list.Count; i < imax; ++i)
+								{
+									if (!list.Get(i).Invoke("Serialize", bw))
+									{
+#if UNITY_EDITOR
+										Debug.LogError("Failed to invoke the binary serialization function on " + type + " " + prefix + " " + type.HasBinarySerialization(), obj as UnityEngine.Object);
+#else
+										Tools.LogError("Failed to invoke the binary serialization function on " + type);
+#endif
+									}
+								}
+							}
+							else
+#endif
+							for (int i = 0, imax = list.Count; i < imax; ++i) bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
 							return;
 						}
 					}
@@ -2650,7 +2685,7 @@ namespace TNet
 #if REFLECTION_SUPPORT
 					if (useReflection)
 					{
-						Type elemType = type.GetGenericArgument();
+						var elemType = type.GetGenericArgument();
 						bool fixedSize = false;
 
 						if (elemType == null)
@@ -2682,6 +2717,23 @@ namespace TNet
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
 
+#if SERIALIZATION_WITHOUT_INTERFACE
+							if (elemType.HasBinarySerialization())
+							{
+								foreach (object o in list)
+								{
+									if (!o.Invoke("Serialize", bw))
+									{
+#if UNITY_EDITOR
+										Debug.LogError("Failed to invoke the binary serialization function on " + type + " " + prefix + " " + type.HasBinarySerialization(), obj as UnityEngine.Object);
+#else
+										Tools.LogError("Failed to invoke the binary serialization function on " + type);
+#endif
+									}
+								}
+							}
+							else
+#endif
 							foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
 							return;
 						}
@@ -2970,7 +3022,13 @@ namespace TNet
 					for (int i = 0, imax = mFieldNames.size; i < imax; ++i)
 					{
 						bw.Write(mFieldNames[i]);
-						bw.WriteObject(mFieldValues[i]);
+						var val = mFieldValues[i];
+#if !STANDALONE
+						var uo = val as UnityEngine.Object;
+						if (uo != null) bw.WriteObject(uo.GetUniqueID());
+						else
+#endif
+						bw.WriteObject(val);
 					}
 #else
 					Debug.LogError("Reflection-based serialization is not supported on this platform.");
@@ -3780,6 +3838,7 @@ namespace TNet
 							var retVal = onReadObject(prefix, reader);
 							if (retVal != null) return retVal;
 						}
+
 						Tools.LogError("Unknown prefix: " + prefix + " at position " + reader.BaseStream.Position);
 						return null;
 					}

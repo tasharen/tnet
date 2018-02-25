@@ -4,6 +4,7 @@
 //-------------------------------------------------
 
 #define RECYCLE_BUFFERS
+//#define DEBUG_BUFFERS
 
 using System.IO;
 using System.Threading;
@@ -30,6 +31,7 @@ namespace TNet
 #if DEBUG_BUFFERS
 		static int mUniqueCounter = 0;
 		internal int mUniqueID = 0;
+		public int id { get { return mUniqueID; } }
 #endif
 		int mSize = 0;
 		bool mWriting = false;
@@ -47,7 +49,7 @@ namespace TNet
 		~Buffer ()
 		{
 #if DEBUG_BUFFERS
-			Log("DISPOSED of " + mUniqueID + " (" + (Packet)PeekByte(4) + ")");
+			FastLog.Log("DISPOSED of " + mUniqueID + " (" + position + " " + size + " " + (Packet)PeekByte(4) + ")");
 #endif
 			if (mStream != null)
 			{
@@ -55,6 +57,12 @@ namespace TNet
 				mStream = null;
 			}
 		}
+
+		/// <summary>
+		/// Whether the buffer is currently in write mode.
+		/// </summary>
+
+		public bool isWriting { get { return mWriting; } }
 
 		/// <summary>
 		/// The size of the data present in the buffer.
@@ -108,33 +116,6 @@ namespace TNet
 
 		static public int recycleQueue { get { return mPool.Count; } }
 
-#if DEBUG_BUFFERS
-#if !UNITY_EDITOR
-		static List<string> mEntries = new List<string>();
-#endif
-		static void Log (string text)
-		{
-#if UNITY_EDITOR
-			UnityEngine.Debug.Log(text);
-#else
-			lock (mEntries)
-			{
-				mEntries.Add(text);
-
-				if (mEntries.size == 100)
-				{
-					FileStream fs = File.Open("log.txt", FileMode.Append);
-					StreamWriter sw = new StreamWriter(fs);
-					foreach (string s in mEntries) sw.WriteLine(s);
-					sw.Flush();
-					sw.Dispose();
-					mEntries.Clear();
-				}
-			}
-#endif
-		}
-#endif
-
 		/// <summary>
 		/// Create a new buffer, reusing an old one if possible.
 		/// </summary>
@@ -147,7 +128,7 @@ namespace TNet
 			{
 				b = new Buffer();
 #if DEBUG_BUFFERS
-				Log("New " + b.mUniqueID);
+				FastLog.Log("New " + b.mUniqueID);
 #endif
 			}
 			else
@@ -159,14 +140,14 @@ namespace TNet
 						--mPoolCount;
 						b = mPool.Dequeue();
 #if DEBUG_BUFFERS
-						Log("Existing " + b.mUniqueID + " (" + mPool.Count + ")");
+						FastLog.Log("Existing " + b.mUniqueID + " (" + mPool.Count + ")");
 #endif
 					}
 					else
 					{
 						b = new Buffer();
 #if DEBUG_BUFFERS
-						Log("New " + b.mUniqueID);
+						FastLog.Log("New " + b.mUniqueID);
 #endif
 					}
 				}
@@ -211,7 +192,7 @@ namespace TNet
 						++mPoolCount;
 						mPool.Enqueue(this);
 #if DEBUG_BUFFERS
-						Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
+						FastLog.Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
 #endif
 					}
 #endif
@@ -221,7 +202,7 @@ namespace TNet
 					++mPoolCount;
 					mPool.Enqueue(this);
 #if DEBUG_BUFFERS
-					Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
+					FastLog.Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
 #endif
 				}
 			}
@@ -486,16 +467,7 @@ namespace TNet
 		/// Peek at the first byte at the specified offset.
 		/// </summary>
 
-		public int PeekByte (int pos)
-		{
-			int val = 0;
-			long oldPos = mStream.Position;
-			if (pos < 0 || pos + 1 > size) return -1;
-			mStream.Seek(pos, SeekOrigin.Begin);
-			val = mReader.ReadByte();
-			mStream.Seek(oldPos, SeekOrigin.Begin);
-			return val;
-		}
+		public int PeekByte (int pos) { return pos > -1 && pos < size ? buffer[pos] : 0; }
 
 		/// <summary>
 		/// Peek at the first integer at the specified offset.
@@ -503,13 +475,12 @@ namespace TNet
 
 		public int PeekInt (int pos)
 		{
-			int val = 0;
-			long oldPos = mStream.Position;
-			if (pos < 0 || pos + 4 > size) return -1;
-			mStream.Seek(pos, SeekOrigin.Begin);
-			val = mReader.ReadInt32();
-			mStream.Seek(oldPos, SeekOrigin.Begin);
-			return val;
+			if (pos > -1 && pos + 4 < size)
+			{
+				var buffer = this.buffer;
+				return (int)buffer[pos] | ((int)buffer[pos + 1] << 8) | ((int)buffer[pos + 2] << 16) | ((int)buffer[pos + 3] << 24);
+			}
+			return 0;
 		}
 
 		/// <summary>
@@ -533,7 +504,7 @@ namespace TNet
 
 		public BinaryWriter BeginPacket (byte packetID)
 		{
-			BinaryWriter writer = BeginWriting(false);
+			var writer = BeginWriting(false);
 			writer.Write(0);
 			writer.Write(packetID);
 			return writer;
@@ -545,7 +516,7 @@ namespace TNet
 
 		public BinaryWriter BeginPacket (Packet packet)
 		{
-			BinaryWriter writer = BeginWriting(false);
+			var writer = BeginWriting(false);
 			writer.Write(0);
 			writer.Write((byte)packet);
 			return writer;
@@ -557,7 +528,7 @@ namespace TNet
 
 		public BinaryWriter BeginPacket (Packet packet, int startOffset)
 		{
-			BinaryWriter writer = BeginWriting(startOffset);
+			var writer = BeginWriting(startOffset);
 			writer.Write(0);
 			writer.Write((byte)packet);
 			return writer;

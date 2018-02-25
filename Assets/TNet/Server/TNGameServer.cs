@@ -30,7 +30,7 @@ namespace TNet
 	public class GameServer : FileServer
 	{
 #if SINGLE_THREADED
-	public const bool isMultiThreaded = false;
+		public const bool isMultiThreaded = false;
 #else
 		public const bool isMultiThreaded = true;
 #endif
@@ -912,19 +912,22 @@ namespace TNet
 		{
 			mBuffer.EndPacket();
 
-			if (mBuffer.size > 1024) reliable = true;
-
-			for (int i = 0; i < channel.players.size; ++i)
+			if (mBuffer.size != 0)
 			{
-				TcpPlayer player = (TcpPlayer)channel.players[i];
+				if (mBuffer.size > 1024) reliable = true;
 
-				if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
+				for (int i = 0; i < channel.players.size; ++i)
 				{
-					if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
+					TcpPlayer player = (TcpPlayer)channel.players[i];
+
+					if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 					{
-						player.SendTcpPacket(mBuffer);
+						if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
+						{
+							player.SendTcpPacket(mBuffer);
+						}
+						else mUdp.Send(mBuffer, player.udpEndPoint);
 					}
-					else mUdp.Send(mBuffer, player.udpEndPoint);
 				}
 			}
 

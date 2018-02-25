@@ -329,12 +329,17 @@ namespace TNet
 		static public string LocateResource (Object obj, bool allowPrefabInstances = false)
 		{
 #if UNITY_EDITOR
-			var prefab = UnityEditor.PrefabUtility.GetPrefabParent(obj);
+			var prefab = UnityEditor.PrefabUtility.GetPrefabObject(obj);
+			if (obj is GameObject && prefab != null && obj != prefab) return null;
 			if (prefab == null) prefab = obj;
 
 			if (prefab != null)
 			{
 				if (!allowPrefabInstances && prefab != obj) return null;
+
+				// Selected objects should not count as referenced prefabs, as they're being exported
+				var objects = UnityEditor.Selection.objects;
+				if (objects != null) foreach (var o in objects) if (prefab == o) return null;
 
 				var childPrefabPath = UnityEditor.AssetDatabase.GetAssetPath(prefab);
 

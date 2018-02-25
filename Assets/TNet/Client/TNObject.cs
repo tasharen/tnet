@@ -105,6 +105,12 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Channel + UID in a single value.
+		/// </summary>
+
+		public ulong fullID { get { return ((ulong)channelID << 32) | uid; } }
+
+		/// <summary>
 		/// TNObject's parent, if it has any.
 		/// </summary>
 
@@ -512,6 +518,17 @@ namespace TNet
 			if (!mDictionary.TryGetValue(channelID, out dict)) return null;
 			if (!dict.TryGetValue(tnID, out tno)) return null;
 			return tno;
+		}
+
+		/// <summary>
+		/// Retrieve the Tasharen Network Object by its full ID.
+		/// </summary>
+
+		static public TNObject Find (ulong fullID)
+		{
+			var ch = (int)(fullID >> 32);
+			var id = (uint)(fullID & 0xFFFFFFFF);
+			return Find(ch, id);
 		}
 
 		// Last used ID

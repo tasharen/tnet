@@ -133,7 +133,9 @@ namespace TNet
 		public bool IsBanned (string keyword)
 		{
 			if (string.IsNullOrEmpty(keyword)) return false;
-			return mBan.Contains(keyword);
+			if (mBan.Contains(keyword)) return true;
+			foreach (var s in mBan) if (keyword.Contains(s)) return true;
+			return false;
 		}
 	}
 }

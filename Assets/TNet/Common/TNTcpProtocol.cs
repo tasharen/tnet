@@ -10,7 +10,6 @@ using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Net;
-using System.Threading;
 using System.Text;
 
 #if UNITY_EDITOR
@@ -91,12 +90,43 @@ namespace TNet
 		Queue<Buffer> mIn = new Queue<Buffer>();
 		Queue<Buffer> mOut = new Queue<Buffer>();
 
+		volatile int mInCount = 0;
+		volatile int mOutCount = 0;
+		volatile bool mSending = false;
+
 		/// <summary>
-		/// Current size of the incoming queue. Don't try to modify this.
+		/// Current size of the incoming queue in bytes.
 		/// </summary>
 
-		[System.NonSerialized]
-		public int incomingQueueSize = 0;
+		public int incomingQueueSize
+		{
+			get
+			{
+				lock (mIn)
+				{
+					int size = 0;
+					foreach (var q in mIn) size += q.size;
+					return size;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Current size of the outgoing queue in bytes.
+		/// </summary>
+
+		public int outgoingQueueSize
+		{
+			get
+			{
+				lock (mOut)
+				{
+					int size = 0;
+					foreach (var q in mOut) size += q.size;
+					return size;
+				}
+			}
+		}
 
 		const int defaultBufferSize = 8192;
 
@@ -206,8 +236,8 @@ namespace TNet
 #if !MODDING
 			Disconnect();
 
-			lock (mIn) Buffer.Recycle(mIn);
-			lock (mOut) Buffer.Recycle(mOut);
+			lock (mIn) { Buffer.Recycle(mIn); mInCount = 0; }
+			lock (mOut) { Buffer.Recycle(mOut); mOutCount = 0; }
 
 			if (externalIP != null)
 			{
@@ -413,6 +443,8 @@ namespace TNet
 #if !MODDING
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
+			mOutCount = 0;
+			mSending = false;
 
 			if (mSocket != null || custom != null)
 			{
@@ -425,13 +457,14 @@ namespace TNet
 					}
 					catch (System.Exception) { }
 					mSocket = null;
+					mSending = false;
 				}
 
 				if (custom != null) custom.OnDisconnect();
 
 				if (notify)
 				{
-					Buffer buffer = Buffer.Create();
+					var buffer = Buffer.Create();
 					buffer.BeginPacket(Packet.Disconnect);
 					buffer.EndTcpPacketWithOffset(4);
 
@@ -439,10 +472,10 @@ namespace TNet
 					{
 						Buffer.Recycle(mIn);
 						mIn.Enqueue(buffer);
-						incomingQueueSize = buffer.size;
+						mInCount = 1;
 					}
 				}
-				else lock (mIn) Buffer.Recycle(mIn);
+				else lock (mIn) { mInCount = 0; Buffer.Recycle(mIn); }
 			}
 			else if (notify && sendQueue != null)
 			{
@@ -455,7 +488,7 @@ namespace TNet
 				{
 					Buffer.Recycle(mIn);
 					mIn.Enqueue(buffer);
-					incomingQueueSize = buffer.size;
+					mInCount = 1;
 				}
 			}
 
@@ -520,7 +553,17 @@ namespace TNet
 		{
 #if !MODDING
 			buffer.MarkAsUsed();
-			BinaryReader reader = buffer.BeginReading();
+
+			var reader = buffer.BeginReading();
+
+			if (buffer.size == 0)
+			{
+#if UNITY_EDITOR
+				Debug.LogError("Trying to send a zero packet! " + buffer.position + " " + buffer.isWriting + " " + id);
+#endif
+				buffer.Recycle();
+				return;
+			}
 
 #if DEBUG_PACKETS && !STANDALONE
 			Packet packet = (Packet)buffer.PeekByte(4);
@@ -551,7 +594,7 @@ namespace TNet
 						{
 							var before = mSocket.NoDelay;
 							if (!before) mSocket.NoDelay = true;
-							mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
+							mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
 							if (!before) mSocket.NoDelay = false;
 							buffer.Recycle();
 							return;
@@ -559,11 +602,17 @@ namespace TNet
 						catch { }
 					}
 
-					mOut.Enqueue(buffer);
-
-					// If it's the first packet, let's begin the send process
-					if (mOut.Count == 1)
+					if (mSending)
 					{
+						// Simply add this packet to the outgoing queue
+						mOut.Enqueue(buffer);
+						++mOutCount;
+					}
+					else
+					{
+						// If it's the first packet, let's begin the send process
+						mSending = true;
+
 						try
 						{
 							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
@@ -571,9 +620,11 @@ namespace TNet
 						catch (System.Exception ex)
 						{
 							mOut.Clear();
+							mOutCount = 0;
 							buffer.Recycle();
 							AddError(ex);
 							CloseNotThreadSafe(false);
+							mSending = false;
 						}
 					}
 				}
@@ -630,14 +681,14 @@ namespace TNet
 
 		void OnSend (IAsyncResult result)
 		{
-			if (stage == Stage.NotConnected) return;
+			if (stage == Stage.NotConnected) { mSending = false; return; }
 			int bytes;
 
 			try
 			{
 #if !UNITY_WINRT
 				bytes = mSocket.EndSend(result);
-				Buffer buff = (Buffer)result.AsyncState;
+				var buff = (Buffer)result.AsyncState;
 
 				// If not everything was sent...
 				if (bytes < buff.size)
@@ -656,31 +707,41 @@ namespace TNet
 					}
 				}
 #endif
+				buff.Recycle();
+
 				lock (mOut)
 				{
-					// The buffer has been sent and can now be safely recycled
-					Buffer b = (mOut.Count != 0) ? mOut.Dequeue() : null;
-					if (b != null) b.Recycle();
-
 #if !UNITY_WINRT
 					if (bytes > 0 && mSocket != null && mSocket.Connected)
 					{
 						// Nothing else left -- just exit
-						if (mOut.Count == 0) return;
-
-						try
+						if (mOutCount > 0)
 						{
-							Buffer next = mOut.Peek();
-							mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
-						}
-						catch (Exception ex)
-						{
-							AddError(ex);
-							CloseNotThreadSafe(false);
+							try
+							{
+								--mOutCount;
+								var next = mOut.Dequeue();
+#if UNITY_EDITOR
+								if (next.size == 0) Debug.LogError("Packet size is zero, the send will fail. " + next.position + " " + next.isWriting);
+#endif
+								mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
+							}
+							catch (Exception ex)
+							{
+								AddError(ex);
+								CloseNotThreadSafe(false);
+							}
 						}
 					}
-					else CloseNotThreadSafe(true);
+					else
+					{
+#if UNITY_EDITOR
+						Debug.LogWarning("Socket.EndSend fail: " + bytes + " " + buff.position + " " + buff.size + " (" + (mSocket != null) + " " + (mSocket != null ? mSocket.Connected : false));
 #endif
+						CloseNotThreadSafe(true);
+					}
+#endif
+					mSending = false;
 				}
 			}
 			catch (System.Exception ex)
@@ -758,12 +819,12 @@ namespace TNet
 				}
 			}
 
-			if (mIn.Count != 0)
+			if (mInCount > 0)
 			{
 				lock (mIn)
 				{
+					--mInCount;
 					buffer = mIn.Dequeue();
-					incomingQueueSize -= buffer.size;
 					return buffer != null;
 				}
 			}
@@ -798,7 +859,7 @@ namespace TNet
 				return;
 			}
 
-			if (OnReceive(mTemp, bytes))
+			if (OnReceive(mTemp, 0, bytes))
 			{
 				if (stage == Stage.NotConnected) return;
 
@@ -821,7 +882,7 @@ namespace TNet
 		/// Receive the specified amount of bytes.
 		/// </summary>
 
-		public bool OnReceive (byte[] bytes, int byteCount)
+		public bool OnReceive (byte[] bytes, int offset, int byteCount)
 		{
 			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 
@@ -830,7 +891,7 @@ namespace TNet
 				Close(true);
 				return false;
 			}
-			else if (ProcessBuffer(bytes, byteCount))
+			else if (ProcessBuffer(bytes, offset, byteCount))
 			{
 				return true;
 			}
@@ -842,7 +903,7 @@ namespace TNet
 					var temp = new byte[byteCount];
 					for (int i = 0; i < byteCount; ++i) temp[i] = bytes[i];
 
-					var fn = "error_" + (System.DateTime.UtcNow.Ticks / 10000) + ".packet";
+					var fn = "error_" + lastReceivedTime + ".packet";
 					Tools.WriteFile(fn, temp);
 					Debug.Log("Packet saved as " + fn);
 				}
@@ -856,20 +917,20 @@ namespace TNet
 		/// See if the received packet can be processed and split it up into different ones.
 		/// </summary>
 
-		bool ProcessBuffer (byte[] bytes, int byteCount)
+		bool ProcessBuffer (byte[] bytes, int offset, int byteCount)
 		{
 			if (mReceiveBuffer == null)
 			{
 				// Create a new packet buffer
 				mReceiveBuffer = Buffer.Create();
-				mReceiveBuffer.BeginWriting(false).Write(bytes, 0, byteCount);
+				mReceiveBuffer.BeginWriting(false).Write(bytes, offset, byteCount);
 				mExpected = 0;
 				mOffset = 0;
 			}
 			else
 			{
 				// Append this data to the end of the last used buffer
-				mReceiveBuffer.BeginWriting(true).Write(bytes, 0, byteCount);
+				mReceiveBuffer.BeginWriting(true).Write(bytes, offset, byteCount);
 			}
 
 			for (int available = mReceiveBuffer.size - mOffset; available > 4;)
@@ -891,10 +952,15 @@ namespace TNet
 								mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
 								mReceiveBuffer.EndPacket();
 								mReceiveBuffer.BeginReading(4);
-								lock (mIn) { mIn.Enqueue(mReceiveBuffer); incomingQueueSize += mReceiveBuffer.size; }
-								mReceiveBuffer = null;
-								mExpected = 0;
-								mOffset = 0;
+
+								lock (mIn)
+								{
+									mIn.Enqueue(mReceiveBuffer);
+									mReceiveBuffer = null;
+									mExpected = 0;
+									mOffset = 0;
+									++mInCount;
+								}
 							}
 							return true;
 						}
@@ -909,7 +975,14 @@ namespace TNet
 					else if (mExpected < 0 || mExpected > 16777216)
 					{
 #if UNITY_EDITOR
-						LogError("Malformed data packet: offset " + mOffset + ", available " + available + " of expected " + mExpected + ", (" + bytes.Length + " - " + byteCount + ")");
+						LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+
+						var temp = new byte[mReceiveBuffer.size];
+						for (int i = 0; i < byteCount; ++i) temp[i] = mReceiveBuffer.buffer[i];
+
+						var fn = "error_" + lastReceivedTime + ".full";
+						Tools.WriteFile(fn, temp);
+						Debug.Log("Packet saved as " + fn);
 #else
 						LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
 #endif
@@ -932,11 +1005,14 @@ namespace TNet
 					mReceiveBuffer.BeginReading(mOffset + 4);
 
 					// This packet is now ready to be processed
-					lock (mIn) { mIn.Enqueue(mReceiveBuffer); incomingQueueSize += mReceiveBuffer.size; }
-
-					mReceiveBuffer = null;
-					mExpected = 0;
-					mOffset = 0;
+					lock (mIn)
+					{
+						++mInCount;
+						mIn.Enqueue(mReceiveBuffer);
+						mReceiveBuffer = null;
+						mExpected = 0;
+						mOffset = 0;
+					}
 					break;
 				}
 				else if (available > mExpected)
@@ -947,17 +1023,20 @@ namespace TNet
 
 					// Extract the packet and move past its size component
 					var bw = temp.BeginWriting();
-					mReceiveBuffer.BeginReading(0);
 					bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
 					temp.BeginReading(4);
 
 					// This packet is now ready to be processed
-					lock (mIn) { mIn.Enqueue(temp); incomingQueueSize += temp.size; }
+					lock (mIn)
+					{
+						++mInCount;
+						mIn.Enqueue(temp);
 
-					// Skip this packet
-					available -= mExpected;
-					mOffset += realSize;
-					mExpected = 0;
+						// Skip this packet
+						available -= mExpected;
+						mOffset += realSize;
+						mExpected = 0;
+					}
 				}
 				else break;
 			}
@@ -973,8 +1052,8 @@ namespace TNet
 		{
 			lock (mIn)
 			{
+				++mInCount;
 				mIn.Enqueue(buff);
-				incomingQueueSize += buff.size;
 			}
 
 			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
@@ -986,7 +1065,10 @@ namespace TNet
 
 		public void LogError (string error, string stack = null, bool logInFile = true)
 		{
-			StringBuilder sb = new StringBuilder();
+			var sb = new StringBuilder();
+			sb.Append("[");
+			sb.Append(id);
+			sb.Append("] ");
 			sb.Append(name);
 			sb.Append(" (");
 			sb.Append(address);
@@ -1007,7 +1089,10 @@ namespace TNet
 
 		public void Log (string msg, string stack = null, bool logInFile = true)
 		{
-			StringBuilder sb = new StringBuilder();
+			var sb = new StringBuilder();
+			sb.Append("[");
+			sb.Append(id);
+			sb.Append("] ");
 			sb.Append(name);
 			sb.Append(" (");
 			sb.Append(address);
@@ -1062,7 +1147,7 @@ namespace TNet
 			var error = ex.Message;
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mOut) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
+			lock (mIn) { mIn.Enqueue(buffer); ++mInCount; }
 			LogError(ex.Message, ex.StackTrace, true);
 #endif
 		}
@@ -1079,7 +1164,7 @@ namespace TNet
 #if !MODDING
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mIn) { mIn.Enqueue(buffer); incomingQueueSize += buffer.size; }
+			lock (mIn) { mIn.Enqueue(buffer); ++mInCount; }
 #endif
 		}
 
