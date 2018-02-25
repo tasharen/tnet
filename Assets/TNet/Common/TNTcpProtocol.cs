@@ -83,15 +83,13 @@ namespace TNet
 #if UNITY_EDITOR
 		public long timeoutTime = 60000;
 #else
-	public long timeoutTime = 20000;
+		public long timeoutTime = 20000;
 #endif
 
 		// Incoming and outgoing queues
 		Queue<Buffer> mIn = new Queue<Buffer>();
 		Queue<Buffer> mOut = new Queue<Buffer>();
 
-		volatile int mInCount = 0;
-		volatile int mOutCount = 0;
 		volatile bool mSending = false;
 
 		/// <summary>
@@ -236,8 +234,8 @@ namespace TNet
 #if !MODDING
 			Disconnect();
 
-			lock (mIn) { Buffer.Recycle(mIn); mInCount = 0; }
-			lock (mOut) { Buffer.Recycle(mOut); mOutCount = 0; }
+			lock (mIn) Buffer.Recycle(mIn);
+			lock (mOut) Buffer.Recycle(mOut);
 
 			if (externalIP != null)
 			{
@@ -443,7 +441,6 @@ namespace TNet
 #if !MODDING
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
-			mOutCount = 0;
 			mSending = false;
 
 			if (mSocket != null || custom != null)
@@ -472,10 +469,9 @@ namespace TNet
 					{
 						Buffer.Recycle(mIn);
 						mIn.Enqueue(buffer);
-						mInCount = 1;
 					}
 				}
-				else lock (mIn) { mInCount = 0; Buffer.Recycle(mIn); }
+				else lock (mIn) Buffer.Recycle(mIn);
 			}
 			else if (notify && sendQueue != null)
 			{
@@ -488,7 +484,6 @@ namespace TNet
 				{
 					Buffer.Recycle(mIn);
 					mIn.Enqueue(buffer);
-					mInCount = 1;
 				}
 			}
 
@@ -606,7 +601,6 @@ namespace TNet
 					{
 						// Simply add this packet to the outgoing queue
 						mOut.Enqueue(buffer);
-						++mOutCount;
 					}
 					else
 					{
@@ -620,7 +614,6 @@ namespace TNet
 						catch (System.Exception ex)
 						{
 							mOut.Clear();
-							mOutCount = 0;
 							buffer.Recycle();
 							AddError(ex);
 							CloseNotThreadSafe(false);
@@ -715,11 +708,10 @@ namespace TNet
 					if (bytes > 0 && mSocket != null && mSocket.Connected)
 					{
 						// Nothing else left -- just exit
-						if (mOutCount > 0)
+						if (mOut.Count > 0)
 						{
 							try
 							{
-								--mOutCount;
 								var next = mOut.Dequeue();
 #if UNITY_EDITOR
 								if (next.size == 0) Debug.LogError("Packet size is zero, the send will fail. " + next.position + " " + next.isWriting);
@@ -819,11 +811,10 @@ namespace TNet
 				}
 			}
 
-			if (mInCount > 0)
+			lock (mIn)
 			{
-				lock (mIn)
+				if (mIn.Count != 0)
 				{
-					--mInCount;
 					buffer = mIn.Dequeue();
 					return buffer != null;
 				}
@@ -959,7 +950,6 @@ namespace TNet
 									mReceiveBuffer = null;
 									mExpected = 0;
 									mOffset = 0;
-									++mInCount;
 								}
 							}
 							return true;
@@ -1007,7 +997,6 @@ namespace TNet
 					// This packet is now ready to be processed
 					lock (mIn)
 					{
-						++mInCount;
 						mIn.Enqueue(mReceiveBuffer);
 						mReceiveBuffer = null;
 						mExpected = 0;
@@ -1029,7 +1018,6 @@ namespace TNet
 					// This packet is now ready to be processed
 					lock (mIn)
 					{
-						++mInCount;
 						mIn.Enqueue(temp);
 
 						// Skip this packet
@@ -1050,12 +1038,7 @@ namespace TNet
 
 		public void AddPacket (Buffer buff)
 		{
-			lock (mIn)
-			{
-				++mInCount;
-				mIn.Enqueue(buff);
-			}
-
+			lock (mIn) mIn.Enqueue(buff);
 			lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
 		}
 
@@ -1147,7 +1130,7 @@ namespace TNet
 			var error = ex.Message;
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mIn) { mIn.Enqueue(buffer); ++mInCount; }
+			lock (mIn) mIn.Enqueue(buffer);
 			LogError(ex.Message, ex.StackTrace, true);
 #endif
 		}
@@ -1164,7 +1147,7 @@ namespace TNet
 #if !MODDING
 			buffer.BeginPacket(Packet.Error).Write(error);
 			buffer.EndTcpPacketWithOffset(4);
-			lock (mIn) { mIn.Enqueue(buffer); ++mInCount; }
+			lock (mIn) mIn.Enqueue(buffer);
 #endif
 		}
 

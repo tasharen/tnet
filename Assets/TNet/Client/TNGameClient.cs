@@ -644,7 +644,7 @@ namespace TNet
 				server.localClient = this;
 
 				mTcp.stage = TcpProtocol.Stage.Verifying;
-				BinaryWriter writer = BeginSend(Packet.RequestID);
+				var writer = BeginSend(Packet.RequestID);
 				writer.Write(TcpProtocol.version);
 #if UNITY_EDITOR
 				writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Editor" : mTcp.name);
