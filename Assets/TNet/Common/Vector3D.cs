@@ -350,6 +350,13 @@ namespace TNet
 			return (x * x + z * z);
 		}
 
+		static public float FlatSqrDistance (Vector3 a, Vector3 b)
+		{
+			var x = a.x - b.x;
+			var z = a.z - b.z;
+			return (x * x + z * z);
+		}
+
 		static public Vector3D ClampMagnitude (Vector3D vector, double maxLength)
 		{
 			if (vector.sqrMagnitude > maxLength * maxLength)

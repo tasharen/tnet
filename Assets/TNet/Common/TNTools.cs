@@ -1230,7 +1230,7 @@ namespace TNet
 
 			while (!reader.EndOfStream)
 			{
-				string s = reader.ReadLine();
+				var s = reader.ReadLine();
 				if (!string.IsNullOrEmpty(s)) list.Add(s);
 				else break;
 			}
@@ -1249,11 +1249,11 @@ namespace TNet
 				if (!File.Exists(path) && !string.IsNullOrEmpty(Tools.applicationDirectory))
 					path = Tools.GetDocumentsPath(path);
 
-				string dir = Path.GetDirectoryName(path);
+				var dir = Path.GetDirectoryName(path);
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
 					Directory.CreateDirectory(dir);
 
-				StreamWriter sw = new StreamWriter(path, false);
+				var sw = new StreamWriter(path, false);
 				foreach (var s in hash) sw.WriteLine(s);
 				sw.Close();
 			}

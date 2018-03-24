@@ -51,10 +51,10 @@ static public class BinaryExtensions
 
 	static public object[] ReadArray (this BinaryReader reader)
 	{
-		int count = reader.ReadInt();
+		var count = reader.ReadInt();
 		if (count == 0) return null;
 
-		object[] temp = GetTempBuffer(count);
+		var temp = GetTempBuffer(count);
 
 		for (int i = 0; i < count; ++i)
 			temp[i] = reader.ReadObject();
@@ -68,9 +68,8 @@ static public class BinaryExtensions
 
 	static public object[] ReadArray (this BinaryReader reader, object obj)
 	{
-		int count = reader.ReadInt() + 1;
-
-		object[] temp = GetTempBuffer(count);
+		var count = reader.ReadInt() + 1;
+		var temp = GetTempBuffer(count);
 
 		temp[0] = obj;
 		for (int i = 1; i < count; ++i)
@@ -85,8 +84,8 @@ static public class BinaryExtensions
 
 	static public object[] CombineArrays (object obj, params object[] objs)
 	{
-		int count = objs.Length;
-		object[] temp = GetTempBuffer(count + 1);
+		var count = objs.Length;
+		var temp = GetTempBuffer(count + 1);
 
 		temp[0] = obj;
 		for (int i = 0; i < count; ++i)

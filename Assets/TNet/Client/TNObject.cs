@@ -784,6 +784,38 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Find an RFC function by its ID.
+		/// </summary>
+
+		public CachedFunc FindFunction (byte funcID)
+		{
+			if (parent == null)
+			{
+				if (rebuildMethodList) RebuildMethodList();
+				CachedFunc ent = null;
+				if (mDict0 != null) mDict0.TryGetValue(funcID, out ent);
+				return ent;
+			}
+			else return mParent.FindFunction(funcID);
+		}
+
+		/// <summary>
+		/// Find an RFC function by its name.
+		/// </summary>
+
+		public CachedFunc FindFunction (string funcName)
+		{
+			if (parent == null)
+			{
+				if (rebuildMethodList) RebuildMethodList();
+				CachedFunc ent = null;
+				if (mDict1 != null) mDict1.TryGetValue(funcName, out ent);
+				return ent;
+			}
+			else return mParent.FindFunction(funcName);
+		}
+
+		/// <summary>
 		/// Invoke the function specified by the ID.
 		/// </summary>
 
@@ -791,27 +823,14 @@ namespace TNet
 		{
 			if (parent == null)
 			{
-				if (rebuildMethodList)
-					RebuildMethodList();
+				if (rebuildMethodList) RebuildMethodList();
 
 				CachedFunc ent;
 
 				if (mDict0 != null && mDict0.TryGetValue(funcID, out ent))
 				{
-					if (ent.parameters == null)
-						ent.parameters = ent.mi.GetParameters();
-
-					try
-					{
-						ent.mi.Invoke(ent.obj, parameters);
-						return true;
-					}
-					catch (System.Exception ex)
-					{
-						if (ex.GetType() == typeof(System.NullReferenceException)) return false;
-						UnityTools.PrintException(ex, ent, funcID, "", parameters);
-						return false;
-					}
+					ent.Execute(parameters);
+					return true;
 				}
 				return false;
 			}
@@ -826,27 +845,14 @@ namespace TNet
 		{
 			if (parent == null)
 			{
-				if (rebuildMethodList)
-					RebuildMethodList();
+				if (rebuildMethodList) RebuildMethodList();
 
 				CachedFunc ent;
 
 				if (mDict1 != null && mDict1.TryGetValue(funcName, out ent))
 				{
-					if (ent.parameters == null)
-						ent.parameters = ent.mi.GetParameters();
-
-					try
-					{
-						ent.mi.Invoke(ent.obj, parameters);
-						return true;
-					}
-					catch (System.Exception ex)
-					{
-						if (ex.GetType() == typeof(System.NullReferenceException)) return false;
-						UnityTools.PrintException(ex, ent, 0, funcName, parameters);
-						return false;
-					}
+					ent.Execute(parameters);
+					return true;
 				}
 				return false;
 			}
@@ -859,7 +865,7 @@ namespace TNet
 
 		static public void FindAndExecute (int channelID, uint objID, byte funcID, params object[] parameters)
 		{
-			var obj = TNObject.Find(channelID, objID);
+			var obj = Find(channelID, objID);
 
 			if (obj != null)
 			{
@@ -881,7 +887,7 @@ namespace TNet
 
 		static public void FindAndExecute (int channelID, uint objID, string funcName, params object[] parameters)
 		{
-			var obj = TNObject.Find(channelID, objID);
+			var obj = Find(channelID, objID);
 
 			if (obj != null)
 			{
@@ -1104,7 +1110,7 @@ namespace TNet
 		/// Convert object and RFC IDs into a single UINT.
 		/// </summary>
 
-		static uint GetUID (uint objID, byte rfcID)
+		static public uint GetUID (uint objID, byte rfcID)
 		{
 			return (objID << 8) | rfcID;
 		}

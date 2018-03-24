@@ -701,6 +701,8 @@ namespace TNet
 				mLocalServer.localClient = null;
 				mLocalServer = null;
 				mConfig = new DataNode("Version", Player.version);
+				mOnExport.Clear();
+				mOnImport.Clear();
 
 #if !UNITY_WEBPLAYER
 				mUdp.Stop();
@@ -1496,6 +1498,38 @@ namespace TNet
 					}
 					break;
 				}
+				case Packet.ResponseExport:
+				{
+					var requestID = reader.ReadInt32();
+					var data = reader.ReadBytes(reader.ReadInt32());
+
+					ExportCallback cb;
+
+					if (mOnExport.TryGetValue(requestID, out cb))
+					{
+						mOnExport.Remove(requestID);
+						if (cb.callback0 != null) cb.callback0(data);
+						else if (cb.callback1 != null) cb.callback1(DecodeExportedObjects(cb.objects, data));
+					}
+					break;
+				}
+				case Packet.ResponseImport:
+				{
+					var requestID = reader.ReadInt32();
+					reader.ReadInt32(); // The request already knows what channel it was made in
+					var size = reader.ReadInt32();
+					var result = new uint[size];
+					for (int i = 0; i < size; ++i) result[i] = reader.ReadUInt32();
+
+					Action<uint[]> cb;
+
+					if (mOnImport.TryGetValue(requestID, out cb))
+					{
+						mOnImport.Remove(requestID);
+						if (cb != null) cb(result);
+					}
+					break;
+				}
 				case Packet.Error:
 				{
 					string err = reader.ReadString();
@@ -1801,5 +1835,288 @@ namespace TNet
 			EndSend();
 #endif
 		}
+
+#if !MODDING
+		int mRequestID = 0;
+		Dictionary<int, ExportCallback> mOnExport = new Dictionary<int, ExportCallback>();
+		Dictionary<int, Action<uint[]>> mOnImport = new Dictionary<int, Action<uint[]>>();
+
+		struct ExportCallback
+		{
+			public List<TNObject> objects;
+			public Action<byte[]> callback0;
+			public Action<DataNode> callback1;
+		}
+#endif
+
+		/// <summary>
+		/// Export the specified objects from the server. The server will return the byte[] necessary to re-instantiate all of the specified objects and restore their state.
+		/// </summary>
+
+		public void ExportObjects (List<TNObject> list, Action<byte[]> callback)
+		{
+#if !MODDING
+			if (isConnected && list.size > 0)
+			{
+				var cb = new ExportCallback();
+				cb.objects = list;
+				cb.callback0 = callback;
+
+				mOnExport.Add(++mRequestID, cb);
+
+				var writer = BeginSend(Packet.RequestExport);
+				writer.Write(mRequestID);
+				writer.Write(list.size);
+
+				foreach (var obj in list)
+				{
+					writer.Write(obj.channelID);
+					writer.Write(obj.uid);
+				}
+
+				EndSend();
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Export the specified objects from the server. The server will return the DataNode necessary to re-instantiate all of the specified objects and restore their state.
+		/// </summary>
+
+		public void ExportObjects (List<TNObject> list, Action<DataNode> callback)
+		{
+#if !MODDING
+			if (isConnected && list.size > 0)
+			{
+				var cb = new ExportCallback();
+				cb.objects = list;
+				cb.callback1 = callback;
+
+				mOnExport.Add(++mRequestID, cb);
+
+				var writer = BeginSend(Packet.RequestExport);
+				writer.Write(mRequestID);
+				writer.Write(list.size);
+
+				foreach (var obj in list)
+				{
+					writer.Write(obj.channelID);
+					writer.Write(obj.uid);
+				}
+
+				EndSend();
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel.
+		/// </summary>
+
+		public void ImportObjects (int channelID, byte[] data, Action<uint[]> callback = null)
+		{
+#if !MODDING
+			if (isConnected && data != null && data.Length > 0)
+			{
+				++mRequestID;
+				if (callback != null) mOnImport.Add(mRequestID, callback);
+
+				var writer = BeginSend(Packet.RequestImport);
+				writer.Write(mRequestID);
+				writer.Write(channelID);
+				writer.Write(data);
+				EndSend();
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel.
+		/// </summary>
+
+		public void ImportObjects (int channelID, DataNode node, Action<uint[]> callback = null)
+		{
+#if !MODDING
+			var data = EncodeExportedObjects(node);
+			ImportObjects(channelID, data, callback);
+			data.Recycle();
+#endif
+		}
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel.
+		/// </summary>
+
+		public void ImportObjects (int channelID, Buffer buffer, Action<uint[]> callback = null)
+		{
+#if !MODDING
+			if (isConnected && buffer != null && buffer.size > 0)
+			{
+				++mRequestID;
+				if (callback != null) mOnImport.Add(mRequestID, callback);
+
+				var writer = BeginSend(Packet.RequestImport);
+				writer.Write(mRequestID);
+				writer.Write(channelID);
+				writer.Write(buffer.buffer, buffer.position, buffer.size);
+				EndSend();
+			}
+#endif
+		}
+
+#if !MODDING
+		/// <summary>
+		/// When a server exports objects, the result comes as a byte array, which is not very readable or modifiable.
+		/// This function is used to convert the byte array into a structured DataNode format, which is much easier to edit.
+		/// </summary>
+
+		static DataNode DecodeExportedObjects (List<TNObject> objects, byte[] bytes)
+		{
+			var node = new DataNode();
+			var buffer = Buffer.Create();
+			buffer.BeginWriting(false).Write(bytes);
+			var reader = buffer.BeginReading();
+
+			// Number of objects
+			var count = reader.ReadInt32();
+
+			for (int i = 0; i < count; ++i)
+			{
+				var obj = objects[i];
+				reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
+				var rccID = reader.ReadByte();
+				var funcName = (rccID == 0) ? reader.ReadString() : null;
+				var prefab = reader.ReadString();
+				var args = reader.ReadArray();
+				var func = TNManager.GetRCC(rccID, funcName);
+
+				var child = (rccID != 0) ? node.AddChild("RCC", rccID) : node.AddChild("RCC", funcName);
+				child.AddChild("prefab", prefab);
+
+				if (func != null)
+				{
+					var funcPars = func.parameters;
+					var argLength = args.Length;
+
+					if (funcPars.Length == argLength + 1)
+					{
+						var pn = child.AddChild("Args");
+						for (int b = 0; b < argLength; ++b) pn.AddChild(funcPars[b + 1].Name, args[b]);
+					}
+					else Debug.LogError("RCC " + rccID + " (" + funcName + ") has a different number of parameters than expected: " + funcPars.Length + " vs " + (args.Length + 1), obj);
+				}
+				else Debug.LogError("Unable to find RCC " + rccID + " (" + funcName + ")", obj);
+
+				var rfcs = reader.ReadInt32();
+				if (rfcs > 0) child = child.AddChild("RFCs");
+
+				for (int r = 0; r < rfcs; ++r)
+				{
+					uint objID;
+					byte funcID;
+					TNObject.DecodeUID(reader.ReadUInt32(), out objID, out funcID);
+					funcName = (funcID == 0) ? reader.ReadString() : null;
+					reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
+					var array = reader.ReadArray();
+					var funcRef = (funcID == 0) ? obj.FindFunction(funcName) : obj.FindFunction(funcID);
+
+					if (funcRef != null)
+					{
+						var pc = array.Length;
+
+						if (funcRef.parameters.Length == pc)
+						{
+							var rfcNode = (funcID == 0) ? child.AddChild("RFC", funcName) : child.AddChild("RFC", funcID);
+							for (int p = 0; p < pc; ++p) rfcNode.AddChild(funcRef.parameters[p].Name, array[p]);
+						}
+						else Debug.LogError("RFC " + funcID + " (" + funcName + ") has a different number of parameters than expected: " + funcRef.parameters.Length + " vs " + pc, obj);
+					}
+					else Debug.LogError("RFC " + funcID + " (" + funcName + ") can't be found", obj);
+				}
+			}
+
+			buffer.Recycle();
+			return node;
+		}
+
+		/// <summary>
+		/// The opposite of DecodeExportedObjects, encoding the DataNode-stored data into a binary format that can be sent back to the server.
+		/// </summary>
+
+		static Buffer EncodeExportedObjects (DataNode node)
+		{
+			var buffer = Buffer.Create();
+			var writer = buffer.BeginWriting();
+
+			// Number of objects
+			writer.Write(node.children.size);
+
+			for (int i = 0; i < node.children.size; ++i)
+			{
+				var child = node.children.buffer[i];
+				var sizePos = buffer.position;
+
+				writer.Write(0); // Size of the RCC's data -- set after writing it
+
+				if (child.value is string)
+				{
+					writer.Write((byte)0);
+					writer.Write((string)child.value);
+				}
+				else writer.Write((byte)child.Get<int>());
+
+				writer.Write(child.GetChild<string>("prefab"));
+
+				var args = child.GetChild("Args");
+				var argCount = (args != null) ? args.children.size : 0;
+				var array = new object[argCount];
+				for (int b = 0; b < argCount; ++b) array[b] = args.children.buffer[b].value;
+				writer.WriteArray(array);
+
+				// Write down the size of the RCC
+				var endPos = buffer.position;
+				var size = endPos - sizePos;
+				buffer.position = sizePos;
+				writer.Write(size - 4);
+				buffer.position = endPos;
+
+				var rfcs = child.GetChild("RFCs");
+				var rfcCount = (rfcs != null) ? rfcs.children.size : 0;
+				writer.Write(rfcCount);
+
+				if (rfcCount > 0)
+				{
+					for (int b = 0; b < rfcs.children.size; ++b)
+					{
+						var rfc = rfcs.children.buffer[b];
+
+						if (rfc.value is string)
+						{
+							writer.Write((uint)0);
+							writer.Write((string)rfc.value);
+						}
+						else writer.Write(TNObject.GetUID(0, (byte)rfc.Get<int>()));
+
+						array = new object[rfc.children.size];
+						for (int c = 0; c < rfc.children.size; ++c) array[c] = rfc.children.buffer[c].value;
+
+						var rfcPos = buffer.position;
+						writer.Write(0); // Size of the array -- set after writing the array
+						writer.WriteArray(array);
+
+						// Write down the size of the RFC
+						endPos = buffer.position;
+						size = endPos - rfcPos;
+						buffer.position = rfcPos;
+						writer.Write(size - 4);
+						buffer.position = endPos;
+					}
+				}
+			}
+
+			buffer.EndWriting();
+			return buffer;
+		}
+#endif
 	}
 }

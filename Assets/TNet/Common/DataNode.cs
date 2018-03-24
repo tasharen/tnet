@@ -499,7 +499,7 @@ namespace TNet
 		{
 			var node = GetChild(name);
 			if (node == null) return defaultValue;
-			return node.Get<T>();
+			return node.Get(defaultValue);
 		}
 
 		/// <summary>
@@ -747,6 +747,17 @@ namespace TNet
 			if (value != null && !writer.WriteObject(value, prefix))
 			{
 				var type = value.GetType();
+
+				if (value is DataNode)
+				{
+					if (prefix) writer.Write(" = ");
+					writer.Write("DataNode");
+					writer.Write('\n');
+					var node = (DataNode)value;
+					node.Write(writer, tab + 1);
+					return;
+				}
+
 #if !STANDALONE
 				if (value is AnimationCurve)
 				{
@@ -1063,6 +1074,12 @@ namespace TNet
 					mValue = null;
 					return true;
 				}
+				else if (type == typeof(DataNode))
+				{
+					mValue = children[0];
+					children.Clear();
+					return false;
+				}
 				else if (type.Implements(typeof(IDataNodeSerializable)))
 				{
 					var ds = (IDataNodeSerializable)type.Create();
@@ -1145,7 +1162,7 @@ namespace TNet
 						{
 							for (int i = 0; i < children.size; ++i)
 							{
-								DataNode child = children[i];
+								var child = children[i];
 
 								if (child.value == null)
 								{
@@ -1177,7 +1194,7 @@ namespace TNet
 						{
 							for (int i = 0; i < children.size; ++i)
 							{
-								DataNode child = children[i];
+								var child = children[i];
 
 								if (child.value == null)
 								{
@@ -1204,7 +1221,7 @@ namespace TNet
 					{
 						for (int i = 0; i < children.size; ++i)
 						{
-							DataNode child = children[i];
+							var child = children[i];
 							mValue.SetFieldOrPropertyValue(child.name, child.value);
 						}
 						return false;

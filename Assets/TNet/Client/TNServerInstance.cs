@@ -3,9 +3,11 @@
 // Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
+// Must also be defined in TNGameServer.cs
+//#define SINGLE_THREADED
+
 using UnityEngine;
 using System.IO;
-using System.Collections;
 using System.Net;
 
 namespace TNet
@@ -384,7 +386,7 @@ namespace TNet
 		}
 
 #if SINGLE_THREADED
-	void Update () { if (mGame != null && mGame.isActive) mGame.Update(); }
+		void Update () { if (mGame != null && mGame.isActive) mGame.Update(); }
 #endif
 
 		[System.Obsolete("Just call TNServerInstance.Stop() instead")]

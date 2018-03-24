@@ -5,6 +5,9 @@
 
 //#define COUNT_PACKETS
 
+// If you want to see exceptions instead of error messages, comment this out
+#define SAFE_EXCEPTIONS
+
 using System.IO;
 using UnityEngine;
 using System.Net;
@@ -1645,7 +1648,7 @@ namespace TNet
 		/// Get the specified RCC.
 		/// </summary>
 
-		static CachedFunc GetRCC (int rccID, string funcName)
+		static public CachedFunc GetRCC (int rccID, string funcName)
 		{
 			CachedFunc func = null;
 
@@ -1883,7 +1886,40 @@ namespace TNet
 			return null;
 		}
 
-#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
+		/// <summary>
+		/// Export the specified objects from the server. The server will return the byte[] necessary to re-instantiate all of the specified objects and restore their state.
+		/// </summary>
+
+		static public void ExportObjects (List<TNObject> list, Action<byte[]> callback) { if (mInstance != null) mInstance.mClient.ExportObjects(list, callback); }
+
+		/// <summary>
+		/// Export the specified objects from the server. The server will return the DataNode necessary to re-instantiate all of the specified objects and restore their state.
+		/// </summary>
+
+		static public void ExportObjects (List<TNObject> list, Action<DataNode> callback) { if (mInstance != null) mInstance.mClient.ExportObjects(list, callback); }
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel. The optional callback will contain the object IDs of instantiated objects.
+		/// The callback will be called only after all objects have been instantiated and their RFCs have been called on all clients.
+		/// </summary>
+
+		static public void ImportObjects (int channelID, byte[] data, Action<uint[]> callback = null) { if (mInstance != null) mInstance.mClient.ImportObjects(channelID, data, callback); }
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel. The optional callback will contain the object IDs of instantiated objects.
+		/// The callback will be called only after all objects have been instantiated and their RFCs have been called on all clients.
+		/// </summary>
+
+		static public void ImportObjects (int channelID, Buffer data, Action<uint[]> callback = null) { if (mInstance != null) mInstance.mClient.ImportObjects(channelID, data, callback); }
+
+		/// <summary>
+		/// Import previously exported objects in the specified channel. The optional callback will contain the object IDs of instantiated objects.
+		/// The callback will be called only after all objects have been instantiated and their RFCs have been called on all clients.
+		/// </summary>
+
+		static public void ImportObjects (int channelID, DataNode node, Action<uint[]> callback = null) { if (mInstance != null) mInstance.mClient.ImportObjects(channelID, node, callback); }
+
+		#region MonoBehaviour and helper functions -- it's unlikely that you will need to modify these
 
 		/// <summary>
 		/// Ensure that there is only one instance of this class present.
@@ -2026,9 +2062,9 @@ namespace TNet
 		{
 			currentObjectOwner = GetPlayer(creator) ?? GetHost(channelID);
 
-			TNManager.lastChannelID = channelID;
-			byte rccID = reader.ReadByte();
-			string funcName = (rccID == 0) ? reader.ReadString() : null;
+			lastChannelID = channelID;
+			var rccID = reader.ReadByte();
+			var funcName = (rccID == 0) ? reader.ReadString() : null;
 			var func = GetRCC(rccID, funcName);
 
 			// Load the object from the resources folder
@@ -2138,7 +2174,9 @@ namespace TNet
 			{
 				string funcName = "";
 
+#if SAFE_EXCEPTIONS
 				try
+#endif
 				{
 					funcName = reader.ReadString();
 					UnityEngine.Profiling.Profiler.BeginSample(funcName);
@@ -2146,10 +2184,12 @@ namespace TNet
 					TNObject.FindAndExecute(channelID, objID, funcName, array);
 					UnityEngine.Profiling.Profiler.EndSample();
 				}
+#if SAFE_EXCEPTIONS
 				catch (Exception ex)
 				{
 					Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
 				}
+#endif
 			}
 			else TNObject.FindAndExecute(channelID, objID, funcID, reader.ReadArray());
 		}

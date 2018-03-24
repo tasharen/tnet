@@ -90,8 +90,9 @@ namespace TNet
 		Queue<Buffer> mIn = new Queue<Buffer>();
 		Queue<Buffer> mOut = new Queue<Buffer>();
 
+#if !MODDING
 		volatile bool mSending = false;
-
+#endif
 		/// <summary>
 		/// Current size of the incoming queue in bytes.
 		/// </summary>
@@ -561,7 +562,7 @@ namespace TNet
 			}
 
 #if DEBUG_PACKETS && !STANDALONE
-			Packet packet = (Packet)buffer.PeekByte(4);
+			var packet = (Packet)buffer.PeekByte(4);
 			if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
 				UnityEngine.Debug.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
 #endif

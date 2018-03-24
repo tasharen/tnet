@@ -20,7 +20,7 @@
 #endif
 
 // If you want to see exceptions instead of error messages, comment this out
-#define IGNORE_ERRORS
+#define SAFE_EXCEPTIONS
 
 #if !STANDALONE
 using UnityEngine;
@@ -290,6 +290,7 @@ namespace TNet
 				else if (name == "MMC") type = typeof(ParticleSystem.MinMaxCurve);
 				else if (name == "MMG") type = typeof(ParticleSystem.MinMaxGradient);
 #endif
+				else if (name == "DataNode") type = typeof(DataNode);
 				else if (name.EndsWith("[]"))
 				{
 					try
@@ -434,6 +435,7 @@ namespace TNet
 				if (desiredType == typeof(byte)) return (byte)(int)value;
 				if (desiredType == typeof(short)) return (short)(int)value;
 				if (desiredType == typeof(ushort)) return (ushort)(int)value;
+				if (desiredType == typeof(uint)) return (uint)(int)value;
 				if (desiredType == typeof(float)) return (float)(int)value;
 				if (desiredType == typeof(double)) return (double)(int)value;
 				if (desiredType == typeof(long)) return (long)(int)value;
@@ -459,6 +461,7 @@ namespace TNet
 				if (desiredType == typeof(short)) return (short)Round((float)value);
 				if (desiredType == typeof(ushort)) return (ushort)Round((float)value);
 				if (desiredType == typeof(int)) return Round((float)value);
+				if (desiredType == typeof(uint)) return (uint)Round((float)value);
 				if (desiredType == typeof(double)) return (double)(float)value;
 				if (desiredType == typeof(long)) return (long)Round((float)value);
 				if (desiredType == typeof(Vector3)) return new Vector3((float)value, (float)value, (float)value);
@@ -471,6 +474,7 @@ namespace TNet
 				if (desiredType == typeof(short)) return (short)Round((double)value);
 				if (desiredType == typeof(ushort)) return (ushort)Round((double)value);
 				if (desiredType == typeof(int)) return Round((double)value);
+				if (desiredType == typeof(uint)) return (uint)Round((double)value);
 				if (desiredType == typeof(float)) return (float)(double)value;
 				if (desiredType == typeof(long)) return (long)Math.Round((double)value);
 				if (desiredType == typeof(Vector2)) return new Vector2((float)(double)value, (float)(double)value);
@@ -1746,6 +1750,8 @@ namespace TNet
 				return true;
 			}
 
+			if (type == typeof(DataNode)) return false;
+
 #if !STANDALONE
 			if (value is LayerMask)
 			{
@@ -2475,8 +2481,17 @@ namespace TNet
 		static public void Write (this BinaryWriter bw, Type type)
 		{
 			int prefix = GetPrefix(type);
-			bw.Write((byte)prefix);
-			if (prefix > 250) bw.Write(TypeToName(type));
+
+			if (prefix > 250)
+			{
+				if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+				else if (type.HasBinarySerialization()) prefix = 252;
+#endif
+				bw.Write((byte)prefix);
+				bw.Write(TypeToName(type));
+			}
+			else bw.Write((byte)prefix);
 		}
 
 		/// <summary>
@@ -2647,7 +2662,17 @@ namespace TNet
 								}
 							}
 
+							/*if (elemPrefix > 250)
+							{
+								if (elemType.Implements(typeof(IBinarySerializable))) elemPrefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+								else if (elemType.HasBinarySerialization()) elemPrefix = 252;
+#endif
+							}*/
+
 							if (!typeIsKnown) bw.Write((byte)98);
+							//bw.Write((byte)elemPrefix);
+							//if (prefix > 250) bw.Write(TypeToName(elemType));
 							bw.Write(elemType);
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
@@ -2712,7 +2737,17 @@ namespace TNet
 								}
 							}
 
+							/*if (elemPrefix > 250)
+							{
+								if (elemType.Implements(typeof(IBinarySerializable))) elemPrefix = 253;
+#if SERIALIZATION_WITHOUT_INTERFACE
+								else if (elemType.HasBinarySerialization()) elemPrefix = 252;
+#endif
+							}*/
+
 							if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
+							//bw.Write((byte)elemPrefix);
+							//if (prefix > 250) bw.Write(TypeToName(fixedSize ? type : elemType));
 							bw.Write(fixedSize ? type : elemType);
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
@@ -3269,19 +3304,11 @@ namespace TNet
 			if (string.IsNullOrEmpty(str)) return null;
 			var node = new DataNode(str);
 
-#if IGNORE_ERRORS
+#if SAFE_EXCEPTIONS
 			try
 			{
 #endif
-				var obj = reader.ReadObject();
-
-				if (obj is DataNode)
-				{
-					var child = obj as DataNode;
-					foreach (var sub in child.children) node.children.Add(sub);
-				}
-				else node.value = obj;
-
+				node.value = reader.ReadObject();
 				int count = reader.ReadInt();
 
 				for (int i = 0; i < count; ++i)
@@ -3289,7 +3316,7 @@ namespace TNet
 					var dn = reader.ReadDataNode();
 					if (dn != null) node.children.Add(dn);
 				}
-#if IGNORE_ERRORS
+#if SAFE_EXCEPTIONS
 			}
 			catch (Exception) { }
 #endif
@@ -3416,7 +3443,7 @@ namespace TNet
 		{
 			if (!typeIsKnown) type = reader.ReadType(out prefix);
 
-#if IGNORE_ERRORS
+#if SAFE_EXCEPTIONS
 			try
 			{
 #endif
@@ -3843,7 +3870,7 @@ namespace TNet
 						return null;
 					}
 				}
-#if IGNORE_ERRORS
+#if SAFE_EXCEPTIONS
 			}
 			catch (Exception ex)
 			{

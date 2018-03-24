@@ -742,6 +742,58 @@ namespace TNet
 		ResponseConnected,
 
 		/// <summary>
+		/// Request all data associated with the specified objects -- RCC and RFCs. Everything necessary to create these objects and restore their state.
+		/// int32: request ID.
+		/// int32: number of objects to follow.
+		/// One per object:
+		///   int32: channel ID.
+		///   uint32: object ID.
+		/// </summary>
+
+		RequestExport,
+
+		/// <summary>
+		/// Binary data required to instantiate and restore the state of the object, containing all the RCC and RFCs.
+		/// int32: request ID.
+		/// int32: size of binary data to follow.
+		/// byte[]: actual binary data.
+		/// 
+		/// The contents of the binary data are as follows (for reference purposes):
+		/// int32: number of objects to follow.
+		/// One per object:
+		///   int32: number of RCC bytes to follow.
+		///   byte[]: RCC data (if the RCC byte count is not 0).
+		///   int32: number of RFCs to follow.
+		///   One per RFC:
+		///     uint32: Object ID (24 bits), RFC ID (8 bits).
+		///     string: Function name (only if RFC ID is 0).
+		///     int32: number of RFC bytes to follow.
+		///     byte[]: RFC data (if the number of bytes is not 0).
+		/// </summary>
+
+		ResponseExport,
+
+		/// <summary>
+		/// Import previously exported objects -- complete with their RCCs and RFCs.
+		/// int32: request ID.
+		/// int32: channel ID.
+		/// byte[]: binary data (matches the Packet.ResponseExport data).
+		/// </summary>
+
+		RequestImport,
+
+		/// <summary>
+		/// Response following an import request.
+		/// int32: request ID.
+		/// int32: channel ID.
+		/// int32: number of objects that were instantiated.
+		/// One per object:
+		///   uint32: object ID.
+		/// </summary>
+
+		ResponseImport,
+
+		/// <summary>
 		/// Begin custom packets here.
 		/// </summary>
 

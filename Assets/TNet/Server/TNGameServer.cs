@@ -5,6 +5,9 @@
 
 //#define DEBUG_PACKETS
 
+// Must also be defined in TNServerInstance.cs
+//#define SINGLE_THREADED
+
 #pragma warning disable 0162
 
 using System;
@@ -622,9 +625,10 @@ namespace TNet
 									continue;
 								}
 #else
-								catch (System.Exception ex)
+								catch (Exception ex)
 								{
-									player.LogError(ex.Message, ex.StackTrace);
+									if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
+									else player.LogError(ex.Message, ex.StackTrace);
 									RemovePlayer(player);
 								}
 #endif
@@ -1625,7 +1629,16 @@ namespace TNet
 					var path = reader.ReadString();
 					var type = (DataNode.SaveType)reader.ReadByte();
 					var hash = reader.ReadInt();
+#if W2
+					var expected = "Players/" + player.aliases[0] + ".player";
 
+					if (player.aliases == null || player.aliases.size == 0 || path != expected)
+					{
+						player.LogError("Player requested a save that doesn't match the alias: " + path + " vs " + expected);
+						RemovePlayer(player);
+						return false;
+					}
+#endif
 					// Load and set the player's data from the specified file
 					player.dataNode = DataNode.Read(string.IsNullOrEmpty(rootDirectory) ? path : Path.Combine(rootDirectory, path));
 
@@ -2295,8 +2308,8 @@ namespace TNet
 						sb = new StringBuilder();
 						sb.AppendLine("HTTP/1.1 200 OK");
 						sb.AppendLine("Server: TNet 3");
-						sb.AppendLine("Content-Length: " + text.Length);
-						sb.AppendLine("Content-Type: text/plain");
+						sb.AppendLine("Content-Length: " + Encoding.UTF8.GetByteCount(text));
+						sb.AppendLine("Content-Type: text/plain; charset=utf-8");
 						sb.AppendLine("Connection: Closed\n");
 						sb.Append(text);
 
@@ -2313,13 +2326,14 @@ namespace TNet
 				case Packet.RequestRenameServer:
 				{
 					name = reader.ReadString();
+					if (lobbyLink != null) lobbyLink.SendUpdate(this);
 					break;
 				}
 				case Packet.RequestSetOwner:
 				{
-					int channelID = reader.ReadInt32();
-					uint objID = reader.ReadUInt32();
-					int playerID = reader.ReadInt32();
+					var channelID = reader.ReadInt32();
+					var objID = reader.ReadUInt32();
+					var playerID = reader.ReadInt32();
 
 					Channel ch;
 
@@ -2330,6 +2344,61 @@ namespace TNet
 						writer.Write(objID);
 						writer.Write(playerID);
 						EndSend(ch, null, true);
+					}
+					break;
+				}
+				case Packet.RequestExport:
+				{
+					var requestID = reader.ReadInt32();
+					int count = reader.ReadInt32();
+
+					if (count > 0)
+					{
+						var temp = Buffer.Create();
+						var tempWriter = temp.BeginWriting();
+						tempWriter.Write(count);
+
+						for (int i = 0; i < count; ++i)
+						{
+							Channel ch;
+							var channelID = reader.ReadInt32();
+							var objID = reader.ReadUInt32();
+
+							if (!mChannelDict.TryGetValue(channelID, out ch) || ch == null || !ch.ExportObject(objID, tempWriter))
+							{
+#if UNITY_EDITOR
+								Debug.LogWarning("Unable to export " + channelID + " " + objID);
+#endif
+								tempWriter.Write(0);
+							}
+						}
+
+						temp.BeginReading();
+						var writer = player.BeginSend(Packet.ResponseExport);
+						writer.Write(requestID);
+						writer.Write(temp.size);
+						writer.Write(temp.buffer, 0, temp.size);
+						player.EndSend();
+						temp.Recycle();
+					}
+					break;
+				}
+				case Packet.RequestImport:
+				{
+					var requestID = reader.ReadInt32();
+					var channelID = reader.ReadInt32();
+					int count = reader.ReadInt32();
+
+					if (count > 0)
+					{
+						bool isNew;
+						var ch = CreateChannel(channelID, out isNew);
+						var writer = player.BeginSend(Packet.ResponseImport);
+						writer.Write(requestID);
+						writer.Write(channelID);
+						writer.Write(count);
+						for (int i = 0; i < count; ++i) writer.Write(ch.ImportObject(player.id, reader));
+						player.EndSend();
 					}
 					break;
 				}
@@ -2514,7 +2583,7 @@ namespace TNet
 			{
 				case Packet.RequestCreateObject:
 				{
-					int playerID = reader.ReadInt32();
+					var playerID = reader.ReadInt32();
 
 					// Exploit: echoed packet of another player
 					if (playerID != player.id)
@@ -2524,9 +2593,9 @@ namespace TNet
 						return;
 					}
 
-					int channelID = reader.ReadInt32();
-					Channel ch = player.GetChannel(channelID);
-					byte type = reader.ReadByte();
+					var channelID = reader.ReadInt32();
+					var ch = player.GetChannel(channelID);
+					var type = reader.ReadByte();
 
 					if (ch != null && (!ch.isLocked || player.isAdmin))
 					{
@@ -2536,7 +2605,7 @@ namespace TNet
 						{
 							uniqueID = ch.GetUniqueID();
 
-							Channel.CreatedObject obj = new Channel.CreatedObject();
+							var obj = new Channel.CreatedObject();
 							obj.playerID = player.id;
 							obj.objectID = uniqueID;
 							obj.type = type;
@@ -2550,7 +2619,7 @@ namespace TNet
 						}
 
 						// Inform the channel
-						BinaryWriter writer = BeginSend(Packet.ResponseCreateObject);
+						var writer = BeginSend(Packet.ResponseCreateObject);
 						writer.Write(playerID);
 						writer.Write(channelID);
 						writer.Write(uniqueID);
@@ -2561,13 +2630,13 @@ namespace TNet
 				}
 				case Packet.RequestDestroyObject:
 				{
-					Channel ch = player.GetChannel(reader.ReadInt32());
-					uint objectID = reader.ReadUInt32();
+					var ch = player.GetChannel(reader.ReadInt32());
+					var objectID = reader.ReadUInt32();
 
 					if (ch != null && (!ch.isLocked || player.isAdmin) && ch.DestroyObject(objectID))
 					{
 						// Inform all players in the channel that the object should be destroyed
-						BinaryWriter writer = BeginSend(Packet.ResponseDestroyObject);
+						var writer = BeginSend(Packet.ResponseDestroyObject);
 						writer.Write(player.id);
 						writer.Write(ch.id);
 						writer.Write((ushort)1);
@@ -2637,7 +2706,7 @@ namespace TNet
 									// Send all buffered RFCs associated with this object
 									for (int b = 0; b < to.rfcs.size; ++b)
 									{
-										Channel.RFC rfc = to.rfcs[b];
+										var rfc = to.rfcs[b];
 										if (rfc.objectID == obj.objectID)
 											offset = rfc.WritePacket(to.id, temp, offset);
 									}

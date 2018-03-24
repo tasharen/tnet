@@ -17,7 +17,7 @@ namespace TNet
 	/// Can be used to mark fields as ignored by TNet-based serialization.
 	/// </summary>
 
-	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = false)]
 	public sealed class IgnoredByTNet : Attribute { public IgnoredByTNet () { } }
 
 	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]

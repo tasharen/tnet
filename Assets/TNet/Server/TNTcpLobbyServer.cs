@@ -437,7 +437,7 @@ namespace TNet
 						// Detailed list of clients
 						for (int i = 0; i < mTcp.size; ++i)
 						{
-							TcpProtocol p = mTcp[i];
+							var p = mTcp[i];
 
 							if (p.stage == TcpProtocol.Stage.Connected)
 							{
@@ -452,7 +452,7 @@ namespace TNet
 						}
 
 						// Number of connected clients
-						StringBuilder sb = new StringBuilder();
+						var sb = new StringBuilder();
 						sb.Append("Servers: ");
 						sb.AppendLine(serverCount.ToString());
 						sb.Append("Players: ");
@@ -461,7 +461,7 @@ namespace TNet
 						// Detailed list of clients
 						for (int i = 0; i < mTcp.size; ++i)
 						{
-							TcpProtocol p = mTcp[i];
+							var p = mTcp[i];
 
 							if (p.stage == TcpProtocol.Stage.Connected)
 							{
@@ -471,7 +471,7 @@ namespace TNet
 								{
 									sb.Append(ent.playerCount);
 									sb.Append(" ");
-									sb.AppendLine(ent.name);
+									sb.AppendLine(ent.name.Replace('\n', '|'));
 								}
 							}
 						}
@@ -481,15 +481,15 @@ namespace TNet
 						sb = new StringBuilder();
 						sb.AppendLine("HTTP/1.1 200 OK");
 						sb.AppendLine("Server: TNet 3");
-						sb.AppendLine("Content-Length: " + text.Length);
-						sb.AppendLine("Content-Type: text/plain");
+						sb.AppendLine("Content-Length: " + Encoding.UTF8.GetByteCount(text));
+						sb.AppendLine("Content-Type: text/plain; charset=utf-8");
 						sb.AppendLine("Connection: Closed\n");
 						sb.Append(text);
 
 						// Send the response
 						mBuffer = Buffer.Create();
-						BinaryWriter bw = mBuffer.BeginWriting(false);
-						bw.Write(Encoding.ASCII.GetBytes(sb.ToString()));
+						var bw = mBuffer.BeginWriting(false);
+						bw.Write(Encoding.UTF8.GetBytes(sb.ToString()));
 						tc.SendTcpPacket(mBuffer);
 						mBuffer.Recycle();
 						mBuffer = null;

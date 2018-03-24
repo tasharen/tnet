@@ -127,11 +127,18 @@ http://www.tasharen.com/?page_id=4518
 - NEW: Added a built-in server side check that prevents multiple players from requesting the same player save file.
 - NEW: TNet now keeps a list of sent RFC names with their count while in the editor so that you can track which RFCs happen to be called too frequently.
 - NEW: Added Vector2D and Vector3D -- double precision version of Unity's vectors.
+- NEW: Added TNManager.Export and Import -- the ability to export and import objects from the server. This effectively sends all the RCC and RFCs from the server to the client that are necessary to import a group of objects in the future. In Sightseer I use it to save entire groups of pre-configured assets (such as a fully equipped player vehicle complete with inventory contents) then instantiate them easily after moving them somewhere.
+- NEW: TNet's function calls will now automatically try to convert parameters if they don't quite match. For example changing an RFC to pass a Vector3D instead of a Vector3 will no longer break serialization.
+- NEW: Added TNObject.Find(fullID) and TNObject.fullID. It's a combination of channel+object ID in one.
+- NEW: Added a new "MODDING" #define. If enabled, TNet will be compiled in a stripped-down mode with serialization intact, but connectivity inoperable. This is meant for making exporter mod DLLs.
+- NEW: Object and component references are now serialized using IDs instead of strings for less space and faster lookup.
 - FIX: Updating a saved RFC on the server will now move it to the end of the saved RFC list, ensuring that it's called in the correct order on load.
 - FIX: Fixed the Tcp Lobby link sending server updates every 5 seconds even if nothing changed. It now sends Ping packets instead.
 - FIX: Changed ban and admin lists to be hashsets instead for faster lookups.
 - FIX: Fixed DataNode's GetHierarchy causing GC allocations.
 - FIX: Calling SetChannelData should now persist, even if nothing was actually instantiated in that channel.
+- FIX: DataNode can now contain other DataNode values in its nodes' value field without breaking serialization.
+- FIX: HTTP responses now use UTF-8.
 
 3.1.0
 - NEW: Added the ability to compile entire projects at runtime using RuntimeCode.Add(source file code). Requires Unity 5+.

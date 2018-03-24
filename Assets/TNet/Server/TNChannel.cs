@@ -4,6 +4,9 @@
 //-------------------------------------------------
 
 using System.IO;
+#if UNITY_EDITOR
+using UnityEngine;
+#endif
 
 namespace TNet
 {
@@ -258,6 +261,128 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Export the specified object, writing its RCC and RFCs into the binary writer. Only dynamically created objects can be exported.
+		/// </summary>
+
+		public bool ExportObject (uint objID, BinaryWriter writer)
+		{
+#if !MODDING
+			if (objID < 32768) return false;
+
+			if (mCreatedObjectDictionary.ContainsKey(objID))
+			{
+				for (int i = 0; i < created.size; ++i)
+				{
+					var co = created.buffer[i];
+					if (co.objectID != objID) continue;
+
+					writer.Write(co.buffer.size);
+
+					if (co.buffer.size > 0) writer.Write(co.buffer.buffer, co.buffer.position, co.buffer.size);
+
+					var count = 0;
+
+					for (int r = 0; r < rfcs.size; ++r)
+					{
+						var rfc = rfcs.buffer[r];
+						if (rfc.objectID == objID) ++count;
+					}
+
+					writer.Write(count);
+
+					if (count != 0)
+					{
+						for (int r = 0; r < rfcs.size; ++r)
+						{
+							var rfc = rfcs.buffer[r];
+							if (rfc.objectID != objID) continue;
+
+							writer.Write(rfc.uid);
+							if (rfc.functionID == 0) writer.Write(rfc.functionName);
+							writer.Write(rfc.data.size);
+							if (rfc.data.size > 0) writer.Write(rfc.data.buffer, rfc.data.position, rfc.data.size);
+						}
+					}
+					return true;
+				}
+			}
+#endif
+			return false;
+		}
+
+		/// <summary>
+		/// Import a previously exported object. Returns its object ID, or '0' if failed.
+		/// </summary>
+
+		public uint ImportObject (int playerID, BinaryReader reader)
+		{
+#if !MODDING
+			// Create a new object and read its RCC data
+			var co = new CreatedObject();
+			co.objectID = GetUniqueID();
+			co.type = 1;
+			co.buffer = Buffer.Create();
+			var data = reader.ReadBytes(reader.ReadInt32());
+			co.buffer.BeginWriting(false).Write(data);
+			co.buffer.EndWriting();
+			AddCreatedObject(co);
+
+			// We need to inform all the players in the channel of this object's creation
+			var packet = Buffer.Create();
+			var writer = packet.BeginPacket(Packet.ResponseCreateObject);
+			writer.Write(playerID);
+			writer.Write(id);
+			writer.Write(co.objectID);
+			writer.Write(data);
+			packet.EndPacket();
+			SendToAll(packet);
+			packet.Recycle();
+
+			// Now read all the RFCs
+			var size = reader.ReadInt32();
+
+			if (size != 0)
+			{
+				for (int i = 0; i < size; ++i)
+				{
+					var rfc = new RFC();
+					rfc.uid = reader.ReadUInt32();
+					rfc.objectID = co.objectID;
+					if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
+					data = reader.ReadBytes(reader.ReadInt32());
+
+					var b = Buffer.Create();
+					b.BeginWriting(false).Write(data);
+					b.EndWriting();
+					rfc.data = b;
+					rfcs.Add(rfc);
+
+					packet = Buffer.Create();
+					rfc.WritePacket(id, packet, 0);
+					SendToAll(packet);
+					packet.Recycle();
+				}
+			}
+			return co.objectID;
+#else
+			return 0;
+#endif
+		}
+
+		/// <summary>
+		/// Send the specified packet to all players in the channel.
+		/// </summary>
+
+		public void SendToAll (Buffer packet)
+		{
+			for (int i = 0; i < players.size; ++i)
+			{
+				var p = players.buffer[i] as TcpPlayer;
+				p.SendTcpPacket(packet);
+			}
+		}
+
+		/// <summary>
 		/// Change the object's associated player. Only works with dynamically instantiated objects.
 		/// </summary>
 
@@ -290,6 +415,7 @@ namespace TNet
 
 		public bool DestroyObject (uint objID)
 		{
+#if !MODDING
 			if (objID < 32768)
 			{
 				// Static objects have ID below 32768
@@ -316,6 +442,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 			return false;
 		}
 
@@ -325,6 +452,7 @@ namespace TNet
 
 		public void DestroyObjectRFCs (uint objectID)
 		{
+#if !MODDING
 			for (int i = rfcs.size; i > 0;)
 			{
 				var rfc = rfcs[--i];
@@ -335,6 +463,7 @@ namespace TNet
 					rfc.data.Recycle();
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -489,7 +618,7 @@ namespace TNet
 			// Record which objects are temporary and which ones are not
 			for (int i = 0; i < created.size; ++i)
 			{
-				CreatedObject co = created[i];
+				var co = created[i];
 
 				if (co.type == 1)
 				{
@@ -501,8 +630,8 @@ namespace TNet
 			// Record all RFCs that don't belong to temporary objects
 			for (int i = 0; i < rfcs.size; ++i)
 			{
-				RFC rfc = rfcs[i];
-				uint objID = rfc.objectID;
+				var rfc = rfcs[i];
+				var objID = rfc.objectID;
 
 				if (objID < 32768)
 				{
@@ -525,7 +654,7 @@ namespace TNet
 
 			for (int i = 0; i < mCreatedRFCs.size; ++i)
 			{
-				RFC rfc = mCreatedRFCs[i];
+				var rfc = mCreatedRFCs[i];
 				writer.Write(rfc.uid);
 				if (rfc.functionID == 0) writer.Write(rfc.functionName);
 				writer.Write(rfc.data.size);
@@ -536,7 +665,7 @@ namespace TNet
 
 			for (int i = 0; i < mCreatedOBJs.size; ++i)
 			{
-				CreatedObject co = mCreatedOBJs[i];
+				var co = mCreatedOBJs[i];
 				writer.Write(co.playerID);
 				writer.Write(co.objectID);
 				writer.Write(co.buffer.size);
