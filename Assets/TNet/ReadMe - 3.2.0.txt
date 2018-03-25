@@ -1,6 +1,6 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
-     Copyright © 2012-2017 Tasharen Entertainment Inc.
+     Copyright © 2012-2018 Tasharen Entertainment Inc.
                   Version 3.2.0
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
@@ -9,13 +9,16 @@ Thank you for buying TNet!
 
 Tutorials can be found here: http://www.tasharen.com/forum/index.php?topic=13953.0
 
-If you have any questions, suggestions, comments or feature requests, please
-drop by the TNet forum, found here: http://www.tasharen.com/forum/index.php?board=9.0
+If you have any questions, suggestions, comments or feature requests, first search
+on the forum here: http://www.tasharen.com/forum/index.php?board=9.0 -- then if you can't
+find the answer, ask in Discord here: https://discord.gg/trruSNc
 
 Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 
 TNet version 3.0.0 and newer now includes 7-Zip's LZMA library distributed under the public domain license.
 http://www.7-zip.org/sdk.html
+
+Need Steam Networking support? See here: http://www.tasharen.com/forum/index.php?topic=15512
 
 --------------------------------------------------------------------------------------------------------------------
 Q: How to start and stop a server from in-game?
