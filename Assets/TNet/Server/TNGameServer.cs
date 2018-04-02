@@ -287,6 +287,7 @@ namespace TNet
 
 		public bool Listen (int port)
 		{
+#if !MODDING
 			if (mListenerPort == port) return true;
 
 			lock (mLock)
@@ -315,6 +316,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 			return false;
 		}
 
@@ -339,6 +341,7 @@ namespace TNet
 
 		public bool Start (int tcpPort = 0, int udpPort = 0)
 		{
+#if !MODDING
 			mStartTime = System.DateTime.UtcNow.Ticks / 10000;
 
 			Stop();
@@ -399,6 +402,7 @@ namespace TNet
 			mThread = Tools.CreateThread(ThreadFunction);
 			mThread.Start();
 #endif
+#endif
 			return true;
 		}
 
@@ -420,6 +424,7 @@ namespace TNet
 
 		public void Stop ()
 		{
+#if !MODDING
 			Save();
 
 			if (onShutdown != null) onShutdown();
@@ -464,8 +469,10 @@ namespace TNet
 			mIsActive = false;
 			mServerData = null;
 			mListenerPort = 0;
+#endif
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Thread that will be processing incoming data.
 		/// </summary>
@@ -670,6 +677,7 @@ namespace TNet
 #endif
 			}
 		}
+#endif
 
 		/// <summary>
 		/// Add a new player entry.
@@ -733,9 +741,12 @@ namespace TNet
 
 		public void RemovePlayer (TcpPlayer p)
 		{
+#if !MODDING
 			if (p != null)
 			{
-				SavePlayer(p);
+#if UNITY_EDITOR
+				if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p);
+#endif
 #if STANDALONE || UNITY_EDITOR
 				if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
 #endif
@@ -769,6 +780,7 @@ namespace TNet
 				p.Release();
 				p.savePath = null;
 			}
+#endif
 		}
 
 		/// <summary>
@@ -788,6 +800,7 @@ namespace TNet
 
 		protected TcpPlayer GetPlayer (string name)
 		{
+#if !MODDING
 			if (!string.IsNullOrEmpty(name))
 			{
 				// Exact name match
@@ -811,6 +824,7 @@ namespace TNet
 					if (p.HasAlias(name)) return p;
 				}
 			}
+#endif
 			return null;
 		}
 
@@ -843,6 +857,7 @@ namespace TNet
 
 		protected Channel CreateChannel (int channelID, out bool isNew)
 		{
+#if !MODDING
 			Channel channel;
 
 			if (mChannelDict.TryGetValue(channelID, out channel))
@@ -858,6 +873,10 @@ namespace TNet
 			mChannelDict[channelID] = channel;
 			isNew = true;
 			return channel;
+#else
+			isNew = false;
+			return null;
+#endif
 		}
 
 		/// <summary>
@@ -873,8 +892,7 @@ namespace TNet
 		protected BinaryWriter BeginSend (Packet type)
 		{
 			mBuffer = Buffer.Create();
-			BinaryWriter writer = mBuffer.BeginPacket(type);
-			return writer;
+			return mBuffer.BeginPacket(type);
 		}
 
 		/// <summary>
@@ -895,6 +913,7 @@ namespace TNet
 
 		protected void EndSend (bool reliable, TcpPlayer player)
 		{
+#if !MODDING
 			mBuffer.EndPacket();
 			if (mBuffer.size > 1024) reliable = true;
 
@@ -903,7 +922,7 @@ namespace TNet
 				player.SendTcpPacket(mBuffer);
 			}
 			else mUdp.Send(mBuffer, player.udpEndPoint);
-
+#endif
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -914,6 +933,7 @@ namespace TNet
 
 		protected void EndSend (Channel channel, TcpPlayer exclude, bool reliable)
 		{
+#if !MODDING
 			mBuffer.EndPacket();
 
 			if (mBuffer.size != 0)
@@ -934,7 +954,7 @@ namespace TNet
 					}
 				}
 			}
-
+#endif
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -961,6 +981,7 @@ namespace TNet
 
 		protected void SendToOthers (Buffer buffer, TcpPlayer source, TcpPlayer exclude, bool reliable)
 		{
+#if !MODDING
 			for (int b = 0; b < source.channels.size; ++b)
 			{
 				Channel ch = source.channels[b];
@@ -984,6 +1005,7 @@ namespace TNet
 					}
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -992,6 +1014,7 @@ namespace TNet
 
 		protected void EndSend (bool reliable)
 		{
+#if !MODDING
 			mBuffer.EndPacket();
 
 			if (mBuffer.size > 1024) reliable = true;
@@ -1014,35 +1037,9 @@ namespace TNet
 					}
 				}
 			}
-
+#endif
 			mBuffer.Recycle();
 			mBuffer = null;
-		}
-
-		/// <summary>
-		/// Send the outgoing buffer to all players in the specified channel.
-		/// </summary>
-
-		protected void SendToChannel (bool reliable, Channel channel, Buffer buffer)
-		{
-			mBuffer.MarkAsUsed();
-
-			if (mBuffer.size > 1024) reliable = true;
-
-			for (int i = 0; i < channel.players.size; ++i)
-			{
-				TcpPlayer player = (TcpPlayer)channel.players[i];
-
-				if (player.stage == TcpProtocol.Stage.Connected)
-				{
-					if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
-					{
-						player.SendTcpPacket(mBuffer);
-					}
-					else mUdp.Send(mBuffer, player.udpEndPoint);
-				}
-			}
-			mBuffer.Recycle();
 		}
 
 		/// <summary>
@@ -1051,6 +1048,7 @@ namespace TNet
 
 		protected void SendSetHost (Channel ch, TcpPlayer player)
 		{
+#if !MODDING
 			if (ch != null && ch.host != player)
 			{
 				ch.host = player;
@@ -1059,6 +1057,7 @@ namespace TNet
 				writer.Write(player.id);
 				EndSend(ch, null, true);
 			}
+#endif
 		}
 
 		// Temporary buffer used in SendLeaveChannel below
@@ -1070,12 +1069,14 @@ namespace TNet
 
 		protected void LeaveAllChannels (TcpPlayer player)
 		{
+#if !MODDING
 			while (player.channels.size > 0)
 			{
 				Channel ch = player.channels[0];
 				if (ch != null) SendLeaveChannel(player, ch, true);
 				else player.channels.RemoveAt(0);
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1084,6 +1085,7 @@ namespace TNet
 
 		protected void SendLeaveChannel (TcpPlayer player, Channel ch, bool notify)
 		{
+#if !MODDING
 			if (ch == null) return;
 
 			// Remove this player from the channel
@@ -1133,6 +1135,7 @@ namespace TNet
 
 			// Put the channel to sleep after all players leave
 			if (ch.players.size == 0) ch.Sleep();
+#endif
 		}
 
 		/// <summary>
@@ -1141,6 +1144,7 @@ namespace TNet
 
 		protected void SendJoinChannel (TcpPlayer player, int channelID, string pass, string levelName, bool persist, ushort playerLimit)
 		{
+#if !MODDING
 			// Join a random existing channel or create a new one
 			if (channelID == -2)
 			{
@@ -1207,6 +1211,7 @@ namespace TNet
 					EndSend(true, player);
 				}
 			}
+#endif
 		}
 
 		/// <summary>
@@ -1215,6 +1220,7 @@ namespace TNet
 
 		protected void SendJoinChannel (TcpPlayer player, Channel channel, string requestedLevelName)
 		{
+#if !MODDING
 			if (player.IsInChannel(channel.id)) return;
 
 			// Load the channel's data into memory
@@ -1371,6 +1377,7 @@ namespace TNet
 
 			// Add this player to the channel now that the joining process is complete
 			channel.players.Add(player);
+#endif
 		}
 
 		/// <summary>
@@ -1379,6 +1386,7 @@ namespace TNet
 
 		protected virtual bool Verify (BinaryReader reader) { return true; }
 
+#if !MODDING
 		/// <summary>
 		/// Receive and process a single incoming packet.
 		/// Returns 'true' if a packet was received, 'false' otherwise.
@@ -2425,6 +2433,7 @@ namespace TNet
 			}
 			return true;
 		}
+#endif
 
 		/// <summary>
 		/// Set an alias and check it against the ban list.
@@ -2432,6 +2441,7 @@ namespace TNet
 
 		protected bool SetAlias (TcpPlayer player, string s)
 		{
+#if !MODDING
 			if (mBan.Contains(s))
 			{
 				player.Log("FAILED a ban check: " + s);
@@ -2461,6 +2471,7 @@ namespace TNet
 				AddUnique(player.aliases, s);
 				return true;
 			}
+#endif
 		}
 
 		/// <summary>
@@ -2469,6 +2480,7 @@ namespace TNet
 
 		protected void Ban (TcpPlayer requestingPlayer, TcpPlayer bannedPlayer)
 		{
+#if !MODDING
 			var info = "BANNED " + bannedPlayer.name + " (" + (bannedPlayer.aliases != null &&
 					bannedPlayer.aliases.size > 0 ? bannedPlayer.aliases[0] : bannedPlayer.address) + ")";
 
@@ -2494,8 +2506,10 @@ namespace TNet
 
 			RemovePlayer(bannedPlayer);
 			SaveBanList();
+#endif
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Process a packet that's meant to be forwarded.
 		/// </summary>
@@ -2877,6 +2891,7 @@ namespace TNet
 				}
 			}
 		}
+#endif
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 		// Cached to reduce memory allocation
@@ -2890,11 +2905,14 @@ namespace TNet
 
 		public void Save ()
 		{
+#if !MODDING
 			mNextSave = 0;
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 			if (mWriting || !isActive || string.IsNullOrEmpty(mFilename)) return;
-
+#if UNITY_EDITOR
+			if (mServerData != null && !mServerData.GetChild<bool>("save", true)) return;
+#endif
 #if STANDALONE
 			var timer = System.Diagnostics.Stopwatch.StartNew();
 #endif
@@ -2940,7 +2958,6 @@ namespace TNet
 				}
 			}
 
-#if !NO_SAVING
 			Tools.WriteFile(mFilename, mWriteStream);
 
 			// Save the server configuration data
@@ -2953,13 +2970,13 @@ namespace TNet
 
 			// Save the player data
 			for (int i = 0; i < mPlayerList.size; ++i) SavePlayer(mPlayerList[i]);
-#endif
 
 #if STANDALONE
 			var elapsed = timer.ElapsedMilliseconds;
 			Console.WriteLine("Saving took " + elapsed + " ms");
 #endif
 			mWriting = false;
+#endif
 #endif
 		}
 
@@ -2969,6 +2986,7 @@ namespace TNet
 
 		protected void SavePlayer (TcpPlayer player)
 		{
+#if !MODDING
 			if (player == null || !player.saveNeeded || string.IsNullOrEmpty(player.savePath)) return;
 			player.saveNeeded = false;
 
@@ -2993,6 +3011,7 @@ namespace TNet
 				byte[] bytes = player.dataNode.ToArray(player.saveType);
 				if (!SaveFile(player.savePath, bytes)) player.LogError("Unable to save " + player.savePath);
 			}
+#endif
 		}
 
 		/// <summary>
@@ -3001,6 +3020,7 @@ namespace TNet
 
 		public void LoadConfig ()
 		{
+#if !MODDING
 			if (!string.IsNullOrEmpty(mFilename))
 			{
 				try
@@ -3011,6 +3031,7 @@ namespace TNet
 				catch (Exception) { mServerData = null; }
 				mServerDataChanged = false;
 			}
+#endif
 		}
 
 		[System.Obsolete("Use Load() instead")]
@@ -3027,7 +3048,7 @@ namespace TNet
 			mFilename = fileName;
 			mNextSave = 0;
 
-#if UNITY_WEBPLAYER || UNITY_FLASH
+#if UNITY_WEBPLAYER || UNITY_FLASH || MODDING
 			// There is no file access in the web player.
 			return false;
 #else

@@ -345,9 +345,9 @@ namespace TNet
 
 		public T GetHierarchy<T> (string path)
 		{
-			DataNode node = GetHierarchy(path);
+			var node = GetHierarchy(path);
 			if (node == null) return default(T);
-			object value = node.value;
+			var value = node.value;
 			if (value is T) return (T)node.value;
 			return Serialization.Convert<T>(value);
 		}
@@ -358,9 +358,9 @@ namespace TNet
 
 		public T GetHierarchy<T> (string path, T defaultValue)
 		{
-			DataNode node = GetHierarchy(path);
+			var node = GetHierarchy(path);
 			if (node == null) return defaultValue;
-			object value = node.value;
+			var value = node.value;
 			if (value is T) return (T)node.value;
 			return Serialization.Convert<T>(value, defaultValue);
 		}
@@ -718,7 +718,7 @@ namespace TNet
 				if (child.isSerializable)
 				{
 					writer.Write('\n');
-					children[i].Write(writer, tab + 1);
+					child.Write(writer, tab + 1);
 				}
 			}
 
@@ -831,20 +831,23 @@ namespace TNet
 				if (value is IDataNodeSerializable)
 				{
 					var ser = value as IDataNodeSerializable;
-					if (mTemp == null) mTemp = new DataNode();
-					ser.Serialize(mTemp);
+					var temp = mTemp;
+					mTemp = null;
+					if (temp == null) temp = new DataNode();
+					ser.Serialize(temp);
 
 					if (prefix) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
 
-					for (int i = 0; i < mTemp.children.size; ++i)
+					for (int i = 0; i < temp.children.size; ++i)
 					{
-						var child = mTemp.children[i];
+						var child = temp.children[i];
 						writer.Write('\n');
 						child.Write(writer, tab + 1);
 					}
 
-					mTemp.Clear();
+					temp.Clear();
+					mTemp = temp;
 					return;
 				}
 
@@ -853,20 +856,24 @@ namespace TNet
 				// Try custom serialization first
 				if (type.HasDataNodeSerialization())
 				{
-					if (mTemp == null) mTemp = new DataNode();
+					var temp = mTemp;
+					mTemp = null;
+					if (temp == null) temp = new DataNode();
 
-					if (value.Invoke("Serialize", mTemp))
+					if (value.Invoke("Serialize", temp))
 					{
 						if (prefix) writer.Write(" = ");
 						writer.Write(Serialization.TypeToName(type));
 
-						for (int i = 0; i < mTemp.children.size; ++i)
+						for (int i = 0; i < temp.children.size; ++i)
 						{
-							var child = mTemp.children[i];
+							var child = temp.children[i];
 							writer.Write('\n');
 							child.Write(writer, tab + 1);
 						}
-						mTemp.Clear();
+
+						temp.Clear();
+						mTemp = temp;
 						return;
 					}
 				}

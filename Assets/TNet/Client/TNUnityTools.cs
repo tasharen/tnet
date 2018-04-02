@@ -267,7 +267,7 @@ namespace TNet
 
 		static public LoadBinaryFunc LoadBinary = delegate (string path)
 		{
-			TextAsset asset = Resources.Load<TextAsset>(path);
+			var asset = Resources.Load<TextAsset>(path);
 			if (asset != null) return asset.bytes;
 			return Tools.ReadFile(path + ".bytes");
 		};

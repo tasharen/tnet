@@ -1774,6 +1774,17 @@ namespace TNet
 		public void SetServerData (string key, object val)
 		{
 #if !MODDING
+			if (val != null)
+			{
+				mConfig.SetHierarchy(key, val);
+				mDataHash = mConfig.CalculateHash();
+			}
+			else
+			{
+				mConfig.RemoveHierarchy(key);
+				mDataHash = mConfig.CalculateHash();
+			}
+
 			var writer = BeginSend(Packet.RequestSetServerData);
 			writer.Write(key);
 			writer.WriteObject(val);
@@ -2003,10 +2014,13 @@ namespace TNet
 						var pn = child.AddChild("Args");
 						for (int b = 0; b < argLength; ++b) pn.AddChild(funcPars[b + 1].Name, args[b]);
 					}
+#if UNITY_EDITOR
 					else Debug.LogError("RCC " + rccID + " (" + funcName + ") has a different number of parameters than expected: " + funcPars.Length + " vs " + (args.Length + 1), obj);
+#endif
 				}
+#if UNITY_EDITOR
 				else Debug.LogError("Unable to find RCC " + rccID + " (" + funcName + ")", obj);
-
+#endif
 				var rfcs = reader.ReadInt32();
 				if (rfcs > 0) child = child.AddChild("RFCs");
 
@@ -2029,9 +2043,13 @@ namespace TNet
 							var rfcNode = (funcID == 0) ? child.AddChild("RFC", funcName) : child.AddChild("RFC", funcID);
 							for (int p = 0; p < pc; ++p) rfcNode.AddChild(funcRef.parameters[p].Name, array[p]);
 						}
+#if UNITY_EDITOR
 						else Debug.LogError("RFC " + funcID + " (" + funcName + ") has a different number of parameters than expected: " + funcRef.parameters.Length + " vs " + pc, obj);
+#endif
 					}
+#if UNITY_EDITOR
 					else Debug.LogError("RFC " + funcID + " (" + funcName + ") can't be found", obj);
+#endif
 				}
 			}
 

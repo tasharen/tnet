@@ -73,9 +73,10 @@ public class ExampleChat : TNBehaviour
 	{
 		mName = TNManager.playerName;
 
+#if UNITY_EDITOR
 		// Show the current server configuration
 		PrintConfig(TNManager.serverData);
-
+#endif
 		var text = "Other players here: ";
 		var players = TNManager.GetPlayers(channelID);
 		
@@ -137,8 +138,11 @@ public class ExampleChat : TNBehaviour
 		{
 			mInput = mInput.Trim();
 
+#if UNITY_EDITOR
 			if (mInput == "/get") PrintConfig(TNManager.serverData);
-			else if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
+			else
+#endif
+			if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
 			else if (mInput.StartsWith("/set ")) TNManager.SetServerData(mInput.Substring(5));
 			else if (mInput.StartsWith("/exe "))
 			{
