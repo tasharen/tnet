@@ -1424,7 +1424,7 @@ namespace TNet
 					{
 						player.AssignID();
 #if STANDALONE || UNITY_EDITOR
-						Tools.Log(name + " (" + player.address + "): Connected [" + player.id + "]");
+						Tools.Log(player.name + " (" + player.address + "): Connected [" + player.id + "]");
 #endif
 						mPlayerDict.Add(player.id, player);
 
