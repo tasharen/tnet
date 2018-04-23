@@ -96,7 +96,7 @@ public class ExampleMenu : TNEventReceiver
 	{
 		if (Application.isPlaying)
 		{
-			float target = (TNLobbyClient.knownServers.list.size == 0) ? 0f : 1f;
+			float target = (LobbyClient.knownServers.list.size == 0) ? 0f : 1f;
 			mAlpha = UnityTools.SpringLerp(mAlpha, target, 8f, Time.deltaTime);
 		}
 	}
@@ -181,7 +181,7 @@ public class ExampleMenu : TNEventReceiver
 					// The UDP port of the server doesn't matter much as it's optional,
 					// and the clients get notified of it via Packet.ResponseSetUDP.
 					int udpPort = Random.Range(10000, 40000);
-					TNLobbyClient lobby = GetComponent<TNLobbyClient>();
+					LobbyClient lobby = GetComponent<LobbyClient>();
 
 					if (lobby == null)
 					{
@@ -370,7 +370,7 @@ public class ExampleMenu : TNEventReceiver
 			GUILayout.Label("LAN Server List", text);
 
 			// List of discovered servers
-			List<ServerList.Entry> list = TNLobbyClient.knownServers.list;
+			List<ServerList.Entry> list = LobbyClient.knownServers.list;
 
 			// Server list example script automatically collects servers that have recently announced themselves
 			for (int i = 0; i < list.size; ++i)
