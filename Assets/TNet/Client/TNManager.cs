@@ -418,7 +418,7 @@ namespace TNet
 		/// Number of bytes expected before the incoming packet can be processed.
 		/// </summary>
 
-		static public int incomingPacketSize { get { return mInstance != null ? mInstance.mClient.protocol.availablePacketSize : 0; } }
+		static public int incomingPacketSize { get { return mInstance != null ? mInstance.mClient.protocol.incomingPacketSize : 0; } }
 
 		/// <summary>
 		/// Whether we can use unreliable packets (UDP) to communicate with the server.

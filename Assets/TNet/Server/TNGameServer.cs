@@ -1428,7 +1428,7 @@ namespace TNet
 #endif
 						mPlayerDict.Add(player.id, player);
 
-						BinaryWriter writer = player.BeginSend(Packet.ResponseID);
+						var writer = player.BeginSend(Packet.ResponseID);
 						writer.Write(TcpPlayer.version);
 						writer.Write(player.id);
 						writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));

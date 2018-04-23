@@ -1349,7 +1349,6 @@ namespace TNet
 
 		/// <summary>
 		/// Send a new remote function call to the specified player.
-		/// TODO: Like string.Format, this should have multi-parameter versions to avoid the 'params'-associated memory allocations.
 		/// </summary>
 
 		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)

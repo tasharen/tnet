@@ -111,7 +111,7 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Number of bytes available in the buffer that has not yet been processed.
+		/// Number of bytes available in the incoming buffer that have not yet been processed.
 		/// </summary>
 
 		public int availablePacketSize { get { return mAvailable; } }
@@ -1008,7 +1008,7 @@ namespace TNet
 						Tools.WriteFile(fn, temp);
 						Debug.Log("Packet saved as " + fn);
 #else
-						LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+						LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
 #endif
 						mReceiveBuffer.Recycle();
 						mReceiveBuffer = null;
