@@ -111,6 +111,18 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Number of bytes available in the buffer that has not yet been processed.
+		/// </summary>
+
+		public int availablePacketSize { get { return mAvailable; } }
+
+		/// <summary>
+		/// Number of bytes expected before the incoming packet can be processed.
+		/// </summary>
+
+		public int incomingPacketSize { get { return mExpected; } }
+
+		/// <summary>
 		/// Current size of the outgoing queue in bytes.
 		/// </summary>
 
@@ -135,6 +147,7 @@ namespace TNet
 #if !MODDING
 		// Current incoming buffer
 		Buffer mReceiveBuffer;
+		int mAvailable = 0;
 		int mExpected = 0;
 		int mOffset = 0;
 		bool mNoDelay = false;
@@ -857,7 +870,7 @@ namespace TNet
 #endif
 				if (socket != mSocket) return;
 			}
-			catch (System.Exception ex)
+			catch (Exception ex)
 			{
 				if (socket != mSocket) return;
 				if (!(ex is SocketException)) AddError(ex);
@@ -876,7 +889,7 @@ namespace TNet
 					mSocket.BeginReceive(mTemp, 0, defaultBufferSize, SocketFlags.None, OnReceive, mSocket);
 #endif
 				}
-				catch (System.Exception ex)
+				catch (Exception ex)
 				{
 					if (!(ex is SocketException)) AddError(ex);
 					Close(false);
@@ -945,7 +958,7 @@ namespace TNet
 				mReceiveBuffer.BeginWriting(true).Write(bytes, offset, byteCount);
 			}
 
-			for (int available = mReceiveBuffer.size - mOffset; available > 4;)
+			for (mAvailable = mReceiveBuffer.size - mOffset; mAvailable > 4;)
 			{
 				// Figure out the expected size of the packet
 				if (mExpected == 0)
@@ -960,7 +973,7 @@ namespace TNet
 							if (stage == Stage.Verifying || stage == Stage.WebBrowser)
 							{
 								stage = Stage.WebBrowser;
-								string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, available);
+								string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, mAvailable);
 								mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
 								mReceiveBuffer.EndPacket();
 								mReceiveBuffer.BeginReading(4);
@@ -986,7 +999,7 @@ namespace TNet
 					else if (mExpected < 0 || mExpected > 16777216)
 					{
 #if UNITY_EDITOR
-						LogError("Malformed data packet: " + mOffset + ", " + available + " / " + mExpected);
+						LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
 
 						var temp = new byte[mReceiveBuffer.size];
 						for (int i = 0; i < byteCount; ++i) temp[i] = mReceiveBuffer.buffer[i];
@@ -1007,10 +1020,10 @@ namespace TNet
 				}
 
 				// The first 4 bytes of any packet always contain the number of bytes in that packet
-				available -= 4;
+				mAvailable -= 4;
 
 				// If the entire packet is present
-				if (available == mExpected)
+				if (mAvailable == mExpected)
 				{
 					// Reset the position to the beginning of the packet
 					mReceiveBuffer.BeginReading(mOffset + 4);
@@ -1025,7 +1038,7 @@ namespace TNet
 					}
 					break;
 				}
-				else if (available > mExpected)
+				else if (mAvailable > mExpected)
 				{
 					// There is more than one packet. Extract this packet fully.
 					int realSize = mExpected + 4;
@@ -1042,7 +1055,7 @@ namespace TNet
 						mIn.Enqueue(temp);
 
 						// Skip this packet
-						available -= mExpected;
+						mAvailable -= mExpected;
 						mOffset += realSize;
 						mExpected = 0;
 					}

@@ -409,6 +409,18 @@ namespace TNet
 		static public int incomingQueueSize { get { return mInstance != null ? mInstance.mClient.protocol.incomingQueueSize : 0; } }
 
 		/// <summary>
+		/// Number of bytes available in the incoming buffer that have not yet been processed.
+		/// </summary>
+
+		static public int availablePacketSize { get { return mInstance != null ? mInstance.mClient.protocol.availablePacketSize : 0; } }
+
+		/// <summary>
+		/// Number of bytes expected before the incoming packet can be processed.
+		/// </summary>
+
+		static public int incomingPacketSize { get { return mInstance != null ? mInstance.mClient.protocol.availablePacketSize : 0; } }
+
+		/// <summary>
 		/// Whether we can use unreliable packets (UDP) to communicate with the server.
 		/// </summary>
 
