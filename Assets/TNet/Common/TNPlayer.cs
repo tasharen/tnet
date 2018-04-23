@@ -76,7 +76,7 @@ namespace TNet
 		/// All players have a unique identifier given by the server.
 		/// </summary>
 
-		public int id = 1;
+		public int id = 0;
 
 		/// <summary>
 		/// All players have a name that they chose for themselves.
@@ -131,7 +131,7 @@ namespace TNet
 		}
 
 		public Player () { }
-		public Player (string playerName) { name = playerName; }
+		public Player (string playerName, int id = 0) { name = playerName; this.id = id; }
 
 		/// <summary>
 		/// Call after shutting down the server.

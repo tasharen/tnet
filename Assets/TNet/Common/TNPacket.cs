@@ -9,7 +9,7 @@ namespace TNet
 	/// Clients send requests to the server and receive responses back. Forwarded calls arrive as-is.
 	/// </summary>
 
-	public enum Packet
+	[DoNotObfuscate] public enum Packet
 	{
 		/// <summary>
 		/// Empty packet. Can be used to keep the connection alive.
@@ -792,6 +792,32 @@ namespace TNet
 		/// </summary>
 
 		ResponseImport,
+
+		/// <summary>
+		/// Validate the specified server configuration state. If the state does not match, the player will be kicked (unless they are an admin).
+		/// string: Property name.
+		/// object: Expected value.
+		/// </summary>
+
+		RequestValidate,
+
+		/// <summary>
+		/// Send a chat message. This packet works even connected to a lobby server for a truly global chat that works across all servers.
+		/// int32: Target player ID (0 if send to everyone).
+		/// string: Message.
+		/// </summary>
+
+		RequestSendChat,
+
+		/// <summary>
+		/// Send a chat message. This packet works even connected to a lobby server for a truly global chat that works across all servers.
+		/// int32: Source player ID.
+		/// string: Source player name [Only on the lobby server]
+		/// string: Message.
+		/// bool: Whether this was a private message.
+		/// </summary>
+
+		ResponseSendChat,
 
 		/// <summary>
 		/// Begin custom packets here.

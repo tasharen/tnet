@@ -124,6 +124,12 @@ namespace TNet
 		/// </summary>
 
 		static public TNEvents.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
+
+		/// <summary>
+		/// Callback triggered when a chat message arrives.
+		/// </summary>
+
+		static public TNEvents.OnChatPacket onChat { get { return isPlaying ? instance.mClient.onChat : null; } set { if (isPlaying) instance.mClient.onChat = value; } }
 		#endregion
 
 		/// <summary>
@@ -144,9 +150,9 @@ namespace TNet
 
 		// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 #if UNITY_EDITOR
-		static Player mPlayer = new Player("Editor");
+		[System.NonSerialized] static Player mPlayer = new Player("Editor", 1);
 #else
-		static Player mPlayer = new Player("Guest");
+		[System.NonSerialized] static Player mPlayer = new Player("Guest", 1);
 #endif
 		// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
 		static List<Player> mPlayers;
@@ -549,7 +555,7 @@ namespace TNet
 			{
 				if (p == player) return true;
 				var channel = GetChannel(channelID);
-				return channel.players.Contains(p);
+				for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i] == p) return true;
 			}
 			return false;
 		}
@@ -564,11 +570,7 @@ namespace TNet
 			{
 				if (playerID == TNManager.playerID) return true;
 				var channel = GetChannel(channelID);
-
-				for (int i = 0; i < channel.players.size; ++i)
-				{
-					if (channel.players.buffer[i].id == playerID) return true;
-				}
+				for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i].id == playerID) return true;
 			}
 			return false;
 		}
@@ -697,7 +699,7 @@ namespace TNet
 				mInstance.mClient.ProcessPackets();
 #endif
 #if UNITY_EDITOR
-				if (sentPackets > 60)
+				if (sentPackets > 200)
 				{
 #if COUNT_PACKETS
 					var sb = new System.Text.StringBuilder();
@@ -888,8 +890,8 @@ namespace TNet
 		static public Player GetPlayer (int id)
 		{
 			if (id == 0) return null;
+			if (id == playerID) return player;
 			if (isConnected) return mInstance.mClient.GetPlayer(id);
-			if (id == mPlayer.id) return mPlayer;
 			return null;
 		}
 
@@ -899,8 +901,8 @@ namespace TNet
 
 		static public Player GetPlayer (string name)
 		{
+			if (name == playerName) return player;
 			if (isConnected) return mInstance.mClient.GetPlayer(name);
-			if (name == playerName) return mPlayer;
 			return null;
 		}
 
@@ -2212,7 +2214,7 @@ namespace TNet
 #endif
 		}
 
-#endregion
+		#endregion
 
 		/// <summary>
 		/// Load level coroutine handling asynchronous loading of levels.
@@ -2256,6 +2258,19 @@ namespace TNet
 				lock (queue) queue.Enqueue(buff);
 			}
 		}
+
+		/// <summary>
+		/// Send a chat message to everyone on the server. If you want custom parameters or options, such as sending packets to a specific group of players,
+		/// it's best to make a custom RFC on a persistent "global chat" game object instead.
+		/// </summary>
+
+		static public void SendGlobalChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
+
+		/// <summary>
+		/// Send a private chat message.
+		/// </summary>
+
+		static public void SendPM (Player p, string text) { if (mInstance != null) mInstance.mClient.SendChat(text, p); }
 
 		[System.Obsolete("Use TNManager.playerData")]
 		static public DataNode playerDataNode { get { return playerData; } }

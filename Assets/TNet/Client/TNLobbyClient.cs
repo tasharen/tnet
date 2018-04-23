@@ -14,7 +14,7 @@ namespace TNet
 /// and you should only have one of them active at a time, not both.
 /// </summary>
 
-public abstract class TNLobbyClient : MonoBehaviour
+public abstract class LobbyClient : MonoBehaviour
 {
 	public delegate void OnListChange ();
 

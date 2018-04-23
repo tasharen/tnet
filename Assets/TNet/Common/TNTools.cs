@@ -16,6 +16,13 @@ using System.Net.NetworkInformation;
 namespace TNet
 {
 	/// <summary>
+	/// Used by TNet to mark what should never get obfuscated. In addition to this one, RFC and RCC attribute-marked functions should also never get obfuscated.
+	/// Make sure to set up your obfuscator to not obfuscate all 3 atribute-marked conotent.
+	/// </summary>
+
+	public class DoNotObfuscate : System.Attribute { }
+
+	/// <summary>
 	/// Generic sets of helper functions used within TNet.
 	/// </summary>
 
@@ -201,10 +208,10 @@ namespace TNet
 								}
 							}
 #if UNITY_EDITOR
-						catch (System.Exception ex)
-						{
-							UnityEngine.Debug.LogWarning(ex.Message + " (" + hn + ")");
-						}
+							catch (System.Exception ex)
+							{
+								UnityEngine.Debug.LogWarning(ex.Message + " (" + hn + ")");
+							}
 #else
 							catch (System.Exception) { }
 #endif
@@ -368,7 +375,7 @@ namespace TNet
 			if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
 
 #if UNITY_EDITOR
-		UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
+			UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
 #endif
 #endif
 			mExternalAddress = localAddress;
@@ -480,10 +487,10 @@ namespace TNet
 						return ips[i];
 			}
 #if UNITY_EDITOR
-		catch (System.Exception ex)
-		{
-			UnityEngine.Debug.LogWarning(ex.Message + " (" + address + ")");
-		}
+			catch (System.Exception ex)
+			{
+				UnityEngine.Debug.LogWarning(ex.Message + " (" + address + ")");
+			}
 #else
 			catch (System.Exception) { }
 #endif
@@ -550,7 +557,7 @@ namespace TNet
 
 				byte[] bytes = new byte[2048];
 
-				for (;;)
+				for (; ; )
 				{
 					int count = stream.Read(bytes, 0, bytes.Length);
 					if (count > 0) response += Encoding.ASCII.GetString(bytes, 0, count);
@@ -641,10 +648,10 @@ namespace TNet
 		/// Retrieve the list of filenames from the specified directory.
 		/// </summary>
 
-		static public string[] GetFiles (string directory, bool inMyDocuments = false)
+		static public string[] GetFiles (string directory, bool inMyDocuments = false, bool allowConfigAccess = false)
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-			if (!IsAllowedToAccess(directory)) return null;
+			if (!IsAllowedToAccess(directory, allowConfigAccess)) return null;
 
 			try
 			{
@@ -661,10 +668,10 @@ namespace TNet
 		/// Find the specified file in the chosen directory or one of its subfolders.
 		/// </summary>
 
-		static public string FindFile (string directory, string fileName)
+		static public string FindFile (string directory, string fileName, bool allowConfigAccess = false)
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-			if (!IsAllowedToAccess(directory)) return null;
+			if (!IsAllowedToAccess(directory, allowConfigAccess)) return null;
 			if (!Directory.Exists(directory)) return null;
 			var files = Directory.GetFiles(directory, fileName, SearchOption.AllDirectories);
 			return (files.Length == 0) ? null : files[0];
@@ -677,10 +684,10 @@ namespace TNet
 		/// Find all files matching the specified pattern, such as "*.txt".
 		/// </summary>
 
-		static public string[] FindFiles (string directory, string pattern = "*.*")
+		static public string[] FindFiles (string directory, string pattern = "*.*", bool allowConfigAccess = false)
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
-			if (!IsAllowedToAccess(directory)) return null;
+			if (!IsAllowedToAccess(directory, allowConfigAccess)) return null;
 			if (!Directory.Exists(directory)) return null;
 			var files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
 			return (files.Length == 0) ? null : files;
@@ -945,6 +952,7 @@ namespace TNet
 					data.WriteTo(fs);
 					fs.Flush();
 					fs.Close();
+
 					if (File.Exists(path)) return true;
 #if !STANDALONE
 					UnityEngine.Debug.LogWarning("Unable to write to " + path);
@@ -996,7 +1004,7 @@ namespace TNet
 #if STANDALONE
 			catch (System.Exception) { }
 #else
-		catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
+			catch (System.Exception ex) { UnityEngine.Debug.LogError(ex.Message); }
 #endif
 #endif
 			return null;
@@ -1410,6 +1418,25 @@ namespace TNet
 		static public bool TryParseFloat (string s, out float f)
 		{
 			return float.TryParse(s, System.Globalization.NumberStyles.Float, englishUSCulture, out f);
+		}
+
+		/// <summary>
+		/// Handy method that returns the stack trace up to the current position in the code.
+		/// </summary>
+
+		static public string stackTrace
+		{
+			get
+			{
+				try { throw new System.Exception(); }
+				catch (System.Exception ex)
+				{
+					var s = ex.StackTrace;
+					var newLine = s.IndexOf('\n');
+					if (newLine != -1) s = s.Substring(newLine + 1).Trim();
+					return s;
+				}
+			}
 		}
 	}
 }

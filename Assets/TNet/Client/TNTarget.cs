@@ -9,7 +9,7 @@ namespace TNet
 /// Helper enum -- the entries should be in the same order as in the Packet enum.
 /// </summary>
 
-public enum Target
+[DoNotObfuscate] public enum Target
 {
 	/// <summary>
 	/// Echo the packet to everyone in the room.

@@ -26,7 +26,7 @@ namespace TNet
 
 public class UPnP
 {
-	public enum Status
+	[DoNotObfuscate] public enum Status
 	{
 		Inactive,
 		Searching,

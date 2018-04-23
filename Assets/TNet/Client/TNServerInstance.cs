@@ -20,14 +20,14 @@ namespace TNet
 	{
 		static TNServerInstance mInstance;
 
-		public enum Type
+		[DoNotObfuscate] public enum Type
 		{
 			Lan,
 			Udp,
 			Tcp,
 		}
 
-		public enum State
+		[DoNotObfuscate] public enum State
 		{
 			Inactive,
 			Starting,

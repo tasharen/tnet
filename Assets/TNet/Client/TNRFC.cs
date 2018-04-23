@@ -85,7 +85,8 @@ namespace TNet
 			if (mi == null) return null;
 
 			var parameters = this.parameters;
-			if (parameters.Length == 1 && parameters[0].ParameterType == typeof(object[])) pars = new object[] { pars };
+			if (pars == null && mParamCount != 0) pars = new object[parameters.Length];
+			if (mParamCount == 1 && parameters[0].ParameterType == typeof(object[])) pars = new object[] { pars };
 
 			try
 			{
@@ -99,26 +100,29 @@ namespace TNet
 				}
 				return mi.Invoke(obj, pars);
 			}
-			catch (System.Exception ex)
+			catch (Exception ex)
 			{
-				if (ex.GetType() == typeof(System.NullReferenceException)) return null;
-
-				if (mTypes == null)
-				{
-					mTypes = new Type[mParamCount];
-					for (int i = 0; i < mParamCount; ++i) mTypes[i] = parameters[i].ParameterType;
-				}
+				if (ex.GetType() == typeof(NullReferenceException)) return null;
 
 				var tryAgain = false;
 
-				for (int i = 0; i < mParamCount; ++i)
+				if (mParamCount == pars.Length)
 				{
-					var passed = pars[i].GetType();
-
-					if (mTypes[i] != passed)
+					if (mTypes == null)
 					{
-						pars[i] = Serialization.CastValue(pars[i], mTypes[i]);
-						if (pars[i] != null) tryAgain = true;
+						mTypes = new Type[mParamCount];
+						for (int i = 0; i < mParamCount; ++i) mTypes[i] = parameters[i].ParameterType;
+					}
+
+					for (int i = 0; i < mParamCount; ++i)
+					{
+						var passed = (pars[i] != null) ? pars[i].GetType() : mTypes[i];
+
+						if (mTypes[i] != passed)
+						{
+							pars[i] = Serialization.CastValue(pars[i], mTypes[i]);
+							if (pars[i] != null) tryAgain = true;
+						}
 					}
 				}
 
@@ -131,7 +135,7 @@ namespace TNet
 						mAutoCast = true;
 						return retVal;
 					}
-					catch (System.Exception ex2) { ex = ex2; }
+					catch (Exception ex2) { ex = ex2; }
 				}
 
 				UnityTools.PrintException(ex, this, 0, mi.Name, pars);

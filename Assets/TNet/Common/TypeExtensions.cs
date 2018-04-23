@@ -69,7 +69,9 @@ namespace TNet
 				}
 				catch (Exception ex)
 				{
-					Tools.LogError(ex.Message);
+					var p = GameServer.currentPlayer;
+					if (p != null) p.LogError(ex.Message, ex.StackTrace, true);
+					else Tools.LogError(ex.Message);
 				}
 			}
 			return default(Type);

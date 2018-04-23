@@ -1036,6 +1036,34 @@ namespace TNet
 		static StreamReader mTempReader = null;
 
 		/// <summary>
+		/// Given an array of bytes, return a continuous ASCII string containing the encoded data.
+		/// </summary>
+
+		static public string EncodeAsString (byte[] bytes)
+		{
+			var sb = new StringBuilder();
+
+			for (int i = 0, imax = bytes.Length; i < imax; ++i)
+			{
+				int val = bytes[i];
+				sb.Append(DecimalToHexChar((val >> 4) & 0xF));
+				sb.Append(DecimalToHexChar(val & 0xF));
+			}
+			return sb.ToString();
+		}
+
+		/// <summary>
+		/// Given a previously encoded ASCII string, return its binary data.
+		/// </summary>
+
+		static public byte[] DecodeFromString (string s)
+		{
+			var bytes = new byte[s.Length / 2];
+			for (int i = 0, b = 0, imax = s.Length; i < imax; ++b, i += 2) bytes[b] = (byte)((HexToDecimal(s[i]) << 4) | HexToDecimal(s[i + 1]));
+			return bytes;
+		}
+
+		/// <summary>
 		/// Parse the string into an object, if possible.
 		/// </summary>
 
@@ -1063,11 +1091,8 @@ namespace TNet
 				}
 				else if (ch0 == '[' && ch1 == ']')
 				{
-					string s = line.Substring(1, line.Length - 2);
-					byte[] bytes = new byte[s.Length / 2];
-					for (int i = 0, b = 0, imax = s.Length; i < imax; ++b, i += 2)
-						bytes[b] = (byte)((HexToDecimal(s[i]) << 4) | HexToDecimal(s[i + 1]));
-					obj = bytes;
+					var s = line.Substring(1, line.Length - 2);
+					obj = DecodeFromString(s);
 					return true;
 				}
 				else if (ch0 == '(' && ch1 == ')')
@@ -1514,18 +1539,7 @@ namespace TNet
 			if (type == typeof(byte[]))
 			{
 				if (prefix) writer.Write(" = [");
-				byte[] bytes = (byte[])value;
-
-				StringBuilder sb = new StringBuilder();
-
-				for (int i = 0, imax = bytes.Length; i < imax; ++i)
-				{
-					int val = bytes[i];
-					sb.Append(DecimalToHexChar((val >> 4) & 0xF));
-					sb.Append(DecimalToHexChar(val & 0xF));
-				}
-
-				writer.Write(sb.ToString());
+				writer.Write(EncodeAsString((byte[])value));
 				writer.Write("]");
 				return true;
 			}

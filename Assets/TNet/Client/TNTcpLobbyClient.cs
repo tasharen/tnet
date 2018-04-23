@@ -4,7 +4,6 @@
 //-------------------------------------------------
 
 using System.Net;
-using System.IO;
 using UnityEngine;
 
 namespace TNet
@@ -13,7 +12,7 @@ namespace TNet
 	/// TCP-based lobby client, designed to communicate with the TcpLobbyServer.
 	/// </summary>
 
-	public class TNTcpLobbyClient : TNLobbyClient
+	public class TNTcpLobbyClient : LobbyClient
 	{
 		TcpProtocol mTcp = new TcpProtocol();
 		long mNextConnect = 0;
@@ -48,13 +47,17 @@ namespace TNet
 		{
 			Buffer buffer;
 			bool changed = false;
-			long time = System.DateTime.UtcNow.Ticks / 10000;
 
 			// Automatically try to connect and reconnect if not connected
-			if (mRemoteAddress != null && mTcp.stage == TcpProtocol.Stage.NotConnected && mNextConnect < time)
+			if (mRemoteAddress != null && mTcp.stage == TcpProtocol.Stage.NotConnected)
 			{
-				mNextConnect = time + 5000;
-				mTcp.Connect(mRemoteAddress);
+				long time = System.DateTime.UtcNow.Ticks / 10000;
+
+				if (mNextConnect < time)
+				{
+					mNextConnect = time + 5000;
+					mTcp.Connect(mRemoteAddress);
+				}
 			}
 
 			// TCP-based lobby
@@ -64,8 +67,8 @@ namespace TNet
 				{
 					try
 					{
-						BinaryReader reader = buffer.BeginReading();
-						Packet response = (Packet)reader.ReadByte();
+						var reader = buffer.BeginReading();
+						var response = (Packet)reader.ReadByte();
 
 						if (response == Packet.ResponseID)
 						{
@@ -88,7 +91,7 @@ namespace TNet
 						else if (response == Packet.ResponseServerList)
 						{
 							lock (knownServers.list) knownServers.list.Clear();
-							knownServers.ReadFrom(reader, time);
+							knownServers.ReadFrom(reader, System.DateTime.UtcNow.Ticks / 10000);
 							changed = true;
 							errorString = "";
 						}

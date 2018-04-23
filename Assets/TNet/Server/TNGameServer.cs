@@ -270,6 +270,7 @@ namespace TNet
 						mLocalClient = value;
 						mLocalPlayer = new TcpPlayer();
 						mLocalPlayer.id = 0;
+						mLocalPlayer.onClose = OnDC;
 						mLocalPlayer.name = "Guest";
 						mLocalPlayer.stage = TcpProtocol.Stage.Verifying;
 						mLocalPlayer.sendQueue = mLocalClient.receiveQueue;
@@ -472,6 +473,12 @@ namespace TNet
 #endif
 		}
 
+		/// <summary>
+		/// Current player whos packet is being processed.
+		/// </summary>
+
+		static public volatile TcpPlayer currentPlayer;
+
 #if !MODDING
 		/// <summary>
 		/// Thread that will be processing incoming data.
@@ -535,24 +542,24 @@ namespace TNet
 					{
 						if (buffer.size > 0)
 						{
-							TcpPlayer player = GetPlayer(ip);
+							currentPlayer = GetPlayer(ip);
 
-							if (player != null)
+							if (currentPlayer != null)
 							{
-								if (!player.udpIsUsable) player.udpIsUsable = true;
+								if (!currentPlayer.udpIsUsable) currentPlayer.udpIsUsable = true;
 
 								try
 								{
 #if SINGLE_THREADED
-									ProcessPlayerPacket(buffer, player, false);
+									ProcessPlayerPacket(buffer, currentPlayer, false);
 #else
-									if (ProcessPlayerPacket(buffer, player, false)) received = true;
+									if (ProcessPlayerPacket(buffer, currentPlayer, false)) received = true;
 #endif
 								}
 								catch (System.Exception ex)
 								{
 									Tools.LogError(ex.Message, ex.StackTrace, true);
-									RemovePlayer(player);
+									RemovePlayer(currentPlayer);
 								}
 							}
 							else if (buffer.size > 0)
@@ -567,16 +574,16 @@ namespace TNet
 									if (request == Packet.RequestActivateUDP)
 									{
 										int pid = reader.ReadInt32();
-										player = GetPlayer(pid);
+										currentPlayer = GetPlayer(pid);
 
 										// This message must arrive after RequestSetUDP which sets the UDP end point.
 										// We do an additional step here because in some cases UDP port can be changed
 										// by the router so that it appears that packets come from a different place.
-										if (player != null && player.udpEndPoint != null && player.udpEndPoint.Address == ip.Address)
+										if (currentPlayer != null && currentPlayer.udpEndPoint != null && currentPlayer.udpEndPoint.Address == ip.Address)
 										{
-											player.udpEndPoint = ip;
-											player.udpIsUsable = true;
-											mUdp.SendEmptyPacket(player.udpEndPoint);
+											currentPlayer.udpEndPoint = ip;
+											currentPlayer.udpIsUsable = true;
+											mUdp.SendEmptyPacket(currentPlayer.udpEndPoint);
 										}
 									}
 									else if (request == Packet.RequestPing)
@@ -589,11 +596,13 @@ namespace TNet
 								}
 								catch (System.Exception ex)
 								{
-									if (player != null) player.LogError(ex.Message, ex.StackTrace);
+									if (currentPlayer != null) currentPlayer.LogError(ex.Message, ex.StackTrace);
 									else Tools.LogError(ex.Message, ex.StackTrace);
-									RemovePlayer(player);
+									RemovePlayer(currentPlayer);
 								}
 							}
+
+							currentPlayer = null;
 						}
 						buffer.Recycle();
 					}
@@ -689,6 +698,7 @@ namespace TNet
 			player.id = 0;
 			player.name = "Guest";
 			player.stage = TcpProtocol.Stage.Verifying;
+			player.onClose = OnDC;
 			player.StartReceiving(socket);
 			mPlayerList.Add(player);
 			return player;
@@ -704,6 +714,7 @@ namespace TNet
 			player.id = 0;
 			player.name = "Guest";
 			player.custom = p;
+			player.onClose = OnDC;
 			player.stage = TcpProtocol.Stage.Verifying;
 			mPlayerList.Add(player);
 			return player;
@@ -742,47 +753,46 @@ namespace TNet
 		public void RemovePlayer (TcpPlayer p)
 		{
 #if !MODDING
-			if (p != null)
-			{
-#if UNITY_EDITOR
-				if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p);
-#endif
-#if STANDALONE || UNITY_EDITOR
-				if (p.id != 0) Tools.Log(p.name + " (" + p.address + "): Disconnected [" + p.id + "]");
-#endif
-				LeaveAllChannels(p);
-				mPlayerList.Remove(p);
-
-				if (p.udpEndPoint != null)
-				{
-					mDictionaryEP.Remove(p.udpEndPoint);
-					p.udpEndPoint = null;
-					p.udpIsUsable = false;
-				}
-
-				if (p.custom != null)
-				{
-					p.custom.OnDisconnect();
-					p.custom = null;
-				}
-
-				if (p.id != 0)
-				{
-					if (mPlayerDict.Remove(p.id))
-					{
-						if (lobbyLink != null) lobbyLink.SendUpdate(this);
-						if (onPlayerDisconnect != null) onPlayerDisconnect(p);
-					}
-
-					p.id = 0;
-				}
-
-				p.Release();
-				p.savePath = null;
-			}
+			if (p != null) p.Release();
 #endif
 		}
 
+		protected void OnDC (TcpProtocol tcp)
+		{
+#if !MODDING
+			var p = tcp as TcpPlayer;
+			if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p);
+
+			LeaveAllChannels(p);
+			mPlayerList.Remove(p);
+
+			if (p.udpEndPoint != null)
+			{
+				mDictionaryEP.Remove(p.udpEndPoint);
+				p.udpEndPoint = null;
+				p.udpIsUsable = false;
+			}
+
+			if (p.custom != null)
+			{
+				p.custom.OnDisconnect();
+				p.custom = null;
+			}
+
+			if (p.id != 0)
+			{
+				if (mPlayerDict.Remove(p.id))
+				{
+					if (lobbyLink != null) lobbyLink.SendUpdate(this);
+					if (onPlayerDisconnect != null) onPlayerDisconnect(p);
+				}
+
+				p.id = 0;
+			}
+
+			p.savePath = null;
+#endif
+		}
 		/// <summary>
 		/// Retrieve a player by their ID.
 		/// </summary>
@@ -959,8 +969,9 @@ namespace TNet
 			mBuffer = null;
 		}
 
-		protected List<TcpPlayer> mSentList = new List<TcpPlayer>();
-
+#if !MODDING
+		protected HashSet<TcpPlayer> mSentList = new HashSet<TcpPlayer>();
+#endif
 		/// <summary>
 		/// Send the outgoing buffer to all players in the same channels as the source player.
 		/// </summary>
@@ -970,7 +981,6 @@ namespace TNet
 			mBuffer.EndPacket();
 			if (mBuffer.size > 1024) reliable = true;
 			SendToOthers(mBuffer, source, exclude, reliable);
-			mSentList.Clear();
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -984,11 +994,11 @@ namespace TNet
 #if !MODDING
 			for (int b = 0; b < source.channels.size; ++b)
 			{
-				Channel ch = source.channels[b];
+				var ch = source.channels[b];
 
 				for (int i = 0; i < ch.players.size; ++i)
 				{
-					TcpPlayer p = (TcpPlayer)ch.players[i];
+					var p = (TcpPlayer)ch.players[i];
 
 					if (p != exclude && !mSentList.Contains(p))
 					{
@@ -1005,6 +1015,8 @@ namespace TNet
 					}
 				}
 			}
+
+			mSentList.Clear();
 #endif
 		}
 
@@ -1344,7 +1356,7 @@ namespace TNet
 			offset = buffer.EndTcpPacketStartingAt(offset);
 
 #if UNITY_EDITOR
-			if (buffer.size > 1000000)
+			if (buffer.size > 100000)
 			{
 				//Tools.WriteFile("dump.txt", buffer.buffer, false, false, buffer.size);
 				Debug.Log("Packet size: " + buffer.size.ToString("N0"));
@@ -1401,7 +1413,7 @@ namespace TNet
 			// If the player has not yet been verified, the first packet must be an ID request
 			if (player.stage == TcpProtocol.Stage.Verifying)
 			{
-				if (player.VerifyRequestID(reader, buffer, true))
+				if (player.VerifyRequestID(reader, buffer))
 				{
 #if DEBUG_PACKETS && !STANDALONE
 					UnityEngine.Debug.Log("Protocol verified");
@@ -1410,6 +1422,10 @@ namespace TNet
 
 					if (player.isAdmin || !mBan.Contains(player.name))
 					{
+						player.AssignID();
+#if STANDALONE || UNITY_EDITOR
+						Tools.Log(name + " (" + player.address + "): Connected [" + player.id + "]");
+#endif
 						mPlayerDict.Add(player.id, player);
 
 						BinaryWriter writer = player.BeginSend(Packet.ResponseID);
@@ -1494,6 +1510,24 @@ namespace TNet
 					player.EndSend();
 					break;
 				}
+				case Packet.RequestSendChat:
+				{
+					var pid = reader.ReadInt32();
+					var txt = reader.ReadString();
+
+					var writer = BeginSend(Packet.ResponseSendChat);
+					writer.Write(player.id);
+					writer.Write(txt);
+					writer.Write(pid != 0);
+
+					if (pid != 0)
+					{
+						var p = GetPlayer(pid);
+						if (p != null) EndSend(true, p);
+					}
+					else EndSendToOthers(player, null, true);
+					return true;
+				}
 				case Packet.RequestSetUDP:
 				{
 					int port = reader.ReadUInt16();
@@ -1556,7 +1590,7 @@ namespace TNet
 						break;
 					}
 
-					BinaryWriter writer = BeginSend(Packet.ResponseRenamePlayer);
+					var writer = BeginSend(Packet.ResponseRenamePlayer);
 					writer.Write(player.id);
 					writer.Write(player.name);
 					EndSendToOthers(player, null, true);
@@ -1596,8 +1630,8 @@ namespace TNet
 								player.dataNode = node;
 								player.saveNeeded = true;
 
-								Buffer buff = Buffer.Create();
-								BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
+								var buff = Buffer.Create();
+								var writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 								writer.Write(player.id);
 								writer.Write("");
 								writer.WriteObject(player.dataNode);
@@ -1769,8 +1803,8 @@ namespace TNet
 					// We want to record the player's login time so that we can automatically keep track of that player's /played time
 					player.dataNode.GetChild("Server", true).SetChild("lastSave", mTime);
 
-					Buffer buff = Buffer.Create();
-					BinaryWriter writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
+					var buff = Buffer.Create();
+					var writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 					writer.Write(player.id);
 					writer.Write("");
 					writer.WriteObject(player.dataNode);
@@ -2410,6 +2444,30 @@ namespace TNet
 					}
 					break;
 				}
+				case Packet.RequestValidate:
+				{
+					var propName = reader.ReadString();
+					var propValue = reader.ReadObject();
+
+					// Admins don't have to validate anything
+					if (player.isAdmin) break;
+
+					DataNode existing = null;
+
+					if (mServerData != null)
+					{
+						existing = mServerData.GetChild(propName);
+
+						// If the value matches, there is nothing that needs to be done
+						if (existing == null || existing.value == null) { if (propValue == null) break; }
+						else if (existing.value.Equals(propValue)) break;
+					}
+
+					// This point being reached means the values don't match
+					player.LogError("RequestValidate fail: " + propName + " = " + (existing != null && existing.value != null ? existing.value.ToString() : "null") + ", not " + propValue, null);
+					RemovePlayer(player);
+					return false;
+				}
 				default:
 				{
 					if (player.channels.size != 0 && requestByte < (int)Packet.UserPacket)
@@ -2450,6 +2508,7 @@ namespace TNet
 			}
 			else
 			{
+				// Steam ID validation
 				if (s.Length == 17 && s.StartsWith("7656"))
 				{
 					long sid;
@@ -2463,12 +2522,10 @@ namespace TNet
 						}
 					}
 				}
-
 #if STANDALONE
 				player.Log("Passed a ban check: " + s);
 #endif
-				if (player.aliases == null) player.aliases = new List<string>();
-				AddUnique(player.aliases, s);
+				player.AddAlias(s);
 				return true;
 			}
 #endif
@@ -2803,15 +2860,13 @@ namespace TNet
 
 					if (player.isAdmin)
 					{
-						player.Log("Deleting channel " + id);
-
 						Channel ch;
 
 						if (mChannelDict.TryGetValue(id, out ch))
 						{
 							for (int b = ch.players.size; b > 0;)
 							{
-								TcpPlayer p = (TcpPlayer)ch.players[--b];
+								var p = (TcpPlayer)ch.players[--b];
 
 								if (p != null)
 								{
@@ -2910,9 +2965,7 @@ namespace TNet
 
 #if !UNITY_WEBPLAYER && !UNITY_FLASH
 			if (mWriting || !isActive || string.IsNullOrEmpty(mFilename)) return;
-#if UNITY_EDITOR
 			if (mServerData != null && !mServerData.GetChild<bool>("save", true)) return;
-#endif
 #if STANDALONE
 			var timer = System.Diagnostics.Stopwatch.StartNew();
 #endif

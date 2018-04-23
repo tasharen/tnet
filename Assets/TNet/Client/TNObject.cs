@@ -877,7 +877,16 @@ namespace TNet
 #endif
 			}
 #if UNITY_EDITOR
-			else Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created in channel " + channelID);
+			else
+			{
+#if W2
+				var tile = ProceduralTerrain.GetTile(channelID);
+
+				if (tile != null) Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created on tile " + tile.ix + " " + tile.iz, tile.go);
+				else
+#endif
+				Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created in channel " + channelID);
+			}
 #endif
 		}
 
@@ -899,7 +908,16 @@ namespace TNet
 #endif
 			}
 #if UNITY_EDITOR
-			else Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
+			else
+			{
+#if W2
+				var tile = ProceduralTerrain.GetTile(channelID);
+
+				if (tile != null) Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created on tile " + tile.ix + " " + tile.iz, tile.go);
+				else
+#endif
+				Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
+			}
 #endif
 		}
 
@@ -1331,6 +1349,7 @@ namespace TNet
 
 		/// <summary>
 		/// Send a new remote function call to the specified player.
+		/// TODO: Like string.Format, this should have multi-parameter versions to avoid the 'params'-associated memory allocations.
 		/// </summary>
 
 		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)

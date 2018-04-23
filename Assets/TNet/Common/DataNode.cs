@@ -65,7 +65,7 @@ namespace TNet
 	[Serializable]
 	public class DataNode
 	{
-		public enum SaveType
+		[DoNotObfuscate] public enum SaveType
 		{
 			Text,
 			Binary,
@@ -527,11 +527,10 @@ namespace TNet
 
 		public DataNode Clone ()
 		{
-			DataNode copy = new DataNode(name);
+			var copy = new DataNode(name);
 			copy.mValue = mValue;
 			copy.mResolved = mResolved;
-			for (int i = 0; i < children.size; ++i)
-				copy.children.Add(children[i].Clone());
+			for (int i = 0; i < children.size; ++i) copy.children.Add(children[i].Clone());
 			return copy;
 		}
 

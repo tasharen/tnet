@@ -6,7 +6,6 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
-using System.Collections.Generic;
 using System.Threading;
 using System.Net;
 using System.Text;
@@ -263,11 +262,11 @@ namespace TNet
 					if (tc.stage != TcpProtocol.Stage.Connected) continue;
 
 					// Skip server links
-					long lastSendTime = tc.Get<long>("lastSend");
-					if (lastSendTime == 0) continue;
+					if (tc.id == 0) continue;
 
 					// List hasn't changed -- do nothing
-					if (lastSendTime >= mLastChange) continue;
+					long lastSendTime = tc.Get<long>("lastSend");
+					if (lastSendTime == 0 || lastSendTime >= mLastChange) continue;
 
 					// Too many clients: we want the updates to be infrequent
 					if (!mInstantUpdates && lastSendTime + 4000 > mTime) continue;
@@ -278,7 +277,7 @@ namespace TNet
 						lock (mList.list)
 						{
 							buffer = Buffer.Create();
-							BinaryWriter writer = buffer.BeginPacket(Packet.ResponseServerList);
+							var writer = buffer.BeginPacket(Packet.ResponseServerList);
 
 							int serverCount = mList.list.size;
 
@@ -331,15 +330,17 @@ namespace TNet
 			// TCP connections must be verified first to ensure that they are using the correct protocol
 			if (tc.stage == TcpProtocol.Stage.Verifying)
 			{
-				if (tc.VerifyRequestID(reader, buffer, false))
+				if (tc.VerifyRequestID(reader, buffer))
 				{
-					BinaryWriter writer = tc.BeginSend(Packet.ResponseID);
+					tc.AssignID();
+					var writer = tc.BeginSend(Packet.ResponseID);
 					writer.Write(TcpPlayer.version);
 					writer.Write(tc.id);
 					writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
 					tc.EndSend();
 					return true;
 				}
+
 				Tools.Print(tc.address + " has failed the verification step");
 				return false;
 			}
@@ -359,6 +360,43 @@ namespace TNet
 					if (ent != null) ent.recordTime = mTime;
 					return true;
 				}
+				case Packet.RequestSetAlias:
+				{
+					var s = reader.ReadString();
+
+					if (mBan.Contains(s))
+					{
+						tc.Log("FAILED a ban check: " + s);
+						return false;
+					}
+
+					// Steam ID validation
+					if (s.Length == 17 && s.StartsWith("7656"))
+					{
+						long sid;
+
+						if (long.TryParse(s, out sid))
+						{
+							if (sid > 76561199999999999)
+							{
+								tc.Log("FAILED a ban check: " + s);
+								return false;
+							}
+						}
+					}
+#if STANDALONE || UNITY_EDITOR
+					if (tc.aliases == null || tc.aliases.size == 0) Tools.Log(tc.name + " (" + tc.address + "): Connected [" + tc.id + "]");
+					tc.Log("Passed a ban check: " + s);
+#endif
+					tc.Set("lastSend", 1);
+					tc.AddAlias(s);
+					return true;
+				}
+				case Packet.RequestSetName:
+				{
+					tc.name = reader.ReadString();
+					return true;
+				}
 				case Packet.RequestServerList:
 				{
 					if (reader.ReadUInt16() != GameServer.gameID) return false;
@@ -367,11 +405,18 @@ namespace TNet
 				}
 				case Packet.RequestAddServer:
 				{
+					// Links don't need an ID
+					tc.id = 0;
+
 					if (reader.ReadUInt16() != GameServer.gameID) return false;
 					ServerList.Entry ent = new ServerList.Entry();
 					ent.ReadFrom(reader);
 
-					if (mBan.Count != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name))) return false;
+					if (mBan.Count != 0 && (mBan.Contains(ent.externalAddress.Address.ToString()) || IsBanned(ent.name)))
+					{
+						Tools.Print(tc.name + " has failed the ban check");
+						return false;
+					}
 
 					if (ent.externalAddress.Address.Equals(IPAddress.None) ||
 						ent.externalAddress.Address.Equals(IPAddress.IPv6None))
@@ -389,23 +434,39 @@ namespace TNet
 					RemoveServer(tc);
 					return true;
 				}
+				case Packet.RequestSendChat:
+				{
+					var pid = reader.ReadInt32();
+					var txt = reader.ReadString();
+					var buff = Buffer.Create();
+					var writer = buff.BeginPacket(Packet.ResponseSendChat);
+					writer.Write(tc.id);
+					writer.Write(tc.name);
+					writer.Write(txt);
+					writer.Write(pid != 0);
+					buff.EndPacket();
+					var ret = Send(buff, pid);
+					if (ret == 0) tc.SendError("Player not found");
+					buff.Recycle();
+					return true;
+				}
 				case Packet.Disconnect:
 				{
 					return false;
 				}
 				case Packet.RequestSaveFile:
 				{
-					string fileName = reader.ReadString();
-					byte[] data = reader.ReadBytes(reader.ReadInt32());
+					var fileName = reader.ReadString();
+					var data = reader.ReadBytes(reader.ReadInt32());
 					SaveFile(fileName, data);
 					return true;
 				}
 				case Packet.RequestLoadFile:
 				{
-					string fn = reader.ReadString();
-					byte[] data = LoadFile(fn);
+					var fn = reader.ReadString();
+					var data = LoadFile(fn);
 
-					BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
+					var writer = BeginSend(Packet.ResponseLoadFile);
 					writer.Write(fn);
 
 					if (data != null)
@@ -505,6 +566,30 @@ namespace TNet
 			Tools.Print(tc.address + " sent a packet not handled by the lobby server: " + request);
 #endif
 			return false;
+		}
+
+		/// <summary>
+		/// Send this packet to the specified player (or all players if 0).
+		/// </summary>
+
+		int Send (Buffer buff, int pid)
+		{
+			var count = 0;
+
+			for (int i = 0; i < mTcp.size; ++i)
+			{
+				var player = mTcp[i];
+				if (player.id == 0) continue;
+
+				// Skip clients that have not yet verified themselves
+				if (player.stage != TcpProtocol.Stage.Connected) continue;
+
+				// Skip server links
+				var lastSendTime = player.Get<long>("lastSend");
+				if (lastSendTime == 0) continue;
+				if (pid == 0 || player.id == pid) { player.SendTcpPacket(buff); ++count; }
+			}
+			return count;
 		}
 
 		/// <summary>

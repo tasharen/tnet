@@ -15,7 +15,7 @@ namespace TNet
 /// UDP-based lobby client, designed to communicate with the UdpLobbyServer.
 /// </summary>
 
-public class TNUdpLobbyClient : TNLobbyClient
+public class TNUdpLobbyClient : LobbyClient
 {
 	UdpProtocol mUdp = new UdpProtocol("Lobby Client");
 	Buffer mRequest;

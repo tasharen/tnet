@@ -49,7 +49,7 @@ namespace TNet
 
 		static public IPAddress defaultListenerInterface = IPAddress.Any;
 
-		public enum Stage
+		[DoNotObfuscate] public enum Stage
 		{
 			NotConnected,
 			Connecting,
@@ -440,6 +440,9 @@ namespace TNet
 		void CloseNotThreadSafe (bool notify)
 		{
 #if !MODDING
+#if STANDALONE || UNITY_EDITOR
+			if (id != 0) Tools.Log(name + " (" + address + "): Disconnected [" + id + "]");
+#endif
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
 			mSending = false;
@@ -493,8 +496,19 @@ namespace TNet
 				mReceiveBuffer.Recycle();
 				mReceiveBuffer = null;
 			}
+
+			if (onClose != null) onClose(this);
+
+			id = 0;
 #endif
 		}
+
+		/// <summary>
+		/// Callback triggered when the connection closes for any reason.
+		/// </summary>
+
+		public OnCloseCallback onClose;
+		public delegate void OnCloseCallback (TcpProtocol tcp);
 
 		/// <summary>
 		/// Release the buffers.
@@ -911,6 +925,12 @@ namespace TNet
 
 		bool ProcessBuffer (byte[] bytes, int offset, int byteCount)
 		{
+			if (offset + byteCount > bytes.Length)
+			{
+				LogError("ProcessBuffer(" + bytes.Length + " bytes, offset " + offset + ", count " + byteCount);
+				return false;
+			}
+
 			if (mReceiveBuffer == null)
 			{
 				// Create a new packet buffer
@@ -1156,7 +1176,7 @@ namespace TNet
 		/// Verify the connection. Returns 'true' if successful.
 		/// </summary>
 
-		public bool VerifyRequestID (BinaryReader reader, Buffer buffer, bool uniqueID)
+		public bool VerifyRequestID (BinaryReader reader, Buffer buffer)
 		{
 #if !MODDING
 			var request = (Packet)reader.ReadByte();
@@ -1167,20 +1187,21 @@ namespace TNet
 
 				if (theirVer == version)
 				{
-					if (uniqueID) lock (mLock) { id = ++mPlayerCounter; }
-					else id = 0;
 					name = reader.ReadString();
 					dataNode = reader.ReadDataNode();
 					stage = TcpProtocol.Stage.Connected;
-#if STANDALONE || UNITY_EDITOR
-					if (id != 0) Tools.Log(name + " (" + address + "): Connected [" + id + "]");
-#endif
 					return true;
 				}
 			}
 #endif
 			return false;
 		}
+
+		/// <summary>
+		/// Assign an ID to this player.
+		/// </summary>
+
+		public void AssignID () { if (id == 0) lock (mLock) { id = ++mPlayerCounter; } }
 
 		/// <summary>
 		/// Verify the connection. Returns 'true' if successful.

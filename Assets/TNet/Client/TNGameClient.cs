@@ -155,6 +155,21 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Request the server-side validation of the specified property.
+		/// </summary>
+
+		public void Validate (string name, object val)
+		{
+			if (isConnected)
+			{
+				var writer = BeginSend(Packet.RequestValidate);
+				writer.Write(name);
+				writer.WriteObject(val);
+				EndSend(true);
+			}
+		}
+
+		/// <summary>
 		/// Channels the player belongs to. Don't modify this list.
 		/// </summary>
 
@@ -354,7 +369,7 @@ namespace TNet
 #if !MODDING
 					if (isConnected)
 					{
-						BinaryWriter writer = BeginSend(Packet.RequestSetName);
+						var writer = BeginSend(Packet.RequestSetName);
 						writer.Write(value);
 						EndSend();
 					}
@@ -438,7 +453,7 @@ namespace TNet
 
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					Channel ch = mChannels[i];
+					var ch = mChannels[i];
 					if (ch.id == channelID) return true;
 				}
 			}
@@ -455,7 +470,7 @@ namespace TNet
 			{
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					Channel ch = mChannels[i];
+					var ch = mChannels[i];
 					if (ch.id == channelID) return ch.host;
 				}
 			}
@@ -677,42 +692,50 @@ namespace TNet
 		public void Disconnect ()
 		{
 #if !MODDING
-			if (mLocalServer != null)
-			{
-				if (onLeaveChannel != null)
-				{
-					while (mChannels.size > 0)
-					{
-						int index = mChannels.size - 1;
-						Channel ch = mChannels[index];
-						mChannels.RemoveAt(index);
-						onLeaveChannel(ch.id);
-					}
-				}
-
-				mChannels.Clear();
-				mGetChannelsCallbacks.Clear();
-				mDictionary.Clear();
-				mTcp.Close(false);
-				mLoadFiles.Clear();
-				mGetFiles.Clear();
-				mJoining.Clear();
-				mIsAdmin = false;
-				mLocalServer.localClient = null;
-				mLocalServer = null;
-				mConfig = new DataNode("Version", Player.version);
-				mOnExport.Clear();
-				mOnImport.Clear();
-
-#if !UNITY_WEBPLAYER
-				mUdp.Stop();
-#endif
-				if (onDisconnect != null) onDisconnect();
-			}
+			if (mLocalServer != null) DisconnectNow();
 			else mTcp.Disconnect();
 #endif
 		}
 
+#if !MODDING
+		void DisconnectNow ()
+		{
+			if (onLeaveChannel != null)
+			{
+				while (mChannels.size > 0)
+				{
+					int index = mChannels.size - 1;
+					var ch = mChannels[index];
+					mChannels.RemoveAt(index);
+					onLeaveChannel(ch.id);
+				}
+			}
+
+			mChannels.Clear();
+			mGetChannelsCallbacks.Clear();
+			mDictionary.Clear();
+			mTcp.Close(false);
+			mLoadFiles.Clear();
+			mGetFiles.Clear();
+			mJoining.Clear();
+			mIsAdmin = false;
+			mOnExport.Clear();
+			mOnImport.Clear();
+			mMyTime = 0;
+
+			if (mLocalServer != null)
+			{
+				mLocalServer.localClient = null;
+				mLocalServer = null;
+			}
+
+#if !UNITY_WEBPLAYER
+			mUdp.Stop();
+#endif
+			if (onDisconnect != null) onDisconnect();
+			mConfig = new DataNode("Version", Player.version);
+		}
+#endif
 		/// <summary>
 		/// Start listening to incoming UDP packets on the specified port.
 		/// </summary>
@@ -882,7 +905,7 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestDeleteChannel);
+				var writer = BeginSend(Packet.RequestDeleteChannel);
 				writer.Write(id);
 				writer.Write(disconnect);
 				EndSend();
@@ -899,7 +922,7 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestSetPlayerLimit);
+				var writer = BeginSend(Packet.RequestSetPlayerLimit);
 				writer.Write(channelID);
 				writer.Write((ushort)max);
 				EndSend();
@@ -916,7 +939,7 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestLoadLevel);
+				var writer = BeginSend(Packet.RequestLoadLevel);
 				writer.Write(channelID);
 				writer.Write(levelName);
 				EndSend();
@@ -935,7 +958,7 @@ namespace TNet
 #if !MODDING
 			if (isConnected && GetHost(channelID) == mTcp)
 			{
-				BinaryWriter writer = BeginSend(Packet.RequestSetHost);
+				var writer = BeginSend(Packet.RequestSetHost);
 				writer.Write(channelID);
 				writer.Write(player.id);
 				EndSend();
@@ -1038,6 +1061,20 @@ namespace TNet
 #endif
 		}
 
+		/// <summary>
+		/// Send out a chat message.
+		/// </summary>
+
+		public void SendChat (string text, Player target = null)
+		{
+#if !MODDING
+			var writer = BeginSend(Packet.RequestSendChat);
+			writer.Write(target != null ? target.id : 0);
+			writer.Write(text);
+			EndSend();
+#endif
+		}
+
 #if USE_MAX_PACKET_TIME && !MODDING
 		[System.NonSerialized] System.Diagnostics.Stopwatch mSw;
 #endif
@@ -1048,7 +1085,22 @@ namespace TNet
 		public void ProcessPackets ()
 		{
 #if !MODDING
-			mMyTime = DateTime.UtcNow.Ticks / 10000;
+			var time = DateTime.UtcNow.Ticks / 10000;
+
+			// If the time differs by more than 30 seconds, bail out. This prevents players from modifying their client time
+			// and causing potential problems when the game is based on TNManager.serverTime-based time.
+			if (mMyTime != 0)
+			{
+				var delta = time - mMyTime;
+
+				if (delta < 0 || delta > 30000)
+				{
+					Disconnect();
+					return;
+				}
+			}
+
+			mMyTime = time;
 
 			// Request pings every so often, letting the server know we're still here.
 			if (mLocalServer != null)
@@ -1226,6 +1278,14 @@ namespace TNet
 					reader.ReadString(); // Skip the player name
 					int channelID = reader.ReadInt32();
 					if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
+					break;
+				}
+				case Packet.ResponseSendChat:
+				{
+					var player = GetPlayer(reader.ReadInt32());
+					var msg = reader.ReadString();
+					var prv = reader.ReadBoolean();
+					if (onChat != null) onChat(player, msg, prv);
 					break;
 				}
 				case Packet.ResponseSetPlayerData:
@@ -1539,37 +1599,7 @@ namespace TNet
 				}
 				case Packet.Disconnect:
 				{
-					if (onLeaveChannel != null)
-					{
-						while (mChannels.size > 0)
-						{
-							int index = mChannels.size - 1;
-							Channel ch = mChannels[index];
-							mChannels.RemoveAt(index);
-							onLeaveChannel(ch.id);
-						}
-					}
-
-					mChannels.Clear();
-					mGetChannelsCallbacks.Clear();
-					mDictionary.Clear();
-					mTcp.Close(false);
-					mLoadFiles.Clear();
-					mGetFiles.Clear();
-					mJoining.Clear();
-					mIsAdmin = false;
-
-					if (mLocalServer != null)
-					{
-						mLocalServer.localClient = null;
-						mLocalServer = null;
-					}
-
-#if !UNITY_WEBPLAYER
-					mUdp.Stop();
-#endif
-					if (onDisconnect != null) onDisconnect();
-					mConfig = new DataNode("Version", Player.version);
+					DisconnectNow();
 					break;
 				}
 				case Packet.ResponseGetFileList:
@@ -1643,18 +1673,28 @@ namespace TNet
 				}
 				case Packet.ResponseSetServerData:
 				{
-					string path = reader.ReadString();
-					object obj = reader.ReadObject();
+					if (!ValidateHash())
+					{
+#if W2
+						Game.MAC("Edited the server configuration in memory");
+#else
+						Disconnect();
+#endif
+						break;
+					}
+
+					var path = reader.ReadString();
+					var obj = reader.ReadObject();
 
 					if (obj != null)
 					{
-						DataNode node = mConfig.SetHierarchy(path, obj);
+						var node = mConfig.SetHierarchy(path, obj);
 						mDataHash = mConfig.CalculateHash();
 						if (onSetServerData != null) onSetServerData(path, node);
 					}
 					else
 					{
-						DataNode node = mConfig.RemoveHierarchy(path);
+						var node = mConfig.RemoveHierarchy(path);
 						mDataHash = mConfig.CalculateHash();
 						if (onSetServerData != null) onSetServerData(path, node);
 					}
@@ -2048,7 +2088,7 @@ namespace TNet
 #endif
 					}
 #if UNITY_EDITOR
-					else Debug.LogError("RFC " + funcID + " (" + funcName + ") can't be found", obj);
+					else Debug.LogWarning("RFC " + funcID + " (" + funcName + ") can't be found", obj);
 #endif
 				}
 			}

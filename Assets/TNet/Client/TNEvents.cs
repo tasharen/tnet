@@ -162,5 +162,12 @@ namespace TNet
 
 		public OnForwardedPacket onForwardedPacket;
 		public delegate void OnForwardedPacket (int channelID, BinaryReader reader);
+
+		/// <summary>
+		/// Notification of a chat message arriving.
+		/// </summary>
+
+		public OnChatPacket onChat;
+		public delegate void OnChatPacket (Player player, string msg, bool isPrivate);
 	}
 }
