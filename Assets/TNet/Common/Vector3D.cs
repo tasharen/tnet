@@ -370,7 +370,17 @@ namespace TNet
 			return Math.Sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 		}
 
+		static public float Magnitude (Vector3 a)
+		{
+			return Mathf.Sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+		}
+
 		static public double SqrMagnitude (Vector3D a)
+		{
+			return a.x * a.x + a.y * a.y + a.z * a.z;
+		}
+
+		static public float SqrMagnitude (Vector3 a)
 		{
 			return a.x * a.x + a.y * a.y + a.z * a.z;
 		}

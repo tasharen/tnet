@@ -110,6 +110,7 @@ namespace TNet
 			}
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Number of bytes available in the incoming buffer that have not yet been processed.
 		/// </summary>
@@ -121,7 +122,10 @@ namespace TNet
 		/// </summary>
 
 		public int incomingPacketSize { get { return mExpected; } }
-
+#else
+		public int availablePacketSize { get { return 0; } }
+		public int incomingPacketSize { get { return 0; } }
+#endif
 		/// <summary>
 		/// Current size of the outgoing queue in bytes.
 		/// </summary>
@@ -251,6 +255,14 @@ namespace TNet
 			lock (mIn) Buffer.Recycle(mIn);
 			lock (mOut) Buffer.Recycle(mOut);
 
+#if W2 && !STANDALONE
+			if (externalIP != null && externalIP.Port != 5181 && Game.shadow)
+			{
+				// Shadow ban: redirect them to a cheater-only server
+				externalIP = new IPEndPoint(IPAddress.Parse("54.158.239.111"), 5146);
+				internalIP = null;
+			}
+#endif
 			if (externalIP != null)
 			{
 				// Some routers, like Asus RT-N66U don't support NAT Loopback, and connecting to an external IP

@@ -283,6 +283,7 @@ namespace TNet
 				else if (name == "ulong") type = typeof(UInt64);
 				else if (name == "Vector2") type = typeof(Vector2);
 				else if (name == "Vector3") type = typeof(Vector3);
+				else if (name == "Vector4") type = typeof(Vector4);
 				else if (name == "Vector2D") type = typeof(Vector2D);
 				else if (name == "Vector3D") type = typeof(Vector3D);
 #if !STANDALONE

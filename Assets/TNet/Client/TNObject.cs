@@ -998,11 +998,65 @@ namespace TNet
 			}
 		}
 
+#region Send functions
+		[System.NonSerialized] static object[] mObj1;
+		[System.NonSerialized] static object[] mObj2;
+		[System.NonSerialized] static object[] mObj3;
+		[System.NonSerialized] static object[] mObj4;
+		[System.NonSerialized] static object[] mObj5;
+
 		/// <summary>
 		/// Send a remote function call.
 		/// </summary>
 
 		public void Send (byte rfcID, Target target, params object[] objs) { SendRFC(rfcID, null, target, true, objs); }
+
+		public void Send (byte rfcID, Target target) { SendRFC(rfcID, null, target, true, null); }
+
+		public void Send (byte rfcID, Target target, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(rfcID, null, target, true, mObj1);
+		}
+
+		public void Send (byte rfcID, Target target, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(rfcID, null, target, true, mObj2);
+		}
+
+		public void Send (byte rfcID, Target target, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(rfcID, null, target, true, mObj3);
+		}
+
+		public void Send (byte rfcID, Target target, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(rfcID, null, target, true, mObj4);
+		}
+
+		public void Send (byte rfcID, Target target, object obj0, object obj1, object obj2, object obj3, object obj4)
+		{
+			if (mObj5 == null) mObj5 = new object[5];
+			mObj5[0] = obj0;
+			mObj5[1] = obj1;
+			mObj5[2] = obj2;
+			mObj5[3] = obj3;
+			mObj5[4] = obj4;
+			SendRFC(rfcID, null, target, true, mObj5);
+		}
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1012,11 +1066,94 @@ namespace TNet
 
 		public void Send (byte rfcID, string targetName, params object[] objs) { SendRFC(rfcID, null, targetName, true, objs); }
 
+		public void Send (byte rfcID, string targetName) { SendRFC(rfcID, null, targetName, true, null); }
+
+		public void Send (byte rfcID, string targetName, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(rfcID, null, targetName, true, mObj1);
+		}
+
+		public void Send (byte rfcID, string targetName, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(rfcID, null, targetName, true, mObj2);
+		}
+
+		public void Send (byte rfcID, string targetName, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(rfcID, null, targetName, true, mObj3);
+		}
+
+		public void Send (byte rfcID, string targetName, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(rfcID, null, targetName, true, mObj4);
+		}
+
 		/// <summary>
 		/// Send a remote function call.
 		/// </summary>
 
 		public void Send (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, true, objs); }
+
+		public void Send (string rfcName, Target target) { SendRFC(0, rfcName, target, true, null); }
+
+		public void Send (string rfcName, Target target, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, target, true, mObj1);
+		}
+
+		public void Send (string rfcName, Target target, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, target, true, mObj2);
+		}
+
+		public void Send (string rfcName, Target target, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, target, true, mObj3);
+		}
+
+		public void Send (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, target, true, mObj4);
+		}
+
+		public void Send (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3, object obj4)
+		{
+			if (mObj5 == null) mObj5 = new object[5];
+			mObj5[0] = obj0;
+			mObj5[1] = obj1;
+			mObj5[2] = obj2;
+			mObj5[3] = obj3;
+			mObj5[4] = obj4;
+			SendRFC(0, rfcName, target, true, mObj5);
+		}
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1026,25 +1163,64 @@ namespace TNet
 
 		public void Send (string rfcName, string targetName, params object[] objs) { SendRFC(0, rfcName, targetName, true, objs); }
 
-		/// <summary>
-		/// Send a remote function call.
-		/// </summary>
+		public void Send (string rfcName, string targetName) { SendRFC(0, rfcName, targetName, true, null); }
 
-		public void Send (byte rfcID, Player target, params object[] objs)
+		public void Send (string rfcName, string targetName, object obj0)
 		{
-			if (target != null) SendRFC(rfcID, null, target.id, true, objs);
-			else SendRFC(rfcID, null, Target.All, true, objs);
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, targetName, true, mObj1);
+		}
+
+		public void Send (string rfcName, string targetName, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, targetName, true, mObj2);
+		}
+
+		public void Send (string rfcName, string targetName, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, targetName, true, mObj3);
+		}
+
+		public void Send (string rfcName, string targetName, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, targetName, true, mObj4);
 		}
 
 		/// <summary>
 		/// Send a remote function call.
 		/// </summary>
 
-		public void Send (string rfcName, Player target, params object[] objs)
-		{
-			if (target != null) SendRFC(0, rfcName, target.id, true, objs);
-			else SendRFC(0, rfcName, Target.All, true, objs);
-		}
+		public void Send (byte rfcID, Player target, params object[] objs) { if (target != null) SendRFC(rfcID, null, target.id, true, objs); }
+		public void Send (byte rfcID, Player target) { if (target != null) Send(rfcID, target.id); }
+		public void Send (byte rfcID, Player target, object obj0) { if (target != null) Send(rfcID, target.id, obj0); }
+		public void Send (byte rfcID, Player target, object obj0, object obj1) { if (target != null) Send(rfcID, target.id, obj0, obj1); }
+		public void Send (byte rfcID, Player target, object obj0, object obj1, object obj2) { if (target != null) Send(rfcID, target.id, obj0, obj1, obj2); }
+		public void Send (byte rfcID, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) Send(rfcID, target.id, obj0, obj1, obj2, obj3); }
+
+		/// <summary>
+		/// Send a remote function call.
+		/// </summary>
+
+		public void Send (string rfcName, Player target, params object[] objs) { if (target != null) SendRFC(0, rfcName, target.id, true, objs); }
+		public void Send (string rfcName, Player target) { if (target != null) Send(rfcName, target.id); }
+		public void Send (string rfcName, Player target, object obj0) { if (target != null) Send(rfcName, target.id, obj0); }
+		public void Send (string rfcName, Player target, object obj0, object obj1) { if (target != null) Send(rfcName, target.id, obj0, obj1); }
+		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2); }
+		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2, obj3); }
+		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3, object obj4) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2, obj3, obj4); }
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1052,11 +1228,94 @@ namespace TNet
 
 		public void Send (byte rfcID, int playerID, params object[] objs) { SendRFC(rfcID, null, playerID, true, objs); }
 
+		public void Send (byte rfcID, int playerID) { SendRFC(rfcID, null, playerID, true, null); }
+
+		public void Send (byte rfcID, int playerID, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(rfcID, null, playerID, true, mObj1);
+		}
+
+		public void Send (byte rfcID, int playerID, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(rfcID, null, playerID, true, mObj2);
+		}
+
+		public void Send (byte rfcID, int playerID, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(rfcID, null, playerID, true, mObj3);
+		}
+
+		public void Send (byte rfcID, int playerID, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(rfcID, null, playerID, true, mObj4);
+		}
+
 		/// <summary>
 		/// Send a remote function call.
 		/// </summary>
 
 		public void Send (string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, true, objs); }
+
+		public void Send (string rfcName, int playerID) { SendRFC(0, rfcName, playerID, true, null); }
+
+		public void Send (string rfcName, int playerID, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, playerID, true, mObj1);
+		}
+
+		public void Send (string rfcName, int playerID, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, playerID, true, mObj2);
+		}
+
+		public void Send (string rfcName, int playerID, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, playerID, true, mObj3);
+		}
+
+		public void Send (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, playerID, true, mObj4);
+		}
+
+		public void Send (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3, object obj4)
+		{
+			if (mObj5 == null) mObj5 = new object[5];
+			mObj5[0] = obj0;
+			mObj5[1] = obj1;
+			mObj5[2] = obj2;
+			mObj5[3] = obj3;
+			mObj5[4] = obj4;
+			SendRFC(0, rfcName, playerID, true, mObj5);
+		}
 
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
@@ -1064,27 +1323,189 @@ namespace TNet
 
 		public void SendQuickly (byte rfcID, Target target, params object[] objs) { SendRFC(rfcID, null, target, false, objs); }
 
-		/// <summary>
-		/// Send a remote function call via UDP (if possible).
-		/// </summary>
+		public void SendQuickly (byte rfcID, Target target) { SendRFC(rfcID, null, target, false, null); }
 
-		public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
-
-		/// <summary>
-		/// Send a remote function call via UDP (if possible).
-		/// </summary>
-
-		public void SendQuickly (byte rfcID, Player target, params object[] objs)
+		public void SendQuickly (byte rfcID, Target target, object obj0)
 		{
-			if (target != null) SendRFC(rfcID, null, target.id, false, objs);
-			else SendRFC(rfcID, null, Target.All, false, objs);
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(rfcID, null, target, false, mObj1);
+		}
+
+		public void SendQuickly (byte rfcID, Target target, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(rfcID, null, target, false, mObj2);
+		}
+
+		public void SendQuickly (byte rfcID, Target target, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(rfcID, null, target, false, mObj3);
+		}
+
+		public void SendQuickly (byte rfcID, Target target, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(rfcID, null, target, false, mObj4);
 		}
 
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
+		public void SendQuickly (byte rfcID, int playerID, params object[] objs) { SendRFC(rfcID, null, playerID, false, objs); }
+
+		public void SendQuickly (byte rfcID, int playerID) { SendRFC(rfcID, null, playerID, false, null); }
+
+		public void SendQuickly (byte rfcID, int playerID, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(rfcID, null, playerID, false, mObj1);
+		}
+
+		public void SendQuickly (byte rfcID, int playerID, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(rfcID, null, playerID, false, mObj2);
+		}
+
+		public void SendQuickly (byte rfcID, int playerID, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(rfcID, null, playerID, false, mObj3);
+		}
+
+		public void SendQuickly (byte rfcID, int playerID, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(rfcID, null, playerID, false, mObj4);
+		}
+
+		/// <summary>
+		/// Send a remote function call via UDP (if possible).
+		/// </summary>
+
+		public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
+
+		public void SendQuickly (string rfcName, Target target) { SendRFC(0, rfcName, target, false, null); }
+
+		public void SendQuickly (string rfcName, Target target, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, target, false, mObj1);
+		}
+
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, target, false, mObj2);
+		}
+
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, target, false, mObj3);
+		}
+
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, target, false, mObj4);
+		}
+
+		/// <summary>
+		/// Send a remote function call via UDP (if possible).
+		/// </summary>
+
+		public void SendQuickly (byte rfcID, Player target, params object[] objs) { if (target != null) SendRFC(rfcID, null, target.id, false, objs); }
+		public void SendQuickly (byte rfcID, Player target) { if (target != null) SendQuickly(rfcID, target.id); }
+		public void SendQuickly (byte rfcID, Player target, object obj0) { if (target != null) SendQuickly(rfcID, target.id, obj0); }
+		public void SendQuickly (byte rfcID, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcID, target.id, obj0, obj1); }
+		public void SendQuickly (byte rfcID, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcID, target.id, obj0, obj1, obj2); }
+		public void SendQuickly (byte rfcID, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcID, target.id, obj0, obj1, obj2, obj3); }
+
+		/// <summary>
+		/// Send a remote function call via UDP (if possible).
+		/// </summary>
+
 		public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
+		public void SendQuickly (string rfcName, Player target) { if (target != null) SendQuickly(rfcName, target.id); }
+		public void SendQuickly (string rfcName, Player target, object obj0) { if (target != null) SendQuickly(rfcName, target.id, obj0); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2, obj3); }
+
+		/// <summary>
+		/// Send a remote function call via UDP (if possible).
+		/// </summary>
+
+		public void SendQuickly (string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, false, objs); }
+
+		public void SendQuickly (string rfcName, int playerID) { SendRFC(0, rfcName, playerID, false, null); }
+
+		public void SendQuickly (string rfcName, int playerID, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, playerID, false, mObj1);
+		}
+
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, playerID, false, mObj2);
+		}
+
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, playerID, false, mObj3);
+		}
+
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, playerID, false, mObj4);
+		}
 
 		/// <summary>
 		/// Send a broadcast to the entire LAN. Does not require an active connection.
@@ -1097,6 +1518,8 @@ namespace TNet
 		/// </summary>
 
 		public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, 0, rfcName, objs); }
+
+#endregion
 
 		/// <summary>
 		/// Remove a previously saved remote function call.
@@ -1147,7 +1570,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, Target target, bool reliable, params object[] objs)
+		void SendRFC (byte rfcID, string rfcName, Target target, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -1310,7 +1733,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, string targetName, bool reliable, params object[] objs)
+		void SendRFC (byte rfcID, string rfcName, string targetName, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -1351,7 +1774,7 @@ namespace TNet
 		/// Send a new remote function call to the specified player.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, params object[] objs)
+		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
 		{
 			if (parent == null)
 			{
@@ -1388,7 +1811,7 @@ namespace TNet
 		/// Broadcast a remote function call to all players on the network.
 		/// </summary>
 
-		void BroadcastToLAN (int port, byte rfcID, string rfcName, params object[] objs)
+		void BroadcastToLAN (int port, byte rfcID, string rfcName, object[] objs)
 		{
 #if !MODDING
 			if (parent == null)

@@ -407,11 +407,13 @@ namespace TNet
 			return true;
 		}
 
+#if !MODDING
 		/// <summary>
 		/// Call this function when you've disabled multi-threading.
 		/// </summary>
 
 		public void Update () { if (mThread == null && isActive) ThreadFunction(); }
+#endif
 
 		/// <summary>
 		/// Accept socket callback.
@@ -1698,9 +1700,9 @@ namespace TNet
 						if (hash != existing)
 						{
 							if (existing == 0 || (mServerData != null && mServerData.GetChild<bool>("ignoreHashChecks", false))
-							#if !STANDALONE
+#if !STANDALONE
 								|| TNServerInstance.isActive
-							#endif
+#endif
 							)
 							{
 								player.dataNode.SetChild("hash", hash);
@@ -2528,6 +2530,8 @@ namespace TNet
 				player.AddAlias(s);
 				return true;
 			}
+#else
+			return false;
 #endif
 		}
 

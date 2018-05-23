@@ -287,10 +287,22 @@ namespace TNet
 		static public int sentPackets { get { return mInstance != null ? mInstance.mClient.sentPackets : 0; } }
 
 		/// <summary>
+		/// How many bytes were sent in the last second.
+		/// </summary>
+
+		static public int sentBytes { get { return mInstance != null ? mInstance.mClient.sentBytes : 0; } }
+
+		/// <summary>
 		/// How many packets have been received in the last second.
 		/// </summary>
 
 		static public int receivedPackets { get { return mInstance != null ? mInstance.mClient.receivedPackets : 0; } }
+
+		/// <summary>
+		/// How many bytes have been received in the last second.
+		/// </summary>
+
+		static public int receivedBytes { get { return mInstance != null ? mInstance.mClient.receivedBytes : 0; } }
 
 		/// <summary>
 		/// Immediately reset the packet count. Calling this isn't necessary as they get updated once per second anyway.
@@ -715,7 +727,8 @@ namespace TNet
 				{
 #if COUNT_PACKETS
 					var sb = new System.Text.StringBuilder();
-					sb.Append("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+					sb.Append("[TNet] Packets in the last second:\nSent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
+						receivedPackets + " (" + receivedBytes.ToString("N0") + " bytes)");
 
 					foreach (var ent in TNObject.lastSentDictionary)
 					{
@@ -727,7 +740,8 @@ namespace TNet
 
 					Debug.LogWarning(sb.ToString());
 #else
-					Debug.LogWarning("[TNet] Packets in the last second -- sent: " + sentPackets + ", received: " + receivedPackets);
+					Debug.LogWarning("[TNet] Packets in the last second:\nSent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
+						receivedPackets + " (" + receivedBytes.ToString("N0") + " bytes)");
 #endif
 					ResetPacketCount();
 				}
@@ -738,7 +752,6 @@ namespace TNet
 		public delegate void ProcessPacketsFunc ();
 #endif
 
-#if UNITY_EDITOR
 		/// <summary>
 		/// Server configuration is set by administrators.
 		/// In most cases you should use GetServerData and SetServerData functions instead.
@@ -758,7 +771,6 @@ namespace TNet
 		}
 
 		static DataNode mDummyNode = new DataNode("Version", Player.version);
-#endif
 
 		/// <summary>
 		/// Retrieve the specified server option.

@@ -85,12 +85,13 @@ namespace TNet
 
 #if !MODDING
 		long mPingTime = 0;
-		int mCountReceived = 0;
+		int mReceivedPacketCount = 0, mReceivedBytesCount = 0;
 		long mNextReset = 0;
 		bool mCanPing = false;
 #endif
 		// Used to keep track of how many packets get sent / received per second
-		int mSent = 0, mReceived = 0, mCountSent = 0;
+		int mSentPackets = 0, mSentBytes = 0, mReceivedPackets = 0, mReceivedBytes = 0;
+		int mSentPacketCount = 0, mSentBytesCount = 0;
 
 		// Last ping, and whether we can ping again
 		int mPing = 0;
@@ -191,13 +192,25 @@ namespace TNet
 		/// How many packets were sent in the last second.
 		/// </summary>
 
-		public int sentPackets { get { return mSent; } }
+		public int sentPackets { get { return mSentPackets; } }
+
+		/// <summary>
+		/// How many bytes were sent in the last second.
+		/// </summary>
+
+		public int sentBytes { get { return mSentBytes; } }
 
 		/// <summary>
 		/// How many packets have been received in the last second.
 		/// </summary>
 
-		public int receivedPackets { get { return mReceived; } }
+		public int receivedPackets { get { return mReceivedPackets; } }
+
+		/// <summary>
+		/// How many bytes have been received in the last second.
+		/// </summary>
+
+		public int receivedBytes { get { return mReceivedBytes; } }
 
 		/// <summary>
 		/// Whether the client is currently connected to the server.
@@ -313,7 +326,6 @@ namespace TNet
 			}
 		}
 
-#if UNITY_EDITOR
 		/// <summary>
 		/// Server data associated with the connected server. Don't try to change it manually.
 		/// </summary>
@@ -338,7 +350,6 @@ namespace TNet
 				}
 			}
 		}
-#endif
 
 		/// <summary>
 		/// Return the local player.
@@ -578,8 +589,8 @@ namespace TNet
 		public void EndSend (bool forced = false)
 		{
 			if (mBuffer == null) return;
-			++mCountSent;
-			mBuffer.EndPacket();
+			++mSentPacketCount;
+			mSentBytesCount += mBuffer.EndPacket();
 			if (isActive || forced) mTcp.SendTcpPacket(mBuffer);
 			mBuffer.Recycle();
 			mBuffer = null;
@@ -592,8 +603,8 @@ namespace TNet
 		public void EndSend (int channelID, bool reliable)
 		{
 			if (mBuffer == null) return;
-			++mCountSent;
-			mBuffer.EndPacket();
+			++mSentPacketCount;
+			mSentBytesCount += mBuffer.EndPacket();
 
 			if (isActive)
 			{
@@ -619,8 +630,8 @@ namespace TNet
 		public void EndSend (int port)
 		{
 			if (mBuffer == null) return;
-			++mCountSent;
-			mBuffer.EndPacket();
+			++mSentPacketCount;
+			mSentBytesCount += mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER && !MODDING
 			if (isActive) mUdp.Broadcast(mBuffer, port);
 #endif
@@ -635,8 +646,8 @@ namespace TNet
 		public void EndSend (IPEndPoint target)
 		{
 			if (mBuffer == null) return;
-			++mCountSent;
-			mBuffer.EndPacket();
+			++mSentPacketCount;
+			mSentBytesCount += mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER && !MODDING
 			if (isActive) mUdp.Send(mBuffer, target);
 #endif
@@ -1143,7 +1154,8 @@ namespace TNet
 #endif
 			while (keepGoing && isActive && mTcp.ReceivePacket(out buffer))
 			{
-				++mCountReceived;
+				++mReceivedPacketCount;
+				mReceivedBytesCount += buffer.size;
 				UnityEngine.Profiling.Profiler.BeginSample("ProcessPacket");
 				keepGoing = ProcessPacket(buffer, null);
 				UnityEngine.Profiling.Profiler.EndSample();
@@ -1169,10 +1181,17 @@ namespace TNet
 		{
 #if !MODDING
 			mNextReset = mMyTime + 1000;
-			mSent = mCountSent;
-			mReceived = mCountReceived;
-			mCountSent = 0;
-			mCountReceived = 0;
+
+			mSentPackets = mSentPacketCount;
+			mSentBytes = mSentBytesCount;
+			mReceivedPackets = mReceivedPacketCount;
+			mReceivedBytes = mReceivedBytesCount;
+
+			mSentPacketCount = 0;
+			mSentBytesCount = 0;
+			mReceivedPacketCount = 0;
+			mReceivedBytesCount = 0;
+
 #if UNITY_EDITOR && COUNT_PACKETS
 			var temp = TNObject.lastSentDictionary;
 			temp.Clear();
