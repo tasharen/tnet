@@ -833,6 +833,7 @@ namespace TNet
 		/// Convenience method: Retrieve the specified channel option.
 		/// </summary>
 
+		[System.Obsolete("Use GetChannelData(channelID, key) instead")]
 		static public DataNode GetChannelData (string key)
 		{
 			if (!isConnected) return null;
@@ -844,6 +845,7 @@ namespace TNet
 		/// Convenience method: Retrieve the specified channel option.
 		/// </summary>
 
+		[System.Obsolete("Use GetChannelData(channelID, key) instead")]
 		static public T GetChannelData<T> (string key)
 		{
 			if (!isConnected) return default(T);
@@ -855,6 +857,7 @@ namespace TNet
 		/// Convenience method: Retrieve the specified channel option.
 		/// </summary>
 
+		[System.Obsolete("Use GetChannelData(channelID, key) instead")]
 		static public T GetChannelData<T> (string key, T def)
 		{
 			if (!isConnected) return def;
@@ -899,6 +902,7 @@ namespace TNet
 		/// Set the specified channel option.
 		/// </summary>
 
+		[System.Obsolete("Use SetChannelData(channelID, key, value) instead")]
 		static public void SetChannelData (string key, object val) { if (isConnected && isInChannel) mInstance.mClient.SetChannelData(lastChannelID, key, val); }
 
 		/// <summary>

@@ -109,6 +109,7 @@ namespace TNet
 				Tools.Log("Added a banned keyword (" + keyword + ")");
 				SaveBanList();
 			}
+			else Tools.Log("Ban already exists (" + keyword + ")");
 		}
 
 		/// <summary>

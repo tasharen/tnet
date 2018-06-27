@@ -1004,6 +1004,8 @@ namespace TNet
 		[System.NonSerialized] static object[] mObj3;
 		[System.NonSerialized] static object[] mObj4;
 		[System.NonSerialized] static object[] mObj5;
+		[System.NonSerialized] static object[] mObj6;
+		[System.NonSerialized] static object[] mObj7;
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1155,6 +1157,31 @@ namespace TNet
 			SendRFC(0, rfcName, target, true, mObj5);
 		}
 
+		public void Send (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5)
+		{
+			if (mObj6 == null) mObj6 = new object[6];
+			mObj6[0] = obj0;
+			mObj6[1] = obj1;
+			mObj6[2] = obj2;
+			mObj6[3] = obj3;
+			mObj6[4] = obj4;
+			mObj6[5] = obj5;
+			SendRFC(0, rfcName, target, true, mObj6);
+		}
+
+		public void Send (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5, object obj6)
+		{
+			if (mObj7 == null) mObj7 = new object[7];
+			mObj7[0] = obj0;
+			mObj7[1] = obj1;
+			mObj7[2] = obj2;
+			mObj7[3] = obj3;
+			mObj7[4] = obj4;
+			mObj7[5] = obj5;
+			mObj7[6] = obj6;
+			SendRFC(0, rfcName, target, true, mObj7);
+		}
+
 		/// <summary>
 		/// Send a remote function call.
 		/// Note that you should not use this version of the function if you care about performance (as it's much slower than others),
@@ -1221,6 +1248,7 @@ namespace TNet
 		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2); }
 		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2, obj3); }
 		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3, object obj4) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2, obj3, obj4); }
+		public void Send (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5) { if (target != null) Send(rfcName, target.id, obj0, obj1, obj2, obj3, obj4, obj5); }
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1315,6 +1343,18 @@ namespace TNet
 			mObj5[3] = obj3;
 			mObj5[4] = obj4;
 			SendRFC(0, rfcName, playerID, true, mObj5);
+		}
+
+		public void Send (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5)
+		{
+			if (mObj6 == null) mObj6 = new object[6];
+			mObj6[0] = obj0;
+			mObj6[1] = obj1;
+			mObj6[2] = obj2;
+			mObj6[3] = obj3;
+			mObj6[4] = obj4;
+			mObj6[5] = obj5;
+			SendRFC(0, rfcName, playerID, true, mObj6);
 		}
 
 		/// <summary>

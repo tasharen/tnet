@@ -660,8 +660,8 @@ namespace TNet
 							mSending = false;
 						}
 					}
-				}
 #endif
+				}
 				return;
 			}
 
