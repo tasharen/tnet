@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2018 Tasharen Entertainment Inc.
-                  Version 3.2.0
+                  Version 3.3.0
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -11,7 +11,7 @@ Tutorials can be found here: http://www.tasharen.com/forum/index.php?topic=13953
 
 If you have any questions, suggestions, comments or feature requests, first search
 on the forum here: http://www.tasharen.com/forum/index.php?board=9.0 -- then if you can't
-find the answer, ask in Discord here: https://discord.gg/trruSNc
+find the answer, ask in Discord here: https://discord.gg/tasharen
 
 Full class documentation can be found here: http://www.tasharen.com/tnet/docs/
 
@@ -111,6 +111,20 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.3.0
+- NEW: Added overloaded operators to all Send functions, eliminating GC allocations for sub-5 parameter RFC calls.
+- NEW: Added bandwidth tracking (both sent and received bytes per second): TNManager.sentBytes and TNManager.receivedBytes.
+- NEW: Added TNManager.availablePacketSize and TNManager.incomingPacketSize.
+- NEW: Added an explicit chat type packet type: TNManager.SendChat / TNManager.onChat.
+- NEW: TCP lobby server now supports more packet types, including chat for a true cross-server global chat.
+- NEW: Added TNManager.Validate to validate the state of a server-side property. Useful for detecting memory modifications done on the client.
+- NEW: Added Serializer.EncodeAsString / DecodeFromString to encode and decode binary data as ASCII text.
+- NEW: Added a DoNotObfuscate attribute type and started using it in places where non-public classes/structs should not get obfuscated.
+- NEW: Added Tools.stackTrace that will contain the stack trace up to the point where it was used.
+- NEW: In-editor game server will now check for the 'saved' server property. If 'false', it won't perform any saving. Useful for quickly testing changes without keeping the active state.
+- FIX: Fixed the to-text serialization of DataNode hierarchies containing nested DataNodes.
+- FIX: Compilation fixes for builds.
 
 3.2.0
 - NEW: DataNode can now export entire bundles (think AssetBundle, but with DataNode). Just select a folder (or multiple files) and use the Assets->DataNode->Export feature. It's up to you to determine what to do about importing the bundles (I use a custom Prefab Manager in Sightseer for example), but an example import functionality and function is included (Assets->DataNode->Import supports them).
