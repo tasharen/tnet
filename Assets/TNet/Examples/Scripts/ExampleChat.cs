@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2016 Tasharen Entertainment Inc
+// Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -17,12 +17,14 @@ public class ExampleChat : TNBehaviour
 	Rect mRect;
 	string mName = "Guest";
 	string mInput = "";
+	int mChannelID;
 
 	struct ChatEntry
 	{
 		public string text;
 		public Color color;
 	}
+
 	List<ChatEntry> mChatEntries = new List<ChatEntry>();
 
 	/// <summary>
@@ -47,7 +49,8 @@ public class ExampleChat : TNBehaviour
 		TNManager.onPlayerJoin += OnPlayerJoin;
 		TNManager.onPlayerLeave += OnPlayerLeave;
 		TNManager.onRenamePlayer += OnRenamePlayer;
-		TNManager.onSetServerData += OnSetServerOption;
+		TNManager.onSetServerData += OnSetServerData;
+		TNManager.onSetChannelData += OnSetChannelData;
 	}
 
 	/// <summary>
@@ -60,10 +63,12 @@ public class ExampleChat : TNBehaviour
 		TNManager.onPlayerJoin -= OnPlayerJoin;
 		TNManager.onPlayerLeave -= OnPlayerLeave;
 		TNManager.onRenamePlayer -= OnRenamePlayer;
-		TNManager.onSetServerData -= OnSetServerOption;
+		TNManager.onSetServerData -= OnSetServerData;
+		TNManager.onSetChannelData -= OnSetChannelData;
 	}
 
-	void OnSetServerOption (string path, DataNode node) { PrintConfig(path, node); }
+	void OnSetServerData (string path, DataNode node) { PrintServerData(path); }
+	void OnSetChannelData (Channel ch, string path, DataNode node) { PrintChannelData(path); } 
 
 	/// <summary>
 	/// The list of players in the channel is immediately available upon joining a room.
@@ -71,12 +76,13 @@ public class ExampleChat : TNBehaviour
 
 	void OnJoinChannel (int channelID, bool success, string error)
 	{
+		mChannelID = channelID;
 		mName = TNManager.playerName;
 
-#if UNITY_EDITOR
-		// Show the current server configuration
-		PrintConfig(TNManager.serverData);
-#endif
+		// Show the current configuration
+		PrintServerData();
+		PrintChannelData();
+
 		var text = "Other players here: ";
 		var players = TNManager.GetPlayers(channelID);
 		
@@ -128,6 +134,23 @@ public class ExampleChat : TNBehaviour
 		AddToChat("[" + player.name + "]: " + text, color);
 	}
 
+	void SetChannelData (int channelID, string text)
+	{
+		if (!string.IsNullOrEmpty(text))
+		{
+			var parts = text.Split(new char[] { '=' }, 2);
+
+			if (parts.Length == 2)
+			{
+				var key = parts[0].Trim();
+				var val = parts[1].Trim();
+				var node = new DataNode(key, val);
+				if (node.ResolveValue()) TNManager.SetChannelData(channelID, node.name, node.value);
+			}
+			else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
+		}
+	}
+
 	/// <summary>
 	/// Send the typed message to the server and clear the text.
 	/// </summary>
@@ -138,12 +161,16 @@ public class ExampleChat : TNBehaviour
 		{
 			mInput = mInput.Trim();
 
-#if UNITY_EDITOR
-			if (mInput == "/get") PrintConfig(TNManager.serverData);
-			else
-#endif
-			if (mInput.StartsWith("/get ")) PrintConfig(mInput.Substring(5));
-			else if (mInput.StartsWith("/set ")) TNManager.SetServerData(mInput.Substring(5));
+			if (mInput == "/getServer") PrintServerData();
+			else if (mInput.StartsWith("/getServer ")) PrintServerData(mInput.Substring(5));
+			else if (mInput.StartsWith("/setServer "))
+			{
+				if (TNManager.isAdmin) TNManager.SetServerData(mInput.Substring(5));
+				else AddToChat("Only server administrators can set server data", Color.red);
+			}
+			else if (mInput == "/get") PrintChannelData();
+			else if (mInput.StartsWith("/get ")) PrintChannelData(mInput.Substring(5));
+			else if (mInput.StartsWith("/set ")) SetChannelData(mChannelID, mInput.Substring(5));
 			else if (mInput.StartsWith("/exe "))
 			{
 				// Longer version, won't cause compile errors if RuntimeCode is not imported
@@ -261,16 +288,28 @@ public class ExampleChat : TNBehaviour
 	/// Helper function that prints the specified config node and its children.
 	/// </summary>
 
-	void PrintConfig (string path, DataNode node)
+	void PrintConfig (string path, DataNode node, Color color)
 	{
+		if (!string.IsNullOrEmpty(path)) node = node.GetHierarchy(path);
+
 		if (node != null)
 		{
-			string[] lines = node.ToString().Split(new char[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-			foreach (string s in lines) AddToChat(s.Replace("\t", "    "), Color.yellow);
+			var lines = node.ToString().Split(new char[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+			foreach (string s in lines) AddToChat(s.Replace("\t", "    "), color);
 		}
-		else AddToChat(path + " has not been set", Color.yellow);
+		else AddToChat("[" + path + "] has not been set", color);
 	}
 
-	void PrintConfig (string path) { PrintConfig(path, TNManager.GetServerData(path)); }
-	void PrintConfig (DataNode node) { if (node != null) PrintConfig(node.name, node); }
+	void PrintServerData (string path = "")
+	{
+		AddToChat("Server Data (" + path + "):", Color.yellow);
+		PrintConfig(path, TNManager.serverData, Color.yellow);
+	}
+
+	void PrintChannelData (string path = "")
+	{
+		var ch = TNManager.GetChannel(mChannelID);
+		AddToChat("Channel #" + ch.id + " Data (" + path + "):", Color.green);
+		PrintConfig(path, ch.dataNode, Color.green);
+	}
 }

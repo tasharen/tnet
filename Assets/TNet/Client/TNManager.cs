@@ -912,6 +912,27 @@ namespace TNet
 		static public void SetChannelData (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelData(channelID, key, val); }
 
 		/// <summary>
+		/// Set the specified channel option.
+		/// </summary>
+
+		static public void SetChannelData (int channelID, string text)
+		{
+			if (!string.IsNullOrEmpty(text))
+			{
+				var parts = text.Split(new char[] { '=' }, 2);
+
+				if (parts.Length == 2)
+				{
+					var key = parts[0].Trim();
+					var val = parts[1].Trim();
+					var node = new DataNode(key, val);
+					if (node.ResolveValue()) SetChannelData(channelID, node.name, node.value);
+				}
+				else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
+			}
+		}
+
+		/// <summary>
 		/// Get the player associated with the specified ID.
 		/// </summary>
 
