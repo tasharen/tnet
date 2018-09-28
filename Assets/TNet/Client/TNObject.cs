@@ -161,7 +161,7 @@ namespace TNet
 			{
 				if (parent != null) return parent.canSend;
 				if (!TNManager.isConnected) return true;
-				return uid != 0 && !hasBeenDestroyed && TNManager.IsInChannel(channelID);
+				return uid != 0 && !hasBeenDestroyed && TNManager.IsInChannel(channelID, true);
 			}
 		}
 

@@ -92,6 +92,7 @@ namespace TNet
 		public bool persistent = false;
 		public bool closed = false;
 		public bool isLocked = false;
+		public bool isLeaving = false;
 		public ushort playerLimit = 65535;
 		public List<Player> players = new List<Player>();
 		public List<RFC> rfcs = new List<RFC>();
@@ -749,6 +750,25 @@ namespace TNet
 				b.EndWriting();
 				co.buffer = b;
 				AddCreatedObject(co);
+
+				// TODO: Remove
+				/*var r = b.BeginReading();
+				var rccID = r.ReadByte();
+				var funcName = (rccID == 0) ? r.ReadString() : null;
+
+				if (funcName == "OnSpawn")
+				{
+					var prefab = r.ReadString();
+
+					if (prefab == "Vehicle S0")
+					{
+						var pos = ProceduralTerrain.GetTilePosition(id);
+						pos.x = Game.UnitsToMeters(pos.x);
+						pos.y = Game.UnitsToMeters(pos.y);
+						Debug.Log("/goto " + MathD.RoundToInt(pos.x) + " " + MathD.RoundToInt(pos.y));
+					}
+				}
+				b.position = 0;*/
 			}
 
 			size = reader.ReadInt32();

@@ -717,6 +717,7 @@ namespace TNet
 				{
 					int index = mChannels.size - 1;
 					var ch = mChannels[index];
+					ch.isLeaving = true;
 					mChannels.RemoveAt(index);
 					onLeaveChannel(ch.id);
 				}
@@ -874,7 +875,8 @@ namespace TNet
 
 					if (ch.id == channelID)
 					{
-						mChannels.RemoveAt(i);
+						if (ch.isLeaving) return false;
+						ch.isLeaving = true;
 						BeginSend(Packet.RequestLeaveChannel).Write(channelID);
 						EndSend();
 						return true;
@@ -899,9 +901,13 @@ namespace TNet
 				for (int i = mChannels.size; i > 0;)
 				{
 					var ch = mChannels[--i];
-					BeginSend(Packet.RequestLeaveChannel).Write(ch.id);
-					EndSend();
-					mChannels.RemoveAt(i);
+
+					if (!ch.isLeaving)
+					{
+						ch.isLeaving = true;
+						BeginSend(Packet.RequestLeaveChannel).Write(ch.id);
+						EndSend();
+					}
 				}
 			}
 #endif
@@ -1516,6 +1522,7 @@ namespace TNet
 
 						if (ch.id == channelID)
 						{
+							ch.isLeaving = true;
 							mChannels.RemoveAt(i);
 							break;
 						}

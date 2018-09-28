@@ -263,6 +263,8 @@ namespace TNet
 
 		/// <summary>
 		/// Function used to load binaries. Loads built-in TextAssets first, then tries appending the "bytes" extension.
+		/// This function performs raw asset loading. You should only change it only to add new loading functionality.
+		/// Use UnityTools.Load to load assets afterwards.
 		/// </summary>
 
 		static public LoadBinaryFunc LoadBinary = delegate (string path)
@@ -274,6 +276,9 @@ namespace TNet
 
 		/// <summary>
 		/// Just like Resources.Load, but capable of loading prefabs saved in DataNode format.
+		/// This function performs raw asset loading. You should only change it only to add new loading functionality.
+		/// Use UnityTools.Load to load assets afterwards. When adding custom asset loading support, in most cases
+		/// you should be changing UnityTools.onLoadPrefab rather than this function.
 		/// </summary>
 
 		static public LoadFunc LoadResource = delegate (string path, System.Type type)
@@ -285,6 +290,9 @@ namespace TNet
 
 		/// <summary>
 		/// Extended Load function that's also capable of loading meshes residing inside model files.
+		/// This function performs raw asset loading. You should only change it only to add new loading functionality.
+		/// Use UnityTools.Load to load assets afterwards. When adding custom asset loading support, in most cases
+		/// you should be changing UnityTools.onLoadPrefab rather than this function.
 		/// </summary>
 
 		static public LoadExFunc LoadResourceEx = delegate (string path, System.Type type, string name)
@@ -293,7 +301,7 @@ namespace TNet
 
 			if (type == typeof(Mesh))
 			{
-				Mesh[] meshes = Resources.LoadAll<Mesh>(path);
+				var meshes = Resources.LoadAll<Mesh>(path);
 				foreach (Mesh m in meshes)
 					if (m.name == name)
 						return m;
@@ -303,6 +311,7 @@ namespace TNet
 
 		/// <summary>
 		/// Just like Resources.Load, but capable of loading prefabs saved in DataNode format.
+		/// The result will be cached, so subsequent calls with the same path will be very quick.
 		/// </summary>
 
 		static public T Load<T> (string path) where T : Object
@@ -313,6 +322,7 @@ namespace TNet
 
 		/// <summary>
 		/// Extended Load function that's also capable of loading meshes residing inside model files.
+		/// The result will be cached, so subsequent calls with the same path will be very quick.
 		/// </summary>
 
 		static public T Load<T> (string path, string name) where T : Object

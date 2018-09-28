@@ -15,7 +15,7 @@ namespace TNet
 public class TNAutoCreate : MonoBehaviour
 {
 	/// <summary>
-	/// ID of the channel where the prefab should be created. '0' means "last used channel".
+	/// ID of the channel where the prefab should be created. '0' means "last used channel" (not recommended).
 	/// </summary>
 
 	public int channelID = 0;
@@ -35,8 +35,8 @@ public class TNAutoCreate : MonoBehaviour
 
 	IEnumerator Start ()
 	{
-		while (TNManager.isJoiningChannel) yield return null;
 		if (channelID < 1) channelID = TNManager.lastChannelID;
+		while (TNManager.isJoiningChannel || !TNManager.IsInChannel(channelID)) yield return null;
 		TNManager.Instantiate(channelID, "CreateAtPosition", prefabPath, persistent, transform.position, transform.rotation);
 		Destroy(gameObject);
 	}

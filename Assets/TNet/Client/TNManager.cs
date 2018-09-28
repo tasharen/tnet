@@ -557,14 +557,14 @@ namespace TNet
 		/// Check to see if we are currently in the specified channel.
 		/// </summary>
 
-		static public bool IsInChannel (int channelID)
+		static public bool IsInChannel (int channelID, bool isNotLeaving = false)
 		{
 			if (isConnected) return mInstance.mClient.IsInChannel(channelID);
 
 			for (int i = 0; i < mDummyCL.size; ++i)
 			{
 				var channel = mDummyCL[i];
-				if (channel.id == channelID) return true;
+				if (channel.id == channelID) return !isNotLeaving || !channel.isLeaving;
 			}
 			return false;
 		}
@@ -912,27 +912,6 @@ namespace TNet
 		static public void SetChannelData (int channelID, string key, object val) { if (isConnected) mInstance.mClient.SetChannelData(channelID, key, val); }
 
 		/// <summary>
-		/// Set the specified channel option.
-		/// </summary>
-
-		static public void SetChannelData (int channelID, string text)
-		{
-			if (!string.IsNullOrEmpty(text))
-			{
-				var parts = text.Split(new char[] { '=' }, 2);
-
-				if (parts.Length == 2)
-				{
-					var key = parts[0].Trim();
-					var val = parts[1].Trim();
-					var node = new DataNode(key, val);
-					if (node.ResolveValue()) SetChannelData(channelID, node.name, node.value);
-				}
-				else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
-			}
-		}
-
-		/// <summary>
 		/// Get the player associated with the specified ID.
 		/// </summary>
 
@@ -1197,10 +1176,10 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Load the chosen scene.
+		/// Load the chosen scene. This delegate is called when it's time to load the specified scene. Don't try to call it yourself. Use TNManager.LoadLevel instead.
 		/// </summary>
 
-		static public LoadSceneFunc LoadScene = delegate (string levelName)
+		static public LoadSceneFunc onLoadScene = delegate (string levelName)
 		{
 			if (!string.IsNullOrEmpty(levelName))
 			{
@@ -1213,10 +1192,10 @@ namespace TNet
 		};
 
 		/// <summary>
-		/// Load the chosen scene asynchronously.
+		/// Load the chosen scene asynchronously. This delegate is called when it's time to load the specified scene. Don't try to call it yourself. Use TNManager.LoadLevel instead.
 		/// </summary>
 
-		static public LoadSceneAsyncFunc LoadSceneAsync = delegate (string levelName)
+		static public LoadSceneAsyncFunc onLoadSceneAsync = delegate (string levelName)
 		{
 			if (!string.IsNullOrEmpty(levelName))
 			{
@@ -1256,7 +1235,7 @@ namespace TNet
 					ch.host = player;
 					mDummyCL.Add(ch);
 					lastChannelID = channelID;
-					LoadScene(levelName);
+					onLoadScene(levelName);
 				}
 			}
 		}
@@ -1287,7 +1266,7 @@ namespace TNet
 					ch.host = player;
 					mDummyCL.Add(ch);
 					lastChannelID = channelID;
-					LoadScene(levelName);
+					onLoadScene(levelName);
 				}
 			}
 		}
@@ -1408,17 +1387,17 @@ namespace TNet
 
 		static public void SetPlayerLimit (int channelID, int max) { if (mInstance != null) mInstance.mClient.SetPlayerLimit(channelID, max); }
 
+		[System.Obsolete("Use TNManager.LoadScene(channel, name) instead")]
+		static public void LoadLevel (string levelName) { LoadScene(lastChannelID, levelName); }
+
+		[System.Obsolete("Function renamed to TNManager.LoadScene(channel, name) for clarity")]
+		static public void LoadLevel (int channelID, string levelName) { LoadScene(channelID, levelName); }
+
 		/// <summary>
-		/// Load the specified level.
+		/// Load the specified scene on all clients.
 		/// </summary>
 
-		static public void LoadLevel (string levelName) { LoadLevel(lastChannelID, levelName); }
-
-		/// <summary>
-		/// Load the specified level.
-		/// </summary>
-
-		static public void LoadLevel (int channelID, string levelName) { if (!mInstance.mClient.LoadLevel(channelID, levelName)) LoadScene(levelName); }
+		static public void LoadScene (int channelID, string levelName) { if (!mInstance.mClient.LoadLevel(channelID, levelName)) onLoadScene(levelName); }
 
 		/// <summary>
 		/// Save the specified file on the server.
@@ -1557,21 +1536,13 @@ namespace TNet
 #endif
 		}
 
-		/// <summary>
-		/// Create a packet that will send a custom object creation call.
-		/// Instantiate a new game object in the current channel on all connected players.
-		/// </summary>
-
+		[System.Obsolete("You need to specify the channel ID as the first parameter")]
 		static public void Instantiate (int rccID, string path, bool persistent, params object[] objs)
 		{
 			Instantiate(lastChannelID, rccID, null, path, persistent, objs);
 		}
 
-		/// <summary>
-		/// Create a packet that will send a custom object creation call.
-		/// Instantiate a new game object in the current channel on all connected players.
-		/// </summary>
-
+		[System.Obsolete("You need to specify the channel ID as the first parameter")]
 		static public void Instantiate (string funcName, string path, bool persistent, params object[] objs)
 		{
 			Instantiate(lastChannelID, 0, funcName, path, persistent, objs);
@@ -2273,7 +2244,7 @@ namespace TNet
 		{
 			yield return null;
 
-			loadLevelOperation = LoadSceneAsync(pair.Value);
+			loadLevelOperation = onLoadSceneAsync(pair.Value);
 			loadLevelOperation.allowSceneActivation = false;
 
 			while (loadLevelOperation.progress < 0.9f)
@@ -2375,7 +2346,7 @@ namespace TNet
 		static internal void Create (string path, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 angVel, bool persistent = true) { Instantiate(lastChannelID, 3, null, path, persistent, pos, rot, vel, angVel); }
 
 		[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
-		static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(rccID, path, persistent, objs); }
+		static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(lastChannelID, rccID, path, persistent, objs); }
 
 		[Obsolete("You need to specify a channel ID to send the packet to: TNManager.EndSend(channelID, reliable);")]
 		static public void EndSend (bool reliable)

@@ -2761,6 +2761,8 @@ namespace TNet
 								}
 							}
 
+							Buffer temp = null;
+
 							// Notify players in the new channel
 							for (int i = 0; i < to.players.size; ++i)
 							{
@@ -2768,28 +2770,31 @@ namespace TNet
 
 								if (!from.players.Contains(p))
 								{
-									var temp = Buffer.Create();
-
-									// Object creation notification
-									var writer = temp.BeginPacket(Packet.ResponseCreateObject);
-									writer.Write(obj.playerID);
-									writer.Write(to.id);
-									writer.Write(obj.objectID);
-									writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
-									int offset = temp.EndPacket();
-
-									// Send all buffered RFCs associated with this object
-									for (int b = 0; b < to.rfcs.size; ++b)
+									if (temp == null)
 									{
-										var rfc = to.rfcs[b];
-										if (rfc.objectID == obj.objectID)
-											offset = rfc.WritePacket(to.id, temp, offset);
+										temp = Buffer.Create();
+
+										// Object creation notification
+										var writer = temp.BeginPacket(Packet.ResponseCreateObject);
+										writer.Write(obj.playerID);
+										writer.Write(to.id);
+										writer.Write(obj.objectID);
+										writer.Write(obj.buffer.buffer, obj.buffer.position, obj.buffer.size);
+										int offset = temp.EndPacket();
+
+										// Send all buffered RFCs associated with this object
+										for (int b = 0; b < to.rfcs.size; ++b)
+										{
+											var rfc = to.rfcs[b];
+											if (rfc.objectID == obj.objectID) offset = rfc.WritePacket(to.id, temp, offset);
+										}
 									}
 
 									p.SendTcpPacket(temp);
-									temp.Recycle();
 								}
 							}
+
+							if (temp != null) temp.Recycle();
 						}
 					}
 					break;

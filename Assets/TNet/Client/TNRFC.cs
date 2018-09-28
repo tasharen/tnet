@@ -15,7 +15,27 @@ namespace TNet
 	[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 	public sealed class RFC : Attribute
 	{
+		/// <summary>
+		/// Optional RFC ID, which should be in 1-254 range (inclusive). For example: [RFC(123)]. This is useful for frequent packets,
+		/// as using tno.Send(123, ...) requires less bytes than tno.Send("RFC_name", ...) -- however in vast majority of the cases,
+		/// it's not advisable to use IDs as it makes debugging more difficult just to save a few bytes per packet.
+		/// </summary>
+
 		public int id = 0;
+
+		/// <summary>
+		/// Name of the optional property that will be used to uniquely identify this RFC in addition to its name. This can be useful if you have
+		/// multiple RFCs with an identical name underneath the same TNObject. For example, in Project 5: Sightseer, a vehicle contains multiple
+		/// attachment points, with each attachment point having a "set installed item" RFC. This is done by giving all attachment points a unique
+		/// identifier, ("uniqueID"), which is basically a public field set in inspector on the vehicle's prefab (but can also be a property).
+		/// 
+		/// RFCs then look like this:
+		/// [RFC("uniqueID")] void MyRFC (...);
+		/// 
+		/// The syntax to send an RFC to a specific uniquely-identified child is like this:
+		/// tno.Send("MyRFC/" + uniqueID, ...);
+		/// </summary>
+
 		public string property;
 
 		public RFC (string property = null)

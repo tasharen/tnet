@@ -160,13 +160,13 @@ namespace TNet
 				// Accept incoming connections
 				while (mListener != null && mListener.Pending())
 				{
-					Socket socket = mListener.AcceptSocket();
+					var socket = mListener.AcceptSocket();
 
 					try
 					{
 						if (socket != null && socket.Connected)
 						{
-							IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
+							var remote = socket.RemoteEndPoint as IPEndPoint;
 
 							if (remote == null || mBan.Contains(remote.Address.ToString()))
 							{
@@ -174,7 +174,7 @@ namespace TNet
 							}
 							else
 							{
-								TcpProtocol tc = new TcpProtocol();
+								var tc = new TcpProtocol();
 								tc.StartReceiving(socket);
 								mTcp.Add(tc);
 							}
@@ -195,7 +195,7 @@ namespace TNet
 				// Process incoming TCP packets
 				for (int i = 0; i < mTcp.size;)
 				{
-					TcpProtocol tc = mTcp[i];
+					var tc = mTcp[i];
 
 					if (!tc.isSocketConnected)
 					{
@@ -332,13 +332,17 @@ namespace TNet
 			{
 				if (tc.VerifyRequestID(reader, buffer))
 				{
-					tc.AssignID();
-					var writer = tc.BeginSend(Packet.ResponseID);
-					writer.Write(TcpPlayer.version);
-					writer.Write(tc.id);
-					writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
-					tc.EndSend();
-					return true;
+					if (!string.IsNullOrEmpty(tc.name) && !mBan.Contains(tc.name))
+					{
+						tc.AssignID();
+						var writer = tc.BeginSend(Packet.ResponseID);
+						writer.Write(TcpPlayer.version);
+						writer.Write(tc.id);
+						writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
+						tc.EndSend();
+						return true;
+					}
+					else return false;
 				}
 
 				Tools.Print(tc.address + " has failed the verification step");

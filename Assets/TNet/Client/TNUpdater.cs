@@ -4,6 +4,7 @@
 //-------------------------------------------------
 
 #define PROFILE_PACKETS
+//#define THREAD_SAFE_UPDATER
 
 using UnityEngine;
 using System.Collections.Generic;
@@ -23,22 +24,40 @@ namespace TNet
 
 	public class TNUpdater : MonoBehaviour
 	{
-		static TNUpdater mInst;
-
-		Queue<IStartable> mStartable = new Queue<IStartable>();
-		HashSet<IUpdateable> mUpdateable = new HashSet<IUpdateable>();
-		HashSet<ILateUpdateable> mLateUpdateable = new HashSet<ILateUpdateable>();
+		[System.NonSerialized] static TNUpdater mInst;
+		[System.NonSerialized] Queue<IStartable> mStartable = new Queue<IStartable>();
+		[System.NonSerialized] HashSet<IUpdateable> mUpdateable = new HashSet<IUpdateable>();
+		[System.NonSerialized] HashSet<ILateUpdateable> mLateUpdateable = new HashSet<ILateUpdateable>();
+		[System.NonSerialized] List<IUpdateable> mRemoveUpdateable = new List<IUpdateable>();
+		[System.NonSerialized] List<ILateUpdateable> mRemoveLate = new List<ILateUpdateable>();
+		[System.NonSerialized] bool mUpdating = false;
 
 		void Update ()
 		{
-			while (mStartable.Count != 0)
+#if THREAD_SAFE_UPDATER
+			lock (this)
+#endif
 			{
-				var q = mStartable.Dequeue();
-				var obj = q as MonoBehaviour;
-				if (obj && obj.enabled) q.OnStart();
-			}
+				while (mStartable.Count != 0)
+				{
+					var q = mStartable.Dequeue();
+					var obj = q as MonoBehaviour;
+					if (obj && obj.enabled) q.OnStart();
+				}
 
-			if (mUpdateable.Count != 0) foreach (var inst in mUpdateable) inst.OnUpdate();
+				if (mRemoveUpdateable.size != 0)
+				{
+					foreach (var e in mRemoveUpdateable) mUpdateable.Remove(e);
+					mRemoveUpdateable.Clear();
+				}
+
+				if (mUpdateable.Count != 0)
+				{
+					mUpdating = true;
+					foreach (var inst in mUpdateable) inst.OnUpdate();
+					mUpdating = false;
+				}
+			}
 		}
 
 #if UNITY_EDITOR && PROFILE_PACKETS
@@ -47,34 +66,50 @@ namespace TNet
 
 		void LateUpdate ()
 		{
-			while (mStartable.Count != 0)
-			{
-				var q = mStartable.Dequeue();
-				var obj = q as MonoBehaviour;
-
-				if (obj && obj.enabled && obj.gameObject.activeInHierarchy)
-				{
-#if UNITY_EDITOR && PROFILE_PACKETS
-					var type = obj.GetType();
-
-					string packetName;
-
-					if (!mTypeNames.TryGetValue(type, out packetName))
-					{
-						packetName = type.ToString() + ".OnStart()";
-						mTypeNames.Add(type, packetName);
-					}
-					
-					UnityEngine.Profiling.Profiler.BeginSample(packetName);
-					q.OnStart();
-					UnityEngine.Profiling.Profiler.EndSample();
-#else
-					q.OnStart();
+#if THREAD_SAFE_UPDATER
+			lock (this)
 #endif
+			{
+				while (mStartable.Count != 0)
+				{
+					var q = mStartable.Dequeue();
+					var obj = q as MonoBehaviour;
+
+					if (obj && obj.enabled && obj.gameObject.activeInHierarchy)
+					{
+#if UNITY_EDITOR && PROFILE_PACKETS
+						var type = obj.GetType();
+
+						string packetName;
+
+						if (!mTypeNames.TryGetValue(type, out packetName))
+						{
+							packetName = type.ToString() + ".OnStart()";
+							mTypeNames.Add(type, packetName);
+						}
+
+						UnityEngine.Profiling.Profiler.BeginSample(packetName);
+						q.OnStart();
+						UnityEngine.Profiling.Profiler.EndSample();
+#else
+						q.OnStart();
+#endif
+					}
+				}
+
+				if (mRemoveLate.size != 0)
+				{
+					foreach (var e in mRemoveLate) mLateUpdateable.Remove(e);
+					mRemoveLate.Clear();
+				}
+
+				if (mLateUpdateable.Count != 0)
+				{
+					mUpdating = true;
+					foreach (var inst in mLateUpdateable) inst.OnLateUpdate();
+					mUpdating = false;
 				}
 			}
-
-			if (mLateUpdateable.Count != 0) foreach (var inst in mLateUpdateable) inst.OnLateUpdate();
 		}
 
 		static void Create ()
@@ -92,6 +127,10 @@ namespace TNet
 				if (!Application.isPlaying) return;
 				Create();
 			}
+
+#if THREAD_SAFE_UPDATER
+			lock (this)
+# endif
 			mInst.mStartable.Enqueue(obj);
 		}
 
@@ -99,9 +138,13 @@ namespace TNet
 		{
 			if (mInst == null)
 			{
-				if (!Application.isPlaying) return;
+				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
 				Create();
 			}
+
+#if THREAD_SAFE_UPDATER
+			lock (this)
+#endif
 			mInst.mUpdateable.Add(obj);
 		}
 
@@ -109,13 +152,42 @@ namespace TNet
 		{
 			if (mInst == null)
 			{
-				if (!Application.isPlaying) return;
+				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
 				Create();
 			}
+
+#if THREAD_SAFE_UPDATER
+			lock (this)
+#endif
 			mInst.mLateUpdateable.Add(obj);
 		}
 
-		static public void RemoveUpdate (IUpdateable obj) { if (mInst) mInst.mUpdateable.Remove(obj); }
-		static public void RemoveaLateUpdate (ILateUpdateable obj) { if (mInst) mInst.mLateUpdateable.Remove(obj); }
+		static public void RemoveUpdate (IUpdateable obj)
+		{
+			if (mInst)
+			{
+#if THREAD_SAFE_UPDATER
+				lock (this)
+#endif
+				{
+					if (mInst.mUpdating) mInst.mRemoveUpdateable.Add(obj, true);
+					else mInst.mUpdateable.Remove(obj);
+				}
+			}
+		}
+
+		static public void RemoveaLateUpdate (ILateUpdateable obj)
+		{
+			if (mInst)
+			{
+#if THREAD_SAFE_UPDATER
+				lock (this)
+#endif
+				{
+					if (mInst.mUpdating) mInst.mRemoveLate.Add(obj, true);
+					else mInst.mLateUpdateable.Remove(obj);
+				}
+			}
+		}
 	}
 }
