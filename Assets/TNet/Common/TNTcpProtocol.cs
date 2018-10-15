@@ -483,7 +483,6 @@ namespace TNet
 					}
 					catch (System.Exception) { }
 					mSocket = null;
-					mSending = false;
 				}
 
 				if (custom != null) custom.OnDisconnect();
@@ -764,6 +763,7 @@ namespace TNet
 								CloseNotThreadSafe(false);
 							}
 						}
+						else mSending = false;
 					}
 					else
 					{
@@ -773,7 +773,6 @@ namespace TNet
 						CloseNotThreadSafe(true);
 					}
 #endif
-					mSending = false;
 				}
 			}
 			catch (System.Exception ex)

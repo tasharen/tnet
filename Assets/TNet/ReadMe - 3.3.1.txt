@@ -112,6 +112,16 @@ http://www.tasharen.com/?page_id=4518
  Version History
 --------------------------------------------------------------------------------------------------------------------
 
+3.3.1
+- NEW: Updated the chat example to be able to get/set channel data in addition to server data.
+- NEW: Added a TNUpdater.onQuit delegate.
+- NEW: Made TNUpdater thread-safe, making it possible to add delegates to it from worker threads.
+- NEW: Added TNet.List.RemoveRange to match the generic List.
+- FIX: Made some older functions obsolete for clarity.
+- FIX: Prototype change for a potential issue related to leaving channels and transferring objects.
+- FIX: Fixes for game object serialization in Unity 2017 & 2018.
+- FIX: Made TNet.List's Remove operation significantly faster.
+
 3.3.0
 - NEW: Added overloaded operators to all Send functions, eliminating GC allocations for sub-5 parameter RFC calls.
 - NEW: Added bandwidth tracking (both sent and received bytes per second): TNManager.sentBytes and TNManager.receivedBytes.

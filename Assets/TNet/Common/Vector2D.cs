@@ -301,6 +301,17 @@ namespace TNet
 		{
 			return new Vector2((float)x, (float)y);
 		}
+
+		static Vector2D Rotate (Vector2D pos, float rot)
+		{
+			var halfZ = rot * Mathf.Deg2Rad * 0.5;
+			var sinz = Math.Sin(halfZ);
+			var cosz = Math.Cos(halfZ);
+			var num3 = sinz * 2d;
+			var num6 = sinz * num3;
+			var num12 = cosz * num3;
+			return new Vector2D((1d - num6) * pos.x - num12 * pos.y, num12 * pos.x + (1d - num6) * pos.y);
+		}
 #endif
 	}
 }

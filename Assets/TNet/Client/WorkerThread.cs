@@ -354,73 +354,79 @@ namespace TNet
 				mStopwatch.Reset();
 				mStopwatch.Start();
 
-				lock (mFinished)
+				Entry ent;
+
+				while (mFinished.Count > 0)
 				{
-					while (mFinished.Count > 0)
+					lock (mFinished) ent = mFinished.Dequeue();
+
+					mLoopStart = mStopwatch.ElapsedMilliseconds;
+					mExecStart = ent.milliseconds;
+
+					if (ent.finished != null)
 					{
-						var ent = mFinished.Dequeue();
-						mLoopStart = mStopwatch.ElapsedMilliseconds;
-						mExecStart = ent.milliseconds;
+						//UnityEngine.Profiling.Profiler.BeginSample("Finished: " + (ent.finished.Target != null ? ent.finished.Target.GetType().ToString() : "null") + "." + ent.finished.Method.Name);
+						ent.finished();
+						//UnityEngine.Profiling.Profiler.EndSample();
+					}
+					else if (ent.finishedEnum != null)
+					{
+						if (ent.en == null) ent.en = ent.finishedEnum();
 
-						if (ent.finished != null)
+						//UnityEngine.Profiling.Profiler.BeginSample("FinishedEnum: " + (ent.finishedEnum.Target != null ? ent.finishedEnum.Target.GetType().ToString() : "null") + "." + ent.finishedEnum.Method.Name);
+
+						var keepGoing = false;
+
+						while (ent.en.MoveNext())
 						{
-							//UnityEngine.Profiling.Profiler.BeginSample("Finished: " + (ent.finished.Target != null ? ent.finished.Target.GetType().ToString() : "null") + "." + ent.finished.Method.Name);
-							ent.finished();
-							//UnityEngine.Profiling.Profiler.EndSample();
-						}
-						else if (ent.finishedEnum != null)
-						{
-							if (ent.en == null) ent.en = ent.finishedEnum();
+							var elapsed = mStopwatch.ElapsedMilliseconds;
 
-							//UnityEngine.Profiling.Profiler.BeginSample("FinishedEnum: " + (ent.finishedEnum.Target != null ? ent.finishedEnum.Target.GetType().ToString() : "null") + "." + ent.finishedEnum.Method.Name);
-
-							var keepGoing = false;
-
-							while (ent.en.MoveNext())
+							if (elapsed > maxMillisecondsPerFrame)
 							{
-								var elapsed = mStopwatch.ElapsedMilliseconds;
-
-								if (elapsed > maxMillisecondsPerFrame)
-								{
-									ent.milliseconds += elapsed - mLoopStart;
-									keepGoing = true;
-									break;
-								}
-							}
-
-							//UnityEngine.Profiling.Profiler.EndSample();
-
-							if (keepGoing)
-							{
-								mTemp.Add(ent);
-								continue;
-							}
-						}
-						else if (ent.finishedBool != null)
-						{
-							if (!ent.finishedBool())
-							{
-								var elapsed = mStopwatch.ElapsedMilliseconds;
 								ent.milliseconds += elapsed - mLoopStart;
-								mTemp.Add(ent);
-								if (elapsed > maxMillisecondsPerFrame) break;
-								continue;
+								keepGoing = true;
+								break;
 							}
 						}
 
-						ent.main = null;
-						ent.finished = null;
-						ent.mainBool = null;
-						ent.finishedBool = null;
-						ent.finishedEnum = null;
-						ent.en = null;
+						//UnityEngine.Profiling.Profiler.EndSample();
 
-						lock (mUnused) mUnused.Add(ent);
-
-						if (mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame) break;
+						if (keepGoing)
+						{
+							mTemp.Add(ent);
+							continue;
+						}
+					}
+					else if (ent.finishedBool != null)
+					{
+						if (!ent.finishedBool())
+						{
+							var elapsed = mStopwatch.ElapsedMilliseconds;
+							ent.milliseconds += elapsed - mLoopStart;
+							mTemp.Add(ent);
+							if (elapsed > maxMillisecondsPerFrame) break;
+							continue;
+						}
 					}
 
-					// Re-queue the conditionals
+					ent.main = null;
+					ent.finished = null;
+					ent.mainBool = null;
+					ent.finishedBool = null;
+					ent.finishedEnum = null;
+					ent.en = null;
+
+					lock (mUnused) mUnused.Add(ent);
+
+					if (mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame) break;
+				}
+			}
+
+			// Re-queue the conditionals
+			if (mTemp.size > 0)
+			{
+				lock (mFinished)
+				{
 					for (int i = 0; i < mTemp.size; ++i) mFinished.Enqueue(mTemp[i]);
 					mTemp.Clear();
 				}

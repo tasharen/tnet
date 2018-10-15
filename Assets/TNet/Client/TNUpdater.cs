@@ -31,6 +31,9 @@ namespace TNet
 		[System.NonSerialized] List<IUpdateable> mRemoveUpdateable = new List<IUpdateable>();
 		[System.NonSerialized] List<ILateUpdateable> mRemoveLate = new List<ILateUpdateable>();
 		[System.NonSerialized] bool mUpdating = false;
+		[System.NonSerialized] static public System.Action onQuit;
+
+		void OnApplicationQuit () { if (onQuit != null) onQuit(); }
 
 		void Update ()
 		{
@@ -176,7 +179,7 @@ namespace TNet
 			}
 		}
 
-		static public void RemoveaLateUpdate (ILateUpdateable obj)
+		static public void RemoveLateUpdate (ILateUpdateable obj)
 		{
 			if (mInst)
 			{
@@ -189,5 +192,8 @@ namespace TNet
 				}
 			}
 		}
+
+		[System.Obsolete("Use RemoveLateUpdate (fixed the typo)")]
+		static public void RemoveaLateUpdate (ILateUpdateable obj) { RemoveLateUpdate(obj); }
 	}
 }

@@ -427,7 +427,6 @@ namespace TNet
 				if (fn.StartsWith("ICSharpCode.")) continue;
 				if (fn.StartsWith("System.Xml.Linq")) continue;
 				if (fn.StartsWith("obfuscator")) continue;
-				if (fn.StartsWith("UnityEngine.")) continue;
 				if (fn.StartsWith("nunit.")) continue;
 				if (fn.StartsWith("Assembly-CSharp-Editor")) continue;
 				if (fn.StartsWith("I18N")) continue;

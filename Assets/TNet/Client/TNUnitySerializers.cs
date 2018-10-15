@@ -537,20 +537,19 @@ namespace TNet
 			root.AddChild("castShadows", ren.castShadows);
 			if (ren.lightProbeAnchor != null) root.AddChild("probeAnchor", ren.lightProbeAnchor.GetUniqueID());
 #else
+			root.AddChild("receiveShadows", ren.receiveShadows);
 			var sm = ren.shadowCastingMode;
 			if (sm == UnityEngine.Rendering.ShadowCastingMode.Off) root.AddChild("castShadows", false);
 			else if (sm == UnityEngine.Rendering.ShadowCastingMode.On) root.AddChild("castShadows", true);
 			else root.AddChild("shadowCasting", ren.shadowCastingMode);
-			root.AddChild("reflectionProbes", ren.reflectionProbeUsage);
+			root.AddChild("rpu", (byte)ren.reflectionProbeUsage);
 			if (ren.probeAnchor != null) root.AddChild("probeAnchor", ren.probeAnchor.GetUniqueID());
 #endif
-			root.AddChild("receiveShadows", ren.receiveShadows);
 #if UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3
 			root.AddChild("useLightProbes", ren.useLightProbes);
 #else
-			root.AddChild("lightProbeUsage", (byte)ren.lightProbeUsage);
+			root.AddChild("lpu", (byte)ren.lightProbeUsage);
 #endif
-
 			var mats = ren.sharedMaterials;
 			if (mats == null || mats.Length == 0) return;
 
@@ -558,7 +557,7 @@ namespace TNet
 
 			for (int i = 0; i < mats.Length; ++i)
 			{
-				Material mat = mats[i];
+				var mat = mats[i];
 
 				if (mat != null)
 				{
@@ -638,7 +637,7 @@ namespace TNet
 		static public void Deserialize (this Renderer ren, DataNode data)
 		{
 #if UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7
-		ren.castShadows = data.GetChild<bool>("castShadows", ren.castShadows);
+			ren.castShadows = data.GetChild<bool>("castShadows", ren.castShadows);
 #else
 			DataNode cs = data.GetChild("castShadows");
 
@@ -648,19 +647,22 @@ namespace TNet
 					UnityEngine.Rendering.ShadowCastingMode.On :
 					UnityEngine.Rendering.ShadowCastingMode.Off;
 			}
-			else ren.shadowCastingMode = data.GetChild<UnityEngine.Rendering.ShadowCastingMode>("shadowCastingMode", ren.shadowCastingMode);
+			else ren.shadowCastingMode = data.GetChild("shadowCastingMode", ren.shadowCastingMode);
 
-			ren.reflectionProbeUsage = data.GetChild<UnityEngine.Rendering.ReflectionProbeUsage>("reflectionProbes", ren.reflectionProbeUsage);
+			var rp = data.GetChild("rpu");
+			if (rp == null) rp = data.GetChild("reflectionProbes"); // No longer used, but kept for backwards compatibility
+			if (rp != null) ren.reflectionProbeUsage = rp.Get(ren.reflectionProbeUsage);
 #endif
 			ren.receiveShadows = data.GetChild<bool>("receiveShadows", ren.receiveShadows);
 #if UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3
-		ren.useLightProbes = data.GetChild<bool>("useLightProbes", ren.useLightProbes);
+			ren.useLightProbes = data.GetChild<bool>("useLightProbes", ren.useLightProbes);
 #else
-			var lpu = data.GetChild("lightProbeUsage");
+			var lpu = data.GetChild("lpu");
+			if (lpu == null) lpu = data.GetChild("lightProbeUsage"); // No longer used, but kept for backwards compatibility
 
 			if (lpu != null)
 			{
-				ren.lightProbeUsage = (UnityEngine.Rendering.LightProbeUsage)lpu.Get<byte>((byte)ren.lightProbeUsage);
+				ren.lightProbeUsage = lpu.Get(ren.lightProbeUsage);
 			}
 			else
 			{

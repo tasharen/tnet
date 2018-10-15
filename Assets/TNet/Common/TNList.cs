@@ -270,9 +270,8 @@ namespace TNet
 				{
 					if (buffer[i] != null && comp.Equals(buffer[i], item))
 					{
+						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i);
 						--size;
-						buffer[i] = default(T);
-						for (int b = i; b < size; ++b) buffer[b] = buffer[b + 1];
 						return true;
 					}
 				}
@@ -288,9 +287,29 @@ namespace TNet
 		{
 			if (buffer != null && index > -1 && index < size)
 			{
+				if (index + 1 < size) System.Array.Copy(buffer, index + 1, buffer, index, size - index);
 				--size;
-				buffer[index] = default(T);
-				for (int b = index; b < size; ++b) buffer[b] = buffer[b + 1];
+			}
+		}
+
+		/// <summary>
+		/// Remove the specified range of items.
+		/// </summary>
+
+		public void RemoveRange (int index, int count)
+		{
+			var end = index + count;
+
+			if (end > size)
+			{
+				end = size;
+				count = end - index;
+			}
+
+			if (buffer != null && index > -1 && index < size && index < end)
+			{
+				if (end + 1 < size) System.Array.Copy(buffer, end, buffer, index, count);
+				size -= count;
 			}
 		}
 
