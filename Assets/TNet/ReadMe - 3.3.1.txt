@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2018 Tasharen Entertainment Inc.
-                  Version 3.3.0
+                  Version 3.3.1
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -55,13 +55,17 @@ TNManager.Instantiate(channelID, "FunctionName", "prefab", persistent, <paramete
 Q: How to destroy an object?
 --------------------------------------------------------------------------------------------------------------------
 
+If inside a TNBehaviour-derived script:
+tno.DestroySelf();
+
+Otherwise use (the slightly slower):
 gameObject.DestroySelf();
 
 --------------------------------------------------------------------------------------------------------------------
 Q: How to call a function on all players?
 --------------------------------------------------------------------------------------------------------------------
 
-TNObject tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
+var tno = GetComponent<TNObject>(); // You can skip this line if you derived your script from TNBehaviour
 tno.Send("FunctionName", target, <parameters>);
 
 --------------------------------------------------------------------------------------------------------------------
