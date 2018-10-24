@@ -170,6 +170,19 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Add the specified number of new elements to the array, increasing in the process.
+		/// </summary>
+
+		public int Expand (int count)
+		{
+			var offset = size;
+			var needed = size + count;
+			if (buffer == null || size + needed < buffer.Length) Allocate(size + needed);
+			size += count;
+			return offset;
+		}
+
+		/// <summary>
 		/// Add the specified item to the end of the list.
 		/// </summary>
 
@@ -178,6 +191,18 @@ namespace TNet
 			if (buffer == null || size == buffer.Length) AllocateMore();
 			buffer[size] = item;
 			++size;
+		}
+
+		/// <summary>
+		/// Add the specified items to the array.
+		/// </summary>
+
+		public void Add (T[] items, int offset, int count)
+		{
+			var needed = size + count;
+			if (buffer == null || size + needed < buffer.Length) Allocate(size + needed);
+			System.Array.Copy(items, offset, buffer, size, count);
+			size += count;
 		}
 
 		/// <summary>
@@ -268,9 +293,9 @@ namespace TNet
 
 				for (int i = 0; i < size; ++i)
 				{
-					if (buffer[i] != null && comp.Equals(buffer[i], item))
+					if (comp.Equals(buffer[i], item))
 					{
-						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i);
+						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
 						--size;
 						return true;
 					}
@@ -287,7 +312,7 @@ namespace TNet
 		{
 			if (buffer != null && index > -1 && index < size)
 			{
-				if (index + 1 < size) System.Array.Copy(buffer, index + 1, buffer, index, size - index);
+				if (index + 1 < size) System.Array.Copy(buffer, index + 1, buffer, index, size - index - 1);
 				--size;
 			}
 		}
@@ -308,7 +333,7 @@ namespace TNet
 
 			if (buffer != null && index > -1 && index < size && index < end)
 			{
-				if (end + 1 < size) System.Array.Copy(buffer, end, buffer, index, count);
+				if (end + 1 < size) System.Array.Copy(buffer, end, buffer, index, size - end);
 				size -= count;
 			}
 		}
