@@ -765,7 +765,13 @@ namespace TNet
 			var p = tcp as TcpPlayer;
 			if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p);
 
-			LeaveAllChannels(p);
+			while (p.channels.size > 0)
+			{
+				Channel ch = p.channels[0];
+				if (ch != null) SendLeaveChannel(p, ch, false);
+				else p.channels.RemoveAt(0);
+			}
+
 			mPlayerList.Remove(p);
 
 			if (p.udpEndPoint != null)
@@ -940,6 +946,25 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Send the outgoing buffer to the specified player.
+		/// </summary>
+
+		protected void EndSend (Buffer buff, bool reliable, TcpPlayer player)
+		{
+#if !MODDING
+			buff.EndPacket();
+			if (buff.size > 1024) reliable = true;
+
+			if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
+			{
+				player.SendTcpPacket(buff);
+			}
+			else mUdp.Send(buff, player.udpEndPoint);
+#endif
+			buff.Recycle();
+		}
+
+		/// <summary>
 		/// Send the outgoing buffer to all players in the specified channel.
 		/// </summary>
 
@@ -954,7 +979,7 @@ namespace TNet
 
 				for (int i = 0; i < channel.players.size; ++i)
 				{
-					TcpPlayer player = (TcpPlayer)channel.players[i];
+					var player = (TcpPlayer)channel.players[i];
 
 					if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
 					{
@@ -969,6 +994,37 @@ namespace TNet
 #endif
 			mBuffer.Recycle();
 			mBuffer = null;
+		}
+
+		/// <summary>
+		/// Send the outgoing buffer to all players in the specified channel.
+		/// </summary>
+
+		protected void EndSend (Buffer buff, Channel channel, TcpPlayer exclude, bool reliable)
+		{
+#if !MODDING
+			buff.EndPacket();
+
+			if (buff.size != 0)
+			{
+				if (buff.size > 1024) reliable = true;
+
+				for (int i = 0; i < channel.players.size; ++i)
+				{
+					var player = (TcpPlayer)channel.players[i];
+
+					if (player.stage == TcpProtocol.Stage.Connected && player != exclude)
+					{
+						if (reliable || !player.udpIsUsable || player.udpEndPoint == null || !mAllowUdp)
+						{
+							player.SendTcpPacket(buff);
+						}
+						else mUdp.Send(buff, player.udpEndPoint);
+					}
+				}
+			}
+#endif
+			buff.Recycle();
 		}
 
 #if !MODDING
@@ -1066,32 +1122,17 @@ namespace TNet
 			if (ch != null && ch.host != player)
 			{
 				ch.host = player;
-				BinaryWriter writer = BeginSend(Packet.ResponseSetHost);
+				var buff = Buffer.Create();
+				var writer = buff.BeginPacket(Packet.ResponseSetHost);
 				writer.Write(ch.id);
 				writer.Write(player.id);
-				EndSend(ch, null, true);
+				EndSend(buff, ch, null, true);
 			}
 #endif
 		}
 
 		// Temporary buffer used in SendLeaveChannel below
 		protected List<uint> mTemp = new List<uint>();
-
-		/// <summary>
-		/// Leave all of the channels the player is in.
-		/// </summary>
-
-		protected void LeaveAllChannels (TcpPlayer player)
-		{
-#if !MODDING
-			while (player.channels.size > 0)
-			{
-				Channel ch = player.channels[0];
-				if (ch != null) SendLeaveChannel(player, ch, true);
-				else player.channels.RemoveAt(0);
-			}
-#endif
-		}
 
 		/// <summary>
 		/// Leave the channel the player is in.
@@ -1111,26 +1152,29 @@ namespace TNet
 				if (ch.players.size > 0)
 				{
 					BinaryWriter writer;
+					Buffer buff;
 
 					// Inform the other players that the player's objects should be destroyed
 					if (mTemp.size > 0)
 					{
-						writer = BeginSend(Packet.ResponseDestroyObject);
+						buff = Buffer.Create();
+						writer = buff.BeginPacket(Packet.ResponseDestroyObject);
 						writer.Write(player.id);
 						writer.Write(ch.id);
 						writer.Write((ushort)mTemp.size);
 						for (int i = 0; i < mTemp.size; ++i) writer.Write(mTemp[i]);
-						EndSend(ch, null, true);
+						EndSend(buff, ch, null, true);
 					}
 
 					// If this player was the host, choose a new host
 					if (ch.host == null) SendSetHost(ch, (TcpPlayer)ch.players[0]);
 
 					// Inform everyone of this player leaving the channel
-					writer = BeginSend(Packet.ResponsePlayerLeft);
+					buff = Buffer.Create();
+					writer = buff.BeginPacket(Packet.ResponsePlayerLeft);
 					writer.Write(ch.id);
 					writer.Write(player.id);
-					EndSend(ch, null, true);
+					EndSend(buff, ch, null, true);
 				}
 				else if (!ch.persistent)
 				{
@@ -1142,8 +1186,9 @@ namespace TNet
 				// Notify the player that they have left the channel
 				if (notify && player.isConnected)
 				{
-					BeginSend(Packet.ResponseLeaveChannel).Write(ch.id);
-					EndSend(true, player);
+					var buff = Buffer.Create();
+					buff.BeginPacket(Packet.ResponseLeaveChannel).Write(ch.id);
+					EndSend(buff, true, player);
 				}
 			}
 

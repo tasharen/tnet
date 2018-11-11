@@ -975,7 +975,11 @@ namespace TNet
 		/// Set the specified value on our player.
 		/// </summary>
 
-		static public void SetPlayerData (string path, object val) { if (mInstance != null) mInstance.mClient.SetPlayerData(path, val); }
+		static public void SetPlayerData (string path, object val)
+		{
+			if (isConnected) mInstance.mClient.SetPlayerData(path, val);
+			else player.Set(path, val);
+		}
 
 		/// <summary>
 		/// Set the specified value on our player using key = value notation.
