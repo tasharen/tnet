@@ -161,7 +161,7 @@ namespace TNet
 			{
 				if (parent != null) return parent.canSend;
 				if (!TNManager.isConnected) return true;
-				return uid != 0 && !hasBeenDestroyed && TNManager.IsInChannel(channelID, true);
+				return uid != 0 && !hasBeenDestroyed && TNManager.IsInChannel(mNextChannelID == 0 ? channelID : mNextChannelID, true);
 			}
 		}
 
@@ -879,12 +879,6 @@ namespace TNet
 #if UNITY_EDITOR
 			else
 			{
-#if W2
-				var tile = ProceduralTerrain.GetTile(channelID);
-
-				if (tile != null) Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created on tile " + tile.ix + " " + tile.iz, tile.go);
-				else
-#endif
 				Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created in channel " + channelID);
 			}
 #endif
@@ -910,12 +904,6 @@ namespace TNet
 #if UNITY_EDITOR
 			else
 			{
-#if W2
-				var tile = ProceduralTerrain.GetTile(channelID);
-
-				if (tile != null) Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created on tile " + tile.ix + " " + tile.iz, tile.go);
-				else
-#endif
 				Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
 			}
 #endif
@@ -1897,6 +1885,8 @@ namespace TNet
 #endif
 		}
 
+		[System.NonSerialized] int mNextChannelID = 0;
+
 		/// <summary>
 		/// Transfer this object to another channel. Only the object's owner should perform this action.
 		/// Note that if the object has a nested TNObject hierarchy, newly entered clients won't see this hierarchy.
@@ -1904,20 +1894,20 @@ namespace TNet
 		/// with the hierarchy path (or simply the TNObject parent ID) before calling TransferToChannel.
 		/// </summary>
 
-		public void TransferToChannel (int newChannelID)
+		public bool TransferToChannel (int newChannelID)
 		{
 #if !MODDING
 			if (parent == null)
 			{
-				if (mDestroyed != 0) return;
+				if (mDestroyed != 0 || mNextChannelID != 0) return false;
 
 				if (uid > 32767 && channelID != newChannelID)
 				{
-					mDestroyed = 2;
+					mNextChannelID = newChannelID;
 
 					if (TNManager.isConnected)
 					{
-						BinaryWriter writer = TNManager.BeginSend(Packet.RequestTransferObject);
+						var writer = TNManager.BeginSend(Packet.RequestTransferObject);
 						writer.Write(channelID);
 						writer.Write(newChannelID);
 						writer.Write(uid);
@@ -1929,9 +1919,11 @@ namespace TNet
 #endif
 					}
 					else FinalizeTransfer(newChannelID, TNObject.GetUniqueID(true));
+					return true;
 				}
+				return false;
 			}
-			else parent.TransferToChannel(newChannelID);
+			return parent.TransferToChannel(newChannelID);
 #endif
 		}
 
@@ -1950,7 +1942,7 @@ namespace TNet
 				channelID = newChannel;
 				uid = newObjectID;
 				Register();
-				mDestroyed = 0;
+				mNextChannelID = 0;
 			}
 			else parent.FinalizeTransfer(newChannel, newObjectID);
 #endif

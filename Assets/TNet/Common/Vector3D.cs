@@ -322,31 +322,39 @@ namespace TNet
 
 		static public double Distance (Vector3D a, Vector3D b)
 		{
-			double x = a.x - b.x;
-			double y = a.y - b.y;
-			double z = a.z - b.z;
+			var x = a.x - b.x;
+			var y = a.y - b.y;
+			var z = a.z - b.z;
 			return Math.Sqrt(x * x + y * y + z * z);
 		}
 
 		static public double FlatDistance (Vector3D a, Vector3D b)
 		{
-			double x = a.x - b.x;
-			double z = a.z - b.z;
+			var x = a.x - b.x;
+			var z = a.z - b.z;
 			return Math.Sqrt(x * x + z * z);
+		}
+
+		static public float SqrDistance (Vector3 a, Vector3 b)
+		{
+			var x = a.x - b.x;
+			var y = a.y - b.y;
+			var z = a.z - b.z;
+			return x * x + y * y + z * z;
 		}
 
 		static public double SqrDistance (Vector3D a, Vector3D b)
 		{
-			double x = a.x - b.x;
-			double y = a.y - b.y;
-			double z = a.z - b.z;
+			var x = a.x - b.x;
+			var y = a.y - b.y;
+			var z = a.z - b.z;
 			return x * x + y * y + z * z;
 		}
 
 		static public double FlatSqrDistance (Vector3D a, Vector3D b)
 		{
-			double x = a.x - b.x;
-			double z = a.z - b.z;
+			var x = a.x - b.x;
+			var z = a.z - b.z;
 			return (x * x + z * z);
 		}
 
@@ -359,10 +367,8 @@ namespace TNet
 
 		static public Vector3D ClampMagnitude (Vector3D vector, double maxLength)
 		{
-			if (vector.sqrMagnitude > maxLength * maxLength)
-				return vector.normalized * maxLength;
-			else
-				return vector;
+			if (vector.sqrMagnitude > maxLength * maxLength) return vector.normalized * maxLength;
+			return vector;
 		}
 
 		static public double Magnitude (Vector3D a)

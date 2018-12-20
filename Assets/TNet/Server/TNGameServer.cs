@@ -2670,7 +2670,7 @@ namespace TNet
 					{
 						uint target = reader.ReadUInt32();
 						string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-						ch.AddRFC(target, funcName, buffer);
+						ch.AddRFC(target, funcName, buffer, mTime);
 					}
 				}
 
@@ -2774,7 +2774,7 @@ namespace TNet
 
 					if (from != null && to != null && from != to)
 					{
-						var obj = from.TransferObject(objectID, to);
+						var obj = from.TransferObject(objectID, to, mTime);
 
 						if (obj != null)
 						{
@@ -2965,8 +2965,7 @@ namespace TNet
 					Channel ch = player.GetChannel(reader.ReadInt32());
 					uint id = reader.ReadUInt32();
 					string funcName = ((id & 0xFF) == 0) ? reader.ReadString() : null;
-					if (ch != null && (!ch.isLocked || player.isAdmin))
-						ch.DeleteRFC(id, funcName);
+					if (ch != null && (!ch.isLocked || player.isAdmin)) ch.DeleteRFC(id, funcName, mTime);
 					break;
 				}
 				case Packet.RequestSetChannelData:

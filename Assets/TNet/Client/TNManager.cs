@@ -977,7 +977,35 @@ namespace TNet
 
 		static public void SetPlayerData (string path, object val)
 		{
-			if (isConnected) mInstance.mClient.SetPlayerData(path, val);
+			if (isConnected)
+			{
+				mInstance.mClient.SetPlayerData(path, val);
+			}
+			else if (val != null)
+			{
+				// This forces the Serialize/Deserialize to be called, same as playing online would.
+				// This ensures the same behaviour, with the Deserialize always called, online and offline.
+				if (val is IBinarySerializable)
+				{
+					var o = (val as IBinarySerializable);
+					var buffer = Buffer.Create();
+					o.Serialize(buffer.BeginWriting());
+					o = (IBinarySerializable)val.GetType().Create();
+					o.Deserialize(buffer.BeginReading());
+					player.Set(path, o);
+					buffer.Recycle();
+				}
+				else if (val is IDataNodeSerializable)
+				{
+					var o = (val as IDataNodeSerializable);
+					var dn = new DataNode("DN");
+					o.Serialize(dn);
+					o = (IDataNodeSerializable)val.GetType().Create();
+					o.Deserialize(dn);
+					player.Set(path, o);
+				}
+				else player.Set(path, val);
+			}
 			else player.Set(path, val);
 		}
 

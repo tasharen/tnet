@@ -33,7 +33,7 @@ namespace TNet
 		/// <summary>
 		/// Root directory that will be used for all file operations.
 		/// </summary>
-		
+
 		public string rootDirectory;
 
 		/// <summary>
@@ -42,6 +42,8 @@ namespace TNet
 
 		public bool SaveFile (string fileName, byte[] data)
 		{
+			if (fileName.Contains("..")) return false;
+
 			if (Tools.WriteFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName), data, true))
 			{
 				mSavedFiles[fileName] = data;
@@ -56,6 +58,8 @@ namespace TNet
 
 		public byte[] LoadFile (string fileName)
 		{
+			if (fileName.Contains("..")) return null;
+
 			byte[] data;
 
 			if (!mSavedFiles.TryGetValue(fileName, out data))
@@ -72,6 +76,8 @@ namespace TNet
 
 		public bool DeleteFile (string fileName)
 		{
+			if (fileName.Contains("..")) return false;
+
 			if (Tools.DeleteFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName)))
 			{
 				mSavedFiles.Remove(fileName);

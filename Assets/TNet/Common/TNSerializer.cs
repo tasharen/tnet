@@ -2497,11 +2497,13 @@ namespace TNet
 		{
 			int prefix = GetPrefix(type);
 
-			if (prefix > 250)
+			if (prefix >= 250)
 			{
 				if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+				else if (type.Implements(typeof(IDataNodeSerializable))) prefix = 251;
 #if SERIALIZATION_WITHOUT_INTERFACE
 				else if (type.HasBinarySerialization()) prefix = 252;
+				else if (type.HasDataNodeSerialization()) prefix = 250;
 #endif
 				bw.Write((byte)prefix);
 				bw.Write(TypeToName(type));
@@ -2516,7 +2518,7 @@ namespace TNet
 		static public void Write (this BinaryWriter bw, int prefix, Type type)
 		{
 			bw.Write((byte)prefix);
-			if (prefix > 250) bw.Write(TypeToName(type));
+			if (prefix >= 250) bw.Write(TypeToName(type));
 		}
 
 		/// <summary>
@@ -2609,6 +2611,14 @@ namespace TNet
 						(obj as IBinarySerializable).Serialize(bw);
 						return;
 					}
+					else if (obj is IDataNodeSerializable)
+					{
+						if (!typeIsKnown) bw.Write(251, type);
+						var dn = new DataNode("DN");
+						(obj as IDataNodeSerializable).Serialize(dn);
+						bw.Write(dn);
+						return;
+					}
 #if SERIALIZATION_WITHOUT_INTERFACE
 					else if (prefix == 252 || (prefix == 255 && type.HasBinarySerialization()))
 					{
@@ -2624,12 +2634,29 @@ namespace TNet
 						}
 						return;
 					}
+					else if (prefix == 250 || (prefix == 255 && type.HasDataNodeSerialization()))
+					{
+						if (!typeIsKnown) bw.Write(250, type);
+						var dn = new DataNode("DN");
+
+						if (!obj.Invoke("Serialize", dn))
+						{
+#if UNITY_EDITOR
+							Debug.LogWarning("Failed to invoke the DataNode serialization function on " + type + " " + prefix + " " + type.HasDataNodeSerialization(), obj as UnityEngine.Object);
+#else
+							Tools.LogWarning("Failed to invoke the DataNode serialization function on " + type);
+#endif
+						}
+
+						bw.Write(dn);
+						return;
+					}
 #endif
 				}
 			}
 
 			// If this is a custom type, there is more work to be done
-			if (prefix > 250)
+			if (prefix >= 250)
 			{
 #if !STANDALONE
 				if (obj is GameObject)
@@ -2677,17 +2704,7 @@ namespace TNet
 								}
 							}
 
-							/*if (elemPrefix > 250)
-							{
-								if (elemType.Implements(typeof(IBinarySerializable))) elemPrefix = 253;
-#if SERIALIZATION_WITHOUT_INTERFACE
-								else if (elemType.HasBinarySerialization()) elemPrefix = 252;
-#endif
-							}*/
-
 							if (!typeIsKnown) bw.Write((byte)98);
-							//bw.Write((byte)elemPrefix);
-							//if (prefix > 250) bw.Write(TypeToName(elemType));
 							bw.Write(elemType);
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
@@ -2752,17 +2769,7 @@ namespace TNet
 								}
 							}
 
-							/*if (elemPrefix > 250)
-							{
-								if (elemType.Implements(typeof(IBinarySerializable))) elemPrefix = 253;
-#if SERIALIZATION_WITHOUT_INTERFACE
-								else if (elemType.HasBinarySerialization()) elemPrefix = 252;
-#endif
-							}*/
-
 							if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
-							//bw.Write((byte)elemPrefix);
-							//if (prefix > 250) bw.Write(TypeToName(fixedSize ? type : elemType));
 							bw.Write(fixedSize ? type : elemType);
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
@@ -3414,7 +3421,7 @@ namespace TNet
 		static public Type ReadType (this BinaryReader reader)
 		{
 			int prefix = reader.ReadByte();
-			return (prefix > 250) ? NameToType(reader.ReadString()) : GetType(prefix);
+			return (prefix >= 250) ? NameToType(reader.ReadString()) : GetType(prefix);
 		}
 
 		/// <summary>
@@ -3424,7 +3431,7 @@ namespace TNet
 		static public Type ReadType (this BinaryReader reader, out int prefix)
 		{
 			prefix = reader.ReadByte();
-			return (prefix > 250) ? NameToType(reader.ReadString()) : GetType(prefix);
+			return (prefix >= 250) ? NameToType(reader.ReadString()) : GetType(prefix);
 		}
 
 		/// <summary>
@@ -3602,8 +3609,10 @@ namespace TNet
 							{
 								type = type.GetElementType();
 								if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
+								else if (type.Implements(typeof(IDataNodeSerializable))) prefix = 251;
 #if SERIALIZATION_WITHOUT_INTERFACE
 								else if (type.HasBinarySerialization()) prefix = 252;
+								else if (type.HasDataNodeSerialization()) prefix = 250;
 #endif
 								else if (prefix != 254) prefix = GetPrefix(type);
 								for (int i = 0; i < elements; ++i) arr[i] = reader.ReadObject(null, prefix, type, sameType);
@@ -3814,6 +3823,22 @@ namespace TNet
 						return arr;
 					}
 #endif
+#if SERIALIZATION_WITHOUT_INTERFACE
+					case 250:
+					{
+						var dn = reader.ReadDataNode();
+						var ser = (obj != null) ? obj : type.Create();
+						if (ser != null && !ser.Invoke("Deserialize", dn)) Tools.LogError("Unable to find DataNode deserialization for " + type);
+						return ser;
+					}
+#endif
+					case 251:
+					{
+						var dn = reader.ReadDataNode();
+						var ser = (obj != null) ? (IDataNodeSerializable)obj : (IDataNodeSerializable)type.Create();
+						if (ser != null) ser.Deserialize(dn);
+						return ser;
+					}
 #if SERIALIZATION_WITHOUT_INTERFACE
 					case 252:
 					{

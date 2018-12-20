@@ -837,7 +837,7 @@ namespace TNet
 
 			if (mi == null) return false;
 
-			// Extension methods need to pass the object as the first parameter ('this' reference)
+			// Extension method needs to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
 			{
 				if (mTempExtended == null) mTempExtended = new object[2];

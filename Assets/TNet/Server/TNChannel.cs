@@ -129,7 +129,7 @@ namespace TNet
 
 		public uint GetUniqueID ()
 		{
-			for (;;)
+			for (; ; )
 			{
 				uint uniqueID = --objectCounter;
 
@@ -467,11 +467,34 @@ namespace TNet
 #endif
 		}
 
+#if !MODDING
+		struct ForwardRecord
+		{
+			public uint objectID;
+			public Channel newChannel;
+			public uint newID;
+			public long expiration;
+		}
+
+		List<ForwardRecord> mForward = null;
+
+		void AddForwardRecord (uint objectID, Channel newChannel, uint newID, long expiration)
+		{
+			var fw = new ForwardRecord();
+			fw.objectID = objectID;
+			fw.newChannel = newChannel;
+			fw.newID = newID;
+			fw.expiration = expiration;
+			if (mForward == null) mForward = new List<ForwardRecord>();
+			mForward.Add(fw);
+		}
+#endif
+
 		/// <summary>
 		/// Transfer the specified object to another channel, changing its Object ID in the process.
 		/// </summary>
 
-		public CreatedObject TransferObject (uint objectID, Channel other)
+		public CreatedObject TransferObject (uint objectID, Channel newChannel, long time)
 		{
 #if !MODDING
 			if (objectID < 32768)
@@ -487,25 +510,28 @@ namespace TNet
 					if (obj.objectID == objectID)
 					{
 						// Move the created object over to the other channel
-						obj.objectID = other.GetUniqueID();
+						obj.objectID = newChannel.GetUniqueID();
+
+						// Add a new forward record for 10 seconds so that any packets that arrive for this object will automatically get redirected
+						AddForwardRecord(objectID, newChannel, obj.objectID, time + 10000);
 
 						// If the other channel doesn't contain the object's owner, assign a new owner
 						bool changeOwner = true;
 
-						for (int b = 0; b < other.players.size; ++b)
+						for (int b = 0; b < newChannel.players.size; ++b)
 						{
-							if (other.players[b].id == obj.playerID)
+							if (newChannel.players[b].id == obj.playerID)
 							{
 								changeOwner = false;
 								break;
 							}
 						}
 
-						if (changeOwner) obj.playerID = (other.host != null) ? other.host.id : 0;
+						if (changeOwner) obj.playerID = (newChannel.host != null) ? newChannel.host.id : 0;
 
 						created.RemoveAt(i);
-						other.created.Add(obj);
-						other.mCreatedObjectDictionary[obj.objectID] = true;
+						newChannel.created.Add(obj);
+						newChannel.mCreatedObjectDictionary[obj.objectID] = true;
 
 						// Move RFCs over to the other channel
 						for (int b = 0; b < rfcs.size;)
@@ -516,7 +542,7 @@ namespace TNet
 							{
 								r.objectID = obj.objectID;
 								rfcs.RemoveAt(b);
-								other.rfcs.Add(r);
+								newChannel.rfcs.Add(r);
 							}
 							else ++b;
 						}
@@ -532,15 +558,39 @@ namespace TNet
 		/// Add a new saved remote function call.
 		/// </summary>
 
-		public void AddRFC (uint uid, string funcName, Buffer buffer)
+		public void AddRFC (uint uid, string funcName, Buffer buffer, long time)
 		{
 #if !MODDING
 			if (closed || buffer == null) return;
 			uint objID = (uid >> 8);
 
-			// Ignore objects that don't exist
-			if (objID < 32768) { if (destroyed.Contains(objID)) return; }
-			else if (!mCreatedObjectDictionary.ContainsKey(objID)) return;
+			if (objID < 32768) // Static object ID
+			{
+				// Ignore objects that were marked as deleted
+				if (destroyed.Contains(objID)) return;
+			}
+			else if (!mCreatedObjectDictionary.ContainsKey(objID))
+			{
+				if (mForward != null)
+				{
+					for (int i = 0; i < mForward.size; ++i)
+					{
+						if (mForward.buffer[i].objectID == objID)
+						{
+							// Redirect this packet
+							mForward.buffer[i].newChannel.AddRFC((mForward.buffer[i].newID << 8) | (uid & 0xFF), funcName, buffer, time);
+							return;
+						}
+						else if (mForward.buffer[i].expiration < time)
+						{
+							// Expired entry -- remove it
+							mForward.RemoveAt(i--);
+							if (mForward.size == 0) { mForward = null; break; }
+						}
+					}
+				}
+				return; // This object doesn't exist
+			}
 
 			var b = Buffer.Create();
 			b.BeginWriting(false).Write(buffer.buffer, buffer.position, buffer.size);
@@ -574,17 +624,39 @@ namespace TNet
 		/// Delete the specified remote function call.
 		/// </summary>
 
-		public void DeleteRFC (uint inID, string funcName)
+		public void DeleteRFC (uint uid, string funcName, long time)
 		{
 #if !MODDING
 			for (int i = 0; i < rfcs.size; ++i)
 			{
 				var rfc = rfcs[i];
 
-				if (rfc.uid == inID && rfc.functionName == funcName)
+				if (rfc.uid == uid && rfc.functionName == funcName)
 				{
 					rfcs.RemoveAt(i);
 					rfc.data.Recycle();
+					return;
+				}
+			}
+
+			if (mForward != null)
+			{
+				uint objID = (uid >> 8);
+
+				for (int i = 0; i < mForward.size; ++i)
+				{
+					if (mForward.buffer[i].objectID == objID)
+					{
+						// Redirect this packet
+						mForward.buffer[i].newChannel.DeleteRFC((mForward.buffer[i].newID << 8) | (uid & 0xFF), funcName, time);
+						return;
+					}
+					else if (mForward.buffer[i].expiration < time)
+					{
+						// Expired entry -- remove it
+						mForward.RemoveAt(i--);
+						if (mForward.size == 0) { mForward = null; break; }
+					}
 				}
 			}
 #endif
