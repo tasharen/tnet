@@ -44,14 +44,14 @@ public class DraggedObject : TNBehaviour
 				ClaimObject(TNManager.playerID, mTrans.position);
 
 				// Inform everyone else
-				tno.Send(2, Target.OthersSaved, TNManager.playerID, mTrans.position);
+				tno.Send(4, Target.OthersSaved, TNManager.playerID, mTrans.position);
 			}
 		}
 		else if (mOwner == TNManager.player)
 		{
 			// When the mouse or touch gets released, inform everyone that the player no longer has control.
 			ClaimObject(0, mTrans.position);
-			tno.Send(2, Target.OthersSaved, 0, mTrans.position);
+			tno.Send(4, Target.OthersSaved, 0, mTrans.position);
 		}
 	}
 
@@ -59,7 +59,7 @@ public class DraggedObject : TNBehaviour
 	/// Remember the last player who claimed control of this object.
 	/// </summary>
 
-	[RFC(2)]
+	[RFC(4)]
 	void ClaimObject (int playerID, Vector3 pos)
 	{
 		mOwner = TNManager.GetPlayer(playerID);
