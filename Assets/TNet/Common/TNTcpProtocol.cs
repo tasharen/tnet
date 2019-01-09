@@ -347,7 +347,7 @@ namespace TNet
 						lock (mConnecting)
 						{
 							// Last active connection attempt
-							if (mConnecting.size > 0 && mConnecting[mConnecting.size - 1] == sock)
+							if (mConnecting.size > 0 && mConnecting.buffer[mConnecting.size - 1] == sock)
 							{
 								mSocket = null;
 
@@ -436,7 +436,7 @@ namespace TNet
 				{
 					for (int i = mConnecting.size; i > 0;)
 					{
-						Socket sock = mConnecting[--i];
+						Socket sock = mConnecting.buffer[--i];
 						mConnecting.RemoveAt(i);
 						if (sock != null) sock.Close();
 					}

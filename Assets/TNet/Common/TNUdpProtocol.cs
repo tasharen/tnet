@@ -63,7 +63,7 @@ public class UdpProtocol
 	byte[] mTemp = new byte[8192];
 
 	Socket mSocket;
-	
+
 	// End point of where the data is coming from
 	EndPoint mEndPoint;
 	bool mMulticast = true;
@@ -234,7 +234,7 @@ public class UdpProtocol
 
 			// The 'endPoint', gets reassigned rather than updated.
 			Datagram dg = new Datagram();
-			dg.buffer = buffer;
+			dg.data = buffer;
 			dg.ip = (IPEndPoint)mEndPoint;
 			lock (mIn) mIn.Enqueue(dg);
 		}
@@ -273,7 +273,7 @@ public class UdpProtocol
 			lock (mIn)
 			{
 				Datagram dg = mIn.Dequeue();
-				buffer = dg.buffer;
+				buffer = dg.data;
 				source = dg.ip;
 				return true;
 			}
@@ -362,7 +362,7 @@ public class UdpProtocol
 			lock (mOut)
 			{
 				Datagram dg = new Datagram();
-				dg.buffer = buffer;
+				dg.data = buffer;
 				dg.ip = ip;
 				mOut.Enqueue(dg);
 
@@ -411,13 +411,13 @@ public class UdpProtocol
 
 		lock (mOut)
 		{
-			mOut.Dequeue().buffer.Recycle();
+			mOut.Dequeue().data.Recycle();
 
 			if (bytes > 0 && mSocket != null && mOut.Count != 0)
 			{
 				// If there is another packet to send out, let's send it
 				Datagram dg = mOut.Peek();
-				mSocket.BeginSendTo(dg.buffer.buffer, dg.buffer.position, dg.buffer.size, SocketFlags.None, dg.ip, OnSend, null);
+				mSocket.BeginSendTo(dg.data.buffer, dg.data.position, dg.data.size, SocketFlags.None, dg.ip, OnSend, null);
 			}
 		}
 	}
@@ -438,7 +438,7 @@ public class UdpProtocol
 		buffer.EndTcpPacketWithOffset(4);
 
 		var dg = new Datagram();
-		dg.buffer = buffer;
+		dg.data = buffer;
 		dg.ip = ip;
 		lock (mIn) mIn.Enqueue(dg);
 #endif

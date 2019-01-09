@@ -62,6 +62,7 @@ namespace TNet
 		/// Convenience function. I recommend using .buffer instead.
 		/// </summary>
 
+		[System.Obsolete("Use list.buffer[index], it's a lot faster as it avoids the operator")]
 		public T this[int i]
 		{
 			get { return buffer[i]; }

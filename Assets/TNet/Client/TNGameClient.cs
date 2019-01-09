@@ -464,7 +464,7 @@ namespace TNet
 
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					var ch = mChannels[i];
+					var ch = mChannels.buffer[i];
 					if (ch.id == channelID) return true;
 				}
 			}
@@ -481,7 +481,7 @@ namespace TNet
 			{
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					var ch = mChannels[i];
+					var ch = mChannels.buffer[i];
 					if (ch.id == channelID) return ch.host;
 				}
 			}
@@ -534,13 +534,13 @@ namespace TNet
 		{
 			for (int i = 0; i < mChannels.size; ++i)
 			{
-				Channel ch = mChannels[i];
+				var ch = mChannels.buffer[i];
 				if (ch.id == channelID) return ch;
 			}
 
 			if (createIfMissing)
 			{
-				Channel ch = new Channel();
+				var ch = new Channel();
 				ch.id = channelID;
 				mChannels.Add(ch);
 				return ch;
@@ -716,7 +716,7 @@ namespace TNet
 				while (mChannels.size > 0)
 				{
 					int index = mChannels.size - 1;
-					var ch = mChannels[index];
+					var ch = mChannels.buffer[index];
 					ch.isLeaving = true;
 					mChannels.RemoveAt(index);
 					onLeaveChannel(ch.id);
@@ -801,7 +801,9 @@ namespace TNet
 					BeginSend(Packet.RequestSetUDP).Write((ushort)0);
 					EndSend();
 				}
+
 				mUdp.Stop();
+				mServerUdpEndPoint = null;
 				mUdpIsUsable = false;
 			}
 #endif
@@ -871,7 +873,7 @@ namespace TNet
 			{
 				for (int i = 0; i < mChannels.size; ++i)
 				{
-					Channel ch = mChannels[i];
+					var ch = mChannels.buffer[i];
 
 					if (ch.id == channelID)
 					{
@@ -900,7 +902,7 @@ namespace TNet
 
 				for (int i = mChannels.size; i > 0;)
 				{
-					var ch = mChannels[--i];
+					var ch = mChannels.buffer[--i];
 
 					if (!ch.isLeaving)
 					{
@@ -1462,7 +1464,7 @@ namespace TNet
 
 					for (int i = 0; i < mChannels.size; ++i)
 					{
-						Channel ch = mChannels[i];
+						var ch = mChannels.buffer[i];
 
 						if (ch.id == channelID)
 						{
@@ -1497,7 +1499,7 @@ namespace TNet
 					{
 						for (int i = 0; i < mJoining.size; ++i)
 						{
-							int id = mJoining[i];
+							int id = mJoining.buffer[i];
 
 							if (id < 0)
 							{
@@ -1518,7 +1520,7 @@ namespace TNet
 
 					for (int i = 0; i < mChannels.size; ++i)
 					{
-						var ch = mChannels[i];
+						var ch = mChannels.buffer[i];
 
 						if (ch.id == channelID)
 						{
@@ -1735,13 +1737,13 @@ namespace TNet
 				{
 					if (mGetChannelsCallbacks.Count != 0)
 					{
-						OnGetChannels cb = mGetChannelsCallbacks.Dequeue();
-						List<Channel.Info> channels = new List<Channel.Info>();
-						int count = reader.ReadInt32();
+						var cb = mGetChannelsCallbacks.Dequeue();
+						var channels = new List<Channel.Info>();
+						var count = reader.ReadInt32();
 
 						for (int i = 0; i < count; ++i)
 						{
-							Channel.Info info = new Channel.Info();
+							var info = new Channel.Info();
 							info.id = reader.ReadInt32();
 							info.players = reader.ReadUInt16();
 							info.limit = reader.ReadUInt16();
@@ -1756,20 +1758,27 @@ namespace TNet
 					}
 					break;
 				}
-				case Packet.ResponseLockChannel:
+				case Packet.ResponseUpdateChannel:
 				{
-					int channelID = reader.ReadInt32();
-					bool isLocked = reader.ReadBoolean();
-					Channel ch = GetChannel(channelID);
-					if (ch != null) ch.isLocked = isLocked;
-					if (onLockChannel != null) onLockChannel(channelID, isLocked);
+					var ch = GetChannel(reader.ReadInt32());
+					var playerLimit = reader.ReadUInt16();
+					var val = reader.ReadUInt16();
+
+					if (ch != null)
+					{
+						ch.playerLimit = playerLimit;
+						ch.isPersistent = ((val & 1) != 0);
+						ch.isClosed = ((val & 2) != 0);
+						ch.isLocked = ((val & 4) != 0);
+						if (onUpdateChannel != null) onUpdateChannel(ch);
+					}
 					break;
 				}
 				case Packet.ResponseSetOwner:
 				{
-					int channelID = reader.ReadInt32();
-					uint objID = reader.ReadUInt32();
-					int playerID = reader.ReadInt32();
+					var channelID = reader.ReadInt32();
+					var objID = reader.ReadUInt32();
+					var playerID = reader.ReadInt32();
 					onChangeOwner(channelID, objID, playerID != 0 ? GetPlayer(playerID) : null);
 					break;
 				}
@@ -1791,11 +1800,11 @@ namespace TNet
 
 			for (int i = 0; i < mChannels.size; ++i)
 			{
-				Channel ch = mChannels[i];
+				var ch = mChannels.buffer[i];
 
 				for (int b = 0; b < ch.players.size; ++b)
 				{
-					Player p = ch.players[b];
+					var p = ch.players.buffer[b];
 					if (!mDictionary.ContainsKey(p.id)) mDictionary[p.id] = p;
 				}
 			}
@@ -2059,7 +2068,7 @@ namespace TNet
 
 			for (int i = 0; i < count; ++i)
 			{
-				var obj = objects[i];
+				var obj = objects.buffer[i];
 				reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
 				var rccID = reader.ReadByte();
 				var funcName = (rccID == 0) ? reader.ReadString() : null;

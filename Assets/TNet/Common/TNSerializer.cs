@@ -882,9 +882,9 @@ namespace TNet
 						var obj = ConvertObject(list.buffer[i], elemType, go);
 						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
 #if !STANDALONE
-						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+						else if (go == null) Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType + " without a Game Object reference");
 #endif
-						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+						else Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType);
 					}
 					return newList;
 				}
@@ -903,9 +903,9 @@ namespace TNet
 						var obj = ConvertObject(list.buffer[i], elemType, go);
 						if (obj != null) newList[i] = System.Convert.ChangeType(obj, elemType);
 #if !STANDALONE
-						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+						else if (go == null) Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType + " without a Game Object reference");
 #endif
-						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+						else Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType);
 					}
 					return newList;
 				}
@@ -925,9 +925,9 @@ namespace TNet
 						var obj = ConvertObject(list.buffer[i], elemType, go);
 						if (obj != null) newList.Add(obj);
 #if !STANDALONE
-						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+						else if (go == null) Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType + " without a Game Object reference");
 #endif
-						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+						else Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType);
 					}
 					return newList;
 				}
@@ -947,9 +947,9 @@ namespace TNet
 						var obj = ConvertObject(list.buffer[i], elemType, go);
 						if (obj != null) newList.Add(obj);
 #if !STANDALONE
-						else if (go == null) Debug.LogWarning("Can't convert " + list[i] + " to " + elemType + " without a Game Object reference");
+						else if (go == null) Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType + " without a Game Object reference");
 #endif
-						else Debug.LogWarning("Can't convert " + list[i] + " to " + elemType);
+						else Debug.LogWarning("Can't convert " + list.buffer[i] + " to " + elemType);
 					}
 					return newList;
 				}
@@ -2070,7 +2070,7 @@ namespace TNet
 			writer.WriteInt(node.children.size);
 
 			for (int i = 0, imax = node.children.size; i < imax; ++i)
-				writer.Write(node.children[i]);
+				writer.Write(node.children.buffer[i]);
 		}
 
 		/// <summary>
@@ -2644,7 +2644,7 @@ namespace TNet
 #if UNITY_EDITOR
 							Debug.LogWarning("Failed to invoke the DataNode serialization function on " + type + " " + prefix + " " + type.HasDataNodeSerialization(), obj as UnityEngine.Object);
 #else
-							Tools.LogWarning("Failed to invoke the DataNode serialization function on " + type);
+							Tools.Log("Failed to invoke the DataNode serialization function on " + type);
 #endif
 						}
 
@@ -3078,8 +3078,8 @@ namespace TNet
 
 					for (int i = 0, imax = mFieldNames.size; i < imax; ++i)
 					{
-						bw.Write(mFieldNames[i]);
-						var val = mFieldValues[i];
+						bw.Write(mFieldNames.buffer[i]);
+						var val = mFieldValues.buffer[i];
 #if !STANDALONE
 						var uo = val as UnityEngine.Object;
 						if (uo != null) bw.WriteObject(uo.GetUniqueID());
@@ -3125,7 +3125,7 @@ namespace TNet
 		static public void AddAllFields (this DataNode node, object obj)
 		{
 			FilterFields(obj);
-			for (int i = 0, imax = mFieldNames.size; i < imax; ++i) node.AddChild(mFieldNames[i], mFieldValues[i]);
+			for (int i = 0, imax = mFieldNames.size; i < imax; ++i) node.AddChild(mFieldNames.buffer[i], mFieldValues.buffer[i]);
 		}
 
 		/// <summary>
@@ -3142,8 +3142,8 @@ namespace TNet
 
 			for (int i = 0; i < fields.size; ++i)
 			{
-				var f = fields[i];
-				object val = f.GetValue(obj);
+				var f = fields.buffer[i];
+				var val = f.GetValue(obj);
 
 				if (val != null)
 				{
@@ -3163,7 +3163,7 @@ namespace TNet
 					{
 						try
 						{
-							var prop = props[i];
+							var prop = props.buffer[i];
 							var val = prop.GetValue(obj, null);
 
 							if (val != null)
@@ -3175,7 +3175,7 @@ namespace TNet
 #if UNITY_EDITOR
 						catch (Exception ex)
 						{
-							Debug.LogWarning(obj.GetType() + "." + props[i].Name + ": " + ex.Message + "\n" + ex.StackTrace, obj as UnityEngine.Object);
+							Debug.LogWarning(obj.GetType() + "." + props.buffer[i].Name + ": " + ex.Message + "\n" + ex.StackTrace, obj as UnityEngine.Object);
 						}
 #else
 						catch (Exception) { }

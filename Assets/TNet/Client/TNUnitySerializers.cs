@@ -266,7 +266,7 @@ namespace TNet
 
 				for (int f = 0; f < fields.size; ++f)
 				{
-					var field = fields[f];
+					var field = fields.buffer[f];
 					var val = field.GetValue(c);
 					if (val == null) continue;
 
@@ -283,7 +283,7 @@ namespace TNet
 
 				for (int f = 0; f < props.size; ++f)
 				{
-					var prop = props[f];
+					var prop = props.buffer[f];
 
 					if (prop.Name == "enabled")
 					{
@@ -356,7 +356,7 @@ namespace TNet
 				// Now deserialize the Cloth component
 				for (int i = 0; i < node.children.size; ++i)
 				{
-					var child = node.children[i];
+					var child = node.children.buffer[i];
 					if (child.value == null) continue;
 
 					var fp = c.GetFieldOrProperty(child.name);
@@ -380,7 +380,7 @@ namespace TNet
 				// Fallback -- just set the appropriate fields/properties
 				for (int i = 0; i < node.children.size; ++i)
 				{
-					var child = node.children[i];
+					var child = node.children.buffer[i];
 					if (child.value == null) continue;
 
 					// Unity prior to 5.6.5p1 crashed here if this was performed on a disabled game object
@@ -680,7 +680,7 @@ namespace TNet
 
 				for (int i = 0; i < matRoot.children.size; ++i)
 				{
-					DataNode matNode = matRoot.children[i];
+					DataNode matNode = matRoot.children.buffer[i];
 					mats[i] = matNode.DeserializeMaterial();
 				}
 				ren.sharedMaterials = mats;
@@ -749,7 +749,7 @@ namespace TNet
 			// Restore material properties
 			for (int b = 0; b < matNode.children.size; ++b)
 			{
-				DataNode prop = matNode.children[b];
+				DataNode prop = matNode.children.buffer[b];
 				if (prop.name == "shader") continue;
 
 				if (prop.children.size != 0)
@@ -1338,7 +1338,7 @@ namespace TNet
 
 				for (int f = 0; f < fields.size; ++f)
 				{
-					var field = fields[f];
+					var field = fields.buffer[f];
 					var ft = field.FieldType;
 
 					if (ft == typeof(GameObject))
@@ -1423,7 +1423,7 @@ namespace TNet
 
 			for (int f = 0; f < fields.size; ++f)
 			{
-				var field = fields[f];
+				var field = fields.buffer[f];
 				var ft = field.FieldType;
 
 				if (ft == typeof(Material))
@@ -1814,7 +1814,7 @@ namespace TNet
 						if (r is int) intList.Add(r);
 						else { intList.Clear(); break; }
 					}
-					
+
 					if (intList.size != 0) return intList;
 
 					// Failing that, save them as string-based references
@@ -1854,7 +1854,7 @@ namespace TNet
 			{
 				for (int i = 0; i < resNode.children.size; ++i)
 				{
-					var child = resNode.children[i];
+					var child = resNode.children.buffer[i];
 					if (child.name == "Texture") child.DeserializeTexture();
 					else if (child.name == "Material") child.DeserializeMaterial();
 					else if (child.name == "Mesh") child.DeserializeMesh();
@@ -1901,7 +1901,7 @@ namespace TNet
 			{
 				for (int i = 0; i < childNode.children.size; ++i)
 				{
-					var node = childNode.children[i];
+					var node = childNode.children.buffer[i];
 					GameObject child = null;
 					var prefab = UnityTools.Load<GameObject>(node.GetChild<string>("prefab"));
 					if (prefab != null) child = GameObject.Instantiate(prefab) as GameObject;
@@ -1934,7 +1934,7 @@ namespace TNet
 
 			for (int i = 0; i < scriptNode.children.size; ++i)
 			{
-				var node = scriptNode.children[i];
+				var node = scriptNode.children.buffer[i];
 				var type = UnityTools.GetType(node.name);
 
 				if (type != null && type.IsSubclassOf(typeof(Component)))

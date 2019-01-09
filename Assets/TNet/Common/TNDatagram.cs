@@ -3,22 +3,19 @@
 // Copyright © 2012-2018 Tasharen Entertainment Inc
 //-------------------------------------------------
 
-using System;
-using System.IO;
 using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Collections.Generic;
 
 namespace TNet
 {
-/// <summary>
-/// Simple datagram container -- contains a data buffer and the address of where it came from (or where it's going).
-/// </summary>
+	/// <summary>
+	/// Simple datagram container -- contains a data buffer and the address of where it came from (or where it's going).
+	/// </summary>
 
-public struct Datagram
-{
-	public Buffer buffer;
-	public IPEndPoint ip;
-}
+	public struct Datagram
+	{
+		public IPEndPoint ip;
+		public Buffer data;
+
+		public void Recycle (bool threadSafe = true) { if (data != null) { data.Recycle(threadSafe); data = null; } }
+	}
 }

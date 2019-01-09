@@ -16,11 +16,11 @@ namespace TNet
 /// Universal Plug & Play functionality: auto-detect external IP and open external ports.
 /// Technically this class would be a fair bit shorter if I had used an XML parser...
 /// However I'd rather not, as adding the XML library also adds 1 megabyte to the executable's size in Unity.
-/// 
+///
 /// Example usage:
 /// UPnP p = new UPnP();
 /// p.OpenTCP(5127);
-/// 
+///
 /// Don't worry about closing ports. This class will do it for you when its instance gets destroyed.
 /// </summary>
 
@@ -37,7 +37,7 @@ public class UPnP
 	Status mStatus = Status.Inactive;
 	IPAddress mGatewayAddress = IPAddress.IPv6None;
 	Thread mDiscover = null;
-	
+
 	string mGatewayURL = null;
 	string mControlURL = null;
 	string mServiceType = null;
@@ -96,7 +96,7 @@ public class UPnP
 		{
 			for (int i = mThreads.size; i > 0; )
 			{
-				Thread th = mThreads[--i];
+				var th = mThreads.buffer[--i];
 				th.Interrupt();
 				th.Join();
 				mThreads.RemoveAt(i);
@@ -105,7 +105,7 @@ public class UPnP
 
 		for (int i = mPorts.size; i > 0; )
 		{
-			int id = mPorts[--i];
+			int id = mPorts.buffer[--i];
 			int port = (id >> 8);
 			bool tcp = ((id & 1) == 1);
 			Close(port, tcp, null);
@@ -145,14 +145,14 @@ public class UPnP
 						"MAN:\"ssdp:discover\"\r\n" +
 						"MX:3\r\n\r\n";
 
-		byte[] requestBytes = Encoding.ASCII.GetBytes(request);
-		List<IPAddress> ips = Tools.localAddresses;
-		IPEndPoint searchEndpoint = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900);
+		var requestBytes = Encoding.ASCII.GetBytes(request);
+		var ips = Tools.localAddresses;
+		var searchEndpoint = new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900);
 
 		// UPnP discovery should happen on all network interfaces
 		for (int i = 0; i < ips.size; ++i)
 		{
-			IPAddress ip = ips[i];
+			var ip = ips.buffer[i];
 			if (ip.AddressFamily == AddressFamily.InterNetworkV6) continue;
 			UdpClient sender = null;
 
@@ -169,8 +169,8 @@ public class UPnP
 
 				for (; ; )
 				{
-					IPEndPoint sourceAddress = new IPEndPoint(UdpProtocol.defaultNetworkInterface, 0);
-					byte[] data = sender.Receive(ref sourceAddress);
+					var sourceAddress = new IPEndPoint(UdpProtocol.defaultNetworkInterface, 0);
+					var data = sender.Receive(ref sourceAddress);
 
 					if (data != null && data.Length > 0 && ParseResponse(Encoding.ASCII.GetString(data, 0, data.Length)))
 					{

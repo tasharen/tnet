@@ -235,7 +235,7 @@ namespace TNet
 						{
 							for (int b = active.size; b > 0;)
 							{
-								var ent = active[--b];
+								var ent = active.buffer[--b];
 
 								sw.Reset();
 								sw.Start();
@@ -427,7 +427,7 @@ namespace TNet
 			{
 				lock (mFinished)
 				{
-					for (int i = 0; i < mTemp.size; ++i) mFinished.Enqueue(mTemp[i]);
+					for (int i = 0; i < mTemp.size; ++i) mFinished.Enqueue(mTemp.buffer[i]);
 					mTemp.Clear();
 				}
 			}

@@ -125,7 +125,7 @@ namespace TNet
 		{
 			if (aliases == null) return false;
 			for (int i = 0; i < aliases.size; ++i)
-				if (aliases[i] == s)
+				if (aliases.buffer[i] == s)
 					return true;
 			return false;
 		}

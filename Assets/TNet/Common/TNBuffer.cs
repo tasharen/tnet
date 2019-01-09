@@ -21,6 +21,12 @@ namespace TNet
 		static Queue<Buffer> mPool = new Queue<Buffer>();
 		static int mPoolCount = 0;
 
+		/// <summary>
+		/// Number of unused entries in the pool.
+		/// </summary>
+
+		static public int poolSize { get { return mPoolCount; } }
+
 		MemoryStream mStream;
 		BinaryWriter mWriter;
 		BinaryReader mReader;
@@ -154,7 +160,9 @@ namespace TNet
 			}
 #if RECYCLE_BUFFERS
 #if UNITY_EDITOR && DEBUG_BUFFERS
-			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use: " + b.mUniqueID);
+			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use (counter == " + b.mCounter + "): " + b.mUniqueID);
+#elif UNITY_EDITOR
+			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use (counter == " + b.mCounter + ")");
 #endif
 			b.mCounter = 1;
 #endif
@@ -174,7 +182,7 @@ namespace TNet
   #if DEBUG_BUFFERS
 				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool: " + mUniqueID);
   #else
-				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool");
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool!");
   #endif
 				return false;
 			}
@@ -216,14 +224,7 @@ namespace TNet
 		static public void Recycle (Queue<Buffer> list)
 		{
 #if RECYCLE_BUFFERS
-			lock (mPool)
-			{
-				while (list.Count != 0)
-				{
-					var b = list.Dequeue();
-					b.Recycle(false);
-				}
-			}
+			lock (mPool) while (list.Count != 0) list.Dequeue().Recycle(false);
 #else
 			list.Clear();
 #endif
@@ -236,21 +237,9 @@ namespace TNet
 		static public void Recycle (Queue<Datagram> list)
 		{
 #if RECYCLE_BUFFERS
-			lock (mPool)
-			{
-				while (list.Count != 0)
-				{
-					Datagram dg = list.Dequeue();
-
-					if (dg.buffer != null)
-					{
-						dg.buffer.Recycle(false);
-						dg.buffer = null;
-					}
-				}
-			}
+			lock (mPool) while (list.Count != 0) list.Dequeue().Recycle(false);
 #else
-		list.Clear();
+			list.Clear();
 #endif
 		}
 
@@ -263,11 +252,7 @@ namespace TNet
 #if RECYCLE_BUFFERS
 			lock (mPool)
 			{
-				for (int i = 0; i < list.size; ++i)
-				{
-					Buffer b = list[i];
-					b.Recycle(false);
-				}
+				for (int i = 0; i < list.size; ++i) list.buffer[i].Recycle(false);
 				list.Clear();
 			}
 #else
@@ -284,16 +269,7 @@ namespace TNet
 #if RECYCLE_BUFFERS
 			lock (mPool)
 			{
-				for (int i = 0; i < list.size; ++i)
-				{
-					Datagram dg = list[i];
-
-					if (dg.buffer != null)
-					{
-						dg.buffer.Recycle(false);
-						dg.buffer = null;
-					}
-				}
+				for (int i = 0; i < list.size; ++i) list.buffer[i].Recycle(false);
 				list.Clear();
 			}
 #else

@@ -40,7 +40,7 @@ public class TNAutoSyncInspector : Editor
 		if (GUILayout.Button("Add a New Synchronized Property"))
 		{
 			TNAutoSync.SavedEntry ent = new TNAutoSync.SavedEntry();
-			ent.target = components[0];
+			ent.target = components.buffer[0];
 			sync.entries.Add(ent);
 #if UNITY_4_7
 			EditorUtility.SetDirty(sync);
@@ -94,7 +94,7 @@ public class TNAutoSyncInspector : Editor
 		string[] names = new string[list.size + 1];
 		names[0] = "<None>";
 		for (int i = 0; i < list.size; ++i)
-			names[i + 1] = list[i].GetType().ToString();
+			names[i + 1] = list.buffer[i].GetType().ToString();
 		return names;
 	}
 
@@ -104,7 +104,7 @@ public class TNAutoSyncInspector : Editor
 
 		if (ent.target == null)
 		{
-			ent.target = components[0];
+			ent.target = components.buffer[0];
 #if UNITY_4_7
 			EditorUtility.SetDirty(sync);
 #else
@@ -142,7 +142,7 @@ public class TNAutoSyncInspector : Editor
 
 		if (newIndex != oldIndex)
 		{
-			ent.target = (newIndex == 0) ? null : components[newIndex - 1];
+			ent.target = (newIndex == 0) ? null : components.buffer[newIndex - 1];
 			ent.propertyName = "";
 #if UNITY_4_7
 			EditorUtility.SetDirty(sync);
@@ -188,7 +188,7 @@ public class TNAutoSyncInspector : Editor
 
 		if (newIndex != oldIndex)
 		{
-			saved.propertyName = (newIndex == 0) ? "" : names[newIndex];
+			saved.propertyName = (newIndex == 0) ? "" : names.buffer[newIndex];
 #if UNITY_4_7
 			EditorUtility.SetDirty(sync);
 #else

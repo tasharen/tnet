@@ -215,9 +215,9 @@ namespace TNet
 
 					for (int i = 0, imax = list.size; i < imax; ++i)
 					{
-						if (list[i].Name == name)
+						if (list.buffer[i].Name == name)
 						{
-							field = list[i];
+							field = list.buffer[i];
 							break;
 						}
 					}
@@ -271,9 +271,9 @@ namespace TNet
 
 					for (int i = 0, imax = list.size; i < imax; ++i)
 					{
-						if (list[i].Name == name)
+						if (list.buffer[i].Name == name)
 						{
-							prop = list[i];
+							prop = list.buffer[i];
 							break;
 						}
 					}
@@ -317,7 +317,7 @@ namespace TNet
 
 			for (int b = 0; b < cachedList.size; ++b)
 			{
-				var item = cachedList[b];
+				var item = cachedList.buffer[b];
 				if (item.paramTypes.Length == 1 && item.paramTypes[0] == paramType) return item.method;
 			}
 
@@ -355,7 +355,7 @@ namespace TNet
 
 			for (int b = 0; b < cachedList.size; ++b)
 			{
-				var item = cachedList[b];
+				var item = cachedList.buffer[b];
 				bool isValid = true;
 
 				if (item.paramTypes != paramTypes)
@@ -507,7 +507,7 @@ namespace TNet
 				{
 					for (int i = 0; i < mCachedTypes.size; ++i)
 					{
-						var ent = mCachedTypes[i];
+						var ent = mCachedTypes.buffer[i];
 
 						if (ent.type == t)
 						{
@@ -543,7 +543,7 @@ namespace TNet
 
 					for (int i = 0; i < mFullAssemblyList.size; ++i)
 					{
-						var asm = mFullAssemblyList[i];
+						var asm = mFullAssemblyList.buffer[i];
 						var fn = asm.FullName;
 						if (!string.IsNullOrEmpty(fn)) mHash += fn.GetHashCode();
 					}
@@ -669,12 +669,12 @@ namespace TNet
 
 			for (int b = 0; b < mCachedTypes.size; ++b)
 			{
-				var t = mCachedTypes[b];
+				var t = mCachedTypes.buffer[b];
 				var methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
 				for (int im = 0, imm = methods.Count; im < imm; ++im)
 				{
-					var m = methods[im];
+					var m = methods.buffer[im];
 					if (m.name != name) continue;
 
 					var pts = m.parameters;

@@ -143,11 +143,11 @@ namespace TNet
 
 		/// <summary>
 		/// Start of the channel joining process. Sent to the player who is joining the channel.
-		/// 
+		///
 		/// Parameters:
 		/// int32: Channel ID.
 		/// int16: Number of players.
-		/// 
+		///
 		/// Then for each player:
 		/// int32: Player ID.
 		/// bool: Whether player name and data follows. If a player is already known, it won't be sent.
@@ -687,10 +687,16 @@ namespace TNet
 		/// <summary>
 		/// Response coming from the server that sets the local locked channel flag.
 		/// int32: channel ID.
-		/// bool: whether it's locked.
+		/// ushort: player limit.
+		///
+		/// ushort:
+		/// bit 0: whether the channel is persistent.
+		/// bit 1: whether the channel is closed.
+		/// bit 2: whether the channel is locked.
+		/// bit 3: whether the channel is password-protected.
 		/// </summary>
 
-		ResponseLockChannel,
+		ResponseUpdateChannel,
 
 		/// <summary>
 		/// Special message indicates that the connected player was actually a web browser.
@@ -757,7 +763,7 @@ namespace TNet
 		/// int32: request ID.
 		/// int32: size of binary data to follow.
 		/// byte[]: actual binary data.
-		/// 
+		///
 		/// The contents of the binary data are as follows (for reference purposes):
 		/// int32: number of objects to follow.
 		/// One per object:

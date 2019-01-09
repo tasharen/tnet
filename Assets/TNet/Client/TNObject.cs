@@ -549,7 +549,7 @@ namespace TNet
 
 					for (int i = 0; i < list.size; ++i)
 					{
-						TNObject ts = list[i];
+						var ts = list.buffer[i];
 						if (ts != null && ts.uid < mLastDynID && ts.uid > 32767) mLastDynID = ts.uid;
 					}
 				}
@@ -563,7 +563,7 @@ namespace TNet
 
 					for (int i = 0; i < list.size; ++i)
 					{
-						TNObject ts = list[i];
+						var ts = list.buffer[i];
 						if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
 					}
 				}
@@ -914,7 +914,7 @@ namespace TNet
 		static Dictionary<System.Type, System.Collections.Generic.List<CachedMethodInfo>> mMethodCache =
 			new Dictionary<System.Type, System.Collections.Generic.List<CachedMethodInfo>>();
 
-		public class CachedMethodInfo
+		public struct CachedMethodInfo
 		{
 			public string name;
 			public CachedFunc cf;
@@ -947,7 +947,7 @@ namespace TNet
 
 					for (int b = 0, bmax = cache.Count; b < bmax; ++b)
 					{
-						var ent = cache[b];
+						var ent = cache.buffer[b];
 						if (!ent.method.IsDefined(typeof(RFC), true)) continue;
 
 						var ci = new CachedMethodInfo();
@@ -1640,8 +1640,8 @@ namespace TNet
 					objs = new object[] { objs };
 
 				var uid = this.uid;
-				bool executeLocally = false;
-				bool connected = TNManager.isConnected;
+				var executeLocally = false;
+				var connected = TNManager.isConnected;
 
 				if (target == Target.Broadcast)
 				{
@@ -1650,7 +1650,7 @@ namespace TNet
 #if !MODDING
 						if (uid != 0)
 						{
-							BinaryWriter writer = TNManager.BeginSend(Packet.Broadcast);
+							var writer = TNManager.BeginSend(Packet.Broadcast);
 							writer.Write(TNManager.playerID);
 							writer.Write(channelID);
 							writer.Write(GetUID(uid, rfcID));
@@ -1677,7 +1677,7 @@ namespace TNet
 #if !MODDING
 						if (uid != 0)
 						{
-							BinaryWriter writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+							var writer = TNManager.BeginSend(Packet.BroadcastAdmin);
 							writer.Write(TNManager.playerID);
 							writer.Write(channelID);
 							writer.Write(GetUID(uid, rfcID));
@@ -1722,8 +1722,8 @@ namespace TNet
 					{
 						if (uid != 0)
 						{
-							byte packetID = (byte)((int)Packet.ForwardToAll + (int)target);
-							BinaryWriter writer = TNManager.BeginSend(packetID);
+							var packetID = (byte)((int)Packet.ForwardToAll + (int)target);
+							var writer = TNManager.BeginSend(packetID);
 							writer.Write(TNManager.playerID);
 							writer.Write(channelID);
 							writer.Write(GetUID(uid, rfcID));
@@ -1745,6 +1745,7 @@ namespace TNet
 
 				if (executeLocally)
 				{
+					TNManager.packetSourceID = TNManager.playerID;
 					if (rfcID != 0) Execute(rfcID, objs);
 					else Execute(rfcName, objs);
 				}

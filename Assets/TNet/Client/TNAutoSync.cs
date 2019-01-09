@@ -124,7 +124,7 @@ public class TNAutoSync : TNBehaviour
 			for (int i = 0, imax = entries.Count; i < imax; ++i)
 			{
 				SavedEntry ent = entries[i];
-				
+
 				if (ent.target != null && !string.IsNullOrEmpty(ent.propertyName))
 				{
 					FieldInfo field = ent.target.GetType().GetField(ent.propertyName, BindingFlags.Instance | BindingFlags.Public);
@@ -219,7 +219,7 @@ public class TNAutoSync : TNBehaviour
 
 		for (int i = 0; i < mList.size; ++i)
 		{
-			ExtendedEntry ext = mList[i];
+			var ext = mList.buffer[i];
 
 			object val = (ext.field != null) ?
 				val = ext.field.GetValue(ext.target) :
@@ -265,7 +265,7 @@ public class TNAutoSync : TNBehaviour
 			{
 				for (int i = 0; i < len; ++i)
 				{
-					ExtendedEntry ext = mList[i];
+					var ext = mList.buffer[i];
 					ext.lastValue = par.vals[i];
 					if (ext.field != null) ext.field.SetValue(ext.target, ext.lastValue);
 					else ext.property.SetValue(ext.target, ext.lastValue, null);

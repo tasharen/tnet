@@ -440,7 +440,7 @@ namespace TNet
 
 			while (sourceList.size > 0 && targetList.size > 0)
 			{
-				if (sourceList[0] == targetList[0])
+				if (sourceList.buffer[0] == targetList.buffer[0])
 				{
 					sourceList.RemoveAt(0);
 					targetList.RemoveAt(0);
@@ -458,8 +458,8 @@ namespace TNet
 
 			for (int i = 0; i < targetList.size; ++i)
 			{
-				if (i + 1 == targetList.size) path += targetList[i].name;
-				else path += targetList[i].name + "/";
+				if (i + 1 == targetList.size) path += targetList.buffer[i].name;
+				else path += targetList.buffer[i].name + "/";
 			}
 			return path;
 		}
@@ -878,6 +878,9 @@ namespace TNet
 
 		static public AudioClip CreateAudioClip (byte[] bytes, string name = "audio", bool stream = false)
 		{
+			if (bytes == null || bytes.Length < 40) return null;
+			if (bytes[0] != 'R' || bytes[1] != 'I' || bytes[2] != 'F' || bytes[3] != 'F') return null;
+
 			int offset = System.BitConverter.ToInt32(bytes, 16) + 20;
 			int format = System.BitConverter.ToInt16(bytes, 20);
 			int channels = System.BitConverter.ToInt16(bytes, 22);

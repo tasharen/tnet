@@ -55,7 +55,7 @@ namespace TNet
 	/// Data Node is a hierarchical data type containing a name and a value, as well as a variable number of children.
 	/// Data Nodes can be serialized to and from IO data streams.
 	/// Think of it as an alternative to having to include a huge 1 MB+ XML parsing library in your project.
-	/// 
+	///
 	/// Basic Usage:
 	/// To create a new node: new DataNode (name, value).
 	/// To add a new child node: dataNode.AddChild("Scale", Vector3.one).
@@ -243,7 +243,7 @@ namespace TNet
 
 			for (int i = 0; i < children.size; ++i)
 			{
-				if (children[i].name == child.name)
+				if (children.buffer[i].name == child.name)
 				{
 					if (child.value == null && child.children.size == 0)
 					{
@@ -251,8 +251,8 @@ namespace TNet
 						return child;
 					}
 
-					children[i] = child;
-					return children[i];
+					children.buffer[i] = child;
+					return children.buffer[i];
 				}
 			}
 
@@ -291,7 +291,7 @@ namespace TNet
 
 			for (int i = 0; i < children.size; ++i)
 			{
-				var child = children[i].FindChild(name);
+				var child = children.buffer[i].FindChild(name);
 				if (child != null) return child;
 			}
 			return null;
@@ -320,9 +320,9 @@ namespace TNet
 
 					for (int i = 0; i < node.children.size; ++i)
 					{
-						if (node.children[i].name == split[index])
+						if (node.children.buffer[i].name == split[index])
 						{
-							node = node.children[i];
+							node = node.children.buffer[i];
 							++index;
 							found = true;
 							break;
@@ -398,10 +398,10 @@ namespace TNet
 
 						for (int i = 0; i < node.children.size; ++i)
 						{
-							if (node.children[i].name == names[index])
+							if (node.children.buffer[i].name == names[index])
 							{
 								parent = node;
-								node = node.children[i];
+								node = node.children.buffer[i];
 								++index;
 								found = true;
 								break;
@@ -430,12 +430,12 @@ namespace TNet
 
 			if (obj is DataNode)
 			{
-				DataNode other = (obj as DataNode);
+				var other = (obj as DataNode);
 				node.value = other.value;
 				node.children.Clear();
 				node.mCache = null;
 				for (int i = 0; i < other.children.size; ++i)
-					node.children.Add(other.children[i].Clone());
+					node.children.Add(other.children.buffer[i].Clone());
 			}
 			else node.value = obj;
 			return node;
@@ -466,7 +466,7 @@ namespace TNet
 
 			for (int i = 0; i < children.size; ++i)
 			{
-				var ch = children[i];
+				var ch = children.buffer[i];
 
 				if (ch.name == name)
 				{
@@ -512,7 +512,7 @@ namespace TNet
 
 			for (int i = 0; i < children.size; ++i)
 			{
-				if (children[i].name == name)
+				if (children.buffer[i].name == name)
 				{
 					children.RemoveAt(i);
 					return true;
@@ -530,7 +530,7 @@ namespace TNet
 			var copy = new DataNode(name);
 			copy.mValue = mValue;
 			copy.mResolved = mResolved;
-			for (int i = 0; i < children.size; ++i) copy.children.Add(children[i].Clone());
+			for (int i = 0; i < children.size; ++i) copy.children.Add(children.buffer[i].Clone());
 			return copy;
 		}
 
@@ -712,7 +712,7 @@ namespace TNet
 			// Iterate through children
 			for (int i = 0; i < children.size; ++i)
 			{
-				var child = children[i];
+				var child = children.buffer[i];
 
 				if (child.isSerializable)
 				{
@@ -840,7 +840,7 @@ namespace TNet
 
 					for (int i = 0; i < temp.children.size; ++i)
 					{
-						var child = temp.children[i];
+						var child = temp.children.buffer[i];
 						writer.Write('\n');
 						child.Write(writer, tab + 1);
 					}
@@ -866,7 +866,7 @@ namespace TNet
 
 						for (int i = 0; i < temp.children.size; ++i)
 						{
-							var child = temp.children[i];
+							var child = temp.children.buffer[i];
 							writer.Write('\n');
 							child.Write(writer, tab + 1);
 						}
@@ -885,7 +885,7 @@ namespace TNet
 				// We have fields to serialize
 				for (int i = 0; i < fields.size; ++i)
 				{
-					var field = fields[i];
+					var field = fields.buffer[i];
 					var val = field.GetValue(value);
 
 					if (val != null)
@@ -904,7 +904,7 @@ namespace TNet
 					{
 						for (int i = 0; i < props.size; ++i)
 						{
-							var prop = props[i];
+							var prop = props.buffer[i];
 							object val = prop.GetValue(value, null);
 
 							if (val != null)
@@ -952,7 +952,7 @@ namespace TNet
 
 				for (int i = 0; i < other.children.size; ++i)
 				{
-					DataNode child = other.children[i];
+					DataNode child = other.children.buffer[i];
 					replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
 				}
 			}
@@ -1082,7 +1082,7 @@ namespace TNet
 				}
 				else if (type == typeof(DataNode))
 				{
-					mValue = children[0];
+					mValue = children.buffer[0];
 					children.Clear();
 					return false;
 				}
@@ -1115,7 +1115,7 @@ namespace TNet
 
 						for (int i = 0; i < children.size; ++i)
 						{
-							var child = children[i];
+							var child = children.buffer[i];
 
 							if (child.value == null)
 							{
@@ -1168,7 +1168,7 @@ namespace TNet
 						{
 							for (int i = 0; i < children.size; ++i)
 							{
-								var child = children[i];
+								var child = children.buffer[i];
 
 								if (child.value == null)
 								{
@@ -1200,7 +1200,7 @@ namespace TNet
 						{
 							for (int i = 0; i < children.size; ++i)
 							{
-								var child = children[i];
+								var child = children.buffer[i];
 
 								if (child.value == null)
 								{
@@ -1227,7 +1227,7 @@ namespace TNet
 					{
 						for (int i = 0; i < children.size; ++i)
 						{
-							var child = children[i];
+							var child = children.buffer[i];
 							mValue.SetFieldOrPropertyValue(child.name, child.value);
 						}
 						return false;

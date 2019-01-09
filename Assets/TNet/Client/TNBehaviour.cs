@@ -154,7 +154,7 @@ namespace TNet
 
 			for (int b = 0, bmax = methods.Count; b < bmax; ++b)
 			{
-				var cm = methods[b];
+				var cm = methods.buffer[b];
 
 				if (cm.method.IsDefined(typeof(RFC), true))
 				{

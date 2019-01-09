@@ -143,11 +143,11 @@ namespace TNet
 		public delegate void OnChangeOwner (int channelID, uint objectID, Player p);
 
 		/// <summary>
-		/// Callback triggered when the channel becomes locked or unlocked.
+		/// Callback triggered when the channel's properties change (closed, locked, player limit, etc)
 		/// </summary>
 
-		public OnLockChannel onLockChannel;
-		public delegate void OnLockChannel (int channelID, bool locked);
+		public OnUpdateChannel onUpdateChannel;
+		public delegate void OnUpdateChannel (Channel ch);
 
 		/// <summary>
 		/// Callback triggered when the player gets verified as an administrator.

@@ -144,13 +144,13 @@ namespace TNet
 						// First go through the network interfaces and find all non-tunnels
 						for (int i = list.size; i > 0;)
 						{
-							NetworkInterface ni = list[--i];
+							var ni = list.buffer[--i];
 							if (ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
 
-							IPInterfaceProperties props = ni.GetIPProperties();
+							var props = ni.GetIPProperties();
 							if (props == null) continue;
 
-							UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+							var uniAddresses = props.UnicastAddresses;
 							if (uniAddresses == null) continue;
 
 							//Tools.Log("Name: " + ni.Name + " (" + ni.Description + ")\n" +
@@ -167,13 +167,13 @@ namespace TNet
 						// Last, append the tunnels so they are at the end of the list
 						for (int i = list.size; i > 0;)
 						{
-							NetworkInterface ni = list[--i];
+							var ni = list.buffer[--i];
 							if (ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel) continue;
 
-							IPInterfaceProperties props = ni.GetIPProperties();
+							var props = ni.GetIPProperties();
 							if (props == null) continue;
 
-							UnicastIPAddressInformationCollection uniAddresses = props.UnicastAddresses;
+							var uniAddresses = props.UnicastAddresses;
 							if (uniAddresses == null) continue;
 
 							foreach (UnicastIPAddressInformation uni in uniAddresses)
@@ -196,7 +196,7 @@ namespace TNet
 						{
 							try
 							{
-								IPAddress[] ips = Dns.GetHostAddresses(hn);
+								var ips = Dns.GetHostAddresses(hn);
 
 								if (ips != null)
 								{
@@ -240,11 +240,11 @@ namespace TNet
 
 					if (list.size > 0)
 					{
-						mLocalAddress = mAddresses[0];
+						mLocalAddress = mAddresses.buffer[0];
 
 						for (int i = 0; i < mAddresses.size; ++i)
 						{
-							var addr = mAddresses[i];
+							var addr = mAddresses.buffer[i];
 							var fam = addr.AddressFamily;
 
 							// Skip IPv6 addresses when using IPv4 and vice versa
@@ -277,7 +277,7 @@ namespace TNet
 				{
 					List<IPAddress> list = localAddresses;
 					for (int i = 0; i < list.size; ++i)
-						if (list[i] == value)
+						if (list.buffer[i] == value)
 							return;
 				}
 #if UNITY_EDITOR
@@ -391,7 +391,7 @@ namespace TNet
 
 			for (int i = 0; i < locals.size; ++i)
 			{
-				var local = locals[i];
+				var local = locals.buffer[i];
 
 				if (local.AddressFamily != AddressFamily.InterNetworkV6) continue;
 				if (local.IsIPv6LinkLocal) continue; // LAN address
@@ -1133,7 +1133,7 @@ namespace TNet
 		{
 			if (msg.Contains("forcibly closed")) return;
 #if UNITY_EDITOR
-			UnityEngine.Debug.LogError(msg + "\n");
+			UnityEngine.Debug.LogError(msg + "\n" + stack);
 #else
 			msg = "ERROR: " + msg;
 			Tools.Print(msg);
@@ -1179,8 +1179,8 @@ namespace TNet
 				if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
 					Directory.CreateDirectory(dir);
 
-				StreamWriter sw = new StreamWriter(path, false);
-				for (int i = 0; i < list.size; ++i) sw.WriteLine(list[i]);
+				var sw = new StreamWriter(path, false);
+				for (int i = 0; i < list.size; ++i) sw.WriteLine(list.buffer[i]);
 				sw.Close();
 			}
 			else Tools.DeleteFile(path);
@@ -1428,14 +1428,11 @@ namespace TNet
 		{
 			get
 			{
-				try { throw new System.Exception(); }
-				catch (System.Exception ex)
-				{
-					var s = ex.StackTrace;
-					var newLine = s.IndexOf('\n');
-					if (newLine != -1) s = s.Substring(newLine + 1).Trim();
-					return s;
-				}
+				var st = new System.Diagnostics.StackTrace(true);
+				var s = st.ToString();
+				var newLine = s.IndexOf('\n');
+				if (newLine != -1) s = s.Substring(newLine).Trim();
+				return s;
 			}
 		}
 	}

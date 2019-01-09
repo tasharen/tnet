@@ -195,7 +195,7 @@ namespace TNet
 				// Process incoming TCP packets
 				for (int i = 0; i < mTcp.size;)
 				{
-					var tc = mTcp[i];
+					var tc = mTcp.buffer[i];
 
 					if (!tc.isSocketConnected)
 					{
@@ -207,7 +207,7 @@ namespace TNet
 					else
 					{
 						var ent = tc.Get<ServerList.Entry>("data");
-					
+
 						if (ent != null && ent.recordTime + 30000 < mTime)
 						{
 							Disconnect(tc);
@@ -256,7 +256,7 @@ namespace TNet
 				// Send the server list to all connected clients
 				for (int i = 0; i < mTcp.size; ++i)
 				{
-					var tc = mTcp[i];
+					var tc = mTcp.buffer[i];
 
 					// Skip clients that have not yet verified themselves
 					if (tc.stage != TcpProtocol.Stage.Connected) continue;
@@ -283,8 +283,8 @@ namespace TNet
 
 							for (int b = 0; b < mTcp.size; ++b)
 							{
-								if (!mTcp[b].isConnected) continue;
-								var ent = mTcp[b].Get<ServerList.Entry>("data");
+								if (!mTcp.buffer[b].isConnected) continue;
+								var ent = mTcp.buffer[b].Get<ServerList.Entry>("data");
 								if (ent != null) ++serverCount;
 							}
 
@@ -292,12 +292,12 @@ namespace TNet
 							writer.Write((ushort)serverCount);
 
 							for (int b = 0; b < mList.list.size; ++b)
-								mList.list[b].WriteTo(writer);
+								mList.list.buffer[b].WriteTo(writer);
 
 							for (int b = 0; b < mTcp.size; ++b)
 							{
-								if (!mTcp[b].isConnected) continue;
-								var ent = mTcp[b].Get<ServerList.Entry>("data");
+								if (!mTcp.buffer[b].isConnected) continue;
+								var ent = mTcp.buffer[b].Get<ServerList.Entry>("data");
 								if (ent != null) ent.WriteTo(writer);
 							}
 							buffer.EndPacket();
@@ -502,7 +502,7 @@ namespace TNet
 						// Detailed list of clients
 						for (int i = 0; i < mTcp.size; ++i)
 						{
-							var p = mTcp[i];
+							var p = mTcp.buffer[i];
 
 							if (p.stage == TcpProtocol.Stage.Connected)
 							{
@@ -526,7 +526,7 @@ namespace TNet
 						// Detailed list of clients
 						for (int i = 0; i < mTcp.size; ++i)
 						{
-							var p = mTcp[i];
+							var p = mTcp.buffer[i];
 
 							if (p.stage == TcpProtocol.Stage.Connected)
 							{
@@ -582,7 +582,7 @@ namespace TNet
 
 			for (int i = 0; i < mTcp.size; ++i)
 			{
-				var player = mTcp[i];
+				var player = mTcp.buffer[i];
 				if (player.id == 0) continue;
 
 				// Skip clients that have not yet verified themselves

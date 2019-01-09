@@ -60,6 +60,12 @@ namespace TNet
 		static public TNEvents.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
 
 		/// <summary>
+		/// Notification sent when the channel gets updated.
+		/// </summary>
+
+		static public TNEvents.OnUpdateChannel onUpdateChannel { get { return isPlaying ? instance.mClient.onUpdateChannel : null; } set { if (isPlaying) instance.mClient.onUpdateChannel = value; } }
+
+		/// <summary>
 		/// Notification sent when leaving a channel for any reason, including being disconnected.
 		/// </summary>
 
@@ -112,12 +118,6 @@ namespace TNet
 		/// </summary>
 
 		static public TNEvents.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
-
-		/// <summary>
-		/// Callback triggered when the channel becomes locked or unlocked.
-		/// </summary>
-
-		static public TNEvents.OnLockChannel onLockChannel { get { return isPlaying ? instance.mClient.onLockChannel : null; } set { if (isPlaying) instance.mClient.onLockChannel = value; } }
 
 		/// <summary>
 		/// Callback triggered when the player gets verified as an administrator.
@@ -350,6 +350,7 @@ namespace TNet
 		/// Whether we're currently hosting. Note that this should only be used if the player is in only one channel.
 		/// </summary>
 
+		[System.Obsolete("Use IsHosting(channelID)")]
 		static public bool isHosting
 		{
 			get
@@ -526,8 +527,22 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// ID of the channel the player is in.
-		/// Note that if used while the player is in more than one channel, a warning will be shown.
+		/// Whether the specified channel is closed.
+		/// </summary>
+
+		static public bool IsChannelClosed (int channelID)
+		{
+			if (mInstance != null && mInstance.mClient != null)
+			{
+				var ch = mInstance.mClient.GetChannel(channelID);
+				return (ch != null && ch.isClosed);
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// ID of the channel the player is in. This is not a reliable way of retrieving a channel, and is only meant
+		/// to be used from inside RCC functions when the object's channel is required.
 		/// </summary>
 
 		[System.NonSerialized]
@@ -563,7 +578,7 @@ namespace TNet
 
 			for (int i = 0; i < mDummyCL.size; ++i)
 			{
-				var channel = mDummyCL[i];
+				var channel = mDummyCL.buffer[i];
 				if (channel.id == channelID) return !isNotLeaving || !channel.isLeaving;
 			}
 			return false;
@@ -947,7 +962,7 @@ namespace TNet
 
 			for (int i = 0; i < list.size; ++i)
 			{
-				var p = list[i];
+				var p = list.buffer[i];
 				if (p.name.IndexOf(name, System.StringComparison.CurrentCultureIgnoreCase) != -1) return p;
 			}
 			return null;
@@ -1353,6 +1368,7 @@ namespace TNet
 		/// Once a channel has been closed, it cannot be re-opened.
 		/// </summary>
 
+		[System.Obsolete("Use CloseChannel(id)")]
 		static public void CloseChannel () { CloseChannel(lastChannelID); }
 
 		/// <summary>
@@ -1392,7 +1408,7 @@ namespace TNet
 			{
 				for (int i = 0; i < mDummyCL.size; ++i)
 				{
-					if (mDummyCL[i].id == channelID)
+					if (mDummyCL.buffer[i].id == channelID)
 					{
 						mDummyCL.RemoveAt(i);
 						return;
@@ -1411,6 +1427,7 @@ namespace TNet
 		/// Change the maximum number of players that can join the channel the player is currently in.
 		/// </summary>
 
+		[System.Obsolete("Use SetPlayerLimit(channel, max)")]
 		static public void SetPlayerLimit (int max) { SetPlayerLimit(lastChannelID, max); }
 
 		/// <summary>
@@ -1549,6 +1566,7 @@ namespace TNet
 		/// Lock the channel the player is currently in.
 		/// </summary>
 
+		[System.Obsolete("Use LockChannel(id, locked)")]
 		static public void LockChannel (bool locked) { LockChannel(lastChannelID, locked); }
 
 		/// <summary>
@@ -1751,7 +1769,7 @@ namespace TNet
 
 			for (int i = 0; i < types.size; ++i)
 			{
-				var t = types[i];
+				var t = types.buffer[i];
 				if (t.type.IsSubclassOf(mb)) AddRCCs(t.type);
 			}
 		}
@@ -1772,7 +1790,7 @@ namespace TNet
 
 			for (int b = 0, bmax = cache.Count; b < bmax; ++b)
 			{
-				var ci = cache[b];
+				var ci = cache.buffer[b];
 
 				if (ci.method.IsDefined(typeof(RCC), true))
 				{
@@ -2006,8 +2024,8 @@ namespace TNet
 
 					for (int i = 0; i < ips.size; ++i)
 					{
-						var ip = ips[i];
-						text += "\n  " + (i + 1) + ": " + ips[i];
+						var ip = ips.buffer[i];
+						text += "\n  " + (i + 1) + ": " + ips.buffer[i];
 
 						if (ip == TNet.Tools.localAddress)
 						{
@@ -2045,7 +2063,7 @@ namespace TNet
 
 					for (int i = 0; i < chs.size; ++i)
 					{
-						var ch = chs[i];
+						var ch = chs.buffer[i];
 
 						if (ch.id != lastChannelID)
 						{

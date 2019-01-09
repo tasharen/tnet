@@ -35,7 +35,7 @@ public class TcpPlayer : TcpProtocol
 	public bool IsInChannel (int id)
 	{
 		for (int i = 0; i < channels.size; ++i)
-			if (channels[i].id == id) return true;
+			if (channels.buffer[i].id == id) return true;
 		return false;
 	}
 
@@ -46,7 +46,7 @@ public class TcpPlayer : TcpProtocol
 	public Channel GetChannel (int id)
 	{
 		for (int i = 0; i < channels.size; ++i)
-			if (channels[i].id == id) return channels[i];
+			if (channels.buffer[i].id == id) return channels.buffer[i];
 		return null;
 	}
 
@@ -106,7 +106,7 @@ public class TcpPlayer : TcpProtocol
 	{
 		for (int i = 0; i < channels.size; ++i)
 		{
-			Channel ch = channels[i];
+			var ch = channels.buffer[i];
 			if (ch == ignoreChannel) continue;
 			if (ch.players.Contains(p)) return true;
 		}

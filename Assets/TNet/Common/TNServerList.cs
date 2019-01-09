@@ -78,7 +78,7 @@ public class ServerList
 		{
 			for (int i = 0; i < list.size; ++i)
 			{
-				Entry ent = list[i];
+				var ent = list.buffer[i];
 
 				if (ent.internalAddress.Equals(internalAddress) &&
 					ent.externalAddress.Equals(externalAddress))
@@ -90,7 +90,7 @@ public class ServerList
 				}
 			}
 
-			Entry e = new Entry();
+			var e = new Entry();
 			e.name = name;
 			e.playerCount = playerCount;
 			e.internalAddress = internalAddress;
@@ -121,7 +121,7 @@ public class ServerList
 		{
 			for (int i = 0; i < list.size; ++i)
 			{
-				Entry ent = list[i];
+				var ent = list.buffer[i];
 
 				if (ent.internalAddress.Equals(internalAddress) &&
 					ent.externalAddress.Equals(externalAddress))
@@ -147,7 +147,7 @@ public class ServerList
 		{
 			for (int i = 0; i < list.size; )
 			{
-				Entry ent = list[i];
+				var ent = list.buffer[i];
 
 				if (ent.recordTime < time)
 				{
@@ -179,7 +179,7 @@ public class ServerList
 		{
 			writer.Write((ushort)list.size);
 			for (int i = 0; i < list.size; ++i)
-				list[i].WriteTo(writer);
+				list.buffer[i].WriteTo(writer);
 		}
 	}
 
@@ -197,7 +197,7 @@ public class ServerList
 
 				for (int i = 0; i < count; ++i)
 				{
-					Entry ent = new Entry();
+					var ent = new Entry();
 					ent.ReadFrom(reader);
 					AddInternal(ent, time);
 				}
@@ -213,7 +213,7 @@ public class ServerList
 	{
 		for (int i = 0; i < list.size; ++i)
 		{
-			Entry ent = list[i];
+			var ent = list.buffer[i];
 
 			if (ent.internalAddress.Equals(newEntry.internalAddress) &&
 				ent.externalAddress.Equals(newEntry.externalAddress))
