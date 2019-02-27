@@ -44,12 +44,12 @@ public class Application : IDisposable
 		mFilename = fn;
 		List<IPAddress> ips = Tools.localAddresses;
 		string text = "\nLocal IPs: " + ips.size;
-		var ipv6 = (TNet.Tools.localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6);
+		var ipv6 = (Tools.localAddress.AddressFamily == AddressFamily.InterNetworkV6);
 
 		for (int i = 0; i < ips.size; ++i)
 		{
-			var ip = ips[i];
-			text += "\n  " + (i + 1) + ": " + ips[i];
+			var ip = ips.buffer[i];
+			text += "\n  " + (i + 1) + ": " + ips.buffer[i];
 
 			if (ip == TNet.Tools.localAddress)
 			{
