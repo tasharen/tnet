@@ -587,7 +587,6 @@ namespace TNet
 		{
 #if !MODDING
 			buffer.MarkAsUsed();
-
 			var reader = buffer.BeginReading();
 
 			if (buffer.size == 0)
@@ -650,7 +649,7 @@ namespace TNet
 						{
 							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
 						}
-						catch (System.Exception ex)
+						catch (Exception ex)
 						{
 							mOut.Clear();
 							buffer.Recycle();
@@ -727,9 +726,13 @@ namespace TNet
 				{
 					try
 					{
-						// Advance the position and send the rest
-						buff.position += bytes;
-						mSocket.BeginSend(buff.buffer, buff.position, buff.size, SocketFlags.None, OnSend, buff);
+						// The original buffer can't be modified as multiple sends can be happening concurrently,
+						// so we have to make a copy of the remaining buffer, and send that instead.
+						var remaining = Buffer.Create();
+						remaining.BeginWriting().Write(buff.buffer, buff.position + bytes, buff.size - bytes);
+						remaining.EndWriting();
+						buff.Recycle();
+						mSocket.BeginSend(remaining.buffer, remaining.position, remaining.size, SocketFlags.None, OnSend, remaining);
 						return;
 					}
 					catch (Exception ex)
@@ -768,7 +771,7 @@ namespace TNet
 					else
 					{
 #if UNITY_EDITOR
-						Debug.LogWarning("Socket.EndSend fail: " + bytes + " " + buff.position + " " + buff.size + " (" + (mSocket != null) + " " + (mSocket != null ? mSocket.Connected : false));
+						Debug.LogWarning("Socket.EndSend fail: " + bytes + " " + buff.position + " " + buff.size + " (" + (mSocket != null) + " " + (mSocket != null ? mSocket.Connected : false) + ")");
 #endif
 						CloseNotThreadSafe(true);
 					}
@@ -872,7 +875,7 @@ namespace TNet
 		{
 			if (stage == Stage.NotConnected) return;
 			int bytes = 0;
-			Socket socket = (Socket)result.AsyncState;
+			var socket = (Socket)result.AsyncState;
 
 			try
 			{
@@ -1044,6 +1047,7 @@ namespace TNet
 					{
 						mIn.Enqueue(mReceiveBuffer);
 						mReceiveBuffer = null;
+						mAvailable = 0;
 						mExpected = 0;
 						mOffset = 0;
 					}

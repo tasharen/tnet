@@ -22,7 +22,7 @@ namespace TNet
 	public sealed class TNObject : MonoBehaviour, IStartable
 	{
 		// List of network objs to iterate through (key = channel ID, value = list of objects)
-		static Dictionary<int, TNet.List<TNObject>> mList = new Dictionary<int, TNet.List<TNObject>>();
+		static Dictionary<int, List<TNObject>> mList = new Dictionary<int, List<TNObject>>();
 
 		// List of network objs to quickly look up
 		static Dictionary<int, Dictionary<uint, TNObject>> mDictionary = new Dictionary<int, Dictionary<uint, TNObject>>();
@@ -68,10 +68,6 @@ namespace TNet
 		// ID of the object's owner
 		[System.NonSerialized] Player mOwner = null;
 
-		// Child objects don't get their own unique IDs, so if we have a parent TNObject, that's the object that will be getting all events.
-		[System.NonSerialized] TNObject mParent = null;
-		[System.NonSerialized] bool mParentCheck = true;
-
 		/// <summary>
 		/// When objects get destroyed, they immediately get marked as such so that no RFCs go out between the destroy call
 		/// and the response coming back from the server.
@@ -91,16 +87,12 @@ namespace TNet
 		{
 			get
 			{
-				return (parent == null) ? (mDynamicID != 0 ? mDynamicID : (uint)mStaticID) : mParent.uid;
+				return (mDynamicID != 0 ? mDynamicID : (uint)mStaticID);
 			}
 			set
 			{
-				if (parent == null)
-				{
-					mDynamicID = value;
-					mStaticID = 0;
-				}
-				else mParent.uid = value;
+				mDynamicID = value;
+				mStaticID = 0;
 			}
 		}
 
@@ -109,28 +101,6 @@ namespace TNet
 		/// </summary>
 
 		public ulong fullID { get { return ((ulong)channelID << 32) | uid; } }
-
-		/// <summary>
-		/// TNObject's parent, if it has any.
-		/// </summary>
-
-		public TNObject parent
-		{
-			get
-			{
-				if (mParentCheck)
-				{
-					mParentCheck = false;
-
-					if (uid == 0)
-					{
-						var pt = transform.parent;
-						mParent = (pt != null) ? pt.GetComponentInParent<TNObject>() : null;
-					}
-				}
-				return mParent;
-			}
-		}
 
 		/// <summary>
 		/// Whether the player is currently joining this object's channel.
@@ -143,13 +113,13 @@ namespace TNet
 		/// transferred to another channel, but has not yet completed the operation.
 		/// </summary>
 
-		public bool hasBeenDestroyed { get { return (parent == null) ? mDestroyed != 0 : mParent.hasBeenDestroyed; } }
+		public bool hasBeenDestroyed { get { return mDestroyed != 0; } }
 
 		/// <summary>
 		/// An object gets marked as registered after the creation call has completed and the object's ID has been assigned.
 		/// </summary>
 
-		public bool hasBeenRegistered { get { return (parent == null) ? mHasBeenRegistered : mParent.hasBeenRegistered; } }
+		public bool hasBeenRegistered { get { return mHasBeenRegistered; } }
 
 		/// <summary>
 		/// Whether sending messages through this object is possible or not.
@@ -159,9 +129,14 @@ namespace TNet
 		{
 			get
 			{
-				if (parent != null) return parent.canSend;
 				if (!TNManager.isConnected) return true;
-				return uid != 0 && !hasBeenDestroyed && TNManager.IsInChannel(mNextChannelID == 0 ? channelID : mNextChannelID, true);
+
+				if (uid != 0 && !hasBeenDestroyed)
+				{
+					if (mNextChannelID != 0 && TNManager.IsInChannel(mNextChannelID, true)) return true;
+					return TNManager.IsInChannel(channelID);
+				}
+				return false;
 			}
 		}
 
@@ -187,15 +162,8 @@ namespace TNet
 
 		public bool isMine
 		{
-			get
-			{
-				var owner = this.owner;
-				return (owner != null) ? owner == TNManager.player : TNManager.IsHosting(channelID);
-			}
-			set
-			{
-				if (value) owner = TNManager.player;
-			}
+			get { return owner == TNManager.player; }
+			set { if (value) owner = TNManager.player; }
 		}
 
 		/// <summary>
@@ -206,22 +174,20 @@ namespace TNet
 		{
 			get
 			{
-				if (mParent != null) return mParent.ownerID;
 				if (mOwner != null) return mOwner.id;
+				if (uid == 0) return TNManager.playerID;
 				var host = TNManager.GetHost(channelID);
 				if (host != null) return host.id;
 				return 0;
 			}
 			set
 			{
-				if (mParent != null)
-				{
-					mParent.ownerID = value;
-				}
-				else if (ownerID != value)
+				if (ownerID != value)
 				{
 					if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
 					{
+						// /exe var bw = TNManager.BeginSend(Packet.RequestSetOwner); bw.Write(FactionOutpost.closestToPlayer.tno.channelID); bw.Write(FactionOutpost.closestToPlayer.tno.uid); bw.Write(TNManager.playerID); TNManager.EndSend();
+						// /exe FactionOutpost.closestToPlayer.tno.ownerID = TNManager.playerID;
 						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
 						bw.Write(channelID);
 						bw.Write(uid);
@@ -247,8 +213,9 @@ namespace TNet
 		{
 			get
 			{
+				if (mOwner != null) return mOwner;
 				if (uid == 0) return TNManager.player;
-				return (parent == null) ? (mOwner ?? TNManager.GetHost(channelID)) : mParent.owner;
+				return TNManager.GetHost(channelID);
 			}
 			set
 			{
@@ -267,19 +234,15 @@ namespace TNet
 		{
 			get
 			{
-				return (parent == null) ? mData : mParent.dataNode;
+				return mData;
 			}
 			set
 			{
-				if (parent == null)
+				if (!mHasBeenRegistered)
 				{
-					if (!mHasBeenRegistered)
-					{
-						mData = value;
-						mCallDataChanged = true;
-					}
+					mData = value;
+					mCallDataChanged = true;
 				}
-				else mParent.dataNode = value;
 			}
 		}
 
@@ -287,19 +250,19 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (string name) { return (parent == null) ? (mData != null ? mData.GetChild(name) : null) : mParent.Get(name); }
+		public DataNode Get (string name) { return (mData != null ? mData.GetChild(name) : null); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name) { return (parent == null) ? ((mData != null) ? mData.GetChild<T>(name) : default(T)) : mParent.Get<T>(name); }
+		public T Get<T> (string name) { return (mData != null) ? mData.GetChild<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name, T defVal) { return (parent == null) ? ((mData != null) ? mData.GetChild<T>(name, defVal) : defVal) : mParent.Get<T>(name, defVal); }
+		public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetChild<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data.
@@ -307,49 +270,69 @@ namespace TNet
 
 		public void Set (string name, object val)
 		{
-			if (parent == null)
+			if (mData == null) mData = new DataNode("ObjectData");
+			mData.SetHierarchy(name, val);
+
+			if (!mSettingData)
 			{
-				if (mData == null) mData = new DataNode("ObjectData");
-				mData.SetHierarchy(name, val);
-
-				if (!mSettingData)
-				{
-					mSettingData = true;
-					mCallDataChanged = false;
-					if (onDataChanged != null) onDataChanged(mData);
-					mSettingData = false;
-				}
-
-				if (enabled && uid != 0)
-				{
-					if (isMine) Send(2, Target.OthersSaved, mData);
-					else Send("OnSet", ownerID, name, val);
-				}
+				mSettingData = true;
+				mCallDataChanged = false;
+				if (onDataChanged != null) onDataChanged(mData);
+				mSettingData = false;
 			}
-			else mParent.Set(name, val);
+
+			if (enabled && uid != 0)
+			{
+				if (isMine) Send(2, Target.OthersSaved, mData);
+				else Send("OnSet", ownerID, name, val);
+			}
+		}
+
+		/// <summary>
+		/// Can be used after modifying the data directly. Will sync all of the object's data.
+		/// </summary>
+
+		public void SyncData ()
+		{
+			if (mData == null) return;
+
+			if (!mSettingData)
+			{
+				mSettingData = true;
+				mCallDataChanged = false;
+				if (onDataChanged != null) onDataChanged(mData);
+				mSettingData = false;
+			}
+
+			if (enabled && uid != 0)
+			{
+				if (isMine) Send(2, Target.OthersSaved, mData);
+				else Send("OnSet", ownerID, null, mData);
+			}
 		}
 
 		[RFC]
 		void OnSet (string name, object val)
 		{
-			if (parent == null)
+			if (string.IsNullOrEmpty(name))
+			{
+				mData = val as DataNode;
+				if (mData == null) mData = new DataNode("ObjectData");
+			}
+			else
 			{
 				if (mData == null) mData = new DataNode("ObjectData");
 				mData.SetHierarchy(name, val);
-				OnSetData(mData);
-				Send(2, Target.OthersSaved, mData);
 			}
-			else mParent.OnSet(name, val);
+
+			OnSetData(mData);
+			Send(2, Target.OthersSaved, mData);
 		}
 
 		[RFC(2)]
 		void OnSetData (DataNode data)
 		{
-			if (parent != null)
-			{
-				parent.OnSetData(data);
-			}
-			else if (!mSettingData)
+			if (!mSettingData)
 			{
 				mSettingData = true;
 				mCallDataChanged = false;
@@ -392,41 +375,37 @@ namespace TNet
 
 		void DestroyNow ()
 		{
-			if (parent == null)
-			{
-				if (mDestroyed != 0) return;
-				mDestroyed = 1;
+			if (mDestroyed != 0) return;
+			mDestroyed = 1;
 
-				if (!enabled)
-				{
-					Unregister();
-					Object.Destroy(gameObject);
-				}
-				else if (uid == 0)
-				{
-					OnDestroyPacket();
-				}
-				else if (TNManager.isConnected && TNManager.IsInChannel(channelID))
-				{
-					if (TNManager.IsChannelLocked(channelID))
-					{
-						Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
-					}
-					else
-					{
-						BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
-						bw.Write(channelID);
-						bw.Write(uid);
-						TNManager.EndSend(channelID, true);
-#if UNITY_EDITOR && COUNT_PACKETS
-						if (sentDictionary.ContainsKey("DestroyNow")) ++sentDictionary["DestroyNow"];
-						else sentDictionary["DestroyNow"] = 1;
-#endif
-					}
-				}
-				else OnDestroyPacket();
+			if (!enabled)
+			{
+				Unregister();
+				Object.Destroy(gameObject);
 			}
-			else mParent.DestroyNow();
+			else if (uid == 0)
+			{
+				OnDestroyPacket();
+			}
+			else if (TNManager.isConnected && TNManager.IsInChannel(channelID))
+			{
+				if (TNManager.IsChannelLocked(channelID))
+				{
+					Debug.LogWarning("Trying to destroy an object in a locked channel. Call will be ignored.");
+				}
+				else
+				{
+					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
+					bw.Write(channelID);
+					bw.Write(uid);
+					TNManager.EndSend(channelID, true);
+#if UNITY_EDITOR && COUNT_PACKETS
+					if (sentDictionary.ContainsKey("DestroyNow")) ++sentDictionary["DestroyNow"];
+					else sentDictionary["DestroyNow"] = 1;
+#endif
+				}
+			}
+			else OnDestroyPacket();
 		}
 
 		/// <summary>
@@ -466,12 +445,8 @@ namespace TNet
 
 		public void DestroySelf (float delay, bool onlyIfOwner = true)
 		{
-			if (parent == null)
-			{
-				if (onlyIfOwner) Invoke("DestroyIfMine", delay);
-				else Invoke("DestroySelf", delay);
-			}
-			else parent.DestroySelf(delay, onlyIfOwner);
+			if (onlyIfOwner) Invoke("DestroyIfMine", delay);
+			else Invoke("DestroySelf", delay);
 		}
 
 		void DestroyIfMine () { if (isMine) DestroySelf(); }
@@ -512,13 +487,52 @@ namespace TNet
 
 		static public TNObject Find (int channelID, uint tnID)
 		{
+#if !MODDING
 			if (mDictionary == null) return null;
 			TNObject tno = null;
 			Dictionary<uint, TNObject> dict;
-			if (!mDictionary.TryGetValue(channelID, out dict)) return null;
-			if (!dict.TryGetValue(tnID, out tno)) return null;
+			if (!mDictionary.TryGetValue(channelID, out dict)) return FindForwardRecord(channelID, tnID);
+			if (!dict.TryGetValue(tnID, out tno)) return FindForwardRecord(channelID, tnID);
 			return tno;
+#else
+			return null;
+#endif
 		}
+
+#if !MODDING
+		struct ForwardRecord
+		{
+			public int oldChannelID;
+			public uint oldObjectID;
+			public int newChannelID;
+			public uint newObjectID;
+			public long expiration;
+
+			public bool Matches (int channel, uint obj) { return oldChannelID == channel && oldObjectID == obj; }
+		}
+
+		[System.NonSerialized] static List<ForwardRecord> mForwardRecords;
+
+		static TNObject FindForwardRecord (int channelID, uint tnID)
+		{
+			if (mForwardRecords == null) return null;
+
+			var time = TNManager.serverTime;
+
+			for (int i = 0; i < mForwardRecords.size; ++i)
+			{
+				if (mForwardRecords.buffer[i].expiration < time)
+				{
+					mForwardRecords.RemoveAt(i--);
+				}
+				else if (mForwardRecords.buffer[i].Matches(channelID, tnID))
+				{
+					return Find(mForwardRecords.buffer[i].newChannelID, mForwardRecords.buffer[i].newObjectID);
+				}
+			}
+			return null;
+		}
+#endif
 
 		/// <summary>
 		/// Retrieve the Tasharen Network Object by its full ID.
@@ -666,26 +680,7 @@ namespace TNet
 				uid = GetUniqueID(true);
 			}
 
-			if (uid == 0)
-			{
-				mParentCheck = true;
-
-				if (parent != null)
-				{
-#if UNITY_EDITOR
-					Debug.LogWarning("It's not a good idea to nest network objects. TNBehaviour-derived scripts will find " +
-						"the root network object by default. Unexpected behaviours may occur with nested networked objects, " +
-						"such as certain RFCs not being called. If you need to join multiple networked objects together " +
-						"(such as a player avatar traveling inside a car), consider using a FixedJoint instead.", this);
-#endif
-				}
-				else if (Application.isPlaying)
-				{
-					Debug.LogError("Objects that are not instantiated via TNManager.Create must have a non-zero ID.", this);
-					return;
-				}
-			}
-			else
+			if (uid != 0)
 			{
 				Register();
 
@@ -709,7 +704,7 @@ namespace TNet
 
 		public void Register ()
 		{
-			if (!mIsRegistered && parent == null)
+			if (!mIsRegistered)
 			{
 				if (uid != 0)
 				{
@@ -789,14 +784,10 @@ namespace TNet
 
 		public CachedFunc FindFunction (byte funcID)
 		{
-			if (parent == null)
-			{
-				if (rebuildMethodList) RebuildMethodList();
-				CachedFunc ent = null;
-				if (mDict0 != null) mDict0.TryGetValue(funcID, out ent);
-				return ent;
-			}
-			else return mParent.FindFunction(funcID);
+			if (rebuildMethodList) RebuildMethodList();
+			CachedFunc ent = null;
+			if (mDict0 != null) mDict0.TryGetValue(funcID, out ent);
+			return ent;
 		}
 
 		/// <summary>
@@ -805,14 +796,10 @@ namespace TNet
 
 		public CachedFunc FindFunction (string funcName)
 		{
-			if (parent == null)
-			{
-				if (rebuildMethodList) RebuildMethodList();
-				CachedFunc ent = null;
-				if (mDict1 != null) mDict1.TryGetValue(funcName, out ent);
-				return ent;
-			}
-			else return mParent.FindFunction(funcName);
+			if (rebuildMethodList) RebuildMethodList();
+			CachedFunc ent = null;
+			if (mDict1 != null) mDict1.TryGetValue(funcName, out ent);
+			return ent;
 		}
 
 		/// <summary>
@@ -821,20 +808,16 @@ namespace TNet
 
 		public bool Execute (byte funcID, params object[] parameters)
 		{
-			if (parent == null)
+			if (rebuildMethodList) RebuildMethodList();
+
+			CachedFunc ent;
+
+			if (mDict0 != null && mDict0.TryGetValue(funcID, out ent))
 			{
-				if (rebuildMethodList) RebuildMethodList();
-
-				CachedFunc ent;
-
-				if (mDict0 != null && mDict0.TryGetValue(funcID, out ent))
-				{
-					ent.Execute(parameters);
-					return true;
-				}
-				return false;
+				ent.Execute(parameters);
+				return true;
 			}
-			else return mParent.Execute(funcID, parameters);
+			return false;
 		}
 
 		/// <summary>
@@ -843,20 +826,16 @@ namespace TNet
 
 		public bool Execute (string funcName, params object[] parameters)
 		{
-			if (parent == null)
+			if (rebuildMethodList) RebuildMethodList();
+
+			CachedFunc ent;
+
+			if (mDict1 != null && mDict1.TryGetValue(funcName, out ent))
 			{
-				if (rebuildMethodList) RebuildMethodList();
-
-				CachedFunc ent;
-
-				if (mDict1 != null && mDict1.TryGetValue(funcName, out ent))
-				{
-					ent.Execute(parameters);
-					return true;
-				}
-				return false;
+				ent.Execute(parameters);
+				return true;
 			}
-			else return mParent.Execute(funcName, parameters);
+			return false;
 		}
 
 		/// <summary>
@@ -876,12 +855,12 @@ namespace TNet
 						"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
-#if UNITY_EDITOR
-			else
-			{
-				Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created in channel " + channelID);
-			}
-#endif
+//#if UNITY_EDITOR
+//			else
+//			{
+//				Debug.LogWarning("[TNet] Trying to execute RFC #" + funcID + " on TNObject #" + objID + " before it has been created in channel " + channelID);
+//			}
+//#endif
 		}
 
 		/// <summary>
@@ -901,12 +880,12 @@ namespace TNet
 						"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
 			}
-#if UNITY_EDITOR
-			else
-			{
-				Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
-			}
-#endif
+//#if UNITY_EDITOR
+//			else
+//			{
+//				Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
+//			}
+//#endif
 		}
 
 		[System.NonSerialized] static System.Collections.Generic.List<MonoBehaviour> mTempMono = new System.Collections.Generic.List<MonoBehaviour>();
@@ -1603,154 +1582,150 @@ namespace TNet
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
 #endif
-			if (parent == null)
+			if (!enabled) return;
+
+			if (hasBeenDestroyed)
 			{
-				if (!enabled) return;
-
-				if (hasBeenDestroyed)
-				{
 #if UNITY_EDITOR
-					Debug.LogWarning("Trying to send RFC " + (rfcID != 0 ? rfcID.ToString() : rfcName) + " through a destroyed object. Ignoring.", this);
+				Debug.LogWarning("Trying to send RFC " + (rfcID != 0 ? rfcID.ToString() : rfcName) + " through a destroyed object. Ignoring.", this);
+				return;
+#endif
+			}
+
+#if UNITY_EDITOR
+			if (rebuildMethodList) RebuildMethodList();
+
+			CachedFunc ent;
+
+			if (rfcID != 0)
+			{
+				if (!mDict0.TryGetValue(rfcID, out ent))
+				{
+					Debug.LogWarning("RFC " + rfcID + " is not present on " + name, this);
 					return;
-#endif
-				}
-
-#if UNITY_EDITOR
-				if (rebuildMethodList) RebuildMethodList();
-
-				CachedFunc ent;
-
-				if (rfcID != 0)
-				{
-					if (!mDict0.TryGetValue(rfcID, out ent))
-					{
-						Debug.LogWarning("RFC " + rfcID + " is not present on " + name, this);
-						return;
-					}
-				}
-				else if (!mDict1.TryGetValue(rfcName, out ent))
-				{
-					Debug.LogWarning("RFC " + rfcName + " is not present on " + name, this);
-					return;
-				}
-#endif
-				// Some very odd special case... sending a string[] as the only parameter
-				// results in objs[] being a string[] instead, when it should be object[string[]].
-				if (objs != null && objs.GetType() != typeof(object[]))
-					objs = new object[] { objs };
-
-				var uid = this.uid;
-				var executeLocally = false;
-				var connected = TNManager.isConnected;
-
-				if (target == Target.Broadcast)
-				{
-					if (connected)
-					{
-#if !MODDING
-						if (uid != 0)
-						{
-							var writer = TNManager.BeginSend(Packet.Broadcast);
-							writer.Write(TNManager.playerID);
-							writer.Write(channelID);
-							writer.Write(GetUID(uid, rfcID));
-							if (rfcID == 0) writer.Write(rfcName);
-							writer.WriteArray(objs);
-							TNManager.EndSend(channelID, reliable);
-#if UNITY_EDITOR && COUNT_PACKETS
-							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-							else sentDictionary[sid] = 1;
-#endif
-						}
-#if UNITY_EDITOR
-						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
-#endif
-#endif
-					}
-					else executeLocally = true;
-				}
-				else if (target == Target.Admin)
-				{
-					if (connected)
-					{
-#if !MODDING
-						if (uid != 0)
-						{
-							var writer = TNManager.BeginSend(Packet.BroadcastAdmin);
-							writer.Write(TNManager.playerID);
-							writer.Write(channelID);
-							writer.Write(GetUID(uid, rfcID));
-							if (rfcID == 0) writer.Write(rfcName);
-							writer.WriteArray(objs);
-							TNManager.EndSend(channelID, reliable);
-#if UNITY_EDITOR && COUNT_PACKETS
-							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-							else sentDictionary[sid] = 1;
-#endif
-						}
-#if UNITY_EDITOR
-						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
-#endif
-#endif
-					}
-					else executeLocally = true;
-				}
-				else if (target == Target.Host && TNManager.IsHosting(channelID))
-				{
-					// We're the host, and the packet should be going to the host -- just echo it locally
-					executeLocally = true;
-				}
-				else
-				{
-					if (!connected || !reliable)
-					{
-						if (target == Target.All)
-						{
-							target = Target.Others;
-							executeLocally = true;
-						}
-						else if (target == Target.AllSaved)
-						{
-							target = Target.OthersSaved;
-							executeLocally = true;
-						}
-					}
-#if !MODDING
-					if (connected && TNManager.IsInChannel(channelID))
-					{
-						if (uid != 0)
-						{
-							var packetID = (byte)((int)Packet.ForwardToAll + (int)target);
-							var writer = TNManager.BeginSend(packetID);
-							writer.Write(TNManager.playerID);
-							writer.Write(channelID);
-							writer.Write(GetUID(uid, rfcID));
-							if (rfcID == 0) writer.Write(rfcName);
-							writer.WriteArray(objs);
-							TNManager.EndSend(channelID, reliable);
-#if UNITY_EDITOR && COUNT_PACKETS
-							var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-							if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-							else sentDictionary[sid] = 1;
-#endif
-						}
-#if UNITY_EDITOR
-						else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
-#endif
-					}
-#endif
-				}
-
-				if (executeLocally)
-				{
-					TNManager.packetSourceID = TNManager.playerID;
-					if (rfcID != 0) Execute(rfcID, objs);
-					else Execute(rfcName, objs);
 				}
 			}
-			else mParent.SendRFC(rfcID, rfcName, target, reliable, objs);
+			else if (!mDict1.TryGetValue(rfcName, out ent))
+			{
+				Debug.LogWarning("RFC " + rfcName + " is not present on " + name, this);
+				return;
+			}
+#endif
+			// Some very odd special case... sending a string[] as the only parameter
+			// results in objs[] being a string[] instead, when it should be object[string[]].
+			if (objs != null && objs.GetType() != typeof(object[]))
+				objs = new object[] { objs };
+
+			var uid = this.uid;
+			var executeLocally = false;
+			var connected = TNManager.isConnected;
+
+			if (target == Target.Broadcast)
+			{
+				if (connected)
+				{
+#if !MODDING
+					if (uid != 0)
+					{
+						var writer = TNManager.BeginSend(Packet.Broadcast);
+						writer.Write(TNManager.playerID);
+						writer.Write(channelID);
+						writer.Write(GetUID(uid, rfcID));
+						if (rfcID == 0) writer.Write(rfcName);
+						writer.WriteArray(objs);
+						TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR && COUNT_PACKETS
+						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+						else sentDictionary[sid] = 1;
+#endif
+					}
+#if UNITY_EDITOR
+					else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
+#endif
+#endif
+				}
+				else executeLocally = true;
+			}
+			else if (target == Target.Admin)
+			{
+				if (connected)
+				{
+#if !MODDING
+					if (uid != 0)
+					{
+						var writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+						writer.Write(TNManager.playerID);
+						writer.Write(channelID);
+						writer.Write(GetUID(uid, rfcID));
+						if (rfcID == 0) writer.Write(rfcName);
+						writer.WriteArray(objs);
+						TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR && COUNT_PACKETS
+						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+						else sentDictionary[sid] = 1;
+#endif
+					}
+#if UNITY_EDITOR
+					else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
+#endif
+#endif
+				}
+				else executeLocally = true;
+			}
+			else if (target == Target.Host && TNManager.IsHosting(channelID))
+			{
+				// We're the host, and the packet should be going to the host -- just echo it locally
+				executeLocally = true;
+			}
+			else
+			{
+				if (!connected || !reliable)
+				{
+					if (target == Target.All)
+					{
+						target = Target.Others;
+						executeLocally = true;
+					}
+					else if (target == Target.AllSaved)
+					{
+						target = Target.OthersSaved;
+						executeLocally = true;
+					}
+				}
+#if !MODDING
+				if (connected && TNManager.IsInChannel(channelID))
+				{
+					if (uid != 0)
+					{
+						var packetID = (byte)((int)Packet.ForwardToAll + (int)target);
+						var writer = TNManager.BeginSend(packetID);
+						writer.Write(TNManager.playerID);
+						writer.Write(channelID);
+						writer.Write(GetUID(uid, rfcID));
+						if (rfcID == 0) writer.Write(rfcName);
+						writer.WriteArray(objs);
+						TNManager.EndSend(channelID, reliable);
+#if UNITY_EDITOR && COUNT_PACKETS
+						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+						else sentDictionary[sid] = 1;
+#endif
+					}
+#if UNITY_EDITOR
+					else Debug.LogWarning("Network object ID of 0 can't be used for communication. Use TNManager.Instantiate to create your objects.", this);
+#endif
+				}
+#endif
+			}
+
+			if (executeLocally)
+			{
+				TNManager.packetSourceID = TNManager.playerID;
+				if (rfcID != 0) Execute(rfcID, objs);
+				else Execute(rfcName, objs);
+			}
 		}
 
 #if UNITY_EDITOR && COUNT_PACKETS
@@ -1767,36 +1742,32 @@ namespace TNet
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
 #endif
-			if (parent == null)
-			{
-				if (mDestroyed != 0 || uid == 0 || string.IsNullOrEmpty(targetName)) return;
+			if (mDestroyed != 0 || uid == 0 || string.IsNullOrEmpty(targetName)) return;
 
-				if (targetName == TNManager.playerName)
-				{
-					TNManager.packetSourceID = TNManager.playerID;
-					if (rfcID != 0) Execute(rfcID, objs);
-					else Execute(rfcName, objs);
-				}
-				else
-				{
-#if !MODDING
-					var writer = TNManager.BeginSend(Packet.ForwardByName);
-					writer.Write(TNManager.playerID);
-					writer.Write(targetName);
-					writer.Write(channelID);
-					writer.Write(GetUID(uid, rfcID));
-					if (rfcID == 0) writer.Write(rfcName);
-#if UNITY_EDITOR && COUNT_PACKETS
-					var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-					else sentDictionary[sid] = 1;
-#endif
-					writer.WriteArray(objs);
-					TNManager.EndSend(channelID, reliable);
-#endif
-				}
+			if (targetName == TNManager.playerName)
+			{
+				TNManager.packetSourceID = TNManager.playerID;
+				if (rfcID != 0) Execute(rfcID, objs);
+				else Execute(rfcName, objs);
 			}
-			else mParent.SendRFC(rfcID, rfcName, targetName, reliable, objs);
+			else
+			{
+#if !MODDING
+				var writer = TNManager.BeginSend(Packet.ForwardByName);
+				writer.Write(TNManager.playerID);
+				writer.Write(targetName);
+				writer.Write(channelID);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
+#if UNITY_EDITOR && COUNT_PACKETS
+				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+				else sentDictionary[sid] = 1;
+#endif
+				writer.WriteArray(objs);
+				TNManager.EndSend(channelID, reliable);
+#endif
+			}
 		}
 
 		/// <summary>
@@ -1805,35 +1776,31 @@ namespace TNet
 
 		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
 		{
-			if (parent == null)
-			{
-				if (hasBeenDestroyed || uid == 0) return;
+			if (hasBeenDestroyed || uid == 0) return;
 
-				if (TNManager.isConnected)
-				{
+			if (TNManager.isConnected)
+			{
 #if !MODDING
-					var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
-					writer.Write(TNManager.playerID);
-					writer.Write(target);
-					writer.Write(channelID);
-					writer.Write(GetUID(uid, rfcID));
-					if (rfcID == 0) writer.Write(rfcName);
+				var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+				writer.Write(TNManager.playerID);
+				writer.Write(target);
+				writer.Write(channelID);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
 #if UNITY_EDITOR && COUNT_PACKETS
-					var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-					else sentDictionary[sid] = 1;
+				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+				else sentDictionary[sid] = 1;
 #endif
-					writer.WriteArray(objs);
-					TNManager.EndSend(channelID, reliable);
+				writer.WriteArray(objs);
+				TNManager.EndSend(channelID, reliable);
 #endif
-				}
-				else if (target == TNManager.playerID)
-				{
-					if (rfcID != 0) Execute(rfcID, objs);
-					else Execute(rfcName, objs);
-				}
 			}
-			else mParent.SendRFC(rfcID, rfcName, target, reliable, objs);
+			else if (target == TNManager.playerID)
+			{
+				if (rfcID != 0) Execute(rfcID, objs);
+				else Execute(rfcName, objs);
+			}
 		}
 
 		/// <summary>
@@ -1843,23 +1810,19 @@ namespace TNet
 		void BroadcastToLAN (int port, byte rfcID, string rfcName, object[] objs)
 		{
 #if !MODDING
-			if (parent == null)
-			{
-				if (hasBeenDestroyed || uid == 0) return;
-				BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
-				writer.Write(TNManager.playerID);
-				writer.Write(channelID);
-				writer.Write(GetUID(uid, rfcID));
-				if (rfcID == 0) writer.Write(rfcName);
-				writer.WriteArray(objs);
-				TNManager.EndSendToLAN(port);
+			if (hasBeenDestroyed || uid == 0) return;
+			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+			writer.Write(TNManager.playerID);
+			writer.Write(channelID);
+			writer.Write(GetUID(uid, rfcID));
+			if (rfcID == 0) writer.Write(rfcName);
+			writer.WriteArray(objs);
+			TNManager.EndSendToLAN(port);
 #if UNITY_EDITOR && COUNT_PACKETS
-				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
-				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-				else sentDictionary[sid] = 1;
+			var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+			if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+			else sentDictionary[sid] = 1;
 #endif
-			}
-			else mParent.BroadcastToLAN(port, rfcID, rfcName, objs);
 #endif
 		}
 
@@ -1898,34 +1861,30 @@ namespace TNet
 		public bool TransferToChannel (int newChannelID)
 		{
 #if !MODDING
-			if (parent == null)
+			if (mDestroyed != 0 || mNextChannelID != 0) return false;
+
+			if (uid > 32767 && channelID != newChannelID)
 			{
-				if (mDestroyed != 0 || mNextChannelID != 0) return false;
+				mNextChannelID = newChannelID;
 
-				if (uid > 32767 && channelID != newChannelID)
+				if (TNManager.isConnected)
 				{
-					mNextChannelID = newChannelID;
-
-					if (TNManager.isConnected)
-					{
-						var writer = TNManager.BeginSend(Packet.RequestTransferObject);
-						writer.Write(channelID);
-						writer.Write(newChannelID);
-						writer.Write(uid);
-						TNManager.EndSend(channelID, true);
+					var writer = TNManager.BeginSend(Packet.RequestTransferObject);
+					writer.Write(channelID);
+					writer.Write(newChannelID);
+					writer.Write(uid);
+					TNManager.EndSend(channelID, true);
 #if UNITY_EDITOR && COUNT_PACKETS
-						var sid = "TransferToChannel";
-						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
-						else sentDictionary[sid] = 1;
+					var sid = "TransferToChannel";
+					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+					else sentDictionary[sid] = 1;
 #endif
-					}
-					else FinalizeTransfer(newChannelID, TNObject.GetUniqueID(true));
-					return true;
 				}
-				return false;
+				else FinalizeTransfer(newChannelID, TNObject.GetUniqueID(true));
+				return true;
 			}
-			return parent.TransferToChannel(newChannelID);
 #endif
+			return false;
 		}
 
 		/// <summary>
@@ -1935,17 +1894,22 @@ namespace TNet
 		internal void FinalizeTransfer (int newChannel, uint newObjectID)
 		{
 #if !MODDING
+			var fw = new ForwardRecord();
+			fw.oldChannelID = channelID;
+			fw.newChannelID = newChannel;
+			fw.oldObjectID = uid;
+			fw.newObjectID = newObjectID;
+			fw.expiration = TNManager.serverTime + 2000;
+			if (mForwardRecords == null) mForwardRecords = new List<ForwardRecord>();
+			mForwardRecords.Add(fw);
+
 			if (onTransfer != null) onTransfer(newChannel, newObjectID);
 
-			if (parent == null)
-			{
-				Unregister();
-				channelID = newChannel;
-				uid = newObjectID;
-				Register();
-				mNextChannelID = 0;
-			}
-			else parent.FinalizeTransfer(newChannel, newObjectID);
+			Unregister();
+			channelID = newChannel;
+			uid = newObjectID;
+			Register();
+			mNextChannelID = 0;
 #endif
 		}
 	}

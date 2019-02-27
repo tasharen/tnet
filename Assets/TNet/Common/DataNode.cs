@@ -170,7 +170,9 @@ namespace TNet
 		public T Get<T> ()
 		{
 			if (value is T) return (T)mValue;
-			return Serialization.Convert<T>(mValue);
+			var converted = Serialization.Convert<T>(mValue);
+			if (mValue is byte[] && converted != null) mValue = converted;
+			return converted;
 		}
 
 		/// <summary>
@@ -180,7 +182,9 @@ namespace TNet
 		public T Get<T> (T defaultVal)
 		{
 			if (value is T) return (T)mValue;
-			return Serialization.Convert<T>(mValue, defaultVal);
+			var converted = Serialization.Convert(mValue, defaultVal);
+			if (mValue is byte[] && converted != null) mValue = converted;
+			return converted;
 		}
 
 		/// <summary>

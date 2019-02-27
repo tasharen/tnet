@@ -5,6 +5,7 @@
 
 // Use this for debugging purposes
 //#define SINGLE_THREADED
+//#define DEBUG_THREAD_TIMING
 
 using UnityEngine;
 using System.Threading;
@@ -33,7 +34,7 @@ namespace TNet
 
 		// How much time the worker thread's update function is allowed to take per frame.
 		// Note that this value simply means that if it's exceeded, no more functions will be executed on this frame, not that it will pause mid-execution.
-		static public long maxMillisecondsPerFrame = 4;
+		static public double maxMillisecondsPerFrame = 4d;
 		static WorkerThread mInstance = null;
 
 		/// <summary>
@@ -51,14 +52,18 @@ namespace TNet
 		Thread[] mThreads = null;
 		int[] mLoad = null;
 
-		class Entry
+		struct Entry
 		{
 			public VoidFunc main;
 			public VoidFunc finished;
 			public BoolFunc mainBool;       // Return 'true' when done, 'false' to execute again next update
 			public BoolFunc finishedBool;   // Return 'true' when done, 'false' to execute again next update
 			public EnumFunc finishedEnum;
-			public long milliseconds = 0;
+			public double threadTime;		// Time spent in the worker thread (in milliseconds)
+			public double mainTime;         // Time spent in the main thread (in milliseconds)
+#if DEBUG_THREAD_TIMING
+			public string trace;
+#endif
 			public System.Collections.IEnumerator en;
 		}
 
@@ -66,7 +71,6 @@ namespace TNet
 		Queue<Entry> mPriority = new Queue<Entry>();
 		Queue<Entry> mRegular = new Queue<Entry>();
 		Queue<Entry> mFinished = new Queue<Entry>();
-		List<Entry> mUnused = new List<Entry>();
 		static Stopwatch mStopwatch = new Stopwatch();
 
 		/// <summary>
@@ -236,7 +240,9 @@ namespace TNet
 							for (int b = active.size; b > 0;)
 							{
 								var ent = active.buffer[--b];
-
+#if DEBUG_THREAD_TIMING
+								FastLog.Log("Worker Thread\n   " + ent.trace + "\n");
+#endif
 								sw.Reset();
 								sw.Start();
 
@@ -245,21 +251,24 @@ namespace TNet
 									if (ent.main != null)
 									{
 										ent.main();
-										ent.milliseconds += sw.ElapsedMilliseconds;
+										ent.threadTime += sw.GetElapsedMilliseconds();
 
 										active.RemoveAt(b);
 										if (ent.finished != null || ent.finishedBool != null || ent.finishedEnum != null) lock (mFinished) mFinished.Enqueue(ent);
-										else lock (mUnused) mUnused.Add(ent);
 										mLoad[threadID] = active.size;
 									}
-									else if (ent.mainBool != null && ent.mainBool())
+									else if (ent.mainBool != null)
 									{
-										ent.milliseconds += sw.ElapsedMilliseconds;
+										var result = ent.mainBool();
+										ent.threadTime += sw.GetElapsedMilliseconds();
 
-										active.RemoveAt(b);
-										if (ent.finished != null || ent.finishedBool != null || ent.finishedEnum != null) lock (mFinished) mFinished.Enqueue(ent);
-										else lock (mUnused) mUnused.Add(ent);
-										mLoad[threadID] = active.size;
+										if (result)
+										{
+											active.RemoveAt(b);
+											if (ent.finished != null || ent.finishedBool != null || ent.finishedEnum != null) lock (mFinished) mFinished.Enqueue(ent);
+											mLoad[threadID] = active.size;
+										}
+										else active.buffer[b] = ent;
 									}
 								}
 								catch (System.Exception ex)
@@ -272,7 +281,7 @@ namespace TNet
 
 						// Sleep for a short amount
 						try { Thread.Sleep(1); }
-						catch (System.Threading.ThreadInterruptedException) { return; }
+						catch (ThreadInterruptedException) { return; }
 					}
 				});
 			}
@@ -293,7 +302,7 @@ namespace TNet
 			{
 				for (int i = 0; i < mThreads.Length; ++i)
 				{
-					Thread thread = mThreads[i];
+					var thread = mThreads[i];
 
 					if (thread != null)
 					{
@@ -311,7 +320,18 @@ namespace TNet
 
 		void OnApplicationQuit ()
 		{
-			StopThreads();
+			isShuttingDown = true;
+
+			if (mThreads != null)
+			{
+				for (int i = 0; i < mThreads.Length; ++i)
+				{
+					var thread = mThreads[i];
+					if (thread != null) thread.Interrupt();
+				}
+				mThreads = null;
+			}
+
 			mRegular.Clear();
 		}
 
@@ -322,14 +342,14 @@ namespace TNet
 		/// Only valid inside the OnFinished stage functions.
 		/// </summary>
 
-		static public long currentExecutionTime { get { return mStopwatch.ElapsedMilliseconds - mLoopStart; } }
+		static public double currentExecutionTime { get { return mStopwatch.GetElapsedMilliseconds() - mLoopStart; } }
 
 		/// <summary>
 		/// Total execution time for the current callback, including secondary thread execution times. Execution of multi-stage callbacks are cumulative.
 		/// Only valid inside the OnFinished stage functions.
 		/// </summary>
 
-		static public long totalExecutionTime { get { return mExecStart + currentExecutionTime; } }
+		static public double totalExecutionTime { get { return mExecStart + currentExecutionTime; } }
 
 		/// <summary>
 		/// Check from inside your multi-stage completion functions to check whether the main frame's max allowed time has been exceeded.
@@ -341,7 +361,7 @@ namespace TNet
 		[System.Obsolete("Use 'frameTimeExceeded instead'")]
 		static public bool mainFrameTimeExceeded { get { return frameTimeExceeded; } }
 
-		static long mLoopStart = 0, mExecStart = 0;
+		static double mLoopStart = 0d, mExecStart = 0d;
 
 		/// <summary>
 		/// Call finished delegates on the main thread.
@@ -360,36 +380,30 @@ namespace TNet
 				{
 					lock (mFinished) ent = mFinished.Dequeue();
 
-					mLoopStart = mStopwatch.ElapsedMilliseconds;
-					mExecStart = ent.milliseconds;
+					mLoopStart = mStopwatch.GetElapsedMilliseconds();
+					mExecStart = ent.mainTime;
 
 					if (ent.finished != null)
 					{
-						//UnityEngine.Profiling.Profiler.BeginSample("Finished: " + (ent.finished.Target != null ? ent.finished.Target.GetType().ToString() : "null") + "." + ent.finished.Method.Name);
 						ent.finished();
-						//UnityEngine.Profiling.Profiler.EndSample();
+						ent.mainTime += mStopwatch.GetElapsedMilliseconds() - mLoopStart;
 					}
 					else if (ent.finishedEnum != null)
 					{
 						if (ent.en == null) ent.en = ent.finishedEnum();
 
-						//UnityEngine.Profiling.Profiler.BeginSample("FinishedEnum: " + (ent.finishedEnum.Target != null ? ent.finishedEnum.Target.GetType().ToString() : "null") + "." + ent.finishedEnum.Method.Name);
-
 						var keepGoing = false;
 
 						while (ent.en.MoveNext())
 						{
-							var elapsed = mStopwatch.ElapsedMilliseconds;
-
-							if (elapsed > maxMillisecondsPerFrame)
+							if (mStopwatch.GetElapsedMilliseconds() > maxMillisecondsPerFrame)
 							{
-								ent.milliseconds += elapsed - mLoopStart;
 								keepGoing = true;
 								break;
 							}
 						}
 
-						//UnityEngine.Profiling.Profiler.EndSample();
+						ent.mainTime += mStopwatch.GetElapsedMilliseconds() - mLoopStart;
 
 						if (keepGoing)
 						{
@@ -399,26 +413,21 @@ namespace TNet
 					}
 					else if (ent.finishedBool != null)
 					{
-						if (!ent.finishedBool())
+						var result = ent.finishedBool();
+						var elapsed = mStopwatch.GetElapsedMilliseconds();
+						ent.mainTime += elapsed - mLoopStart;
+
+						if (!result)
 						{
-							var elapsed = mStopwatch.ElapsedMilliseconds;
-							ent.milliseconds += elapsed - mLoopStart;
 							mTemp.Add(ent);
 							if (elapsed > maxMillisecondsPerFrame) break;
 							continue;
 						}
 					}
-
-					ent.main = null;
-					ent.finished = null;
-					ent.mainBool = null;
-					ent.finishedBool = null;
-					ent.finishedEnum = null;
-					ent.en = null;
-
-					lock (mUnused) mUnused.Add(ent);
-
-					if (mStopwatch.ElapsedMilliseconds > maxMillisecondsPerFrame) break;
+#if DEBUG_THREAD_TIMING
+					FastLog.Log("Time: " + ent.threadTime.ToString("N3") + " ms (thread) + " + ent.mainTime.ToString("N3") + " ms (main)\n   " + ent.trace + "\n");
+#endif
+					if (mStopwatch.GetElapsedMilliseconds() > maxMillisecondsPerFrame) break;
 				}
 			}
 
@@ -457,18 +466,12 @@ namespace TNet
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
-			Entry ent;
-
-			if (mInstance.mUnused.size != 0)
-			{
-				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
-			}
-			else ent = new Entry();
-
+			var ent = new Entry();
 			ent.main = main;
 			ent.finished = finished;
-			ent.milliseconds = 0;
-
+#if DEBUG_THREAD_TIMING
+			ent.trace = Tools.stackTrace2;
+#endif
 			if (main != null)
 			{
 				if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
@@ -502,18 +505,12 @@ namespace TNet
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
-			Entry ent;
-
-			if (mInstance.mUnused.size != 0)
-			{
-				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
-			}
-			else ent = new Entry();
-
+			var ent = new Entry();
 			ent.main = main;
 			ent.finishedEnum = finished;
-			ent.milliseconds = 0;
-
+#if DEBUG_THREAD_TIMING
+			ent.trace = Tools.stackTrace2;
+#endif
 			if (main != null)
 			{
 				if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
@@ -548,17 +545,12 @@ namespace TNet
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
-			Entry ent;
-
-			if (mInstance.mUnused.size != 0)
-			{
-				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
-			}
-			else ent = new Entry();
-
+			var ent = new Entry();
 			ent.main = main;
 			ent.finishedBool = finished;
-			ent.milliseconds = 0;
+#if DEBUG_THREAD_TIMING
+			ent.trace = Tools.stackTrace2;
+#endif
 			if (main != null)
 			{
 				if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
@@ -594,18 +586,12 @@ namespace TNet
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
-			Entry ent;
-
-			if (mInstance.mUnused.size != 0)
-			{
-				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
-			}
-			else ent = new Entry();
-
+			var ent = new Entry();
 			ent.mainBool = main;
 			ent.finished = finished;
-			ent.milliseconds = 0;
-
+#if DEBUG_THREAD_TIMING
+			ent.trace = Tools.stackTrace2;
+#endif
 			if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
 			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 #endif
@@ -637,18 +623,12 @@ namespace TNet
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
-			Entry ent;
-
-			if (mInstance.mUnused.size != 0)
-			{
-				lock (mInstance.mUnused) { ent = (mInstance.mUnused.size != 0) ? mInstance.mUnused.Pop() : new Entry(); }
-			}
-			else ent = new Entry();
-
+			var ent = new Entry();
 			ent.mainBool = main;
 			ent.finishedBool = finished;
-			ent.milliseconds = 0;
-
+#if DEBUG_THREAD_TIMING
+			ent.trace = Tools.stackTrace2;
+#endif
 			if (highPriority) lock (mInstance.mPriority) mInstance.mPriority.Enqueue(ent);
 			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 #endif

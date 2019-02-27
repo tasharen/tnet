@@ -134,7 +134,7 @@ namespace TNet
 			{
 				b = new Buffer();
 #if DEBUG_BUFFERS
-				FastLog.Log("New " + b.mUniqueID);
+				FastLog.Log("Buffer.Create (new) " + b.mUniqueID);
 #endif
 			}
 			else
@@ -146,14 +146,14 @@ namespace TNet
 						--mPoolCount;
 						b = mPool.Dequeue();
 #if DEBUG_BUFFERS
-						FastLog.Log("Existing " + b.mUniqueID + " (" + mPool.Count + ")");
+						FastLog.Log("Buffer.Create (existing) " + b.mUniqueID + " (" + mPool.Count + ")");
 #endif
 					}
 					else
 					{
 						b = new Buffer();
 #if DEBUG_BUFFERS
-						FastLog.Log("New " + b.mUniqueID);
+						FastLog.Log("Buffer.Create (new) " + b.mUniqueID);
 #endif
 					}
 				}
@@ -338,7 +338,7 @@ namespace TNet
 
 		public void CopyTo (Buffer target)
 		{
-			BinaryWriter w = target.BeginWriting(false);
+			var w = target.BeginWriting(false);
 			int bytes = size;
 			if (bytes > 0) w.Write(buffer, position, bytes);
 			target.EndWriting();
@@ -435,6 +435,7 @@ namespace TNet
 				mWriting = false;
 				mSize = (int)mStream.Position;
 			}
+
 			mStream.Seek(startOffset, SeekOrigin.Begin);
 			return mReader;
 		}
@@ -451,10 +452,24 @@ namespace TNet
 
 		public int PeekInt (int pos)
 		{
-			if (pos > -1 && pos + 4 < size)
+			if (pos > -1 && 4 < size)
 			{
 				var buffer = this.buffer;
 				return (int)buffer[pos] | ((int)buffer[pos + 1] << 8) | ((int)buffer[pos + 2] << 16) | ((int)buffer[pos + 3] << 24);
+			}
+			return 0;
+		}
+
+		/// <summary>
+		/// Peek at the first integer at the specified offset.
+		/// </summary>
+
+		public uint PeekUInt (int pos)
+		{
+			if (pos > -1 && 4 < size)
+			{
+				var buffer = this.buffer;
+				return (uint)buffer[pos] | ((uint)buffer[pos + 1] << 8) | ((uint)buffer[pos + 2] << 16) | ((uint)buffer[pos + 3] << 24);
 			}
 			return 0;
 		}
@@ -467,10 +482,13 @@ namespace TNet
 		{
 			byte[] bytes = null;
 			long oldPos = mStream.Position;
-			if (pos < 0 || pos + length > size) return null;
-			mStream.Seek(pos, SeekOrigin.Begin);
-			bytes = mReader.ReadBytes(length);
-			mStream.Seek(oldPos, SeekOrigin.Begin);
+
+			if (pos > -1 && length < size)
+			{
+				mStream.Seek(pos, SeekOrigin.Begin);
+				bytes = mReader.ReadBytes(length);
+				mStream.Seek(oldPos, SeekOrigin.Begin);
+			}
 			return bytes;
 		}
 

@@ -1357,7 +1357,11 @@ namespace TNet
 				}
 
 				// If the previous owner is not present, transfer ownership to the host
-				if (!isPresent) obj.playerID = channel.host.id;
+				if (!isPresent)
+				{
+					obj.playerID = channel.host.id;
+					channel.created.buffer[i] = obj;
+				}
 
 				writer = buffer.BeginPacket(Packet.ResponseCreateObject, offset);
 				writer.Write(obj.playerID);
@@ -1473,7 +1477,7 @@ namespace TNet
 		{
 			// Save every 5 minutes
 			if (mNextSave == 0) mNextSave = mTime + 300000;
-			BinaryReader reader = buffer.BeginReading();
+			var reader = buffer.BeginReading();
 
 			// If the player has not yet been verified, the first packet must be an ID request
 			if (player.stage == TcpProtocol.Stage.Verifying)
@@ -1539,7 +1543,7 @@ namespace TNet
 			}
 
 			var requestByte = reader.ReadByte();
-			Packet request = (Packet)requestByte;
+			var request = (Packet)requestByte;
 
 #if DEBUG_PACKETS && !STANDALONE
 #if UNITY_EDITOR
@@ -1990,15 +1994,15 @@ namespace TNet
 				case Packet.ForwardToPlayer:
 				{
 					// Forward this packet to the specified player
-					int start = buffer.position - 5;
+					int origin = buffer.position - 5;
 
 					if (reader.ReadInt32() == player.id) // Validate the packet's source
 					{
-						TcpPlayer target = GetPlayer(reader.ReadInt32());
+						var target = GetPlayer(reader.ReadInt32());
 
 						if (target != null && target.isConnected)
 						{
-							buffer.position = start;
+							buffer.position = origin;
 							target.SendTcpPacket(buffer);
 						}
 					}
@@ -2006,7 +2010,7 @@ namespace TNet
 				}
 				case Packet.ForwardByName:
 				{
-					int start = buffer.position - 5;
+					int origin = buffer.position - 5;
 
 					if (reader.ReadInt32() == player.id) // Validate the packet's source
 					{
@@ -2015,7 +2019,7 @@ namespace TNet
 
 						if (target != null && target.isConnected)
 						{
-							buffer.position = start;
+							buffer.position = origin;
 							target.SendTcpPacket(buffer);
 						}
 						else if (reliable)
@@ -2255,11 +2259,7 @@ namespace TNet
 						buffer.position = origin;
 
 						// Forward the packet to everyone connected to the server
-						for (int i = 0; i < mPlayerList.size; ++i)
-						{
-							TcpPlayer tp = mPlayerList.buffer[i];
-							tp.SendTcpPacket(buffer);
-						}
+						for (int i = 0; i < mPlayerList.size; ++i) mPlayerList.buffer[i].SendTcpPacket(buffer);
 					}
 					else
 					{
@@ -2399,13 +2399,11 @@ namespace TNet
 						// Detailed list of clients
 						for (int i = 0, count = 0; i < mPlayerList.size; ++i)
 						{
-							TcpPlayer p = (TcpPlayer)mPlayerList.buffer[i];
-
-							if (p.stage == TcpProtocol.Stage.Connected)
+							if (mPlayerList.buffer[i].stage == TcpProtocol.Stage.Connected)
 							{
 								sb.Append(++count);
 								sb.Append(" ");
-								sb.AppendLine(p.name);
+								sb.AppendLine(mPlayerList.buffer[i].name);
 							}
 						}
 
@@ -2462,28 +2460,32 @@ namespace TNet
 					{
 						var temp = Buffer.Create();
 						var tempWriter = temp.BeginWriting();
-						tempWriter.Write(count);
+						tempWriter.Write(0);
+						int actual = 0;
 
 						for (int i = 0; i < count; ++i)
 						{
 							Channel ch;
 							var channelID = reader.ReadInt32();
 							var objID = reader.ReadUInt32();
+							if (!mChannelDict.TryGetValue(channelID, out ch) || ch == null) continue;
 
-							if (!mChannelDict.TryGetValue(channelID, out ch) || ch == null || !ch.ExportObject(objID, tempWriter))
-							{
+							if (ch.ExportObject(objID, tempWriter)) ++actual;
 #if UNITY_EDITOR
-								Debug.LogWarning("Unable to export " + channelID + " " + objID);
+							else Debug.LogWarning("Unable to export " + channelID + " " + objID);
 #endif
-								tempWriter.Write(0);
-							}
 						}
+
+						var end = temp.position;
+						tempWriter.Seek(0, SeekOrigin.Begin);
+						tempWriter.Write(actual);
+						tempWriter.Seek(end, SeekOrigin.Begin);
 
 						temp.BeginReading();
 						var writer = player.BeginSend(Packet.ResponseExport);
 						writer.Write(requestID);
 						writer.Write(temp.size);
-						writer.Write(temp.buffer, 0, temp.size);
+						if (temp.size > 0) writer.Write(temp.buffer, 0, temp.size);
 						player.EndSend();
 						temp.Recycle();
 					}
@@ -2640,7 +2642,7 @@ namespace TNet
 		protected void ProcessForwardPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, Packet request, bool reliable)
 		{
 			// 4 bytes for packet size, 1 byte for packet ID
-			int start = buffer.position - 5;
+			int origin = buffer.position - 5;
 			int playerID = reader.ReadInt32();
 			int channelID = reader.ReadInt32();
 
@@ -2662,9 +2664,9 @@ namespace TNet
 
 			if (request == Packet.ForwardToHost)
 			{
-				TcpPlayer host = (TcpPlayer)ch.host;
+				var host = (TcpPlayer)ch.host;
 				if (host == null) return;
-				buffer.position = start;
+				buffer.position = origin;
 
 				// Forward the packet to the channel's host
 				if (reliable || !player.udpIsUsable || host.udpEndPoint == null || !mAllowUdp)
@@ -2676,7 +2678,7 @@ namespace TNet
 			else
 			{
 				// We want to exclude the player if the request was to forward to others
-				TcpPlayer exclude = (
+				var exclude = (
 					request == Packet.ForwardToOthers ||
 					request == Packet.ForwardToOthersSaved) ? player : null;
 
@@ -2691,12 +2693,12 @@ namespace TNet
 					}
 				}
 
-				buffer.position = start;
+				buffer.position = origin;
 
 				// Forward the packet to everyone except the sender
 				for (int i = 0; i < ch.players.size; ++i)
 				{
-					TcpPlayer tp = (TcpPlayer)ch.players.buffer[i];
+					var tp = (TcpPlayer)ch.players.buffer[i];
 
 					if (tp != exclude)
 					{

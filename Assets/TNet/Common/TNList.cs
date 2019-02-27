@@ -178,7 +178,7 @@ namespace TNet
 		{
 			var offset = size;
 			var needed = size + count;
-			if (buffer == null || size + needed < buffer.Length) Allocate(size + needed);
+			if (buffer == null || size + needed >= buffer.Length) Allocate(size + needed);
 			size += count;
 			return offset;
 		}
@@ -201,7 +201,7 @@ namespace TNet
 		public void Add (T[] items, int offset, int count)
 		{
 			var needed = size + count;
-			if (buffer == null || size + needed < buffer.Length) Allocate(size + needed);
+			if (buffer == null || size + needed >= buffer.Length) Allocate(size + needed);
 			System.Array.Copy(items, offset, buffer, size, count);
 			size += count;
 		}
@@ -365,6 +365,7 @@ namespace TNet
 		/// </summary>
 
 		public delegate int CompareFunc (T left, T right);
+		public delegate int CompareFunc2 (ref T left, ref T right);
 
 		/// <summary>
 		/// List.Sort equivalent.
@@ -386,6 +387,38 @@ namespace TNet
 				{
 					// Compare the two values
 					if (comparer(buffer[i], buffer[i + 1]) > 0)
+					{
+						// Swap the values
+						T temp = buffer[i];
+						buffer[i] = buffer[i + 1];
+						buffer[i + 1] = temp;
+						changed = true;
+					}
+					else if (!changed)
+					{
+						// Nothing has changed -- we can start here next time
+						start = (i == 0) ? 0 : i - 1;
+					}
+				}
+			}
+		}
+
+		[DebuggerHidden]
+		[DebuggerStepThrough]
+		public void Sort (CompareFunc2 comparer)
+		{
+			int start = 0;
+			int max = size - 1;
+			bool changed = true;
+
+			while (changed)
+			{
+				changed = false;
+
+				for (int i = start; i < max; ++i)
+				{
+					// Compare the two values
+					if (comparer(ref buffer[i], ref buffer[i + 1]) > 0)
 					{
 						// Swap the values
 						T temp = buffer[i];

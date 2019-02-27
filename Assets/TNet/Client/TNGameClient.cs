@@ -1589,7 +1589,8 @@ namespace TNet
 				case Packet.ResponseExport:
 				{
 					var requestID = reader.ReadInt32();
-					var data = reader.ReadBytes(reader.ReadInt32());
+					var byteCount = reader.ReadInt32();
+					var data = (byteCount > 0) ? reader.ReadBytes(byteCount) : null;
 
 					ExportCallback cb;
 
@@ -1597,7 +1598,7 @@ namespace TNet
 					{
 						mOnExport.Remove(requestID);
 						if (cb.callback0 != null) cb.callback0(data);
-						else if (cb.callback1 != null) cb.callback1(DecodeExportedObjects(cb.objects, data));
+						else if (cb.callback1 != null) cb.callback1(data != null ? DecodeExportedObjects(cb.objects, data) : null);
 					}
 					break;
 				}
@@ -2059,77 +2060,90 @@ namespace TNet
 		static DataNode DecodeExportedObjects (List<TNObject> objects, byte[] bytes)
 		{
 			var node = new DataNode();
-			var buffer = Buffer.Create();
-			buffer.BeginWriting(false).Write(bytes);
-			var reader = buffer.BeginReading();
-
-			// Number of objects
-			var count = reader.ReadInt32();
-
-			for (int i = 0; i < count; ++i)
+#if W2
+			try
+#endif
 			{
-				var obj = objects.buffer[i];
-				reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
-				var rccID = reader.ReadByte();
-				var funcName = (rccID == 0) ? reader.ReadString() : null;
-				var prefab = reader.ReadString();
-				var args = reader.ReadArray();
-				var func = TNManager.GetRCC(rccID, funcName);
+				var buffer = Buffer.Create();
+				buffer.BeginWriting(false).Write(bytes);
+				var reader = buffer.BeginReading();
 
-				var child = (rccID != 0) ? node.AddChild("RCC", rccID) : node.AddChild("RCC", funcName);
-				child.AddChild("prefab", prefab);
+				// Number of objects
+				var count = reader.ReadInt32();
 
-				if (func != null)
+				for (int i = 0; i < count; ++i)
 				{
-					var funcPars = func.parameters;
-					var argLength = args.Length;
-
-					if (funcPars.Length == argLength + 1)
-					{
-						var pn = child.AddChild("Args");
-						for (int b = 0; b < argLength; ++b) pn.AddChild(funcPars[b + 1].Name, args[b]);
-					}
-#if UNITY_EDITOR
-					else Debug.LogError("RCC " + rccID + " (" + funcName + ") has a different number of parameters than expected: " + funcPars.Length + " vs " + (args.Length + 1), obj);
-#endif
-				}
-#if UNITY_EDITOR
-				else Debug.LogError("Unable to find RCC " + rccID + " (" + funcName + ")", obj);
-#endif
-				var rfcs = reader.ReadInt32();
-				if (rfcs > 0) child = child.AddChild("RFCs");
-
-				for (int r = 0; r < rfcs; ++r)
-				{
-					uint objID;
-					byte funcID;
-					TNObject.DecodeUID(reader.ReadUInt32(), out objID, out funcID);
-					funcName = (funcID == 0) ? reader.ReadString() : null;
+					var obj = objects.buffer[i];
 					reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
-					var array = reader.ReadArray();
-					var funcRef = (funcID == 0) ? obj.FindFunction(funcName) : obj.FindFunction(funcID);
+					var rccID = reader.ReadByte();
+					var funcName = (rccID == 0) ? reader.ReadString() : null;
+					var prefab = reader.ReadString();
+					var args = reader.ReadArray();
+					var func = TNManager.GetRCC(rccID, funcName);
 
-					if (funcRef != null)
+					var child = (rccID != 0) ? node.AddChild("RCC", rccID) : node.AddChild("RCC", funcName);
+					child.AddChild("prefab", prefab);
+
+					if (func != null)
 					{
-						var pc = array.Length;
+						var funcPars = func.parameters;
+						var argLength = args.Length;
 
-						if (funcRef.parameters.Length == pc)
+						if (funcPars.Length == argLength + 1)
 						{
-							var rfcNode = (funcID == 0) ? child.AddChild("RFC", funcName) : child.AddChild("RFC", funcID);
-							for (int p = 0; p < pc; ++p) rfcNode.AddChild(funcRef.parameters[p].Name, array[p]);
+							var pn = child.AddChild("Args");
+							for (int b = 0; b < argLength; ++b) pn.AddChild(funcPars[b + 1].Name, args[b]);
 						}
 #if UNITY_EDITOR
-						else Debug.LogError("RFC " + funcID + " (" + funcName + ") has a different number of parameters than expected: " + funcRef.parameters.Length + " vs " + pc, obj);
+						else Debug.LogError("RCC " + rccID + " (" + funcName + ") has a different number of parameters than expected: " + funcPars.Length + " vs " + (args.Length + 1), obj);
 #endif
 					}
 #if UNITY_EDITOR
-					else Debug.LogWarning("RFC " + funcID + " (" + funcName + ") can't be found", obj);
+					else Debug.LogError("Unable to find RCC " + rccID + " (" + funcName + ")", obj);
 #endif
-				}
-			}
+					var rfcs = reader.ReadInt32();
+					if (rfcs > 0) child = child.AddChild("RFCs");
 
-			buffer.Recycle();
-			return node;
+					for (int r = 0; r < rfcs; ++r)
+					{
+						uint objID;
+						byte funcID;
+						TNObject.DecodeUID(reader.ReadUInt32(), out objID, out funcID);
+						funcName = (funcID == 0) ? reader.ReadString() : null;
+						reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
+						var array = reader.ReadArray();
+						var funcRef = (funcID == 0) ? obj.FindFunction(funcName) : obj.FindFunction(funcID);
+
+						if (funcRef != null)
+						{
+							var pc = array.Length;
+
+							if (funcRef.parameters.Length == pc)
+							{
+								var rfcNode = (funcID == 0) ? child.AddChild("RFC", funcName) : child.AddChild("RFC", funcID);
+								for (int p = 0; p < pc; ++p) rfcNode.AddChild(funcRef.parameters[p].Name, array[p]);
+							}
+#if UNITY_EDITOR
+							else Debug.LogError("RFC " + funcID + " (" + funcName + ") has a different number of parameters than expected: " + funcRef.parameters.Length + " vs " + pc, obj);
+#endif
+						}
+#if UNITY_EDITOR
+						else Debug.LogWarning("RFC " + funcID + " (" + funcName + ") can't be found", obj);
+#endif
+					}
+				}
+
+				buffer.Recycle();
+				return node;
+			}
+#if W2
+			catch (Exception ex)
+			{
+				TNManager.Log("ERROR: " + ex.Message + "\n" + ex.StackTrace);
+				TNManager.SaveFile("Debug/" + TNManager.playerName + "_" + (TNManager.serverUptime / 1000) + ".txt", bytes);
+				return node;
+			}
+#endif
 		}
 
 		/// <summary>
@@ -2149,14 +2163,20 @@ namespace TNet
 				var child = node.children.buffer[i];
 				var sizePos = buffer.position;
 
-				writer.Write(0); // Size of the RCC's data -- set after writing it
-
 				if (child.value is string)
 				{
+					var s = (string)child.value;
+					if (string.IsNullOrEmpty(s)) continue;
+
+					writer.Write(0); // Size of the RCC's data -- set after writing it
 					writer.Write((byte)0);
-					writer.Write((string)child.value);
+					writer.Write(s);
 				}
-				else writer.Write((byte)child.Get<int>());
+				else
+				{
+					writer.Write(0); // Size of the RCC's data -- set after writing it
+					writer.Write((byte)child.Get<int>());
+				}
 
 				writer.Write(child.GetChild<string>("prefab"));
 
@@ -2185,8 +2205,10 @@ namespace TNet
 
 						if (rfc.value is string)
 						{
+							var s = (string)rfc.value;
+							if (string.IsNullOrEmpty(s)) continue;
 							writer.Write((uint)0);
-							writer.Write((string)rfc.value);
+							writer.Write(s);
 						}
 						else writer.Write(TNObject.GetUID(0, (byte)rfc.Get<int>()));
 

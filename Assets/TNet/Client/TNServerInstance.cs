@@ -48,7 +48,7 @@ namespace TNet
 			{
 				if (mInstance == null)
 				{
-					GameObject go = new GameObject("_Server");
+					var go = new GameObject("_Server");
 					mInstance = go.AddComponent<TNServerInstance>();
 					DontDestroyOnLoad(go);
 				}

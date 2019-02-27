@@ -330,6 +330,14 @@ namespace TNet
 					return true;
 				}
 			}
+			else if (mForward.size != 0)
+			{
+				for (int i = 0; i < mForward.size; ++i)
+				{
+					if (mForward.buffer[i].objectID == objID && mForward.buffer[i].newChannel != null)
+						return mForward.buffer[i].newChannel.ExportObject(mForward.buffer[i].newID, writer);
+				}
+			}
 #endif
 			return false;
 		}
@@ -419,12 +427,9 @@ namespace TNet
 			{
 				for (int i = 0; i < created.size; ++i)
 				{
-					var cr = created.buffer[i];
-
-					if (cr.objectID == objID)
+					if (created.buffer[i].objectID == objID)
 					{
-						if (cr.playerID == playerID) return false;
-						cr.playerID = playerID;
+						created.buffer[i].playerID = playerID;
 						return true;
 					}
 				}

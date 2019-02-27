@@ -801,7 +801,7 @@ namespace TNet
 		/// Write the specified file, creating all the subdirectories in the process.
 		/// </summary>
 
-		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1, int offset = 0)
+		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1, int offset = 0, bool append = false)
 		{
 #if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (inMyDocuments) path = GetDocumentsPath(path);
@@ -825,14 +825,14 @@ namespace TNet
 
 				try
 				{
-					string dir = Path.GetDirectoryName(path);
+					var dir = Path.GetDirectoryName(path);
 
 					if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
 						Directory.CreateDirectory(dir);
 
 					if (File.Exists(path))
 					{
-						FileAttributes att = File.GetAttributes(path);
+						var att = File.GetAttributes(path);
 
 						if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
 						{
@@ -841,13 +841,14 @@ namespace TNet
 						}
 					}
 
-					if (maxBytes == -1 && offset == 0)
+					if (maxBytes == -1 && offset == 0 && !append)
 					{
 						File.WriteAllBytes(path, data);
 					}
 					else
 					{
-						var stream = new FileStream(path, FileMode.Create);
+						if (maxBytes == -1) maxBytes = data.Length;
+						var stream = new FileStream(path, append ? FileMode.Append : FileMode.Create);
 						var bw = new BinaryWriter(stream);
 						bw.Write(data, offset, maxBytes);
 						stream.Flush();
@@ -1435,5 +1436,28 @@ namespace TNet
 				return s;
 			}
 		}
+
+		/// <summary>
+		/// Handy method that returns the stack trace up to the current position in the code.
+		/// </summary>
+
+		static public string stackTrace2
+		{
+			get
+			{
+				var st = new System.Diagnostics.StackTrace(true);
+				var s = st.ToString();
+				var newLine = s.IndexOf('\n');
+				if (newLine != -1) newLine = s.IndexOf('\n', newLine + 1);
+				if (newLine != -1) s = s.Substring(newLine).Trim();
+				return s;
+			}
+		}
+
+		/// <summary>
+		/// Double precision-based millisecond representation.
+		/// </summary>
+
+		static public double GetElapsedMilliseconds (this System.Diagnostics.Stopwatch sw) { return (sw.ElapsedTicks * 1000d) / System.Diagnostics.Stopwatch.Frequency; }
 	}
 }

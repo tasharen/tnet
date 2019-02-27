@@ -581,6 +581,14 @@ namespace TNet
 					return (Vector3D)(Vector3)value;
 				}
 			}
+			else if (valueType == typeof(Vector2D))
+			{
+				if (desiredType == typeof(Vector2))
+				{
+					var v = (Vector2D)value;
+					return new Vector2((float)v.x, (float)v.y);
+				}
+			}
 			else if (valueType == typeof(Vector3D))
 			{
 				if (desiredType == typeof(Vector3))
@@ -1027,6 +1035,50 @@ namespace TNet
 				return obj;
 			}
 #endif
+			// Binary data of serializable objects
+			if (valueType == typeof(byte[]))
+			{
+				var bytes = (byte[])value;
+
+				if (desiredType.HasDataNodeSerialization())
+				{
+					try
+					{
+						var dn = DataNode.Read(bytes, DataNode.SaveType.Binary);
+
+						if (dn != null)
+						{
+#if STANDALONE
+							var realType = TypeExtensions.GetType(dn.name);
+#else
+							var realType = UnityTools.GetType(dn.name);
+#endif
+							if (realType != null && desiredType.IsAssignableFrom(realType))
+							{
+								var ser = (IDataNodeSerializable)realType.Create();
+								ser.Deserialize(dn);
+								return ser;
+							}
+						}
+					}
+					catch (Exception) { }
+				}
+
+				if (desiredType.HasBinarySerialization())
+				{
+					try
+					{
+						var buffer = Buffer.Create();
+						buffer.BeginWriting().Write(bytes);
+						var reader = buffer.BeginReading();
+						var ser = (IBinarySerializable)desiredType.Create();
+						ser.Deserialize(reader);
+						return ser;
+					}
+					catch (Exception) { }
+				}
+			}
+
 			Tools.LogError("Unable to convert " + valueType + " (" + value.ToString() + ") to " + desiredType);
 			return null;
 		}

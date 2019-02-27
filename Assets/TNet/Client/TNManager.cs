@@ -2334,6 +2334,9 @@ namespace TNet
 		/// it's best to make a custom RFC on a persistent "global chat" game object instead.
 		/// </summary>
 
+		static public void SendChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
+
+		[System.Obsolete("Renamed to SendChat")]
 		static public void SendGlobalChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
 
 		/// <summary>

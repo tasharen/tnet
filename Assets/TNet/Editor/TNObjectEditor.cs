@@ -36,7 +36,6 @@ public class TNObjectEditor : Editor
 
 			var host = TNManager.GetHost(obj.channelID);
 			EditorGUILayout.LabelField("Host", (host != null) ? host.name : "<none>");
-			if (obj.parent != null) EditorGUILayout.ObjectField("Parent", obj.parent, typeof(TNObject), true);
 
 			var data = obj.dataNode;
 			if (data != null && data.children.size > 0) Print(data);
@@ -70,7 +69,7 @@ public class TNObjectEditor : Editor
 
 				foreach (TNObject o in tnos)
 				{
-					if (o == obj || o.parent != null) continue;
+					if (o == obj) continue;
 
 					if (o.uid == obj.uid)
 					{
