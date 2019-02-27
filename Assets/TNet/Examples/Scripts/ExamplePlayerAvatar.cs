@@ -48,7 +48,7 @@ public class ExamplePlayerAvatar : MonoBehaviour
 		// First find the closest region -- this is the region the player avatar should belong to
 		for (int i = 0; i < ExampleRegion.list.size; ++i)
 		{
-			ExampleRegion region = ExampleRegion.list[i];
+			var region = ExampleRegion.list.buffer[i];
 			float distance = Vector3.Distance(region.transform.position, myPos);
 
 			if (distance < closestDistance)
@@ -61,7 +61,7 @@ public class ExamplePlayerAvatar : MonoBehaviour
 		// Now ensure we've joined all the nearby regions in addition to the closest region
 		for (int i = 0; i < ExampleRegion.list.size; ++i)
 		{
-			ExampleRegion region = ExampleRegion.list[i];
+			var region = ExampleRegion.list.buffer[i];
 			float distance = Vector3.Distance(region.transform.position, myPos);
 
 			if (distance < joinDistance || region == closestRegion)

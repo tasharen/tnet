@@ -68,7 +68,7 @@ public class ExampleChat : TNBehaviour
 	}
 
 	void OnSetServerData (string path, DataNode node) { PrintServerData(path); }
-	void OnSetChannelData (Channel ch, string path, DataNode node) { PrintChannelData(path); } 
+	void OnSetChannelData (Channel ch, string path, DataNode node) { PrintChannelData(path); }
 
 	/// <summary>
 	/// The list of players in the channel is immediately available upon joining a room.
@@ -85,12 +85,12 @@ public class ExampleChat : TNBehaviour
 
 		var text = "Other players here: ";
 		var players = TNManager.GetPlayers(channelID);
-		
+
 		for (int i = 0; i < players.size; ++i)
 		{
 			if (i > 0) text += ", ";
-			text += players[i].name;
-			if (players[i].id == TNManager.playerID) text += " (you)";
+			text += players.buffer[i].name;
+			if (players.buffer[i].id == TNManager.playerID) text += " (you)";
 		}
 		AddToChat(text, Color.black);
 	}
@@ -273,7 +273,7 @@ public class ExampleChat : TNBehaviour
 
 			for (int i = mChatEntries.size; i > 0; )
 			{
-				ChatEntry ent = mChatEntries[--i];
+				var ent = mChatEntries.buffer[--i];
 				rect.y -= GUI.skin.label.CalcHeight(new GUIContent(ent.text), 382f);
 				GUI.color = ent.color;
 				GUI.Label(rect, ent.text, GUI.skin.label);

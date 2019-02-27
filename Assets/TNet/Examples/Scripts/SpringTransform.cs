@@ -33,6 +33,7 @@ public class SpringTransform : MonoBehaviour
 	Transform mTrans;
 	Vector3 mPos;
 	Quaternion mRot;
+	TNObject mTNO;
 
 	/// <summary>
 	/// Reset the transform's position and rotation to match the parent.
@@ -55,6 +56,7 @@ public class SpringTransform : MonoBehaviour
 	void OnEnable ()
 	{
 		if (mStarted) Reset();
+		mTNO = GetComponentInParent<TNObject>();
 		TNManager.onJoinChannel += OnJoinChannel;
 	}
 
@@ -70,7 +72,7 @@ public class SpringTransform : MonoBehaviour
 	{
 		if (!mStarted) return;
 
-		if (ignoreOnHost && TNManager.isHosting)
+		if (ignoreOnHost && (mTNO != null && mTNO.isMine))
 		{
 			if (!mWasHosting)
 			{
@@ -82,10 +84,10 @@ public class SpringTransform : MonoBehaviour
 		else
 		{
 			float delta = Mathf.Clamp01(Time.deltaTime * springStrength);
-			
+
 			mPos = Vector3.Lerp(mPos, mParent.position, delta);
 			mRot = Quaternion.Slerp(mRot, mParent.rotation, delta);
-			
+
 			mTrans.position = mPos;
 			mTrans.rotation = mRot;
 			mWasHosting = false;

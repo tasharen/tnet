@@ -375,7 +375,7 @@ public class ExampleMenu : TNEventReceiver
 			// Server list example script automatically collects servers that have recently announced themselves
 			for (int i = 0; i < list.size; ++i)
 			{
-				ServerList.Entry ent = list[i];
+				var ent = list.buffer[i];
 
 				// NOTE: I am using 'internalAddress' here because I know all servers are hosted on LAN.
 				// If you are hosting outside of your LAN, you should probably use 'externalAddress' instead.
