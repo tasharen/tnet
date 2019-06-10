@@ -116,7 +116,7 @@ namespace TNet
 		/// Destroy this game object.
 		/// </summary>
 
-		public virtual void DestroySelf () { if (tno != null) mTNO.DestroySelf(); }
+		public virtual void DestroySelf () { if (tno != null) mTNO.DestroySelf(); else Destroy(gameObject); }
 
 		/// <summary>
 		/// Destroy this game object on all connected clients and remove it from the server.

@@ -184,7 +184,11 @@ namespace TNet
 			{
 				if (ownerID != value)
 				{
-					if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
+					if (uid < 32768)
+					{
+						Debug.LogError("It's not possible to change the owner of static objects", this);
+					}
+					else if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
 					{
 						// /exe var bw = TNManager.BeginSend(Packet.RequestSetOwner); bw.Write(FactionOutpost.closestToPlayer.tno.channelID); bw.Write(FactionOutpost.closestToPlayer.tno.uid); bw.Write(TNManager.playerID); TNManager.EndSend();
 						// /exe FactionOutpost.closestToPlayer.tno.ownerID = TNManager.playerID;

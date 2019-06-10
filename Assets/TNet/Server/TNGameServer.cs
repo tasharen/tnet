@@ -1703,7 +1703,12 @@ namespace TNet
 								var writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 								writer.Write(player.id);
 								writer.Write("");
-								writer.WriteObject(player.dataNode);
+
+								// Don't echo hidden stuff back to other players
+								var copy = player.dataNode.Clone();
+								copy.RemoveChild("Hidden");
+
+								writer.WriteObject(copy);
 								buff.EndPacket();
 
 								SendToOthers(buff, player, player, true);
@@ -1718,6 +1723,9 @@ namespace TNet
 						{
 							player.Set(str, obj);
 							player.saveNeeded = true;
+
+							// Don't echo the hidden stuff to players
+							if (str.StartsWith("Hidden/")) break;
 						}
 						else break; // Silently ignore attempts to set server data
 
@@ -1728,7 +1736,7 @@ namespace TNet
 						// Forward the packet to everyone that knows this player
 						for (int i = 0; i < mPlayerList.size; ++i)
 						{
-							TcpPlayer tp = mPlayerList.buffer[i];
+							var tp = mPlayerList.buffer[i];
 							if (tp != player && tp.IsKnownTo(player)) tp.SendTcpPacket(buffer);
 						}
 					}
@@ -1739,7 +1747,8 @@ namespace TNet
 				{
 					var path = reader.ReadString();
 					var type = (DataNode.SaveType)reader.ReadByte();
-					var hash = reader.ReadInt();
+					var old = buffer.buffer[buffer.position]; // Legacy support back when it was read back incorrectly
+					var hash = reader.ReadInt32();
 #if W2
 					var expected = "Players/" + player.aliases.buffer[0] + ".player";
 
@@ -1766,7 +1775,7 @@ namespace TNet
 
 						if (hash != existing)
 						{
-							if (existing == 0 || (mServerData != null && mServerData.GetChild<bool>("ignoreHashChecks", false))
+							if (existing == 0 || old == existing || (mServerData != null && mServerData.GetChild<bool>("ignoreHashChecks", true))
 #if !STANDALONE
 								|| TNServerInstance.isActive
 #endif
@@ -1872,11 +1881,14 @@ namespace TNet
 					// We want to record the player's login time so that we can automatically keep track of that player's /played time
 					player.dataNode.GetChild("Server", true).SetChild("lastSave", mTime);
 
+					var copy = player.dataNode.Clone();
+					copy.RemoveChild("Hidden");
+
 					var buff = Buffer.Create();
 					var writer = buff.BeginPacket(Packet.ResponseSetPlayerData);
 					writer.Write(player.id);
 					writer.Write("");
-					writer.WriteObject(player.dataNode);
+					writer.WriteObject(copy);
 					buff.EndPacket();
 
 					player.SendTcpPacket(buff);
@@ -1888,8 +1900,8 @@ namespace TNet
 				{
 					try
 					{
-						string fileName = reader.ReadString();
-						byte[] data = reader.ReadBytes(reader.ReadInt32());
+						var fileName = reader.ReadString();
+						var data = reader.ReadBytes(reader.ReadInt32());
 
 						if (!string.IsNullOrEmpty(fileName))
 						{
@@ -1914,10 +1926,10 @@ namespace TNet
 				}
 				case Packet.RequestLoadFile:
 				{
-					string fn = reader.ReadString();
-					byte[] data = LoadFile(fn);
+					var fn = reader.ReadString();
+					var data = LoadFile(fn);
 
-					BinaryWriter writer = BeginSend(Packet.ResponseLoadFile);
+					var writer = BeginSend(Packet.ResponseLoadFile);
 					writer.Write(fn);
 
 					if (data != null)
@@ -1932,12 +1944,24 @@ namespace TNet
 				}
 				case Packet.RequestDeleteFile:
 				{
-					string fileName = reader.ReadString();
+					var fileName = reader.ReadString();
 
 					if (!string.IsNullOrEmpty(fileName))
 					{
 						if (DeleteFile(fileName))
 							player.Log("Deleted " + fileName);
+					}
+					break;
+				}
+				case Packet.RequestSetPassword:
+				{
+					var chID = reader.ReadInt32();
+					var pw = reader.ReadString();
+
+					if (player.isAdmin)
+					{
+						Channel channel;
+						if (mChannelDict.TryGetValue(chID, out channel)) channel.password = pw;
 					}
 					break;
 				}
@@ -1948,7 +1972,7 @@ namespace TNet
 				}
 				case Packet.RequestChannelList:
 				{
-					BinaryWriter writer = BeginSend(Packet.ResponseChannelList);
+					var writer = BeginSend(Packet.ResponseChannelList);
 
 					int count = 0;
 					for (int i = 0; i < mChannelList.size; ++i)
@@ -1958,7 +1982,7 @@ namespace TNet
 
 					for (int i = 0; i < mChannelList.size; ++i)
 					{
-						Channel ch = mChannelList.buffer[i];
+						var ch = mChannelList.buffer[i];
 
 						if (!ch.isClosed)
 						{

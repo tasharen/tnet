@@ -826,6 +826,14 @@ namespace TNet
 		ResponseSendChat,
 
 		/// <summary>
+		/// Set the channel's password. Only settable by server admins. If used by non-admins, the packet will be silently ignored.
+		/// int32: channel ID.
+		/// string: new password.
+		/// </summary>
+
+		RequestSetPassword,
+
+		/// <summary>
 		/// Begin custom packets here.
 		/// </summary>
 

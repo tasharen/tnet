@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
-     Copyright © 2012-2018 Tasharen Entertainment Inc.
-                  Version 3.3.1b
+     Copyright © 2012-2019 Tasharen Entertainment Inc.
+                  Version 3.3.2
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -115,6 +115,13 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.3.2
+- NEW: Added Steamworks Networking integration as a stand-alone ZIP.
+- NEW: Added #define DEBUG_THREAD_TIMING option to WorkerThread for when you want extra detailed info on what's taking so long in your worker threads.
+- FIX: Fixed some issues with object export.
+- FIX: Eliminated obsolete warnings.
+- ALT: TNObject script no longer checks to see if it's the only one in the hierarchy in order to boost performance. This means it's now possible to nest TNObjects. Doing so is still not recommended, so use at your own risk.
 
 3.3.1
 - NEW: Updated the chat example to be able to get/set channel data in addition to server data.

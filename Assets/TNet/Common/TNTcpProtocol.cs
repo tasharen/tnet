@@ -618,47 +618,50 @@ namespace TNet
 			{
 				lock (mOut)
 				{
+					if (mSocket != null)
+					{
 #if UNITY_WINRT
-					mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
+						mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
 #else
-					if (instant)
-					{
-						try
+						if (instant)
 						{
-							var before = mSocket.NoDelay;
-							if (!before) mSocket.NoDelay = true;
-							mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
-							if (!before) mSocket.NoDelay = false;
-							buffer.Recycle();
-							return;
+							try
+							{
+								var before = mSocket.NoDelay;
+								if (!before) mSocket.NoDelay = true;
+								mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
+								if (!before) mSocket.NoDelay = false;
+								buffer.Recycle();
+								return;
+							}
+							catch { }
 						}
-						catch { }
-					}
 
-					if (mSending)
-					{
-						// Simply add this packet to the outgoing queue
-						mOut.Enqueue(buffer);
-					}
-					else
-					{
-						// If it's the first packet, let's begin the send process
-						mSending = true;
+						if (mSending)
+						{
+							// Simply add this packet to the outgoing queue
+							mOut.Enqueue(buffer);
+						}
+						else
+						{
+							// If it's the first packet, let's begin the send process
+							mSending = true;
 
-						try
-						{
-							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+							try
+							{
+								mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+							}
+							catch (Exception ex)
+							{
+								mOut.Clear();
+								buffer.Recycle();
+								AddError(ex);
+								CloseNotThreadSafe(false);
+								mSending = false;
+							}
 						}
-						catch (Exception ex)
-						{
-							mOut.Clear();
-							buffer.Recycle();
-							AddError(ex);
-							CloseNotThreadSafe(false);
-							mSending = false;
-						}
-					}
 #endif
+					}
 				}
 				return;
 			}
