@@ -370,6 +370,8 @@ namespace TNet
 
 					if (mBan.Contains(s))
 					{
+						var addr = tc.tcpEndPoint.Address.ToString();
+						if (!mBan.Contains(addr)) mBan.Add(addr);
 						tc.Log("FAILED a ban check: " + s);
 						return false;
 					}
@@ -383,6 +385,8 @@ namespace TNet
 						{
 							if (sid > 76561199999999999)
 							{
+								var addr = tc.tcpEndPoint.Address.ToString();
+								if (!mBan.Contains(addr)) mBan.Add(addr);
 								tc.Log("FAILED a ban check: " + s);
 								return false;
 							}

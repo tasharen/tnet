@@ -586,12 +586,12 @@ namespace TNet
 		/// Send the outgoing buffer.
 		/// </summary>
 
-		public void EndSend (bool forced = false)
+		public void EndSend (bool forced = false, bool instant = false)
 		{
 			if (mBuffer == null) return;
 			++mSentPacketCount;
 			mSentBytesCount += mBuffer.EndPacket();
-			if (isActive || forced) mTcp.SendTcpPacket(mBuffer);
+			if (isActive || forced) mTcp.SendTcpPacket(mBuffer, instant);
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -600,7 +600,7 @@ namespace TNet
 		/// Send the outgoing buffer.
 		/// </summary>
 
-		public void EndSend (int channelID, bool reliable)
+		public void EndSend (int channelID, bool reliable, bool instant = false)
 		{
 			if (mBuffer == null) return;
 			++mSentPacketCount;
@@ -609,11 +609,11 @@ namespace TNet
 			if (isActive)
 			{
 #if UNITY_WEBPLAYER || MODDING
-				mTcp.SendTcpPacket(mBuffer);
+				mTcp.SendTcpPacket(mBuffer, instant);
 #else
 				if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
 				{
-					mTcp.SendTcpPacket(mBuffer);
+					mTcp.SendTcpPacket(mBuffer, instant);
 				}
 				else mUdp.Send(mBuffer, mServerUdpEndPoint);
 #endif
@@ -1114,6 +1114,7 @@ namespace TNet
 
 				if (delta < 0 || delta > 30000)
 				{
+					mMyTime = time;
 					Disconnect();
 					return;
 				}
@@ -1540,8 +1541,8 @@ namespace TNet
 				}
 				case Packet.ResponseRenamePlayer:
 				{
-					Player p = GetPlayer(reader.ReadInt32());
-					string oldName = p.name;
+					var p = GetPlayer(reader.ReadInt32());
+					var oldName = p.name;
 					if (p != null) p.name = reader.ReadString();
 					if (onRenamePlayer != null) onRenamePlayer(p, oldName);
 					break;

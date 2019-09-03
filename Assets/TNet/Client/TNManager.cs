@@ -410,7 +410,8 @@ namespace TNet
 		static public bool noDelay { get { return mInstance != null && mInstance.mClient.noDelay; } set { if (mInstance != null) mInstance.mClient.noDelay = value; } }
 
 		/// <summary>
-		/// Current ping to the server.
+		/// Current ping to the server. This value is for a round-trip packet, so may be double of what you may expect.
+		/// Also note that this value will most certainly be affected by the FPS, so with 60 FPS there will be a 16.7 ms delay due to the packet processing time.
 		/// </summary>
 
 		static public int ping { get { return mInstance != null ? mInstance.mClient.ping : 0; } }
@@ -1392,6 +1393,7 @@ namespace TNet
 		/// Leave the channel we're in.
 		/// </summary>
 
+		[System.Obsolete("Specify a channel ID")]
 		static public void LeaveChannel () { LeaveChannel(lastChannelID); }
 
 		/// <summary>
@@ -1402,6 +1404,9 @@ namespace TNet
 		{
 			if (isConnected)
 			{
+#if W2 && UNITY_EDITOR
+				if (WorldGenerator.instanceID == channelID) UnityEngine.Debug.Log("LeaveChannel");
+#endif
 				mInstance.mClient.LeaveChannel(channelID);
 			}
 			else

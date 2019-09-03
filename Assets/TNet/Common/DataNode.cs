@@ -193,7 +193,7 @@ namespace TNet
 
 		public DataNode AddChild ()
 		{
-			DataNode tn = new DataNode();
+			var tn = new DataNode();
 			children.Add(tn);
 			return tn;
 		}
@@ -204,7 +204,7 @@ namespace TNet
 
 		public DataNode AddChild (string name)
 		{
-			DataNode node = AddChild();
+			var node = AddChild();
 			node.name = name;
 			return node;
 		}
@@ -215,10 +215,23 @@ namespace TNet
 
 		public DataNode AddChild (string name, object value)
 		{
-			DataNode node = AddChild();
+			var node = AddChild();
 			node.name = name;
 			node.value = value;
 			return node;
+		}
+
+		/// <summary>
+		/// Updates the specified value on the child, but only if the child is already present or 'addIfMissing' is 'true'.
+		/// </summary>
+
+		public void UpdateChild (string name, object value, bool addIfMissing = false)
+		{
+			var node = GetChild(name);
+			if (node == null && !addIfMissing) return;
+			node = AddChild();
+			node.name = name;
+			node.value = value;
 		}
 
 		/// <summary>
@@ -227,7 +240,7 @@ namespace TNet
 
 		public DataNode AddMissingChild (string name, object value)
 		{
-			DataNode node = GetChild(name);
+			var node = GetChild(name);
 			if (node != null) return node;
 			node = AddChild();
 			node.name = name;

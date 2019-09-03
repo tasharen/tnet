@@ -247,6 +247,11 @@ namespace TNet
 					mData = value;
 					mCallDataChanged = true;
 				}
+				else
+				{
+					mData = value;
+					SyncData();
+				}
 			}
 		}
 

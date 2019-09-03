@@ -589,6 +589,14 @@ namespace TNet
 					return new Vector2((float)v.x, (float)v.y);
 				}
 			}
+			else if (valueType == typeof(Vector2))
+			{
+				if (desiredType == typeof(Vector2D))
+				{
+					var v = (Vector2)value;
+					return new Vector2D(v.x, v.y);
+				}
+			}
 			else if (valueType == typeof(Vector3D))
 			{
 				if (desiredType == typeof(Vector3))

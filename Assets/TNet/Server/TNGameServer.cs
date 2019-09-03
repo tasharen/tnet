@@ -1461,12 +1461,6 @@ namespace TNet
 			writer.Write((ushort)val);
 		}
 
-		/// <summary>
-		/// Extra verification steps, if necessary.
-		/// </summary>
-
-		protected virtual bool Verify (BinaryReader reader) { return true; }
-
 #if !MODDING
 		/// <summary>
 		/// Receive and process a single incoming packet.
@@ -2592,6 +2586,7 @@ namespace TNet
 #if !MODDING
 			if (mBan.Contains(s))
 			{
+				//AddUnique(mBan, player.tcpEndPoint.Address.ToString());
 				player.Log("FAILED a ban check: " + s);
 				RemovePlayer(player);
 				return false;
@@ -2607,6 +2602,7 @@ namespace TNet
 					{
 						if (sid > 76561199999999999)
 						{
+							//AddUnique(mBan, player.tcpEndPoint.Address.ToString());
 							player.Log("FAILED a ban check: " + s);
 							return false;
 						}
@@ -3061,6 +3057,15 @@ namespace TNet
 		protected BinaryWriter mWriter = null;
 		protected bool mWriting = false;
 #endif
+
+		[System.NonSerialized] long mLastSave = 0;
+
+		/// <summary>
+		/// Auto-backup interval, in seconds. 3600 would be hourly, for example.
+		/// </summary>
+
+		public long backupInterval = 0;
+
 		/// <summary>
 		/// Save the server's current state into the file that was loaded previously with Load().
 		/// </summary>
@@ -3118,6 +3123,27 @@ namespace TNet
 				}
 			}
 
+			// Create backups as requested
+			if (backupInterval > 0)
+			{
+				var time = (System.DateTime.UtcNow.Ticks / 10000) / 1000;
+
+				if (mLastSave == 0 || time - mLastSave > backupInterval)
+				{
+					mLastSave = time;
+					var prev = Tools.ReadFile(mFilename);
+
+					if (prev != null)
+					{
+						var fn = mFilename + "_" + time;
+						mFilenames.Enqueue(fn);
+						Tools.WriteFile(fn, prev);
+					}
+
+					if (mFilenames.Count > 5) Tools.DeleteFile(mFilenames.Dequeue());
+				}
+			}
+
 			Tools.WriteFile(mFilename, mWriteStream);
 
 			// Save the server configuration data
@@ -3139,6 +3165,8 @@ namespace TNet
 #endif
 #endif
 		}
+
+		System.Collections.Generic.Queue<string> mFilenames = new Queue<string>();
 
 		/// <summary>
 		/// Save this player's data.
