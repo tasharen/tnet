@@ -255,7 +255,7 @@ namespace TNet
 			lock (mIn) Buffer.Recycle(mIn);
 			lock (mOut) Buffer.Recycle(mOut);
 
-#if W2 && !STANDALONE
+#if SIGHTSEER && !STANDALONE
 			if (externalIP != null && externalIP.Port != 5181 && Game.shadow)
 			{
 				// Shadow ban: redirect them to a cheater-only server

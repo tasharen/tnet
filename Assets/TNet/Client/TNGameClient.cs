@@ -1351,7 +1351,7 @@ namespace TNet
 
 					if ((diff < 0 ? -diff : diff) > 10000)
 					{
-#if W2
+#if SIGHTSEER
 						var s = "Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping;
 						GameChat.NotifyAdmins(s);
 						if (onError != null) onError(s);
@@ -1705,7 +1705,7 @@ namespace TNet
 				{
 					if (!ValidateHash())
 					{
-#if W2
+#if SIGHTSEER
 						Game.MAC("Edited the server configuration in memory");
 #else
 						Disconnect();
@@ -2061,7 +2061,7 @@ namespace TNet
 		static DataNode DecodeExportedObjects (List<TNObject> objects, byte[] bytes)
 		{
 			var node = new DataNode();
-#if W2
+#if SIGHTSEER
 			try
 #endif
 			{
@@ -2088,7 +2088,7 @@ namespace TNet
 					if (func != null)
 					{
 						var funcPars = func.parameters;
-						var argLength = args.Length;
+						var argLength = (args != null) ? args.Length : 0;
 
 						if (funcPars.Length == argLength + 1)
 						{
@@ -2117,7 +2117,7 @@ namespace TNet
 
 						if (funcRef != null)
 						{
-							var pc = array.Length;
+							var pc = (array != null) ? array.Length: 0;
 
 							if (funcRef.parameters.Length == pc)
 							{
@@ -2137,7 +2137,7 @@ namespace TNet
 				buffer.Recycle();
 				return node;
 			}
-#if W2
+#if SIGHTSEER
 			catch (Exception ex)
 			{
 				TNManager.Log("ERROR: " + ex.Message + "\n" + ex.StackTrace);

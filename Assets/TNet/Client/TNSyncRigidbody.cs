@@ -43,7 +43,7 @@ namespace TNet
 		float mNext = 0f;
 		bool mWasSleeping = false;
 		Quaternion mLastRot;
-#if W2
+#if SIGHTSEER
 		Vector3D mLastPos;
 #else
 		Vector3 mLastPos;
@@ -60,7 +60,7 @@ namespace TNet
 			base.OnStart();
 			mLastRot = mTrans.rotation;
 			UpdateInterval();
-#if W2
+#if SIGHTSEER
 			mLastPos = FloatingOrigin.positionOffset + mTrans.position;
 #else
 			mLastPos = mTrans.position;
@@ -89,7 +89,7 @@ namespace TNet
 				mNext -= Time.deltaTime;
 				if (mNext > 0f) return;
 				UpdateInterval();
-#if W2
+#if SIGHTSEER
 				var pos = FloatingOrigin.positionOffset + mRb.position;
 				var vel = FloatingOrigin.velocityOffset + mRb.velocity;
 #else
@@ -120,7 +120,7 @@ namespace TNet
 		/// Note that an RFC ID is specified here. This shrinks the size of the packet and speeds up
 		/// the function lookup time. It's a good idea to do this with all frequently called RFCs.
 		/// </summary>
-#if W2
+#if SIGHTSEER
 		[RFC(1)]
 		void OnSync (Vector3D pos, Quaternion rot, Vector3D vel, Vector3 ang)
 #else
@@ -133,7 +133,7 @@ namespace TNet
 
 			if (mRb.isKinematic)
 			{
-#if W2
+#if SIGHTSEER
 				mTrans.position = pos - FloatingOrigin.positionOffset;
 				mRb.velocity = vel - FloatingOrigin.velocityOffset;
 #else
@@ -152,7 +152,7 @@ namespace TNet
 				if (TNManager.IsJoiningChannel(tno.channelID))
 				{
 					mTrans.rotation = rot;
-#if W2
+#if SIGHTSEER
 					mTrans.position = pos - FloatingOrigin.positionOffset;
 					mRb.velocity = vel - FloatingOrigin.velocityOffset;
 #else
@@ -163,7 +163,7 @@ namespace TNet
 				else
 				{
 					mRb.rotation = rot;
-#if W2
+#if SIGHTSEER
 					mRb.position = pos - FloatingOrigin.positionOffset;
 					mRb.velocity = vel - FloatingOrigin.velocityOffset;
 #else
@@ -192,7 +192,7 @@ namespace TNet
 			if (isActive && !tno.hasBeenDestroyed && TNManager.IsInChannel(tno.channelID))
 			{
 				UpdateInterval();
-#if W2
+#if SIGHTSEER
 				mLastPos = FloatingOrigin.positionOffset + mRb.position;
 				var vel = FloatingOrigin.velocityOffset + mRb.velocity;
 #else

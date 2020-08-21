@@ -1352,7 +1352,11 @@ namespace TNet
 							// We want to include all local prefabs that have been referenced via scripts and happen to lie outside the Resources folder
 							if (!referencedPrefabs.ContainsKey(id)
 #if UNITY_EDITOR
+#if UNITY_5
 								&& UnityEditor.PrefabUtility.GetPrefabType(mb) == UnityEditor.PrefabType.Prefab
+#else
+								&& UnityEditor.PrefabUtility.GetPrefabAssetType(mb) != UnityEditor.PrefabAssetType.NotAPrefab
+#endif
 #endif
 								)
 							{
@@ -1442,7 +1446,7 @@ namespace TNet
 				{
 					AddReference(field.GetValue(obj) as Mesh);
 				}
-#if W2
+#if SIGHTSEER
 				else if (ft == typeof(GameSound))
 				{
 					var val = field.GetValue(obj) as GameSound;
@@ -1972,8 +1976,12 @@ namespace TNet
 
 				if (ab != null)
 				{
+#if UNITY_5
 					var go = ab.mainAsset as GameObject;
-
+#else
+					var all = ab.LoadAllAssets<GameObject>();
+					var go = (all != null && all.Length > 0) ? all[0] : null;
+#endif
 					if (go != null)
 					{
 						child = GameObject.Instantiate(go) as GameObject;

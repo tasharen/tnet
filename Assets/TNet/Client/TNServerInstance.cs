@@ -229,7 +229,7 @@ namespace TNet
 				{
 					mGame.Load(fileName);
 #if SINGLE_THREADED
-				mGame.Update();
+					mGame.Update();
 #endif
 				}
 				return true;

@@ -339,7 +339,11 @@ namespace TNet
 		static public string LocateResource (Object obj, bool allowPrefabInstances = false)
 		{
 #if UNITY_EDITOR
+#if UNITY_5
 			var prefab = UnityEditor.PrefabUtility.GetPrefabObject(obj);
+#else
+			var prefab = UnityEditor.PrefabUtility.GetPrefabInstanceHandle(obj);
+#endif
 			if (obj is GameObject && prefab != null && obj != prefab) return null;
 			if (prefab == null) prefab = obj;
 

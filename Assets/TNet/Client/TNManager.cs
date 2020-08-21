@@ -1404,7 +1404,7 @@ namespace TNet
 		{
 			if (isConnected)
 			{
-#if W2 && UNITY_EDITOR
+#if SIGHTSEER && UNITY_EDITOR
 				if (WorldGenerator.instanceID == channelID) UnityEngine.Debug.Log("LeaveChannel");
 #endif
 				mInstance.mClient.LeaveChannel(channelID);
@@ -1731,7 +1731,7 @@ namespace TNet
 
 			if (rccID > 0 && rccID < 256 && !mDict0.TryGetValue(rccID, out func))
 			{
-				CacheRFCs();
+				CacheRCCs();
 
 				if (!mDict0.TryGetValue(rccID, out func))
 				{
@@ -1748,7 +1748,7 @@ namespace TNet
 				{
 					if (!mDict1.TryGetValue(funcName, out func))
 					{
-						CacheRFCs();
+						CacheRCCs();
 
 						if (!mDict1.TryGetValue(funcName, out func))
 						{
@@ -1764,10 +1764,10 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Automatically find and cache RFCs on all known MonoBehaviours.
+		/// Automatically find and cache RCCs on all known MonoBehaviours.
 		/// </summary>
 
-		static void CacheRFCs ()
+		static void CacheRCCs ()
 		{
 			var mb = typeof(MonoBehaviour);
 			var types = TypeExtensions.GetTypes();
@@ -2264,7 +2264,7 @@ namespace TNet
 #if SAFE_EXCEPTIONS
 				catch (Exception ex)
 				{
-					Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace);
+					Debug.LogError(objID + " " + funcID + " " + funcName + "\n" + ex.Message + "\n" + ex.StackTrace, TNObject.Find(((ulong)channelID << 32) | objID));
 				}
 #endif
 			}

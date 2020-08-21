@@ -428,7 +428,7 @@ namespace TNet
 		public void Stop ()
 		{
 #if !MODDING
-			Save();
+			if (shouldSave) Save();
 
 			if (onShutdown != null) onShutdown();
 			if (lobbyLink != null) lobbyLink.Stop();
@@ -1461,6 +1461,12 @@ namespace TNet
 			writer.Write((ushort)val);
 		}
 
+		/// <summary>
+		/// Whether the game server will save its data or not.
+		/// </summary>
+
+		public bool shouldSave = true;
+
 #if !MODDING
 		/// <summary>
 		/// Receive and process a single incoming packet.
@@ -1470,7 +1476,7 @@ namespace TNet
 		protected bool ProcessPlayerPacket (Buffer buffer, TcpPlayer player, bool reliable)
 		{
 			// Save every 5 minutes
-			if (mNextSave == 0) mNextSave = mTime + 300000;
+			if (shouldSave && mNextSave == 0) mNextSave = mTime + 300000;
 			var reader = buffer.BeginReading();
 
 			// If the player has not yet been verified, the first packet must be an ID request
@@ -1743,7 +1749,7 @@ namespace TNet
 					var type = (DataNode.SaveType)reader.ReadByte();
 					var old = buffer.buffer[buffer.position]; // Legacy support back when it was read back incorrectly
 					var hash = reader.ReadInt32();
-#if W2
+#if SIGHTSEER
 					var expected = "Players/" + player.aliases.buffer[0] + ".player";
 
 					if (player.aliases == null || player.aliases.size == 0 || path != expected)
@@ -2948,7 +2954,7 @@ namespace TNet
 						}
 						else
 						{
-							player.LogError("Tried to call a close channel " + ch.id + " while not authorized", null);
+							player.LogError("Tried to close channel " + ch.id + " while not authorized", null);
 							RemovePlayer(player);
 						}
 					}
