@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2018 Tasharen Entertainment Inc
+// Copyright © 2012-2020 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -36,7 +36,7 @@ public class TNAutoCreate : MonoBehaviour
 	IEnumerator Start ()
 	{
 		if (channelID < 1) channelID = TNManager.lastChannelID;
-		while (TNManager.isJoiningChannel || !TNManager.IsInChannel(channelID)) yield return null;
+		while (TNManager.isConnected && (TNManager.isJoiningChannel || !TNManager.IsInChannel(channelID))) yield return null;
 		TNManager.Instantiate(channelID, "CreateAtPosition", prefabPath, persistent, transform.position, transform.rotation);
 		Destroy(gameObject);
 	}

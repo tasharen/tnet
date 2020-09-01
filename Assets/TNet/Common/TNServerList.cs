@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2018 Tasharen Entertainment Inc
+// Copyright © 2012-2020 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;

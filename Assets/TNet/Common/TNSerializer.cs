@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2018 Tasharen Entertainment Inc
+// Copyright © 2012-2020 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // NOTE: This class is meant to be internal. It provides efficient serialization for basic types such as Vector3, Vector3D, etc.
@@ -557,6 +557,11 @@ namespace TNet
 					var c = (Vector4)value;
 					return new Quaternion(c.x, c.y, c.z, c.w);
 				}
+				else if (desiredType == typeof(QuaternionD))
+				{
+					var c = (Color)value;
+					return new QuaternionD(c.r, c.g, c.b, c.a);
+				}
 				else if (desiredType == typeof(Rect))
 				{
 					var c = (Vector4)value;
@@ -608,6 +613,11 @@ namespace TNet
 				{
 					var c = (Color)value;
 					return new Quaternion(c.r, c.g, c.b, c.a);
+				}
+				else if (desiredType == typeof(QuaternionD))
+				{
+					var c = (Color)value;
+					return new QuaternionD(c.r, c.g, c.b, c.a);
 				}
 				else if (desiredType == typeof(Rect))
 				{
