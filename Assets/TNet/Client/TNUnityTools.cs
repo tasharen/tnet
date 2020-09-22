@@ -563,15 +563,14 @@ namespace TNet
 					}
 				}
 			}
-			else if (split.Length == 2 && split[0] == "ref")
+			else if (split.Length == 2 && split[0] == "ref") // No longer used, but kept for backwards compatibility
 			{
-				var t = go.transform;
 				var myType = UnityTools.GetType(split[1]);
 
-				if (t != null && myType != null)
+				if (myType != null)
 				{
-					if (myType == typeof(GameObject)) return t.gameObject;
-					return t.GetComponent(myType);
+					if (myType == typeof(GameObject)) return go;
+					return go.GetComponent(myType);
 				}
 			}
 			return null;

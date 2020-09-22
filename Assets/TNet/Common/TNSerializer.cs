@@ -1025,8 +1025,7 @@ namespace TNet
 				if (desiredType == typeof(AudioClip)) return ComponentSerialization.GetAudioClip(intRef);
 				if (desiredType == typeof(GameObject)) return ComponentSerialization.GetPrefab(intRef);
 
-				var obj = ComponentSerialization.GetObject(intRef, desiredType);
-				if (obj != null) return obj;
+				return ComponentSerialization.GetObject(intRef, desiredType);
 			}
 #endif
 			// String to object conversion
@@ -1846,7 +1845,18 @@ namespace TNet
 				return true;
 			}
 
-			if (value is Component)
+			if (value is Transform)
+			{
+				var trans = (value as Transform);
+
+				if (trans)
+				{
+					if (prefix) writer.Write(" = ");
+					writer.Write(trans.gameObject.GetUniqueID());
+				}
+				return true;
+			}
+			else if (value is Component)
 			{
 				var obj = (value as Component);
 
@@ -1854,11 +1864,6 @@ namespace TNet
 				{
 					if (prefix) writer.Write(" = ");
 					writer.Write(obj.GetUniqueID());
-				}
-				else
-				{
-					Debug.LogError("Trying to serialize a destroyed " + value.GetType());
-					writer.Write(" // ERROR " + obj.GetUniqueID());
 				}
 				return true;
 			}
@@ -1870,11 +1875,6 @@ namespace TNet
 				{
 					if (prefix) writer.Write(" = ");
 					writer.Write(obj.GetUniqueID());
-				}
-				else
-				{
-					Debug.LogError("Trying to serialize a destroyed " + value.GetType());
-					writer.Write(" // ERROR " + obj.GetUniqueID());
 				}
 				return true;
 			}
@@ -2731,16 +2731,28 @@ namespace TNet
 #if !STANDALONE
 				if (obj is GameObject)
 				{
-					Debug.LogError("It's not possible to send entire game objects as parameters because Unity has no consistent way to identify them.\n" +
-						"Consider sending a path to the game object or its TNObject's ID instead.");
+					var go = obj as GameObject;
+
+					if (go)
+					{
+						Debug.LogError("It's not possible to send entire game objects as parameters because Unity has no consistent way of identifying them. Consider sending a path to the game object or its TNObject's ID instead.\n" +
+							TNObject.GetHierarchy(go));
+					}
+
 					bw.Write((byte)0);
 					return;
 				}
 
 				if (obj is Component)
 				{
-					Debug.LogError("It's not possible to send components as parameters because Unity has no consistent way to identify them.\n" +
-						"Serializing " + obj.GetType() + " (" + UnityTools.GetHierarchy((obj as Component).transform) + ")");
+					var comp = obj as Component;
+
+					if (comp)
+					{
+						Debug.LogError("It's not possible to send components as parameters because Unity has no consistent of identifying them. Consider sending a path to the game object or its TNObject's ID instead.\n" +
+							TNObject.GetHierarchy(comp.gameObject), comp);
+					}
+
 					bw.Write((byte)0);
 					return;
 				}
@@ -3152,10 +3164,16 @@ namespace TNet
 						var val = mFieldValues.buffer[i];
 #if !STANDALONE
 						var uo = val as UnityEngine.Object;
-						if (uo != null) bw.WriteObject(uo.GetUniqueID());
-						else
-#endif
+
+						if (uo != null)
+						{
+							if (uo is Transform) bw.WriteObject((uo as Transform).gameObject.GetUniqueID());
+							else bw.WriteObject(uo.GetUniqueID());
+						}
+						else bw.WriteObject(val);
+#else
 						bw.WriteObject(val);
+#endif
 					}
 #else
 					Debug.LogError("Reflection-based serialization is not supported on this platform.");

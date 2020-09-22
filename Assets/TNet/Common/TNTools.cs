@@ -1459,5 +1459,31 @@ namespace TNet
 		/// </summary>
 
 		static public double GetElapsedMilliseconds (this System.Diagnostics.Stopwatch sw) { return (sw.ElapsedTicks * 1000d) / System.Diagnostics.Stopwatch.Frequency; }
+
+		/// <summary>
+		/// Given the path name, return the name of the file.
+		/// </summary>
+
+		static public string GetFilenameFromPath (string path, bool extension = true)
+		{
+			if (string.IsNullOrEmpty(path)) return null;
+			var a = path.LastIndexOf('\\');
+			var b = path.LastIndexOf('/');
+			var start = (a == -1) ? b : (b == -1 ? a : (a < b ? a : b));
+
+			if (!extension)
+			{
+				var dot = path.LastIndexOf('.', (start == -1) ? 0 : start);
+
+				if (dot > start)
+				{
+					var first = start + 1;
+					return path.Substring(first, dot - first);
+				}
+			}
+
+			if (start == -1) return path;
+			return path.Substring(start + 1);
+		}
 	}
 }

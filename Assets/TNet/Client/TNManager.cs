@@ -491,13 +491,31 @@ namespace TNet
 		/// If the packet was sent by the server instead of another player, the ID will be 0.
 		/// </summary>
 
-		static public int packetSourceID { get { return (mInstance != null) ? mInstance.mClient.packetSourceID : 0; } set { if (mInstance != null) mInstance.mClient.packetSourceID = value; } }
+		static public int packetSourceID
+		{
+			get
+			{
+				if (mInstance == null || mInstance.mClient.packetSourceID == -1) return playerID;
+				return mInstance.mClient.packetSourceID;
+			}
+			set
+			{
+				if (mInstance != null) mInstance.mClient.packetSourceID = value;
+			}
+		}
 
 		/// <summary>
 		/// Forward, Create and Destroy type packets write down their source.
 		/// </summary>
 
-		static public Player packetSourcePlayer { get { return (mInstance != null) ? GetPlayer(mInstance.mClient.packetSourceID) : null; } }
+		static public Player packetSourcePlayer
+		{
+			get
+			{
+				if (mInstance == null || mInstance.mClient.packetSourceID == -1) return player;
+				return GetPlayer(mInstance.mClient.packetSourceID);
+			}
+		}
 
 		/// <summary>
 		/// Address from which the packet was received. Only available during packet processing callbacks.

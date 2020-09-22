@@ -786,6 +786,30 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Convenience function that will invoke the specified method or extension, if possible.
+		/// </summary>
+
+		static public object InvokeGetResult (this Type type, string methodName, params object[] parameters)
+		{
+			var types = new Type[parameters.Length];
+			for (int i = 0, imax = parameters.Length; i < imax; ++i)
+				types[i] = parameters[i].GetType();
+
+			var mi = type.GetMethodOrExtension(methodName, types);
+			if (mi == null) return null;
+
+			// Extension methods need to pass the object as the first parameter ('this' reference)
+			if (mi.IsStatic && mi.ReflectedType != type)
+			{
+				var extended = new object[parameters.Length + 1];
+				extended[0] = null;
+				for (int i = 0, imax = parameters.Length; i < imax; ++i) extended[i + 1] = parameters[i];
+				return mi.Invoke(null, extended);
+			}
+			return mi.Invoke(null, parameters);
+		}
+
+		/// <summary>
 		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
 		/// </summary>
 
@@ -858,7 +882,7 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.
+		/// Convenience function that will invoke the specified method or extension, if possible.
 		/// </summary>
 
 		static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)

@@ -225,9 +225,15 @@ static internal class DataNodeExporter
 
 		if (!string.IsNullOrEmpty(path))
 		{
-			DataNode node = DataNode.Read(path, true);
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(true);
+
+			var node = DataNode.Read(path, true);
 			if (node != null) Save(node, path, DataNode.SaveType.Text);
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
+
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(false);
 		}
 	}
 
@@ -238,9 +244,15 @@ static internal class DataNodeExporter
 
 		if (!string.IsNullOrEmpty(path))
 		{
-			DataNode node = DataNode.Read(path, true);
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(true);
+
+			var node = DataNode.Read(path, true);
 			if (node != null) Save(node, path, DataNode.SaveType.Binary);
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
+
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(false);
 		}
 	}
 
@@ -251,9 +263,15 @@ static internal class DataNodeExporter
 
 		if (!string.IsNullOrEmpty(path))
 		{
-			DataNode node = DataNode.Read(path, true);
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(true);
+
+			var node = DataNode.Read(path, true);
 			if (node != null) Save(node, path, DataNode.SaveType.Compressed);
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
+
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(false);
 		}
 	}
 
@@ -264,6 +282,9 @@ static internal class DataNodeExporter
 
 		if (!string.IsNullOrEmpty(path))
 		{
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(true);
+
 			var node = DataNode.Read(path, true);
 
 			if (node != null)
@@ -272,6 +293,9 @@ static internal class DataNodeExporter
 				else Selection.activeGameObject = node.Instantiate();
 			}
 			else Debug.LogError("Failed to parse " + path + " as DataNode");
+
+			ComponentSerialization.ClearReferences();
+			ComponentSerialization.AllowLazyRefs(false);
 		}
 	}
 }

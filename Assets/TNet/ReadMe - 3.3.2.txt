@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2019 Tasharen Entertainment Inc.
-                  Version 3.3.2
+                  Version 3.3.3
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -115,6 +115,11 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.3.3
+- FIX: TNManager.packetSourcePlayer/packetSourceID will now point to TNManager.player/playerID outside of RFC and RCC callbacks, for convenience.
+- FIX: Fixed DataNode serialization issues with transforms being a part of a class or a struct (for example NGUI's widget anchors).
+- FIX: Made TNAutoCreate work in offline mode.
 
 3.3.2
 - NEW: Added Steamworks Networking integration as a stand-alone ZIP.

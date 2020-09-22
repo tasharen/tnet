@@ -265,9 +265,10 @@ namespace TNet
 		/// <summary>
 		/// Forward and Create type packets write down their source.
 		/// If the packet was sent by the server instead of another player, the ID will be 0.
+		/// If checked outside of Forward and Create callbacks, the value will be -1.
 		/// </summary>
 
-		public int packetSourceID = 0;
+		public int packetSourceID = -1;
 
 		/// <summary>
 		/// Source of the last packet.
@@ -1290,6 +1291,7 @@ namespace TNet
 					packetSourceID = reader.ReadInt32();
 					int channelID = reader.ReadInt32();
 					if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
+					packetSourceID = -1;
 					break;
 				}
 				case Packet.ForwardToPlayer:
@@ -1298,6 +1300,7 @@ namespace TNet
 					reader.ReadInt32(); // Skip the target player ID
 					int channelID = reader.ReadInt32();
 					if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
+					packetSourceID = -1;
 					break;
 				}
 				case Packet.ForwardByName:
@@ -1306,6 +1309,7 @@ namespace TNet
 					reader.ReadString(); // Skip the player name
 					int channelID = reader.ReadInt32();
 					if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
+					packetSourceID = -1;
 					break;
 				}
 				case Packet.ResponseSendChat:
@@ -1351,7 +1355,7 @@ namespace TNet
 
 					if ((diff < 0 ? -diff : diff) > 10000)
 					{
-#if SIGHTSEER
+#if W2
 						var s = "Server time is too different: " + diff.ToString("N0") + " milliseconds apart, ping " + ping;
 						GameChat.NotifyAdmins(s);
 						if (onError != null) onError(s);
@@ -1555,6 +1559,7 @@ namespace TNet
 						int channelID = reader.ReadInt32();
 						uint objID = reader.ReadUInt32();
 						onCreate(channelID, packetSourceID, objID, reader);
+						packetSourceID = -1;
 					}
 					break;
 				}
@@ -1571,6 +1576,7 @@ namespace TNet
 							uint val = reader.ReadUInt32();
 							onDestroy(channelID, val);
 						}
+						packetSourceID = -1;
 					}
 					break;
 				}
@@ -1584,6 +1590,7 @@ namespace TNet
 						uint id0 = reader.ReadUInt32();
 						uint id1 = reader.ReadUInt32();
 						onTransfer(from, to, id0, id1);
+						packetSourceID = -1;
 					}
 					break;
 				}
@@ -2061,7 +2068,7 @@ namespace TNet
 		static DataNode DecodeExportedObjects (List<TNObject> objects, byte[] bytes)
 		{
 			var node = new DataNode();
-#if SIGHTSEER
+#if W2
 			try
 #endif
 			{
@@ -2137,7 +2144,7 @@ namespace TNet
 				buffer.Recycle();
 				return node;
 			}
-#if SIGHTSEER
+#if W2
 			catch (Exception ex)
 			{
 				TNManager.Log("ERROR: " + ex.Message + "\n" + ex.StackTrace);

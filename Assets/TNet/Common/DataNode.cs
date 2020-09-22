@@ -907,6 +907,13 @@ namespace TNet
 
 					if (val != null)
 					{
+#if !STANDALONE
+						if (val is UnityEngine.Object)
+						{
+							var obj = val as UnityEngine.Object;
+							if (!obj) continue;
+						}
+#endif
 						writer.Write('\n');
 						Write(writer, field.Name, val, tab + 1);
 					}
@@ -922,10 +929,17 @@ namespace TNet
 						for (int i = 0; i < props.size; ++i)
 						{
 							var prop = props.buffer[i];
-							object val = prop.GetValue(value, null);
+							var val = prop.GetValue(value, null);
 
 							if (val != null)
 							{
+#if !STANDALONE
+								if (val is UnityEngine.Object)
+								{
+									var obj = val as UnityEngine.Object;
+									if (!obj) continue;
+								}
+#endif
 								writer.Write('\n');
 								Write(writer, prop.Name, val, tab + 1);
 							}

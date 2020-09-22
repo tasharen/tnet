@@ -91,10 +91,15 @@ namespace TNet
 			if (o == null) return;
 
 			var id = o.GetInstanceID();
-			if (o is Transform) id = (o as Transform).gameObject.GetInstanceID();
 			if (!mLocalReferences.ContainsKey(id)) mLocalReferences[id] = o;
 
-			if (o is GameObject) AddReference(o as GameObject, id);
+			// Transform IDs should use the game object IDs, since they are 1:1
+			if (o is Transform)
+			{
+				var go = (o as Transform).gameObject;
+				AddReference(go, go.GetInstanceID());
+			}
+			else if (o is GameObject) AddReference(o as GameObject, id);
 			else if (o is Texture) AddReference(o as Texture, id);
 			else if (o is Material) AddReference(o as Material, id);
 			else if (o is Mesh) AddReference(o as Mesh, id);
@@ -108,16 +113,25 @@ namespace TNet
 		static void AddReference (Object o, int id)
 		{
 			if (o == null) return;
+			if (o is Transform) o = (o as Transform).gameObject;
 			if (!mLocalReferences.ContainsKey(id)) mLocalReferences[id] = o;
 
 			if (o is GameObject) AddReference(o as GameObject, id);
+			else if (o is Transform) AddReference((o as Transform).gameObject, id);
 			else if (o is Texture) AddReference(o as Texture, id);
 			else if (o is Material) AddReference(o as Material, id);
 			else if (o is Mesh) AddReference(o as Mesh, id);
 			else if (o as AudioClip) AddReference(o as AudioClip, id);
 		}
 
-		static void AddReference (GameObject o, int id) { if (!referencedPrefabs.ContainsKey(id)) referencedPrefabs[id] = o; }
+		static void AddReference (GameObject o, int id)
+		{
+			if (!referencedPrefabs.ContainsKey(id))
+			{
+				referencedPrefabs[id] = o;
+				ResolveLazyRef(id, o);
+			}
+		}
 		static void AddReference (Texture o, int id) { if (!referencedTextures.ContainsKey(id)) referencedTextures[id] = o; }
 		static void AddReference (Material o, int id) { if (!referencedMaterials.ContainsKey(id)) referencedMaterials[id] = o; }
 		static void AddReference (Mesh o, int id) { if (!referencedMeshes.ContainsKey(id)) referencedMeshes[id] = o; }
@@ -141,7 +155,7 @@ namespace TNet
 		static public T GetObject<T> (int instanceID) where T : Component
 		{
 			Object o;
-			mLocalReferences.TryGetValue(instanceID, out o);
+			if (!mLocalReferences.TryGetValue(instanceID, out o)) return null;
 			var retVal = o as T;
 
 			if (retVal == null)
@@ -160,14 +174,19 @@ namespace TNet
 		static public Object GetObject (int instanceID, System.Type type)
 		{
 			Object o;
-			mLocalReferences.TryGetValue(instanceID, out o);
-			if (typeof(Object).IsAssignableFrom(type)) return o;
+			if (!mLocalReferences.TryGetValue(instanceID, out o) || !o) return null;
 
 			if (typeof(Component).IsAssignableFrom(type))
 			{
-				if (o is GameObject) return (o as GameObject).GetComponent(type);
+				if (o is GameObject)
+				{
+					if (type == typeof(Transform)) return (o as GameObject).transform;
+					return (o as GameObject).GetComponent(type);
+				}
 				if (o is Component) return (o as Component).GetComponent(type);
 			}
+
+			if (typeof(Object).IsAssignableFrom(type)) return o;
 			return null;
 		}
 
@@ -211,12 +230,113 @@ namespace TNet
 
 		static public AudioClip GetAudioClip (int instanceID) { AudioClip val; referencedClips.TryGetValue(instanceID, out val); return val; }
 
+#region Lazy Referencing
+		/// <summary>
+		/// Binary serialization resolves types when it parses the binary data, which happens before the hierarchy is resolved.
+		/// As such, it's possible to have a custom class or struct that references a Unity component by its ID, such as a Transform.
+		/// Without lazy referencing, trying to resolve this type from ID to its reference will fail. So what TNet does is leaves a lazy
+		/// reference entry behind, and when the hierarchy gets parsed (by calling dataNode.Instantiate()), the references gets assigned.
+		/// </summary>
+
+		struct LazyRef
+		{
+			public object target;
+			public FieldInfo field;
+			public PropertyInfo prop;
+			public int id;
+#if STANDALONE
+			public object go;
+#else
+			public GameObject go;
+#endif
+			public bool Set (object obj)
+			{
+#if !UNITY_EDITOR
+				try
+#endif
+				{
+					if (field != null)
+					{
+						var value = (obj != null) ?
+							Serialization.ConvertObject(obj, field.FieldType, go) :
+							Serialization.ConvertObject(id, field.FieldType, go);
+						field.SetValue(target, value);
+						return (value != null);
+					}
+					else if (prop != null)
+					{
+						var value = (obj != null) ?
+							Serialization.ConvertObject(obj, prop.PropertyType, go) :
+							Serialization.ConvertObject(id, prop.PropertyType, go);
+						prop.SetValue(target, value, null);
+						return (value != null);
+					}
+				}
+#if !UNITY_EDITOR
+				catch (Exception ex) { Tools.LogError(ex.GetType() + ": " + ex.Message); }
+#endif
+				return false;
+			}
+		}
+
+		[System.NonSerialized] static bool mAllowLazyRefs = false;
+
+		/// <summary>
+		/// Whether lazy referencing will be allowed or not. Lazy referencing allows for binary serialization to resolve component references
+		/// that are a part of the hierarchy declared later in the file.
+		/// </summary>
+
+		static public void AllowLazyRefs (bool val) { mAllowLazyRefs = val; }
+
+#if STANDALONE
+		static public void AddLazyRef (int id, object target, FieldInfo field, object go = null)
+#else
+		static public void AddLazyRef (int id, object target, FieldInfo field, GameObject go = null)
+#endif
+		{
+			if (!mAllowLazyRefs) return;
+			var d = new LazyRef();
+			d.id = id;
+			d.target = target;
+			d.field = field;
+			d.go = go;
+			mLazyRefs.Add(d);
+		}
+
+#if STANDALONE
+		static public void AddLazyRef (int id, object target, PropertyInfo prop, object go = null)
+#else
+		static public void AddLazyRef (int id, object target, PropertyInfo prop, GameObject go = null)
+#endif
+		{
+			if (!mAllowLazyRefs) return;
+			var d = new LazyRef();
+			d.id = id;
+			d.target = target;
+			d.prop = prop;
+			d.go = go;
+			mLazyRefs.Add(d);
+		}
+
+		static void ResolveLazyRef (int id, object obj)
+		{
+			for (int i = 0; i < mLazyRefs.size; ++i)
+			{
+				var d = mLazyRefs.buffer[i];
+				if (d.id == id && d.Set(obj)) mLazyRefs.RemoveAt(i--);
+			}
+		}
+
+		[System.NonSerialized] static List<LazyRef> mLazyRefs = new List<LazyRef>();
+#endregion
+
 		/// <summary>
 		/// Clear all referenced resource lists.
 		/// </summary>
 
 		static public void ClearReferences ()
 		{
+			mLazyRefs.Clear();
 			mLocalReferences.Clear();
 			mObjectToID.Clear();
 
@@ -235,7 +355,7 @@ namespace TNet
 
 		static public bool HasReferencedResources () { return referencedMeshes.Count != 0 || referencedTextures.Count != 0 || referencedMaterials.Count != 0 || referencedClips.Count != 0; }
 
-		#region Component Serialization
+#region Component Serialization
 
 		// Whether mesh and texture data will be serialized or not. Set automatically. Don't change it.
 		static bool mFullSerialization = true;
@@ -804,7 +924,7 @@ namespace TNet
 			if (mesh != null) filter.sharedMesh = mesh.DeserializeMesh();
 		}
 
-		#endregion
+#endregion
 
 		static void Add (DataNode node, string name, System.Array obj)
 		{
@@ -1191,10 +1311,13 @@ namespace TNet
 						{
 							child.children.RemoveAt(b--);
 						}
+						else if (c.value is Transform)
+						{
+							c.value = (c.value as Transform).gameObject.GetUniqueID();
+						}
 						else if (c.value is Component || c.value is GameObject || c.value is Shader)
 						{
-							/*c.value = UnityTools.ReferenceToString(sys.gameObject, c.value as Object);
-							if (c.value == null)*/ c.value = (c.value as Object).GetUniqueID();
+							c.value = (c.value as Object).GetUniqueID();
 						}
 					}
 
@@ -1446,7 +1569,7 @@ namespace TNet
 				{
 					AddReference(field.GetValue(obj) as Mesh);
 				}
-#if SIGHTSEER
+#if W2
 				else if (ft == typeof(GameSound))
 				{
 					var val = field.GetValue(obj) as GameSound;

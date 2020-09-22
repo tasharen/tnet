@@ -92,13 +92,33 @@ namespace TNet
 			{
 				if (field != null)
 				{
-					value = Serialization.ConvertObject(value, field.FieldType, go);
-					field.SetValue(target, value);
+					var resolved = Serialization.ConvertObject(value, field.FieldType, go);
+
+					if (resolved != null)
+					{
+						field.SetValue(target, resolved);
+					}
+#if !STANDALONE
+					else if (value is int && (field.FieldType == typeof(GameObject) || typeof(Component).IsAssignableFrom(field.FieldType)))
+					{
+						ComponentSerialization.AddLazyRef((int)value, target, field, go);
+					}
+#endif
 				}
 				else if (property != null && property.CanWrite)
 				{
-					value = Serialization.ConvertObject(value, property.PropertyType, go);
-					property.SetValue(target, value, null);
+					var resolved = Serialization.ConvertObject(value, property.PropertyType, go);
+
+					if (resolved != null)
+					{
+						property.SetValue(target, resolved, null);
+					}
+#if !STANDALONE
+					else if (value is int && property.PropertyType == typeof(GameObject) || typeof(Component).IsAssignableFrom(property.PropertyType))
+					{
+						ComponentSerialization.AddLazyRef((int)value, target, property, go);
+					}
+#endif
 				}
 #if UNITY_EDITOR
 				else Debug.LogError("No property or field to set");
@@ -339,11 +359,11 @@ namespace TNet
 		/// </summary>
 
 #if STANDALONE
-	static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
-	{
-		var fp = obj.GetFieldOrProperty(name);
-		if (fp != null) fp.SetValue(obj, val);
-	}
+		static public void SetFieldOrPropertyValue (this object obj, string name, object val, object go = null)
+		{
+			var fp = obj.GetFieldOrProperty(name);
+			if (fp != null) fp.SetValue(obj, val);
+		}
 #else
 		static public void SetFieldOrPropertyValue (this object obj, string name, object val, GameObject go = null)
 		{

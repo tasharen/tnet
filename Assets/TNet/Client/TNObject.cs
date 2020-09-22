@@ -1734,6 +1734,7 @@ namespace TNet
 				TNManager.packetSourceID = TNManager.playerID;
 				if (rfcID != 0) Execute(rfcID, objs);
 				else Execute(rfcName, objs);
+				TNManager.packetSourceID = -1;
 			}
 		}
 
@@ -1758,6 +1759,7 @@ namespace TNet
 				TNManager.packetSourceID = TNManager.playerID;
 				if (rfcID != 0) Execute(rfcID, objs);
 				else Execute(rfcName, objs);
+				TNManager.packetSourceID = -1;
 			}
 			else
 			{

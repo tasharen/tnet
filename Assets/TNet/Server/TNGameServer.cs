@@ -1749,7 +1749,7 @@ namespace TNet
 					var type = (DataNode.SaveType)reader.ReadByte();
 					var old = buffer.buffer[buffer.position]; // Legacy support back when it was read back incorrectly
 					var hash = reader.ReadInt32();
-#if SIGHTSEER
+#if W2
 					var expected = "Players/" + player.aliases.buffer[0] + ".player";
 
 					if (player.aliases == null || player.aliases.size == 0 || path != expected)
