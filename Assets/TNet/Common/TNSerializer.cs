@@ -95,6 +95,16 @@ public struct Quaternion
 	public Quaternion (float xx, float yy, float zz, float ww) { x = xx; y = yy; z = zz; w = ww; }
 }
 
+public struct QuaternionD
+{
+	public double x;
+	public double y;
+	public double z;
+	public double w;
+
+	public QuaternionD (double xx, double yy, double zz, double ww) { x = xx; y = yy; z = zz; w = ww; }
+}
+
 public struct Rect
 {
 	public float x;
