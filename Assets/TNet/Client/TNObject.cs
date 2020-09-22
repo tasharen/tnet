@@ -617,7 +617,7 @@ namespace TNet
 			mDictionary.Remove(channelID);
 		}
 
-#if UNITY_EDITOR
+#if !STANDALONE
 		/// <summary>
 		/// Helper function that returns the game object's hierarchy in a human-readable format.
 		/// </summary>

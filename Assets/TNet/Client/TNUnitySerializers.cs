@@ -273,7 +273,7 @@ namespace TNet
 					}
 				}
 #if !UNITY_EDITOR
-				catch (Exception ex) { Tools.LogError(ex.GetType() + ": " + ex.Message); }
+				catch (System.Exception ex) { Tools.LogError(ex.GetType() + ": " + ex.Message); }
 #endif
 				return false;
 			}
