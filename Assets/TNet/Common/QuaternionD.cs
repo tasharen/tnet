@@ -230,7 +230,7 @@ public struct QuaternionD : IBinarySerializable
 		this.w = w;
 	}
 
-	public void Normalize()
+	public void Normalize ()
 	{
 		double mag = Math.Sqrt(x * x + y * y + z * z + w * w);
 
@@ -335,9 +335,9 @@ public struct QuaternionD : IBinarySerializable
 		if (dot > 0.999998986721039) return from + (to - from) * factor;
 
 		// Otherwise SLERP
-		theta   = Math.Acos(dot);
-		sinInv  = 1f / Math.Sin(theta);
-		first   = Math.Sin((1f - factor) * theta) * sinInv;
+		theta = Math.Acos(dot);
+		sinInv = 1f / Math.Sin(theta);
+		first = Math.Sin((1f - factor) * theta) * sinInv;
 		second *= Math.Sin(factor * theta) * sinInv;
 
 		// Final result is pretty straightforward
@@ -345,7 +345,7 @@ public struct QuaternionD : IBinarySerializable
 			first * from.x + second * to.x,
 			first * from.y + second * to.y,
 			first * from.z + second * to.z,
-			first * from.w + second * to.w );
+			first * from.w + second * to.w);
 	}
 
 	/// <summary>

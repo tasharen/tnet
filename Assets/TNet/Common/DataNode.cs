@@ -470,6 +470,8 @@ namespace TNet
 
 		public DataNode GetChild (string name, bool createIfMissing = false)
 		{
+			if (string.IsNullOrEmpty(name)) return null;
+
 			// Automatically create a lookup dictionary
 			if (mCache == null && children.size >= LOOKUP_CHILD_REQUIREMENT)
 				mCache = new Dictionary<string, DataNode>();

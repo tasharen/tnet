@@ -462,6 +462,7 @@ namespace TNet
 		/// <summary>
 		/// Time elapsed either since the server has been started up in seconds, or (if not connected) -- time since TNManager was first used.
 		/// It's a more precise version of Unity's Time.time, since it takes a mere 3 hours for float precision to start dropping milliseconds.
+		/// It has an added benefit of usable from any thread, unlike Unity's Time.time (which must be used from the main thread).
 		/// </summary>
 
 		static public double time { get { return serverUptime * 0.001; } }

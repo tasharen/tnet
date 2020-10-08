@@ -75,6 +75,7 @@
 	<Compile Include="Assets\TNet\Common\TNCounter.cs" />
 	<Compile Include="Assets\TNet\Common\Vector2D.cs" />
 	<Compile Include="Assets\TNet\Common\Vector3D.cs" />
+	<Compile Include="Assets\TNet\Common\QuaternionD.cs" />
     <Compile Include="Assets\TNet\Server\TNChannel.cs" />
     <Compile Include="Assets\TNet\Server\TNFileServer.cs" />
     <Compile Include="Assets\TNet\Server\TNLobbyLink.cs" />
