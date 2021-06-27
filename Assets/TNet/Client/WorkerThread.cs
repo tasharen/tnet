@@ -642,10 +642,14 @@ namespace TNet
 
 		static public bool IsLocked (object obj)
 		{
+#if UNITY_2018_3_OR_NEWER
 			var acquired = false;
 			try { Monitor.TryEnter(obj, ref acquired); }
 			finally { if (acquired) Monitor.Exit(obj); }
 			return !acquired;
+#else
+			return false;
+#endif
 		}
 	}
 }
