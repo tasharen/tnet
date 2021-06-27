@@ -43,7 +43,7 @@ namespace TNet
 
 #if !STANDALONE
 		public Vector2D normalized { get { return Vector2D.Normalize(this); } }
-		public double magnitude { get { return Math.Sqrt(x * x + y * y); } }
+		public double magnitude { get { var d = x * x + y * y; return (d == 0d) ? 0d : Math.Sqrt(d); } }
 		public double sqrMagnitude { get { return x * x + y * y; } }
 		static public Vector2D zero { get { return new Vector2D(0d, 0d); } }
 		static public Vector2D one { get { return new Vector2D(1d, 1d); } }

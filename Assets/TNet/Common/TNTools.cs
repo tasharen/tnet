@@ -1473,7 +1473,7 @@ namespace TNet
 
 			if (!extension)
 			{
-				var dot = path.LastIndexOf('.', (start == -1) ? 0 : start);
+				var dot = path.LastIndexOf('.');
 
 				if (dot > start)
 				{

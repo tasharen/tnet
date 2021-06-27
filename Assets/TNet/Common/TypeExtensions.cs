@@ -789,14 +789,19 @@ namespace TNet
 		/// Convenience function that will invoke the specified method or extension, if possible.
 		/// </summary>
 
-		static public object InvokeGetResult (this Type type, string methodName, params object[] parameters)
+		static public bool InvokeGetResult<T> (this Type type, string methodName, out T result, params object[] parameters)
 		{
 			var types = new Type[parameters.Length];
 			for (int i = 0, imax = parameters.Length; i < imax; ++i)
 				types[i] = parameters[i].GetType();
 
 			var mi = type.GetMethodOrExtension(methodName, types);
-			if (mi == null) return null;
+
+			if (mi == null)
+			{
+				result = default(T);
+				return false;
+			}
 
 			// Extension methods need to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
@@ -804,9 +809,10 @@ namespace TNet
 				var extended = new object[parameters.Length + 1];
 				extended[0] = null;
 				for (int i = 0, imax = parameters.Length; i < imax; ++i) extended[i + 1] = parameters[i];
-				return mi.Invoke(null, extended);
+				result = (T)mi.Invoke(null, extended);
 			}
-			return mi.Invoke(null, parameters);
+			else result = (T)mi.Invoke(null, parameters);
+			return true;
 		}
 
 		/// <summary>
@@ -885,9 +891,13 @@ namespace TNet
 		/// Convenience function that will invoke the specified method or extension, if possible.
 		/// </summary>
 
-		static public object InvokeGetResult (this object obj, string methodName, params object[] parameters)
+		static public bool InvokeGetResult<T> (this object obj, string methodName, out T result, params object[] parameters)
 		{
-			if (obj == null) return null;
+			if (obj == null)
+			{
+				result = default(T);
+				return false;
+			}
 
 			invokedObject = obj;
 
@@ -897,7 +907,12 @@ namespace TNet
 				types[i] = parameters[i].GetType();
 
 			var mi = type.GetMethodOrExtension(methodName, types);
-			if (mi == null) return null;
+
+			if (mi == null)
+			{
+				result = default(T);
+				return false;
+			}
 
 			// Extension methods need to pass the object as the first parameter ('this' reference)
 			if (mi.IsStatic && mi.ReflectedType != type)
@@ -909,10 +924,10 @@ namespace TNet
 				// NOTE: If 'obj' is a struct, any changes to the 'obj' done inside the invocation will not propagate outside that function.
 				// It's likely tied to the limitation of structs always being passed by copy. Due to this, the invoked function MUST set
 				// TypeExtensions.invokedObject to the final object's value ('this') before exiting the scope.
-				return mi.Invoke(obj, extended);
+				result = (T)mi.Invoke(obj, extended);
 			}
-
-			return mi.Invoke(obj, parameters);
+			else result = (T)mi.Invoke(obj, parameters);
+			return true;
 		}
 
 		// Cached for speed

@@ -49,10 +49,10 @@ public class TNObjectEditor : Editor
 			EditorGUILayout.PropertyField(staticID, new GUIContent("ID"));
 			var sp = serializedObject.FindProperty("ignoreWarnings");
 			EditorGUILayout.PropertyField(sp, new GUIContent("Ignore Warnings"));
-#if UNITY_5
-			if (PrefabUtility.GetPrefabType(obj.gameObject) == PrefabType.Prefab)
-#else
+#if UNITY_2018_3_OR_NEWER
 			if (UnityEditor.PrefabUtility.GetPrefabAssetType(obj.gameObject) != UnityEditor.PrefabAssetType.NotAPrefab)
+#else
+			if (PrefabUtility.GetPrefabType(obj.gameObject) == PrefabType.Prefab)
 #endif
 			{
 				serializedObject.ApplyModifiedProperties();

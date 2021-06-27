@@ -1475,10 +1475,10 @@ namespace TNet
 							// We want to include all local prefabs that have been referenced via scripts and happen to lie outside the Resources folder
 							if (!referencedPrefabs.ContainsKey(id)
 #if UNITY_EDITOR
-#if UNITY_5
-								&& UnityEditor.PrefabUtility.GetPrefabType(mb) == UnityEditor.PrefabType.Prefab
+#if UNITY_2018_3_OR_NEWER
+							&& UnityEditor.PrefabUtility.GetPrefabAssetType(mb) != UnityEditor.PrefabAssetType.NotAPrefab
 #else
-								&& UnityEditor.PrefabUtility.GetPrefabAssetType(mb) != UnityEditor.PrefabAssetType.NotAPrefab
+							&& UnityEditor.PrefabUtility.GetPrefabType(mb) == UnityEditor.PrefabType.Prefab
 #endif
 #endif
 								)

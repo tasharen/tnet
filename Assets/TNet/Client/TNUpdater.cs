@@ -4,10 +4,10 @@
 //-------------------------------------------------
 
 #define PROFILE_PACKETS
-//#define THREAD_SAFE_UPDATER
+#define THREAD_SAFE_UPDATER
 
 using UnityEngine;
-using System.Collections.Generic;
+using Generic = System.Collections.Generic;
 
 namespace TNet
 {
@@ -33,13 +33,16 @@ namespace TNet
 		}
 
 		[System.NonSerialized] static TNUpdater mInst;
-		[System.NonSerialized] Queue<IStartable> mStartable = new Queue<IStartable>();
-		[System.NonSerialized] HashSet<IUpdateable> mUpdateable = new HashSet<IUpdateable>();
-		[System.NonSerialized] HashSet<ILateUpdateable> mLateUpdateable = new HashSet<ILateUpdateable>();
-		[System.NonSerialized] List<IUpdateable> mRemoveUpdateable = new List<IUpdateable>();
-		[System.NonSerialized] List<ILateUpdateable> mRemoveLate = new List<ILateUpdateable>();
-		[System.NonSerialized] List<InfrequentEntry> mInfrequent = new List<InfrequentEntry>();
-		[System.NonSerialized] List<IInfrequentUpdateable> mRemoveInfrequent = new List<IInfrequentUpdateable>();
+		[System.NonSerialized] Generic.Queue<IStartable> mStartable = new Generic.Queue<IStartable>();
+		[System.NonSerialized] Generic.HashSet<IUpdateable> mUpdateable = new Generic.HashSet<IUpdateable>();
+		[System.NonSerialized] Generic.HashSet<ILateUpdateable> mLateUpdateable = new Generic.HashSet<ILateUpdateable>();
+		[System.NonSerialized] Generic.List<IUpdateable> mRemoveUpdateable = new Generic.List<IUpdateable>();
+		[System.NonSerialized] Generic.List<ILateUpdateable> mRemoveLate = new Generic.List<ILateUpdateable>();
+		[System.NonSerialized] Generic.List<InfrequentEntry> mInfrequent = new Generic.List<InfrequentEntry>();
+		[System.NonSerialized] Generic.List<IInfrequentUpdateable> mRemoveInfrequent = new Generic.List<IInfrequentUpdateable>();
+		[System.NonSerialized] System.Action mOnNextUpdate0;
+		[System.NonSerialized] System.Action mOnNextUpdate1;
+		[System.NonSerialized] bool mOnNextUpdateIndex0 = true;
 		[System.NonSerialized] bool mUpdating = false;
 		[System.NonSerialized] static public System.Action onQuit;
 
@@ -48,7 +51,7 @@ namespace TNet
 		void Update ()
 		{
 #if THREAD_SAFE_UPDATER
-			lock (this)
+			lock (mInst)
 #endif
 			{
 				while (mStartable.Count != 0)
@@ -58,7 +61,7 @@ namespace TNet
 					if (obj && obj.enabled) q.OnStart();
 				}
 
-				if (mRemoveUpdateable.size != 0)
+				if (mRemoveUpdateable.Count != 0)
 				{
 					foreach (var e in mRemoveUpdateable) mUpdateable.Remove(e);
 					mRemoveUpdateable.Clear();
@@ -71,32 +74,32 @@ namespace TNet
 					mUpdating = false;
 				}
 
-				if (mInfrequent.size != 0)
+				if (mInfrequent.Count != 0)
 				{
 					mUpdating = true;
 					var time = Time.time;
 
-					for (int i = 0; i < mInst.mInfrequent.size; ++i)
+					for (int i = 0; i < mInst.mInfrequent.Count; ++i)
 					{
-						if (mInfrequent.buffer[i].nextTime < time)
+						if (mInfrequent[i].nextTime < time)
 						{
-							var ent = mInfrequent.buffer[i];
+							var ent = mInfrequent[i];
 							ent.nextTime = time + ent.interval;
 							ent.obj.InfrequentUpdate();
-							mInfrequent.buffer[i] = ent;
+							mInfrequent[i] = ent;
 						}
 					}
 
 					mUpdating = false;
 				}
 
-				if (mRemoveInfrequent.size != 0)
+				if (mRemoveInfrequent.Count != 0)
 				{
 					foreach (var e in mRemoveInfrequent)
 					{
-						for (int i = 0; i < mInst.mInfrequent.size; ++i)
+						for (int i = 0; i < mInst.mInfrequent.Count; ++i)
 						{
-							if (mInfrequent.buffer[i].obj == e)
+							if (mInfrequent[i].obj == e)
 							{
 								mInfrequent.RemoveAt(i);
 								break;
@@ -105,17 +108,33 @@ namespace TNet
 					}
 					mRemoveInfrequent.Clear();
 				}
+
+				if (mOnNextUpdateIndex0)
+				{
+					if (mOnNextUpdate1 != null)
+					{
+						mOnNextUpdate1();
+						mOnNextUpdate1 = null;
+					}
+				}
+				else if (mOnNextUpdate0 != null)
+				{
+					mOnNextUpdate0();
+					mOnNextUpdate0 = null;
+				}
+
+				mOnNextUpdateIndex0 = !mOnNextUpdateIndex0;
 			}
 		}
 
 #if UNITY_EDITOR && PROFILE_PACKETS
-		static System.Collections.Generic.Dictionary<System.Type, string> mTypeNames = new Dictionary<System.Type, string>();
+		static Generic.Dictionary<System.Type, string> mTypeNames = new Generic.Dictionary<System.Type, string>();
 #endif
 
 		void LateUpdate ()
 		{
 #if THREAD_SAFE_UPDATER
-			lock (this)
+			lock (mInst)
 #endif
 			{
 				while (mStartable.Count != 0)
@@ -145,7 +164,7 @@ namespace TNet
 					}
 				}
 
-				if (mRemoveLate.size != 0)
+				if (mRemoveLate.Count != 0)
 				{
 					foreach (var e in mRemoveLate) mLateUpdateable.Remove(e);
 					mRemoveLate.Clear();
@@ -177,8 +196,8 @@ namespace TNet
 			}
 
 #if THREAD_SAFE_UPDATER
-			lock (this)
-# endif
+			lock (mInst)
+#endif
 			mInst.mStartable.Enqueue(obj);
 		}
 
@@ -191,7 +210,7 @@ namespace TNet
 			}
 
 #if THREAD_SAFE_UPDATER
-			lock (this)
+			lock (mInst)
 #endif
 			mInst.mUpdateable.Add(obj);
 		}
@@ -205,7 +224,7 @@ namespace TNet
 			}
 
 #if THREAD_SAFE_UPDATER
-			lock (this)
+			lock (mInst)
 #endif
 			{
 				var ent = new InfrequentEntry();
@@ -225,7 +244,7 @@ namespace TNet
 			}
 
 #if THREAD_SAFE_UPDATER
-			lock (this)
+			lock (mInst)
 #endif
 			mInst.mLateUpdateable.Add(obj);
 		}
@@ -235,7 +254,7 @@ namespace TNet
 			if (mInst)
 			{
 #if THREAD_SAFE_UPDATER
-				lock (this)
+				lock (mInst)
 #endif
 				{
 					if (mInst.mUpdating) mInst.mRemoveUpdateable.Add(obj);
@@ -249,7 +268,7 @@ namespace TNet
 			if (mInst)
 			{
 #if THREAD_SAFE_UPDATER
-				lock (this)
+				lock (mInst)
 #endif
 				{
 					if (mInst.mUpdating) mInst.mRemoveLate.Add(obj);
@@ -263,7 +282,7 @@ namespace TNet
 			if (mInst)
 			{
 #if THREAD_SAFE_UPDATER
-				lock (this)
+				lock (mInst)
 #endif
 				{
 					if (mInst.mUpdating)
@@ -272,9 +291,9 @@ namespace TNet
 					}
 					else
 					{
-						for (int i = 0; i < mInst.mInfrequent.size; ++i)
+						for (int i = 0; i < mInst.mInfrequent.Count; ++i)
 						{
-							if (mInst.mInfrequent.buffer[i].obj == obj)
+							if (mInst.mInfrequent[i].obj == obj)
 							{
 								mInst.mInfrequent.RemoveAt(i);
 								break;
@@ -285,9 +304,27 @@ namespace TNet
 			}
 		}
 
-		//mRemoveInfrequent
-
 		[System.Obsolete("Use RemoveLateUpdate (fixed the typo)")]
 		static public void RemoveaLateUpdate (ILateUpdateable obj) { RemoveLateUpdate(obj); }
+
+		/// <summary>
+		/// Add a callback to be executed on the next update, and only once.
+		/// </summary>
+
+		static public void AddOneShot (System.Action callback)
+		{
+			if (mInst == null)
+			{
+				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
+				Create();
+			}
+#if THREAD_SAFE_UPDATER
+			lock (mInst)
+#endif
+			{
+				if (mInst.mOnNextUpdateIndex0) mInst.mOnNextUpdate0 += callback;
+				else mInst.mOnNextUpdate1 += callback;
+			}
+		}
 	}
 }

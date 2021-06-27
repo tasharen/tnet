@@ -190,8 +190,6 @@ namespace TNet
 					}
 					else if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
 					{
-						// /exe var bw = TNManager.BeginSend(Packet.RequestSetOwner); bw.Write(FactionOutpost.closestToPlayer.tno.channelID); bw.Write(FactionOutpost.closestToPlayer.tno.uid); bw.Write(TNManager.playerID); TNManager.EndSend();
-						// /exe FactionOutpost.closestToPlayer.tno.ownerID = TNManager.playerID;
 						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
 						bw.Write(channelID);
 						bw.Write(uid);
@@ -259,19 +257,19 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (string name) { return (mData != null ? mData.GetChild(name) : null); }
+		public DataNode Get (string name) { return (mData != null ? mData.GetHierarchy(name) : null); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name) { return (mData != null) ? mData.GetChild<T>(name) : default(T); }
+		public T Get<T> (string name) { return (mData != null) ? mData.GetHierarchy<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetChild<T>(name, defVal) : defVal; }
+		public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data.
@@ -925,6 +923,13 @@ namespace TNet
 			for (int i = 0, imax = mTempMono.Count; i < imax; ++i)
 			{
 				var mb = mTempMono[i];
+
+				if (mb == null)
+				{
+					Debug.LogWarning("Missing script reference found. Check your object for missing scripts!", this);
+					continue;
+				}
+
 				var type = mb.GetType();
 				System.Collections.Generic.List<CachedMethodInfo> ret;
 

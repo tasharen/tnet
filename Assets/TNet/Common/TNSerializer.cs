@@ -3155,13 +3155,15 @@ namespace TNet
 				case 254: // Serialization using Reflection
 				{
 #if REFLECTION_SUPPORT
-					FilterFields(obj);
-					bw.WriteInt(mFieldNames.size);
+					var c = GetCache();
+					FilterFields(obj, ref c);
+					bw.WriteInt(c.fieldNames.size);
 
-					for (int i = 0, imax = mFieldNames.size; i < imax; ++i)
+					for (int i = 0, imax = c.fieldNames.size; i < imax; ++i)
 					{
-						bw.Write(mFieldNames.buffer[i]);
-						var val = mFieldValues.buffer[i];
+						var val = c.fieldValues.buffer[i];
+
+						bw.Write(c.fieldNames.buffer[i]);
 #if !STANDALONE
 						var uo = val as UnityEngine.Object;
 
@@ -3175,6 +3177,8 @@ namespace TNet
 						bw.WriteObject(val);
 #endif
 					}
+
+					RecycleCache(ref c);
 #else
 					Debug.LogError("Reflection-based serialization is not supported on this platform.");
 #endif
@@ -3203,8 +3207,30 @@ namespace TNet
 		}
 
 #if REFLECTION_SUPPORT
-		static List<string> mFieldNames = new List<string>();
-		static List<object> mFieldValues = new List<object>();
+		struct Cache
+		{
+			public List<string> fieldNames;
+			public List<object> fieldValues;
+		}
+
+		static List<Cache> mCache = new List<Cache>();
+
+		static Cache GetCache ()
+		{
+			// NOTE: This is not thread-safe, because I don't believe this can be accessed outside of the main thread
+			if (mCache.size != 0) return mCache.Pop();
+			var c = new Cache();
+			c.fieldNames = new List<string>();
+			c.fieldValues = new List<object>();
+			return c;
+		}
+
+		static void RecycleCache (ref Cache c)
+		{
+			c.fieldNames.Clear();
+			c.fieldValues.Clear();
+			mCache.Add(c);
+		}
 
 		/// <summary>
 		/// Add all of the object's serializable fields to the specified DataNode.
@@ -3212,21 +3238,20 @@ namespace TNet
 
 		static public void AddAllFields (this DataNode node, object obj)
 		{
-			FilterFields(obj);
-			for (int i = 0, imax = mFieldNames.size; i < imax; ++i) node.AddChild(mFieldNames.buffer[i], mFieldValues.buffer[i]);
+			var c = GetCache();
+			FilterFields(obj, ref c);
+			for (int i = 0, imax = c.fieldNames.size; i < imax; ++i) node.AddChild(c.fieldNames.buffer[i], c.fieldValues.buffer[i]);
+			RecycleCache(ref c);
 		}
 
 		/// <summary>
 		/// Helper function that retrieves all serializable fields on the specified object and filters them, removing those with null values.
 		/// </summary>
 
-		static void FilterFields (object obj)
+		static void FilterFields (object obj, ref Cache c)
 		{
 			Type type = obj.GetType();
 			var fields = type.GetSerializableFields();
-
-			mFieldNames.Clear();
-			mFieldValues.Clear();
 
 			for (int i = 0; i < fields.size; ++i)
 			{
@@ -3235,8 +3260,8 @@ namespace TNet
 
 				if (val != null)
 				{
-					mFieldNames.Add(f.Name);
-					mFieldValues.Add(val);
+					c.fieldNames.Add(f.Name);
+					c.fieldValues.Add(val);
 				}
 			}
 
@@ -3256,8 +3281,8 @@ namespace TNet
 
 							if (val != null)
 							{
-								mFieldNames.Add(prop.Name);
-								mFieldValues.Add(val);
+								c.fieldNames.Add(prop.Name);
+								c.fieldValues.Add(val);
 							}
 						}
 #if UNITY_EDITOR
@@ -3954,12 +3979,12 @@ namespace TNet
 						if (obj != null)
 						{
 							// How many fields have been serialized?
-							int count = ReadInt(reader);
+							var count = ReadInt(reader);
 
 							for (int i = 0; i < count; ++i)
 							{
 								// Read the name of the field
-								string fieldName = reader.ReadString();
+								var fieldName = reader.ReadString();
 
 								if (string.IsNullOrEmpty(fieldName))
 								{

@@ -705,7 +705,7 @@ namespace TNet
 		{
 			if (isConnected)
 			{
-				Channel ch = mInstance.mClient.GetChannel(channelID);
+				var ch = mInstance.mClient.GetChannel(channelID);
 				if (ch != null) return ch.players;
 			}
 
@@ -1334,6 +1334,7 @@ namespace TNet
 					mDummyCL.Add(ch);
 					lastChannelID = channelID;
 					onLoadScene(levelName);
+					onJoinChannel(channelID, true, null);
 				}
 			}
 		}

@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2019 Tasharen Entertainment Inc.
-                  Version 3.3.3
+                  Version 3.3.4
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -115,6 +115,14 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+3.3.4
+- NEW: Added TNUpdater.AddOneShot() that adds a callback to be executed on the next update (and only once).
+- NEW: Added WorkerThread.IsLocked(obj) to check if the specified object is currently locked for this thread.
+- NEW: InvokeResult() now returns a bool instead of an object, and the return value is a parameter instead.
+- FIX: Fixed an issue with serialization of nested classes that didn't implement IBinarySerializable.
+- FIX: TNUpdater should now be thread-safe by default (previously it was not thread-safe by default).
+- FIX: Fixed GetFilenameFromPath() not removing the extension even if 'false' was passed for the last parameter.
 
 3.3.3
 - FIX: TNManager.packetSourcePlayer/packetSourceID will now point to TNManager.player/playerID outside of RFC and RCC callbacks, for convenience.

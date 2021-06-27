@@ -633,5 +633,19 @@ namespace TNet
 			else lock (mInstance.mRegular) mInstance.mRegular.Enqueue(ent);
 #endif
 		}
+
+		/// <summary>
+		/// Convenience function that can check if the specified object is currently locked for the thread (called lock(obj)).
+		/// Note that checking this from the same thread as the lock() statement will still return a 'false', because you can lock
+		/// multiple times from the same thread without any issues.
+		/// </summary>
+
+		static public bool IsLocked (object obj)
+		{
+			var acquired = false;
+			try { Monitor.TryEnter(obj, ref acquired); }
+			finally { if (acquired) Monitor.Exit(obj); }
+			return !acquired;
+		}
 	}
 }

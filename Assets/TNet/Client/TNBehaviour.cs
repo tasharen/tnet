@@ -14,7 +14,7 @@ namespace TNet
 
 	public abstract class TNBehaviour : MonoBehaviour, IStartable
 	{
-		[System.NonSerialized] TNObject mTNO;
+		[System.NonSerialized] protected TNObject mTNO;
 		[System.NonSerialized] public bool ignoreMissingTNO = false;
 
 		public TNObject tno { get { if (mTNO == null) CreateTNObject(); return mTNO; } }

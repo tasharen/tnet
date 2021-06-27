@@ -110,7 +110,11 @@ namespace TNet
 		static public void BeginContents ()
 		{
 			GUILayout.BeginHorizontal();
+#if UNITY_4_7 || UNITY_5_5 || UNITY_5_6
 			EditorGUILayout.BeginHorizontal("AS TextArea", GUILayout.MinHeight(10f));
+#else
+			EditorGUILayout.BeginHorizontal("TextArea", GUILayout.MinHeight(10f));
+#endif
 			GUILayout.BeginVertical();
 			GUILayout.Space(2f);
 		}
