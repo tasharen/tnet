@@ -162,7 +162,6 @@ public class Application : IDisposable
 
 						if (mGameServer != null)
 						{
-							Console.WriteLine("  lm -- Low memory footprint on/off");
 							Console.WriteLine("  name <name> -- Change the server's name");
 							Console.WriteLine("  kick <player> -- Kick this player from the server");
 							Console.WriteLine("  admin <keyword> -- Add this admin keyword");
@@ -202,11 +201,6 @@ public class Application : IDisposable
 					else if (command == "s")
 					{
 						mGameServer.Save();
-					}
-					else if (command == "lm")
-					{
-						Console.WriteLine("Low memory mode: " + !Channel.lowMemoryFootprint);
-						mGameServer.Sleep(!Channel.lowMemoryFootprint);
 					}
 					else if (command == "r")
 					{
@@ -293,14 +287,14 @@ public class Application : IDisposable
 		if (args == null || args.Length == 0)
 		{
 			Console.WriteLine("No arguments specified, assuming default values.");
-			Console.WriteLine("In the future you can specify your own ports like so:\n");
+			Console.WriteLine("In the future you can specify additional arguments like so:\n");
 			Console.WriteLine("   -name \"Your Server\"         <-- Name your server");
 			Console.WriteLine("   -tcp [port]                 <-- TCP port for clients to connect to");
 			Console.WriteLine("   -udp [port]                 <-- UDP port used for communication");
 			Console.WriteLine("   -udpLobby [address] [port]  <-- Start or connect to a UDP lobby");
 			Console.WriteLine("   -tcpLobby [address] [port]  <-- Start or connect to a TCP lobby");
 			Console.WriteLine("   -ip [ip]                    <-- Choose a specific network interface");
-			Console.WriteLine("   -service                    <-- Run it as a service");
+			Console.WriteLine("   -service                    <-- Run it as a service (disables input)");
 			Console.WriteLine("   -http                       <-- Respond to HTTP requests");
 			Console.WriteLine("   -ipv6                       <-- Use IPv6");
 			Console.WriteLine("   -fn [filename]              <-- Use this save instead of server.dat");

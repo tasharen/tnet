@@ -139,13 +139,12 @@ namespace TNet
 		protected long mStartTime = 0;
 
 		/// <summary>
-		/// Put the server to sleep or wake it up.
+		/// Put the server to sleep or wake it up. Putting the server to sleep reduces its memory footprint of channels that have no players in them.
+		/// This is also now done automatically whenever the server saves, so there is little need to call it directly.
 		/// </summary>
 
 		public void Sleep (bool val)
 		{
-			Channel.lowMemoryFootprint = val;
-
 			lock (mLock)
 			{
 				foreach (var ch in mChannelList)
@@ -1190,9 +1189,6 @@ namespace TNet
 					EndSend(buff, true, player);
 				}
 			}
-
-			// Put the channel to sleep after all players leave
-			if (ch.players.size == 0) ch.Sleep();
 #endif
 		}
 
@@ -3116,6 +3112,7 @@ namespace TNet
 					if (!ch.isClosed && ch.isPersistent && ch.hasData)
 					{
 						mWriter.Write(ch.id);
+						if (ch.players.size == 0) ch.Sleep();
 						ch.SaveTo(mWriter);
 						++count;
 					}
@@ -3153,7 +3150,7 @@ namespace TNet
 			Tools.WriteFile(mFilename, mWriteStream);
 
 			// Save the server configuration data
-			if (mServerDataChanged && mServerData != null && !string.IsNullOrEmpty(mFilename))
+			if (mServerDataChanged && mServerData != null)
 			{
 				mServerDataChanged = false;
 				try { mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true); }
@@ -3258,7 +3255,6 @@ namespace TNet
 				try
 				{
 					var reader = new BinaryReader(stream);
-
 					int channels = reader.ReadInt32();
 
 					for (int i = 0; i < channels; ++i)

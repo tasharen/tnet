@@ -18,14 +18,6 @@ namespace TNet
 	public class Channel : DataNodeContainer
 	{
 		/// <summary>
-		/// If set, the channel data will be kept in a low-memory footprint format rather than in their de-serialized state.
-		/// Low memory footprint also makes the saving process take less time. The downside is that the process of joining and leaving channels is a bit slower.
-		/// </summary>
-
-		[System.NonSerialized]
-		static public bool lowMemoryFootprint = true;
-
-		/// <summary>
 		/// Remote function call entry stored within the channel.
 		/// </summary>
 
@@ -132,7 +124,7 @@ namespace TNet
 		System.Collections.Generic.Dictionary<uint, bool> mCreatedObjectDictionary = new System.Collections.Generic.Dictionary<uint, bool>();
 
 		// Channel data is not parsed until it's actually needed, saving memory
-		byte[] mSource;
+		[System.NonSerialized] byte[] mSource;
 #if !MODDING
 		int mSourceSize;
 #endif
@@ -224,9 +216,9 @@ namespace TNet
 			for (int i = 0; i < rfcs.size; ++i) rfcs.buffer[i].Recycle();
 			for (int i = 0; i < created.size; ++i) created.buffer[i].Recycle();
 
-			rfcs.Clear();
-			created.Clear();
-			destroyed.Clear();
+			rfcs.Release();
+			created.Release();
+			destroyed.Release();
 			mCreatedObjectDictionary.Clear();
 			objectCounter = 0xFFFFFF;
 			mSource = null;
@@ -850,7 +842,6 @@ namespace TNet
 			isLocked = reader.ReadBoolean();
 			mSource = null;
 
-#if STANDALONE
 			if (!keepInMemory && players.size == 0)
 			{
 				Reset();
@@ -859,7 +850,6 @@ namespace TNet
 				mSourceSize = (int)(end - start);
 				mSource = reader.ReadBytes(mSourceSize);
 			}
-#endif
 #endif
 			return true;
 		}
@@ -871,8 +861,7 @@ namespace TNet
 		public void Sleep ()
 		{
 #if !MODDING
-#if STANDALONE
-			if (lowMemoryFootprint && players.size == 0 && mSource == null)
+			if (mSource == null && players.size == 0)
 			{
 				var ms = new MemoryStream();
 				var writer = new BinaryWriter(ms);
@@ -886,9 +875,6 @@ namespace TNet
 					System.Array.Resize(ref mSource, mSourceSize);
 				}
 			}
-#else
-			mSourceSize = 0;
-#endif
 #endif
 		}
 

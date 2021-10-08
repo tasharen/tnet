@@ -541,7 +541,7 @@ namespace TNet
 					return;
 				}
 #endif
-				GameObject go = new GameObject("Worker Thread");
+				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
@@ -582,7 +582,7 @@ namespace TNet
 					return;
 				}
 #endif
-				GameObject go = new GameObject("Worker Thread");
+				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
@@ -619,7 +619,7 @@ namespace TNet
 					return;
 				}
 #endif
-				GameObject go = new GameObject("Worker Thread");
+				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
 			}
 
