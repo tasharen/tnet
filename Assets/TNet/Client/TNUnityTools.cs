@@ -884,35 +884,33 @@ namespace TNet
 			if (bytes == null || bytes.Length < 40) return null;
 			if (bytes[0] != 'R' || bytes[1] != 'I' || bytes[2] != 'F' || bytes[3] != 'F') return null;
 
-			int offset = System.BitConverter.ToInt32(bytes, 16) + 20;
+			int offset = System.BitConverter.ToInt32(bytes, 16) + 20; // 36, basically skips up to the 'data' section
 			int format = System.BitConverter.ToInt16(bytes, 20);
-			int channels = System.BitConverter.ToInt16(bytes, 22);
-			int rate = System.BitConverter.ToInt32(bytes, 24);
-			int sampleSize = System.BitConverter.ToInt16(bytes, 34) / 8;
+			int channelCount = System.BitConverter.ToInt16(bytes, 22);
+			int frequency = System.BitConverter.ToInt32(bytes, 24);
+			int bytesPerSample = System.BitConverter.ToInt16(bytes, 34) / 8; // Expected result is '2', with data saved as int16
 
-			for (int i = offset; i < bytes.Length; ++i)
+			if (bytesPerSample != 2)
 			{
-				if (bytes[i] == 'd' && bytes[i + 1] == 'a' && bytes[i + 2] == 't' && bytes[i + 3] == 'a')
-				{
-					offset = i + 4;
-					break;
-				}
+				Debug.LogError("Only 16-bit sampling is supported");
+				return null;
 			}
 
-			int samples = System.BitConverter.ToInt32(bytes, offset) / sampleSize;
+			// Make sure the 'data' section follows
+			if (bytes[offset] == 'd' && bytes[offset + 1] == 'a' && bytes[offset + 2] == 't' && bytes[offset + 3] == 'a') offset += 4;
+			else return null;
+
+			// Number of sample points that follow
+			var elements = System.BitConverter.ToInt32(bytes, offset) / bytesPerSample;
+			var sampleCount = elements / channelCount;
 			offset += 4;
 
 			if (format == 1)
 			{
-				var buffer = new float[samples];
+				var buffer = new float[elements];
+				for (int i = 0; i < elements; ++i) buffer[i] = System.BitConverter.ToInt16(bytes, offset + i * bytesPerSample) / 32768f;
 
-				for (int i = 0; i < samples; i++)
-				{
-					int sampleIndex = offset + i * sampleSize;
-					buffer[i] = System.BitConverter.ToInt16(bytes, sampleIndex) / 32768f;
-				}
-
-				var audioClip = AudioClip.Create(name, samples, channels, rate, stream);
+				var audioClip = AudioClip.Create(name, sampleCount, channelCount, frequency, stream);
 				audioClip.SetData(buffer, 0);
 				return audioClip;
 			}
@@ -927,26 +925,33 @@ namespace TNet
 
 		static public byte[] GetBytes (this AudioClip clip)
 		{
-			var samples = new float[clip.samples];
+			var frequency = clip.frequency;			// 44100 = 44.1 kHz, samples per second
+			var channelCount = clip.channels;		// 1 = mono, 2 = stereo
+			var sampleCount = clip.samples;			// Number of sample points
+			var elements = sampleCount * channelCount;
+
+			var samples = new float[elements];
 			clip.GetData(samples, 0);
 
 			var stream = new MemoryStream();
 			var writer = new BinaryWriter(stream);
 
-			writer.WriteBytes("RIFF");
-			writer.Write(samples.Length * 2 + 36);
-			writer.WriteBytes("WAVEfmt ");
-			writer.Write(16);
-			writer.Write((ushort)1);
-			writer.Write((ushort)clip.channels);
-			writer.Write(clip.frequency);
-			writer.Write(clip.frequency * clip.channels * 2);
-			writer.Write((ushort)(clip.channels * 2));
-			writer.Write((ushort)16);
-			writer.WriteBytes("data");
-			writer.Write(samples.Length * 2);
+			writer.WriteBytes("RIFF");						// 4 bytes
+			writer.Write(sampleCount * channelCount + 36);	// 4 bytes
+			writer.WriteBytes("WAVEfmt ");					// 8 bytes
 
-			for (int i = 0; i < samples.Length; ++i) writer.Write((short)Mathf.RoundToInt(samples[i] * 32768f));
+			writer.Write(16);								// Size of WAV section chunk, 16 bytes
+			writer.Write((ushort)1);						// PCM header, value is always '1'
+			writer.Write((ushort)channelCount);				// Mono (1) or Stereo (2)
+			writer.Write(frequency);						// Sampling frequency, 44100 = 44.1 kHz
+			writer.Write(frequency * channelCount * 2);		// Bytes per second (times 2 because the data is in int16 format)
+			writer.Write((ushort)(2 * channelCount));		// Block alignment is 2 bytes per channel
+			writer.Write((ushort)16);						// Bits per sample is always 16 (2 bytes)
+
+			writer.WriteBytes("data");
+			writer.Write(elements * 2);						// Length of data that follows is 2 bytes per element
+
+			for (int i = 0; i < elements; ++i) writer.Write((short)Mathf.RoundToInt(samples[i] * 32768f));
 
 			stream.Flush();
 			var retVal = stream.ToArray();
