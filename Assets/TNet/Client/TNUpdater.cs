@@ -3,7 +3,7 @@
 // Copyright © 2012-2020 Tasharen Entertainment Inc
 //-------------------------------------------------
 
-#define PROFILE_PACKETS
+//#define PROFILE_PACKETS
 #define THREAD_SAFE_UPDATER
 
 using UnityEngine;
@@ -33,6 +33,7 @@ namespace TNet
 		}
 
 		[System.NonSerialized] static TNUpdater mInst;
+		[System.NonSerialized] static bool mShuttingDown = false;
 		[System.NonSerialized] Generic.Queue<IStartable> mStartable = new Generic.Queue<IStartable>();
 		[System.NonSerialized] Generic.HashSet<IUpdateable> mUpdateable = new Generic.HashSet<IUpdateable>();
 		[System.NonSerialized] Generic.HashSet<ILateUpdateable> mLateUpdateable = new Generic.HashSet<ILateUpdateable>();
@@ -46,7 +47,24 @@ namespace TNet
 		[System.NonSerialized] bool mUpdating = false;
 		[System.NonSerialized] static public System.Action onQuit;
 
-		void OnApplicationQuit () { if (onQuit != null) onQuit(); }
+		void OnDestroy ()
+		{
+			mShuttingDown = true;
+
+			if (mInst != null)
+			{
+#if THREAD_SAFE_UPDATER
+				lock (mInst)
+#endif
+				{
+					if (onQuit != null)
+					{
+						onQuit();
+						onQuit = null;
+					}
+				}
+			}
+		}
 
 		void Update ()
 		{
@@ -181,14 +199,17 @@ namespace TNet
 
 		static void Create ()
 		{
+			if (mShuttingDown) return;
 			var go = new GameObject();
-			go.name = "CustomUpdater";
+			go.name = "TNUpdater";
 			DontDestroyOnLoad(go);
 			mInst = go.AddComponent<TNUpdater>();
 		}
 
 		static public void AddStart (IStartable obj)
 		{
+			if (mShuttingDown) return;
+
 			if (mInst == null)
 			{
 				if (!Application.isPlaying) return;
@@ -203,9 +224,11 @@ namespace TNet
 
 		static public void AddUpdate (IUpdateable obj)
 		{
+			if (mShuttingDown) return;
+
 			if (mInst == null)
 			{
-				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
+				if (!Application.isPlaying) return;
 				Create();
 			}
 
@@ -217,9 +240,11 @@ namespace TNet
 
 		static public void AddInfrequentUpdate (IInfrequentUpdateable obj, float interval)
 		{
+			if (mShuttingDown) return;
+
 			if (mInst == null)
 			{
-				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
+				if (!Application.isPlaying) return;
 				Create();
 			}
 
@@ -237,9 +262,11 @@ namespace TNet
 
 		static public void AddLateUpdate (ILateUpdateable obj)
 		{
+			if (mShuttingDown) return;
+
 			if (mInst == null)
 			{
-				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
+				if (!Application.isPlaying) return;
 				Create();
 			}
 
@@ -313,9 +340,11 @@ namespace TNet
 
 		static public void AddOneShot (System.Action callback)
 		{
+			if (mShuttingDown) return;
+
 			if (mInst == null)
 			{
-				if (WorkerThread.isShuttingDown || !Application.isPlaying) return;
+				if (!Application.isPlaying) return;
 				Create();
 			}
 #if THREAD_SAFE_UPDATER

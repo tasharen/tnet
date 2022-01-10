@@ -38,7 +38,7 @@ public class TNObjectEditor : Editor
 			EditorGUILayout.LabelField("Host", (host != null) ? host.name : "<none>");
 
 			var data = obj.dataNode;
-			if (data != null && data.children.size > 0) Print(data);
+			if (data != null && data.children != null && data.children.size > 0) Print(data);
 
 			EditorGUI.EndDisabledGroup();
 		}

@@ -211,7 +211,7 @@ static internal class DataNodeExporter
 		foreach (var pair in ComponentSerialization.referencedPrefabs) pair.Value.CollectReferencedResources();
 
 		var data = ComponentSerialization.SerializeBundle();
-		if (data != null && data.children.size > 0) Save(data, path, type);
+		if (data != null && data.children != null && data.children.size > 0) Save(data, path, type);
 		else Debug.LogWarning("No assets found to serialize");
 
 		ComponentSerialization.ClearReferences();

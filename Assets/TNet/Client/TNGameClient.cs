@@ -151,7 +151,7 @@ namespace TNet
 
 		public bool ValidateHash ()
 		{
-			if (mConfig.children.size == 0) return true;
+			if (mConfig.children != null && mConfig.children.size == 0) return true;
 			return mDataHash == mConfig.CalculateHash();
 		}
 
@@ -706,6 +706,7 @@ namespace TNet
 #if !MODDING
 			if (mLocalServer != null) DisconnectNow();
 			else mTcp.Disconnect();
+			mMyTime = 0;
 #endif
 		}
 
@@ -2164,78 +2165,82 @@ namespace TNet
 			var writer = buffer.BeginWriting();
 
 			// Number of objects
-			writer.Write(node.children.size);
-
-			for (int i = 0; i < node.children.size; ++i)
+			if (node.children != null)
 			{
-				var child = node.children.buffer[i];
-				var sizePos = buffer.position;
+				writer.Write(node.children.size);
 
-				if (child.value is string)
+				for (int i = 0; i < node.children.size; ++i)
 				{
-					var s = (string)child.value;
-					if (string.IsNullOrEmpty(s)) continue;
+					var child = node.children.buffer[i];
+					var sizePos = buffer.position;
 
-					writer.Write(0); // Size of the RCC's data -- set after writing it
-					writer.Write((byte)0);
-					writer.Write(s);
-				}
-				else
-				{
-					writer.Write(0); // Size of the RCC's data -- set after writing it
-					writer.Write((byte)child.Get<int>());
-				}
-
-				writer.Write(child.GetChild<string>("prefab"));
-
-				var args = child.GetChild("Args");
-				var argCount = (args != null) ? args.children.size : 0;
-				var array = new object[argCount];
-				for (int b = 0; b < argCount; ++b) array[b] = args.children.buffer[b].value;
-				writer.WriteArray(array);
-
-				// Write down the size of the RCC
-				var endPos = buffer.position;
-				var size = endPos - sizePos;
-				buffer.position = sizePos;
-				writer.Write(size - 4);
-				buffer.position = endPos;
-
-				var rfcs = child.GetChild("RFCs");
-				var rfcCount = (rfcs != null) ? rfcs.children.size : 0;
-				writer.Write(rfcCount);
-
-				if (rfcCount > 0)
-				{
-					for (int b = 0; b < rfcs.children.size; ++b)
+					if (child.value is string)
 					{
-						var rfc = rfcs.children.buffer[b];
+						var s = (string)child.value;
+						if (string.IsNullOrEmpty(s)) continue;
 
-						if (rfc.value is string)
+						writer.Write(0); // Size of the RCC's data -- set after writing it
+						writer.Write((byte)0);
+						writer.Write(s);
+					}
+					else
+					{
+						writer.Write(0); // Size of the RCC's data -- set after writing it
+						writer.Write((byte)child.Get<int>());
+					}
+
+					writer.Write(child.GetChild<string>("prefab"));
+
+					var args = child.GetChild("Args");
+					var argCount = (args != null) ? args.children.size : 0;
+					var array = new object[argCount];
+					for (int b = 0; b < argCount; ++b) array[b] = args.children.buffer[b].value;
+					writer.WriteArray(array);
+
+					// Write down the size of the RCC
+					var endPos = buffer.position;
+					var size = endPos - sizePos;
+					buffer.position = sizePos;
+					writer.Write(size - 4);
+					buffer.position = endPos;
+
+					var rfcs = child.GetChild("RFCs");
+					var rfcCount = (rfcs != null && rfcs.children != null) ? rfcs.children.size : 0;
+					writer.Write(rfcCount);
+
+					if (rfcCount > 0)
+					{
+						for (int b = 0; b < rfcs.children.size; ++b)
 						{
-							var s = (string)rfc.value;
-							if (string.IsNullOrEmpty(s)) continue;
-							writer.Write((uint)0);
-							writer.Write(s);
+							var rfc = rfcs.children.buffer[b];
+
+							if (rfc.value is string)
+							{
+								var s = (string)rfc.value;
+								if (string.IsNullOrEmpty(s)) continue;
+								writer.Write((uint)0);
+								writer.Write(s);
+							}
+							else writer.Write(TNObject.GetUID(0, (byte)rfc.Get<int>()));
+
+							array = new object[rfc.children.size];
+							for (int c = 0; c < rfc.children.size; ++c) array[c] = rfc.children.buffer[c].value;
+
+							var rfcPos = buffer.position;
+							writer.Write(0); // Size of the array -- set after writing the array
+							writer.WriteArray(array);
+
+							// Write down the size of the RFC
+							endPos = buffer.position;
+							size = endPos - rfcPos;
+							buffer.position = rfcPos;
+							writer.Write(size - 4);
+							buffer.position = endPos;
 						}
-						else writer.Write(TNObject.GetUID(0, (byte)rfc.Get<int>()));
-
-						array = new object[rfc.children.size];
-						for (int c = 0; c < rfc.children.size; ++c) array[c] = rfc.children.buffer[c].value;
-
-						var rfcPos = buffer.position;
-						writer.Write(0); // Size of the array -- set after writing the array
-						writer.WriteArray(array);
-
-						// Write down the size of the RFC
-						endPos = buffer.position;
-						size = endPos - rfcPos;
-						buffer.position = rfcPos;
-						writer.Write(size - 4);
-						buffer.position = endPos;
 					}
 				}
 			}
+			else writer.Write(0);
 
 			buffer.EndWriting();
 			return buffer;

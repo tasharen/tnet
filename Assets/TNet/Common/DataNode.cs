@@ -14,6 +14,9 @@
 #define SERIALIZATION_WITHOUT_INTERFACE
 #endif
 
+// This can save some memory since the DataNodes' children list will not be initialized until AddChild() is called
+#define DATANODE_CHILDREN_CAN_BE_NULL
+
 using System;
 using System.IO;
 using System.Globalization;
@@ -62,7 +65,7 @@ namespace TNet
 	/// To retrieve a Vector3 value: dataNode.GetChild<Vector3>("Scale").
 	/// </summary>
 
-	[Serializable]
+	//[Serializable] // Commented out because the latest versions of Unity spam the console with faulty "Serialization Depth Limit Exceeded" warnings.
 	public class DataNode
 	{
 		[DoNotObfuscate] public enum SaveType
@@ -107,7 +110,11 @@ namespace TNet
 				// ResolveValue returns 'false' when children were used by the custom data type and should now be ignored.
 				if (!mResolved && !ResolveValue(null))
 				{
+#if DATANODE_CHILDREN_CAN_BE_NULL
+					children = null;
+#else
 					children.Clear();
+#endif
 					mCache = null;
 				}
 				return mValue;
@@ -119,13 +126,16 @@ namespace TNet
 		/// A node must have a value or children for it to be serialized. Otherwise there isn't much point in doing so.
 		/// </summary>
 
-		public bool isSerializable { get { return value != null || children.size > 0; } }
+		public bool isSerializable { get { return value != null || (children != null && children.size > 0); } }
 
 		/// <summary>
 		/// List of child nodes.
 		/// </summary>
-
+#if DATANODE_CHILDREN_CAN_BE_NULL
+		public List<DataNode> children;
+#else
 		public List<DataNode> children = new List<DataNode>();
+#endif
 
 		// Used to speed up GetChild lookups. Filled automatically on GetChild() if there are more than a handful of nodes present.
 		[System.NonSerialized] protected System.Collections.Generic.Dictionary<string, DataNode> mCache = null;
@@ -147,7 +157,11 @@ namespace TNet
 		public void Clear ()
 		{
 			value = null;
+#if DATANODE_CHILDREN_CAN_BE_NULL
+			children = null;
+#else
 			children.Clear();
+#endif
 			mCache = null;
 		}
 
@@ -194,8 +208,20 @@ namespace TNet
 		public DataNode AddChild ()
 		{
 			var tn = new DataNode();
+			if (children == null) children = new List<DataNode>();
 			children.Add(tn);
 			return tn;
+		}
+
+		/// <summary>
+		/// Convenience function to add a new child node.
+		/// </summary>
+
+		public DataNode AddChild (DataNode child, bool clone = false)
+		{
+			if (children == null) children = new List<DataNode>();
+			children.Add(clone ? child.Clone() : child);
+			return child;
 		}
 
 		/// <summary>
@@ -235,10 +261,10 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Add a new child node after checking to see if it already exists. If it does, the existing value is returned.
+		/// Add a new child node after checking to see if it already exists. If it does, the existing node is returned.
 		/// </summary>
 
-		public DataNode AddMissingChild (string name, object value)
+		public DataNode AddMissingChild (string name, object value = null)
 		{
 			var node = GetChild(name);
 			if (node != null) return node;
@@ -258,21 +284,25 @@ namespace TNet
 
 			mCache = null;
 
-			for (int i = 0; i < children.size; ++i)
+			if (children != null)
 			{
-				if (children.buffer[i].name == child.name)
+				for (int i = 0; i < children.size; ++i)
 				{
-					if (child.value == null && child.children.size == 0)
+					if (children.buffer[i].name == child.name)
 					{
-						children.RemoveAt(i);
-						return child;
-					}
+						if (child.value == null && child.children.size == 0)
+						{
+							children.RemoveAt(i);
+							return child;
+						}
 
-					children.buffer[i] = child;
-					return children.buffer[i];
+						children.buffer[i] = child;
+						return children.buffer[i];
+					}
 				}
 			}
-
+			
+			if (children == null) children = new List<DataNode>();
 			children.Add(child);
 			return child;
 		}
@@ -306,10 +336,13 @@ namespace TNet
 			var ch = GetChild(name);
 			if (ch != null) return ch;
 
-			for (int i = 0; i < children.size; ++i)
+			if (children != null)
 			{
-				var child = children.buffer[i].FindChild(name);
-				if (child != null) return child;
+				for (int i = 0; i < children.size; ++i)
+				{
+					var child = children.buffer[i].FindChild(name);
+					if (child != null) return child;
+				}
 			}
 			return null;
 		}
@@ -335,14 +368,17 @@ namespace TNet
 				{
 					bool found = false;
 
-					for (int i = 0; i < node.children.size; ++i)
+					if (node.children != null)
 					{
-						if (node.children.buffer[i].name == split[index])
+						for (int i = 0; i < node.children.size; ++i)
 						{
-							node = node.children.buffer[i];
-							++index;
-							found = true;
-							break;
+							if (node.children.buffer[i].name == split[index])
+							{
+								node = node.children.buffer[i];
+								++index;
+								found = true;
+								break;
+							}
 						}
 					}
 
@@ -413,15 +449,18 @@ namespace TNet
 					{
 						bool found = false;
 
-						for (int i = 0; i < node.children.size; ++i)
+						if (node.children != null)
 						{
-							if (node.children.buffer[i].name == names[index])
+							for (int i = 0; i < node.children.size; ++i)
 							{
-								parent = node;
-								node = node.children.buffer[i];
-								++index;
-								found = true;
-								break;
+								if (node.children.buffer[i].name == names[index])
+								{
+									parent = node;
+									node = node.children.buffer[i];
+									++index;
+									found = true;
+									break;
+								}
 							}
 						}
 
@@ -449,10 +488,19 @@ namespace TNet
 			{
 				var other = (obj as DataNode);
 				node.value = other.value;
+#if DATANODE_CHILDREN_CAN_BE_NULL
+				node.children = null;
+#else
 				node.children.Clear();
+#endif
 				node.mCache = null;
-				for (int i = 0; i < other.children.size; ++i)
-					node.children.Add(other.children.buffer[i].Clone());
+
+				if (other.children != null && other.children.size > 0)
+				{
+					node.children = new List<DataNode>();
+					for (int i = 0; i < other.children.size; ++i)
+						node.children.Add(other.children.buffer[i].Clone());
+				}
 			}
 			else node.value = obj;
 			return node;
@@ -473,7 +521,7 @@ namespace TNet
 			if (string.IsNullOrEmpty(name)) return null;
 
 			// Automatically create a lookup dictionary
-			if (mCache == null && children.size >= LOOKUP_CHILD_REQUIREMENT)
+			if (mCache == null && children != null && children.size >= LOOKUP_CHILD_REQUIREMENT)
 				mCache = new Dictionary<string, DataNode>();
 
 			// Try to use the lookup dictionary if possible
@@ -483,15 +531,18 @@ namespace TNet
 				if (mCache.TryGetValue(name, out ch)) return ch;
 			}
 
-			for (int i = 0; i < children.size; ++i)
+			if (children != null)
 			{
-				var ch = children.buffer[i];
-
-				if (ch.name == name)
+				for (int i = 0; i < children.size; ++i)
 				{
-					// Add this record to the dictionary to speed up future lookups
-					if (mCache != null) mCache[name] = ch;
-					return ch;
+					var ch = children.buffer[i];
+
+					if (ch.name == name)
+					{
+						// Add this record to the dictionary to speed up future lookups
+						if (mCache != null) mCache[name] = ch;
+						return ch;
+					}
 				}
 			}
 
@@ -529,12 +580,15 @@ namespace TNet
 		{
 			if (mCache != null) mCache.Remove(name);
 
-			for (int i = 0; i < children.size; ++i)
+			if (children != null)
 			{
-				if (children.buffer[i].name == name)
+				for (int i = 0; i < children.size; ++i)
 				{
-					children.RemoveAt(i);
-					return true;
+					if (children.buffer[i].name == name)
+					{
+						children.RemoveAt(i);
+						return true;
+					}
 				}
 			}
 			return false;
@@ -549,11 +603,19 @@ namespace TNet
 			var copy = new DataNode(name);
 			copy.mValue = mValue;
 			copy.mResolved = mResolved;
-			for (int i = 0; i < children.size; ++i) copy.children.Add(children.buffer[i].Clone());
+
+			if (children != null)
+			{
+				for (int i = 0; i < children.size; ++i)
+				{
+					var c = children.buffer[i];
+					if (c != null) copy.AddChild(c, true);
+				}
+			}
 			return copy;
 		}
 
-		#region Serialization
+#region Serialization
 
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.
@@ -729,14 +791,17 @@ namespace TNet
 			else Write(writer, string.IsNullOrEmpty(name) ? "DataNode" : name, value, tab);
 
 			// Iterate through children
-			for (int i = 0; i < children.size; ++i)
+			if (children != null)
 			{
-				var child = children.buffer[i];
-
-				if (child.isSerializable)
+				for (int i = 0; i < children.size; ++i)
 				{
-					writer.Write('\n');
-					child.Write(writer, tab + 1);
+					var child = children.buffer[i];
+
+					if (child.isSerializable)
+					{
+						writer.Write('\n');
+						child.Write(writer, tab + 1);
+					}
 				}
 			}
 
@@ -857,11 +922,14 @@ namespace TNet
 					if (prefix) writer.Write(" = ");
 					writer.Write(Serialization.TypeToName(type));
 
-					for (int i = 0; i < temp.children.size; ++i)
+					if (temp.children != null)
 					{
-						var child = temp.children.buffer[i];
-						writer.Write('\n');
-						child.Write(writer, tab + 1);
+						for (int i = 0; i < temp.children.size; ++i)
+						{
+							var child = temp.children.buffer[i];
+							writer.Write('\n');
+							child.Write(writer, tab + 1);
+						}
 					}
 
 					temp.Clear();
@@ -883,11 +951,14 @@ namespace TNet
 						if (prefix) writer.Write(" = ");
 						writer.Write(Serialization.TypeToName(type));
 
-						for (int i = 0; i < temp.children.size; ++i)
+						if (temp.children != null)
 						{
-							var child = temp.children.buffer[i];
-							writer.Write('\n');
-							child.Write(writer, tab + 1);
+							for (int i = 0; i < temp.children.size; ++i)
+							{
+								var child = temp.children.buffer[i];
+								writer.Write('\n');
+								child.Write(writer, tab + 1);
+							}
 						}
 
 						temp.Clear();
@@ -977,16 +1048,15 @@ namespace TNet
 
 			if (other != null)
 			{
-				if (replaceExisting || value == null)
-				{
-					if (value != null && other.value != null) replaced = true;
-					value = other.value;
-				}
+				if ((replaceExisting || value == null) && other.value != null) value = other.value;
 
-				for (int i = 0; i < other.children.size; ++i)
+				if (other.children != null)
 				{
-					DataNode child = other.children.buffer[i];
-					replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
+					for (int i = 0; i < other.children.size; ++i)
+					{
+						var child = other.children.buffer[i];
+						replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
+					}
 				}
 			}
 			return replaced;
@@ -1033,8 +1103,8 @@ namespace TNet
 			stream.Close();
 			return data;
 		}
-		#endregion
-		#region Private Functions
+#endregion
+#region Private Functions
 
 		/// <summary>
 		/// Read this node and all of its children from the stream reader.
@@ -1115,8 +1185,15 @@ namespace TNet
 				}
 				else if (type == typeof(DataNode))
 				{
-					mValue = children.buffer[0];
-					children.Clear();
+					if (children != null)
+					{
+						mValue = children.buffer[0];
+#if DATANODE_CHILDREN_CAN_BE_NULL
+						children = null;
+#else
+						children.Clear();
+#endif
+					}
 					return false;
 				}
 				else if (type.Implements(typeof(IDataNodeSerializable)))
@@ -1141,7 +1218,7 @@ namespace TNet
 #if UNITY_EDITOR
 					Debug.Log("Still used");
 #endif
-					if (children.size != 0)
+					if (children != null && children.size != 0)
 					{
 						var cv = new AnimationCurve();
 						var kfs = new Keyframe[children.size];
@@ -1168,7 +1245,11 @@ namespace TNet
 
 						cv.keys = kfs;
 						mValue = cv;
+#if DATANODE_CHILDREN_CAN_BE_NULL
+						children = null;
+#else
 						children.Clear();
+#endif
 					}
 					return false;
 				}
@@ -1177,9 +1258,10 @@ namespace TNet
 					mValue = (LayerMask)Get<int>();
 				}
 #endif
-				else
-#if !STANDALONE
-				if (!type.IsSubclassOf(typeof(Component)))
+#if STANDALONE
+				else if (children != null)
+#else
+						else if (children != null && !type.IsSubclassOf(typeof(Component)))
 #endif
 				{
 					bool isIList = type.Implements(typeof(System.Collections.IList));
@@ -1318,7 +1400,7 @@ namespace TNet
 		{
 			var hash = node.name.GetHashCode();
 			if (node.value != null) hash += node.value.GetHashCode();
-			for (int i = 0; i < node.children.size; ++i) hash += CalculateHash(node.children.buffer[i]);
+			if (node.children != null) for(int i = 0; i < node.children.size; ++i) hash += CalculateHash(node.children.buffer[i]);
 			return hash;
 		}
 	}

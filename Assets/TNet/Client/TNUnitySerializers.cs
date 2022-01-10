@@ -474,14 +474,17 @@ namespace TNet
 				if (!state) go.SetActive(true);
 
 				// Now deserialize the Cloth component
-				for (int i = 0; i < node.children.size; ++i)
+				if (node.children != null)
 				{
-					var child = node.children.buffer[i];
-					if (child.value == null) continue;
+					for (int i = 0; i < node.children.size; ++i)
+					{
+						var child = node.children.buffer[i];
+						if (child.value == null) continue;
 
-					var fp = c.GetFieldOrProperty(child.name);
-					if (fp != null) fp.SetValue(c, child.value, go);
-					else Debug.LogWarning("Unable to find " + c.GetType() + "." + child.value);
+						var fp = c.GetFieldOrProperty(child.name);
+						if (fp != null) fp.SetValue(c, child.value, go);
+						else Debug.LogWarning("Unable to find " + c.GetType() + "." + child.value);
+					}
 				}
 
 				// Restore the game object's previous state and parent
@@ -495,7 +498,7 @@ namespace TNet
 					if (mb != null) mb.enabled = true;
 				}
 			}
-			else
+			else if (node.children != null)
 			{
 				// Fallback -- just set the appropriate fields/properties
 				for (int i = 0; i < node.children.size; ++i)
@@ -737,11 +740,10 @@ namespace TNet
 
 						if (tex != null)
 						{
-							var sub = new DataNode(propName, tex.GetUniqueID());
+							var sub = node.AddChild(propName, tex.GetUniqueID());
 							if (serializeTextures) tex.Serialize(sub);
 							sub.AddChild("offset", mat.GetTextureOffset(propName));
 							sub.AddChild("scale", mat.GetTextureScale(propName));
-							node.children.Add(sub);
 						}
 					}
 					else node.AddChild(propName, mat.GetFloat(propName));
@@ -792,15 +794,15 @@ namespace TNet
 			}
 #endif
 
-			DataNode matRoot = data.GetChild("Materials");
+			var matRoot = data.GetChild("Materials");
 
-			if (matRoot != null && matRoot.children.size > 0)
+			if (matRoot != null && matRoot.children != null && matRoot.children.size > 0)
 			{
-				Material[] mats = new Material[matRoot.children.size];
+				var mats = new Material[matRoot.children.size];
 
 				for (int i = 0; i < matRoot.children.size; ++i)
 				{
-					DataNode matNode = matRoot.children.buffer[i];
+					var matNode = matRoot.children.buffer[i];
 					mats[i] = matNode.DeserializeMaterial();
 				}
 				ren.sharedMaterials = mats;
@@ -867,33 +869,36 @@ namespace TNet
 			referencedMaterials[id] = mat;
 
 			// Restore material properties
-			for (int b = 0; b < matNode.children.size; ++b)
+			if (matNode.children != null)
 			{
-				DataNode prop = matNode.children.buffer[b];
-				if (prop.name == "shader") continue;
-
-				if (prop.children.size != 0)
+				for (int b = 0; b < matNode.children.size; ++b)
 				{
-					Texture tex = prop.DeserializeTexture();
+					DataNode prop = matNode.children.buffer[b];
+					if (prop.name == "shader") continue;
 
-					if (tex != null)
+					if (prop.children.size != 0)
 					{
-						mat.SetTexture(prop.name, tex);
-						mat.SetTextureOffset(prop.name, prop.GetChild<Vector2>("offset"));
-						mat.SetTextureScale(prop.name, prop.GetChild<Vector2>("scale", Vector2.one));
+						Texture tex = prop.DeserializeTexture();
+
+						if (tex != null)
+						{
+							mat.SetTexture(prop.name, tex);
+							mat.SetTextureOffset(prop.name, prop.GetChild<Vector2>("offset"));
+							mat.SetTextureScale(prop.name, prop.GetChild<Vector2>("scale", Vector2.one));
+						}
 					}
-				}
-				else if (prop.value is Vector4)
-				{
-					mat.SetVector(prop.name, prop.Get<Vector4>());
-				}
-				else if (prop.value is Color)
-				{
-					mat.SetColor(prop.name, prop.Get<Color>());
-				}
-				else if (prop.value is float || prop.value is int)
-				{
-					mat.SetFloat(prop.name, prop.Get<float>());
+					else if (prop.value is Vector4)
+					{
+						mat.SetVector(prop.name, prop.Get<Vector4>());
+					}
+					else if (prop.value is Color)
+					{
+						mat.SetColor(prop.name, prop.Get<Color>());
+					}
+					else if (prop.value is float || prop.value is int)
+					{
+						mat.SetFloat(prop.name, prop.Get<float>());
+					}
 				}
 			}
 			return mat;
@@ -970,7 +975,7 @@ namespace TNet
 			node.AddChild("name", clip.name);
 			if (clip.length > 30f) node.AddChild("stream", true);
 
-			string path = UnityTools.LocateResource(clip);
+			var path = UnityTools.LocateResource(clip);
 
 			if (!string.IsNullOrEmpty(path))
 			{
@@ -1175,8 +1180,11 @@ namespace TNet
 					if (width * height > 0)
 					{
 						if (t2 == null) t2 = new Texture2D(width, height, format, mipmap, linear);
+#if UNITY_2021_2_OR_NEWER
+						else t2.Reinitialize(width, height, format, mipmap);
+#else
 						else t2.Resize(width, height, format, mipmap);
-
+#endif
 						t2.name = name;
 						t2.LoadRawTextureData(bytes);
 						t2.filterMode = (FilterMode)node.GetChild("filter", (byte)t2.filterMode);
@@ -1303,25 +1311,28 @@ namespace TNet
 					child.AddAllFields(obj);
 
 					// Particle System modules have all these extra properties that point to the same data...
-					for (int b = 0; b < child.children.size; ++b)
+					if (child.children != null)
 					{
-						var c = child.children.buffer[b];
+						for (int b = 0; b < child.children.size; ++b)
+						{
+							var c = child.children.buffer[b];
 
-						if (c.name.EndsWith("Multiplier") && child.GetChild(c.name.Substring(0, c.name.Length - "Multiplier".Length)) != null)
-						{
-							child.children.RemoveAt(b--);
-						}
-						else if (c.value is Transform)
-						{
-							c.value = (c.value as Transform).gameObject.GetUniqueID();
-						}
-						else if (c.value is Component || c.value is GameObject || c.value is Shader)
-						{
-							c.value = (c.value as Object).GetUniqueID();
+							if (c.name.EndsWith("Multiplier") && child.GetChild(c.name.Substring(0, c.name.Length - "Multiplier".Length)) != null)
+							{
+								child.children.RemoveAt(b--);
+							}
+							else if (c.value is Transform)
+							{
+								c.value = (c.value as Transform).gameObject.GetUniqueID();
+							}
+							else if (c.value is Component || c.value is GameObject || c.value is Shader)
+							{
+								c.value = (c.value as Object).GetUniqueID();
+							}
 						}
 					}
 
-					node.children.Add(child);
+					node.AddChild(child);
 				}
 				else node.AddChild(name, obj);
 			}
@@ -1341,19 +1352,22 @@ namespace TNet
 			em.enabled = false;
 			sp.enabled = false;
 
-			foreach (var node in root.children)
+			if (root.children != null)
 			{
-				var propInfo = sys.GetFieldOrProperty(node.name);
-				if (propInfo == null) continue;
-
-				var propType = propInfo.type;
-
-				if (!propInfo.canWrite && propType.IsStruct())
+				foreach (var node in root.children)
 				{
-					var val = propInfo.GetValue(sys);
-					if (val != null) foreach (var child in node.children) val.SetFieldOrPropertyValue(child.name, child.value, go);
+					var propInfo = sys.GetFieldOrProperty(node.name);
+					if (propInfo == null) continue;
+
+					var propType = propInfo.type;
+
+					if (!propInfo.canWrite && propType.IsStruct())
+					{
+						var val = propInfo.GetValue(sys);
+						if (val != null) foreach (var child in node.children) val.SetFieldOrPropertyValue(child.name, child.value, go);
+					}
+					else propInfo.SetValue(sys, Serialization.ConvertObject(node.value, propType, go));
 				}
-				else propInfo.SetValue(sys, Serialization.ConvertObject(node.value, propType, go));
 			}
 		}
 
@@ -1721,7 +1735,7 @@ namespace TNet
 			{
 				var go = pair.Value;
 				var node = go.Serialize(true, false, progressBar);
-				if (node != null) prefabs.children.Add(node);
+				if (node != null) prefabs.AddChild(node);
 			}
 		}
 
@@ -1749,7 +1763,7 @@ namespace TNet
 		{
 			var resNode = root.GetChild("Resources");
 
-			if (resNode != null)
+			if (resNode != null && resNode.children != null)
 			{
 				for (int i = 0; i < resNode.children.size; ++i)
 				{
@@ -1763,7 +1777,7 @@ namespace TNet
 
 			var prefabs = root.GetChild("Prefabs");
 
-			if (prefabs != null)
+			if (prefabs != null && prefabs.children != null)
 			{
 				// First create all prefab game objects and add them to the list of known references
 				for (int i = 0; i < prefabs.children.size; ++i)
@@ -1881,7 +1895,7 @@ namespace TNet
 				{
 					var child = trans.GetChild(i).gameObject;
 					var c = child.Serialize(true, false);
-					if (c != null) children.children.Add(c);
+					if (c != null) children.AddChild(c);
 				}
 			}
 
@@ -1977,7 +1991,7 @@ namespace TNet
 		{
 			var resNode = root.GetChild("Resources");
 
-			if (resNode != null)
+			if (resNode != null && resNode.children != null)
 			{
 				for (int i = 0; i < resNode.children.size; ++i)
 				{
@@ -2024,7 +2038,7 @@ namespace TNet
 
 			var childNode = root.GetChild("Children");
 
-			if (childNode != null && childNode.children.size > 0)
+			if (childNode != null && childNode.children != null && childNode.children.size > 0)
 			{
 				for (int i = 0; i < childNode.children.size; ++i)
 				{
@@ -2057,7 +2071,7 @@ namespace TNet
 		static void DeserializeComponents (this GameObject go, DataNode root)
 		{
 			var scriptNode = root.GetChild("Components");
-			if (scriptNode == null) return;
+			if (scriptNode == null || scriptNode.children == null) return;
 
 			for (int i = 0; i < scriptNode.children.size; ++i)
 			{

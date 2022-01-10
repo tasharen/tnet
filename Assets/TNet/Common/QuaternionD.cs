@@ -48,6 +48,14 @@ public struct QuaternionD : IBinarySerializable
 		this.z = (double)q.z;
 		this.w = (double)q.w;
 	}
+
+	public QuaternionD (Vector4 q)
+	{
+		this.x = (double)q.x;
+		this.y = (double)q.y;
+		this.z = (double)q.z;
+		this.w = (double)q.w;
+	}
 #endif
 
 	[System.Diagnostics.DebuggerHidden]
@@ -78,9 +86,19 @@ public struct QuaternionD : IBinarySerializable
 		return new QuaternionD((double)q.x, (double)q.y, (double)q.z, (double)q.w);
 	}
 
+	static public implicit operator QuaternionD (Vector4 q)
+	{
+		return new QuaternionD((double)q.x, (double)q.y, (double)q.z, (double)q.w);
+	}
+
 	static public implicit operator Quaternion (QuaternionD q)
 	{
 		return new Quaternion((float)q.x, (float)q.y, (float)q.z, (float)q.w);
+	}
+
+	static public implicit operator Vector4 (QuaternionD q)
+	{
+		return new Vector4((float)q.x, (float)q.y, (float)q.z, (float)q.w);
 	}
 #endif
 

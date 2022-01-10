@@ -250,6 +250,29 @@ namespace TNet
 			}
 			return null;
 		}
+
+		/// <summary>
+		/// Compares the referenced field and property.
+		/// </summary>
+
+		static public bool Matches (FieldOrProperty a, FieldOrProperty b)
+		{
+			if (ReferenceEquals(a, null)) return ReferenceEquals(b, null);
+			if (ReferenceEquals(b, null)) return ReferenceEquals(a, null);
+			return a.field == b.field && a.property == b.property;
+		}
+
+		static public bool operator == (FieldOrProperty a, FieldOrProperty b) { return Matches(a, b); }
+		static public bool operator != (FieldOrProperty a, FieldOrProperty b) { return !Matches(a, b); }
+
+		public override bool Equals (object obj) { return Matches(this, obj as FieldOrProperty); }
+
+		public override int GetHashCode ()
+		{
+			if (field != null) return field.GetHashCode();
+			if (property != null) return property.GetHashCode();
+			return base.GetHashCode();
+		}
 	}
 
 	/// <summary>

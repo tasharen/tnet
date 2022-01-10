@@ -430,6 +430,20 @@ namespace TNet
 			if (valueType == desiredType) return value;
 			if (desiredType.IsAssignableFrom(valueType)) return value;
 
+			if (valueType == typeof(string))
+			{
+				if (desiredType == typeof(bool)) { var s = (string)value; return s == "true" || s == "True"; }
+				if (desiredType == typeof(byte)) { byte val; byte.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(short)) { short val; short.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(ushort)) { ushort val; ushort.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(int)) { int val; int.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(uint)) { uint val; uint.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(float)) { float val; float.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(double)) { double val; double.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(long)) { long val; long.TryParse((string)value, out val); return val; }
+				if (desiredType == typeof(ulong)) { ulong val; ulong.TryParse((string)value, out val); return val; }
+			}
+
 			if (valueType == typeof(int))
 			{
 				// Integer conversion
@@ -1048,7 +1062,7 @@ namespace TNet
 			{
 				var obj = desiredType.Create();
 				var node = (DataNode)value;
-				foreach (var child in node.children) obj.SetFieldOrPropertyValue(child.name, child.value, go);
+				if (node.children != null) foreach(var child in node.children) obj.SetFieldOrPropertyValue(child.name, child.value, go);
 				return obj;
 			}
 #endif
@@ -2137,10 +2151,12 @@ namespace TNet
 				writer.WriteObject(node.value);
 			}
 
-			writer.WriteInt(node.children.size);
-
-			for (int i = 0, imax = node.children.size; i < imax; ++i)
-				writer.Write(node.children.buffer[i]);
+			if (node.children != null)
+			{
+				writer.WriteInt(node.children.size);
+				for (int i = 0, imax = node.children.size; i < imax; ++i) writer.Write(node.children.buffer[i]);
+			}
+			else writer.WriteInt(0);
 		}
 
 		/// <summary>
@@ -3449,7 +3465,7 @@ namespace TNet
 				for (int i = 0; i < count; ++i)
 				{
 					var dn = reader.ReadDataNode();
-					if (dn != null) node.children.Add(dn);
+					if (dn != null) node.AddChild(dn);
 				}
 #if SAFE_EXCEPTIONS
 			}

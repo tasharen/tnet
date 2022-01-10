@@ -52,7 +52,7 @@ namespace TNet
 			base.Start();
 
 #if FORCE_EN_US
-		Tools.SetCurrentCultureToEnUS();
+			Tools.SetCurrentCultureToEnUS();
 #endif
 			if (mTcp == null)
 			{
@@ -156,7 +156,6 @@ namespace TNet
 #endif
 					buffer.Recycle();
 				}
-
 
 				// Automatically try to re-establish a connection on disconnect
 				if (mWasConnected && !mTcp.isConnected && !mTcp.isTryingToConnect)
