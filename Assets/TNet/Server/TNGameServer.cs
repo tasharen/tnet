@@ -1689,7 +1689,7 @@ namespace TNet
 								if (player.dataNode != null)
 								{
 									var ours = player.dataNode.GetChild("Server");
-									if (ours != null) node.children.Add(ours);
+									if (ours != null) node.AddChild(ours); // Note that this effectively references the node as it doesn't clone it
 								}
 
 								player.dataNode = node;
@@ -3181,7 +3181,7 @@ namespace TNet
 			if (player == null || !player.saveNeeded || string.IsNullOrEmpty(player.savePath)) return;
 			player.saveNeeded = false;
 
-			if (player.dataNode == null || player.dataNode.children.size == 0)
+			if (player.dataNode == null || player.dataNode.children == null || player.dataNode.children.size == 0)
 			{
 				if (DeleteFile(player.savePath))
 					player.Log("Deleted " + player.savePath);
