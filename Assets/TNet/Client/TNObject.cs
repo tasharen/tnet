@@ -1338,6 +1338,65 @@ namespace TNet
 			SendRFC(0, rfcName, playerID, true, mObj6);
 		}
 
+		public void Send (string rfcName, List<int> playerIDs, params object[] objs) { SendRFC(0, rfcName, playerIDs, true, objs); }
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, playerIDs, true, mObj1);
+		}
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, playerIDs, true, mObj2);
+		}
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, playerIDs, true, mObj3);
+		}
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, playerIDs, true, mObj4);
+		}
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3, object obj4)
+		{
+			if (mObj5 == null) mObj5 = new object[5];
+			mObj5[0] = obj0;
+			mObj5[1] = obj1;
+			mObj5[2] = obj2;
+			mObj5[3] = obj3;
+			mObj5[4] = obj4;
+			SendRFC(0, rfcName, playerIDs, true, mObj5);
+		}
+
+		public void Send (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5)
+		{
+			if (mObj6 == null) mObj6 = new object[6];
+			mObj6[0] = obj0;
+			mObj6[1] = obj1;
+			mObj6[2] = obj2;
+			mObj6[3] = obj3;
+			mObj6[4] = obj4;
+			mObj6[5] = obj5;
+			SendRFC(0, rfcName, playerIDs, true, mObj6);
+		}
+
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
@@ -1572,10 +1631,7 @@ namespace TNet
 		/// Convert object and RFC IDs into a single UINT.
 		/// </summary>
 
-		static public uint GetUID (uint objID, byte rfcID)
-		{
-			return (objID << 8) | rfcID;
-		}
+		static public uint GetUID (uint objID, byte rfcID) { return (objID << 8) | rfcID; }
 
 		/// <summary>
 		/// Decode object ID and RFC IDs encoded in a single UINT.
@@ -1627,8 +1683,7 @@ namespace TNet
 #endif
 			// Some very odd special case... sending a string[] as the only parameter
 			// results in objs[] being a string[] instead, when it should be object[string[]].
-			if (objs != null && objs.GetType() != typeof(object[]))
-				objs = new object[] { objs };
+			if (objs != null && objs.GetType() != typeof(object[])) objs = new object[] { objs };
 
 			var uid = this.uid;
 			var executeLocally = false;
@@ -1814,8 +1869,45 @@ namespace TNet
 			}
 			else if (target == TNManager.playerID)
 			{
+				TNManager.packetSourceID = TNManager.playerID;
 				if (rfcID != 0) Execute(rfcID, objs);
 				else Execute(rfcName, objs);
+				TNManager.packetSourceID = -1;
+			}
+		}
+
+		/// <summary>
+		/// Send a new remote function call to the specified player.
+		/// </summary>
+
+		void SendRFC (byte rfcID, string rfcName, List<int> targets, bool reliable, object[] objs)
+		{
+			if (hasBeenDestroyed || uid == 0 || targets == null || targets.size == 0) return;
+
+			if (TNManager.isConnected)
+			{
+#if !MODDING
+				var writer = TNManager.BeginSend(Packet.ForwardToPlayers);
+				writer.Write(TNManager.playerID);
+				writer.WriteObject(targets);
+				writer.Write(channelID);
+				writer.Write(GetUID(uid, rfcID));
+				if (rfcID == 0) writer.Write(rfcName);
+#if UNITY_EDITOR && COUNT_PACKETS
+				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
+				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
+				else sentDictionary[sid] = 1;
+#endif
+				writer.WriteArray(objs);
+				TNManager.EndSend(channelID, reliable);
+#endif
+			}
+			else if (targets.Contains(TNManager.playerID))
+			{
+				TNManager.packetSourceID = TNManager.playerID;
+				if (rfcID != 0) Execute(rfcID, objs);
+				else Execute(rfcName, objs);
+				TNManager.packetSourceID = -1;
 			}
 		}
 

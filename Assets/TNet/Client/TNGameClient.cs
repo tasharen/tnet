@@ -1304,6 +1304,15 @@ namespace TNet
 					packetSourceID = -1;
 					break;
 				}
+				case Packet.ForwardToPlayers:
+				{
+					packetSourceID = reader.ReadInt32();
+					reader.ReadObject<List<int>>(); // Skip the target player IDs
+					int channelID = reader.ReadInt32();
+					if (onForwardedPacket != null) onForwardedPacket(channelID, reader);
+					packetSourceID = -1;
+					break;
+				}
 				case Packet.ForwardByName:
 				{
 					packetSourceID = reader.ReadInt32();

@@ -48,6 +48,22 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Write the array of objects into the specified writer, starting at the specified offset.
+		/// </summary>
+
+		static public void WriteArray (this BinaryWriter bw, object[] objs, int offset)
+		{
+			if (objs != null)
+			{
+				var follows = objs.Length - offset;
+				bw.WriteInt(follows);
+				if (follows == 0) return;
+				for (int b = offset, bmax = objs.Length; b < bmax; ++b) bw.WriteObject(objs[b]);
+			}
+			else bw.WriteInt(0);
+		}
+
+		/// <summary>
 		/// Read the object array from the specified reader.
 		/// </summary>
 

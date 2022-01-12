@@ -705,7 +705,7 @@ namespace TNet
 			if (!mFullSerialization) return;
 
 			node.AddChild("name", mat.name);
-			string path = UnityTools.LocateResource(mat);
+			var path = UnityTools.LocateResource(mat);
 
 			if (!string.IsNullOrEmpty(path))
 			{
@@ -713,7 +713,7 @@ namespace TNet
 				return;
 			}
 
-			Shader s = mat.shader;
+			var s = mat.shader;
 
 			if (s != null)
 			{
@@ -723,8 +723,8 @@ namespace TNet
 
 				for (int b = 0; b < props; ++b)
 				{
-					string propName = UnityEditor.ShaderUtil.GetPropertyName(s, b);
-					UnityEditor.ShaderUtil.ShaderPropertyType type = UnityEditor.ShaderUtil.GetPropertyType(s, b);
+					var propName = UnityEditor.ShaderUtil.GetPropertyName(s, b);
+					var type = UnityEditor.ShaderUtil.GetPropertyType(s, b);
 
 					if (type == UnityEditor.ShaderUtil.ShaderPropertyType.Color)
 					{

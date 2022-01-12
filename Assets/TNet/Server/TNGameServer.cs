@@ -2028,6 +2028,28 @@ namespace TNet
 					}
 					break;
 				}
+				case Packet.ForwardToPlayers:
+				{
+					// Forward this packet to the specified list of players
+					int origin = buffer.position - 5;
+
+					if (reader.ReadInt32() == player.id) // Validate the packet's source
+					{
+						var playerIDs = reader.ReadObject<List<int>>();
+
+						for (int i = 0; i < playerIDs.size; ++i)
+						{
+							var target = GetPlayer(playerIDs.buffer[i]);
+
+							if (target != null && target.isConnected)
+							{
+								buffer.position = origin;
+								target.SendTcpPacket(buffer);
+							}
+						}
+					}
+					break;
+				}
 				case Packet.ForwardByName:
 				{
 					int origin = buffer.position - 5;

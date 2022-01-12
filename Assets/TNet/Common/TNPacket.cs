@@ -633,10 +633,16 @@ namespace TNet
 		RequestUnban,
 
 		/// <summary>
-		/// No longer used.
+		/// Forwards this packet to the specified list of players.
+		/// int32: ID of the player that sent the packet.
+		/// TNet.List<int32>: Player IDs.
+		/// int32: Channel ID.
+		/// uint32: Object ID (24 bits), RFC ID (8 bits).
+		/// string: Function name (only if RFC ID is 0).
+		/// Arbitrary amount of data follows.
 		/// </summary>
 
-		RequestLogPlayers,
+		ForwardToPlayers,
 
 		/// <summary>
 		/// Change the ban list to the specified one. Only administrators can do this.
