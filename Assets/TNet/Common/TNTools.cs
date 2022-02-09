@@ -299,6 +299,13 @@ namespace TNet
 			{
 				if (mExternalAddress == null)
 				{
+#if !STANDALONE
+					if (UnityEngine.Application.internetReachability == UnityEngine.NetworkReachability.NotReachable)
+					{
+						mExternalAddress = localAddress;
+						return mExternalAddress;
+					}
+#endif
 					if (localAddress.AddressFamily == AddressFamily.InterNetworkV6) ResolveExternalIPv6Address();
 					else ResolveExternalIPv4Address();
 				}

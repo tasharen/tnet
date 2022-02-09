@@ -1768,14 +1768,29 @@ namespace TNet
 				{
 					if (uid != 0)
 					{
-						var packetID = (byte)((int)Packet.ForwardToAll + (int)target);
-						var writer = TNManager.BeginSend(packetID);
-						writer.Write(TNManager.playerID);
-						writer.Write(channelID);
-						writer.Write(GetUID(uid, rfcID));
-						if (rfcID == 0) writer.Write(rfcName);
-						writer.WriteArray(objs);
-						TNManager.EndSend(channelID, reliable);
+						if (target != Target.Host)
+						{
+							var packetID = (byte)(target == Target.NoneSaved ? (int)Packet.ForwardToServerSaved : (int)Packet.ForwardToAll + (int)target);
+							var writer = TNManager.BeginSend(packetID);
+							writer.Write(TNManager.playerID);
+							writer.Write(channelID);
+							writer.Write(GetUID(uid, rfcID));
+							if (rfcID == 0) writer.Write(rfcName);
+							writer.WriteArray(objs);
+							TNManager.EndSend(channelID, reliable);
+						}
+						else // target == Host, backwards compatibility
+						{
+							var ch = TNManager.GetChannel(channelID);
+							var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+							writer.Write(TNManager.playerID);
+							writer.Write(ch.host.id);
+							writer.Write(channelID);
+							writer.Write(GetUID(uid, rfcID));
+							if (rfcID == 0) writer.Write(rfcName);
+							writer.WriteArray(objs);
+							TNManager.EndSend(channelID, reliable);
+						}
 #if UNITY_EDITOR && COUNT_PACKETS
 						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
 						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];

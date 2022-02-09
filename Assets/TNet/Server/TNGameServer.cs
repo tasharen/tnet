@@ -2706,18 +2706,15 @@ namespace TNet
 			// We can't send unreliable packets if UDP is not active
 			if (!mUdp.isActive || buffer.size > 1024) reliable = true;
 
-			if (request == Packet.ForwardToHost)
+			if (request == Packet.ForwardToServerSaved)
 			{
-				var host = (TcpPlayer)ch.host;
-				if (host == null) return;
-				buffer.position = origin;
-
-				// Forward the packet to the channel's host
-				if (reliable || !player.udpIsUsable || host.udpEndPoint == null || !mAllowUdp)
+				// Save this packet on the server without echoing it to anyone
+				if (!ch.isLocked || player.isAdmin)
 				{
-					host.SendTcpPacket(buffer);
+					uint target = reader.ReadUInt32();
+					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+					ch.AddRFC(target, funcName, buffer, mTime);
 				}
-				else mUdp.Send(buffer, host.udpEndPoint);
 			}
 			else
 			{

@@ -1097,8 +1097,17 @@ namespace TNet
 		}
 
 #if USE_MAX_PACKET_TIME && !MODDING
-		[System.NonSerialized] System.Diagnostics.Stopwatch mSw;
+		[NonSerialized] System.Diagnostics.Stopwatch mSw;
 #endif
+
+		/// <summary>
+		/// Maximum allowed time delta in milliseconds before the game forcibly disconnects the client.
+		/// This is meant as a very simple time change anti-cheat, but it will also force a disconnect on mobiles if the app goes to sleep and is then resumed.
+		/// Upon resumption, if the time since it went to sleep exceeds this value, the client will disconnect.
+		/// </summary>
+
+		[NonSerialized] static public int maxTimeDelta = 30000;
+
 		/// <summary>
 		/// Process all incoming packets.
 		/// </summary>
@@ -1114,8 +1123,11 @@ namespace TNet
 			{
 				var delta = time - mMyTime;
 
-				if (delta < 0 || delta > 30000)
+				if (delta < 0 || delta > maxTimeDelta)
 				{
+#if UNITY_EDITOR
+					Debug.Log("Time delta exceeded the GameClient.maxTimeDelta value, forcing a disconnect (" + delta + " > " + maxTimeDelta + ")");
+#endif
 					mMyTime = time;
 					Disconnect();
 					return;
@@ -1285,7 +1297,7 @@ namespace TNet
 				case Packet.ForwardToOthers:
 				case Packet.ForwardToAllSaved:
 				case Packet.ForwardToOthersSaved:
-				case Packet.ForwardToHost:
+				case Packet.ForwardToServerSaved:
 				case Packet.BroadcastAdmin:
 				case Packet.Broadcast:
 				{

@@ -481,7 +481,7 @@ namespace TNet
 		ForwardToOthersSaved,
 
 		/// <summary>
-		/// Echo the packet to the room's host. Interpreting the packet is up to the client.
+		/// Save this packet on the server for new players, without echoing it to anyone.
 		/// int32: ID of the player that sent the packet.
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
@@ -489,7 +489,7 @@ namespace TNet
 		/// Arbitrary amount of data follows.
 		/// </summary>
 
-		ForwardToHost,
+		ForwardToServerSaved,
 
 		/// <summary>
 		/// Echo the packet to the specified player.

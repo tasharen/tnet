@@ -36,7 +36,8 @@ namespace TNet
 	OthersSaved,
 
 	/// <summary>
-	/// Echo the packet to the room's host.
+	/// Echo the packet to the channel's host. Note that this is only kept for backwards compatibility. There is no need for this target anymore,
+	/// since you can (and should) send the RFC to TNObject's owner instead.
 	/// </summary>
 
 	Host,
@@ -52,5 +53,12 @@ namespace TNet
 	/// </summary>
 
 	Admin,
+
+	/// <summary>
+	/// Saves this packet on the server, without sending it to anyone else. Since it gets saved, all players that join will still receive this packet, however.
+	/// Useful if you have a packet that includes data that lets clients calculate the up-to-date value themselves using interpolation or time.
+	/// </summary>
+
+	NoneSaved,
 }
 }
