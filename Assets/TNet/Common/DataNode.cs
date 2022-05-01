@@ -185,7 +185,7 @@ namespace TNet
 		{
 			if (value is T) return (T)mValue;
 			var converted = Serialization.Convert<T>(mValue);
-			if (mValue is byte[] && converted != null) mValue = converted;
+			if ((mValue is byte[] || mValue is string) && converted != null) mValue = converted;
 			return converted;
 		}
 

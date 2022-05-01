@@ -144,6 +144,7 @@ namespace TNet
 		}
 
 		const int defaultBufferSize = 8192;
+		const int maxPacketSize = 16777216;
 
 		// Buffer used for receiving incoming data
 		byte[] mTemp = new byte[defaultBufferSize];
@@ -1013,7 +1014,7 @@ namespace TNet
 						Disconnect();
 						return false;
 					}
-					else if (mExpected < 0 || mExpected > 16777216)
+					else if (mExpected < 0 || mExpected > maxPacketSize)
 					{
 #if UNITY_EDITOR
 						LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);

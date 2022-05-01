@@ -355,5 +355,25 @@ namespace TNet
 				else mInst.mOnNextUpdate1 += callback;
 			}
 		}
+
+		/// <summary>
+		/// Remove the specified callback from the one-time execution list.
+		/// </summary>
+
+		static public void RemoveOneShot (System.Action callback)
+		{
+			if (mShuttingDown) return;
+
+			if (mInst != null)
+			{
+#if THREAD_SAFE_UPDATER
+				lock (mInst)
+#endif
+				{
+					mInst.mOnNextUpdate0 -= callback;
+					mInst.mOnNextUpdate1 -= callback;
+				}
+			}
+		}
 	}
 }

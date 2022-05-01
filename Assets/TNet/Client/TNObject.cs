@@ -495,7 +495,6 @@ namespace TNet
 		static public TNObject Find (int channelID, uint tnID)
 		{
 #if !MODDING
-			if (mDictionary == null) return null;
 			TNObject tno = null;
 			Dictionary<uint, TNObject> dict;
 			if (!mDictionary.TryGetValue(channelID, out dict)) return FindForwardRecord(channelID, tnID);
