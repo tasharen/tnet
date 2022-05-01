@@ -789,7 +789,7 @@ namespace TNet
 
 		/// <summary>
 		/// Server configuration is set by administrators.
-		/// In most cases you should use GetServerData and SetServerData functions instead.
+		/// Don't try to edit it. Use GetServerData and SetServerData functions instead.
 		/// </summary>
 
 		static public DataNode serverData
@@ -833,13 +833,13 @@ namespace TNet
 		{
 			if (!string.IsNullOrEmpty(text))
 			{
-				string[] parts = text.Split(new char[] { '=' }, 2);
+				var parts = text.Split(new char[] { '=' }, 2);
 
 				if (parts.Length == 2)
 				{
-					string key = parts[0].Trim();
-					string val = parts[1].Trim();
-					DataNode node = new DataNode(key, val);
+					var key = parts[0].Trim();
+					var val = parts[1].Trim();
+					var node = new DataNode(key, val);
 					if (node.ResolveValue()) SetServerData(node.name, node.value);
 				}
 				else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");

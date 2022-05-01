@@ -300,7 +300,7 @@ namespace TNet
 				if (mExternalAddress == null)
 				{
 #if !STANDALONE
-					if (UnityEngine.Application.internetReachability == UnityEngine.NetworkReachability.NotReachable)
+					if (!mInternetIsReachable)
 					{
 						mExternalAddress = localAddress;
 						return mExternalAddress;
@@ -321,6 +321,9 @@ namespace TNet
 
 		static public void ResolveIPs () { ResolveIPs(null); }
 
+#if !STANDALONE
+		[System.NonSerialized] static bool mInternetIsReachable = true;
+#endif
 		/// <summary>
 		/// Since calling "localAddress" and "externalAddress" would lock up the application, it's better to do it asynchronously.
 		/// </summary>
@@ -334,7 +337,9 @@ namespace TNet
 			else
 			{
 				if (mOnResolve == null) mOnResolve = ResolveDummyFunc;
-
+#if !STANDALONE
+				mInternetIsReachable = UnityEngine.Application.internetReachability != UnityEngine.NetworkReachability.NotReachable;
+#endif
 				lock (mOnResolve)
 				{
 					if (del != null) mOnResolve += del;

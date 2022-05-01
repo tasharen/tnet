@@ -146,16 +146,6 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Perform the server configuration hash validation against the current data in memory. Useful for detecting memory modification.
-		/// </summary>
-
-		public bool ValidateHash ()
-		{
-			if (mConfig.children != null && mConfig.children.size == 0) return true;
-			return mDataHash == mConfig.CalculateHash();
-		}
-
-		/// <summary>
 		/// Request the server-side validation of the specified property.
 		/// </summary>
 
@@ -342,6 +332,7 @@ namespace TNet
 				if (isAdmin)
 				{
 					mConfig = value;
+					mDataHash = mConfig.CalculateHash();
 #if !MODDING
 					var writer = BeginSend(Packet.RequestSetServerData);
 					writer.Write("");
@@ -748,6 +739,7 @@ namespace TNet
 #endif
 			if (onDisconnect != null) onDisconnect();
 			mConfig = new DataNode("Version", Player.version);
+			mDataHash = mConfig.CalculateHash();
 		}
 #endif
 		/// <summary>
@@ -1732,11 +1724,14 @@ namespace TNet
 				}
 				case Packet.ResponseSetServerData:
 				{
-					if (!ValidateHash())
+					if (mDataHash != 0 && mDataHash != mConfig.CalculateHash())
 					{
 #if SIGHTSEER
 						Game.MAC("Edited the server configuration in memory");
 #else
+#if UNITY_EDITOR
+						Debug.LogError("Failed config hash validation: " + mDataHash + " vs " + mConfig.CalculateHash());
+#endif
 						Disconnect();
 #endif
 						break;
