@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
      Copyright © 2012-2019 Tasharen Entertainment Inc.
-                  Version 3.3.4
+                  Version 2022.04.30
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -115,6 +115,14 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+2022.04.30
+- NEW: The server will now automatically reduce channel memory footprint when saving the server in channels that have no players left.
+- NEW: DataNode's list of children will now be null by default until some child gets added in order to reduce memory usage. Added null checks for this case everywhere, but for backwards compatibility you can disable this feature by commenting out #define DATANODE_CHILDREN_CAN_BE_NULL at the top of DataNode.cs.
+- NEW: Added automatic string-to-numeric conversion to the TNet's serializer.
+- NEW: Added tno.Send("RFC", List<int>, ...) that works like tno.Send("RFC", playerID, ...), except taking a list of players to forward this RFC to.
+- NEW: Added Packet.NoneSaved that saves the RFC on the server without echoing it to any client. Useful for packets that include values that let clients calculate an up-to-date value using time passed or interpolation-based methods. Since the packet is saved, it will still be sent to newly joining clients like any other saved RFC.
+- FIX: Fixed a bug with stereo AudioClip serialization.
 
 3.3.4
 - NEW: Added TNUpdater.AddOneShot() that adds a callback to be executed on the next update (and only once).
