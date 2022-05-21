@@ -1746,9 +1746,16 @@ namespace TNet
 					var old = buffer.buffer[buffer.position]; // Legacy support back when it was read back incorrectly
 					var hash = reader.ReadInt32();
 #if W2
+					if (player.aliases == null || player.aliases.size == 0)
+					{
+						player.LogError("Player requested a save file without first specifying an alias: " + path);
+						RemovePlayer(player);
+						return false;
+					}
+
 					var expected = "Players/" + player.aliases.buffer[0] + ".player";
 
-					if (player.aliases == null || player.aliases.size == 0 || path != expected)
+					if (path != expected)
 					{
 						player.LogError("Player requested a save that doesn't match the alias: " + path + " vs " + expected);
 						RemovePlayer(player);
@@ -2552,6 +2559,13 @@ namespace TNet
 					}
 					break;
 				}
+				case Packet.Echo:
+				{
+					var requestID = reader.ReadUInt32();
+					player.BeginSend(Packet.Echo).Write(requestID);
+					player.EndSend();
+					break;
+				}
 				case Packet.RequestValidate:
 				{
 					var propName = reader.ReadString();
@@ -3145,6 +3159,8 @@ namespace TNet
 				}
 			}
 
+			var inMyDocuments = !string.IsNullOrEmpty(Tools.applicationDirectory);
+
 			// Create backups as requested
 			if (backupInterval > 0)
 			{
@@ -3159,14 +3175,14 @@ namespace TNet
 					{
 						var fn = mFilename + "_" + time;
 						mFilenames.Enqueue(fn);
-						Tools.WriteFile(fn, prev);
+						Tools.WriteFile(fn, prev, inMyDocuments);
 					}
 
 					if (mFilenames.Count > 5) Tools.DeleteFile(mFilenames.Dequeue());
 				}
 			}
 
-			Tools.WriteFile(mFilename, mWriteStream);
+			Tools.WriteFile(mFilename, mWriteStream, inMyDocuments);
 
 			// Save the server configuration data
 			if (mServerDataChanged && mServerData != null)
@@ -3233,11 +3249,7 @@ namespace TNet
 #if !MODDING
 			if (!string.IsNullOrEmpty(mFilename))
 			{
-				try
-				{
-					var data = Tools.ReadFile(mFilename + ".config");
-					mServerData = DataNode.Read(data, DataNode.SaveType.Text);
-				}
+				try { mServerData = DataNode.Read(mFilename + ".config", true); }
 				catch (Exception) { mServerData = null; }
 				mServerDataChanged = false;
 			}

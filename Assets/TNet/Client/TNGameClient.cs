@@ -892,8 +892,6 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				mJoining.Clear();
-
 				for (int i = mChannels.size; i > 0;)
 				{
 					var ch = mChannels.buffer[--i];
@@ -1520,7 +1518,7 @@ namespace TNet
 						{
 							int id = mJoining.buffer[i];
 
-							if (id < 0)
+							if (id == -1 || id == -2)
 							{
 								mJoining.RemoveAt(i);
 								break;
@@ -1638,6 +1636,19 @@ namespace TNet
 					{
 						mOnImport.Remove(requestID);
 						if (cb != null) cb(result);
+					}
+					break;
+				}
+				case Packet.Echo:
+				{
+					var requestID = reader.ReadUInt32();
+
+					Action cb;
+					
+					if (mCallbacks.TryGetValue(requestID, out cb))
+					{
+						mCallbacks.Remove(requestID);
+						if (cb != null) cb();
 					}
 					break;
 				}
@@ -1983,7 +1994,7 @@ namespace TNet
 				foreach (var obj in list)
 				{
 					writer.Write(obj.channelID);
-					writer.Write(obj.uid);
+					writer.Write(obj.id);
 				}
 
 				EndSend();
@@ -2013,7 +2024,7 @@ namespace TNet
 				foreach (var obj in list)
 				{
 					writer.Write(obj.channelID);
-					writer.Write(obj.uid);
+					writer.Write(obj.id);
 				}
 
 				EndSend();
@@ -2072,6 +2083,43 @@ namespace TNet
 				writer.Write(channelID);
 				writer.Write(buffer.buffer, buffer.position, buffer.size);
 				EndSend();
+			}
+#endif
+		}
+
+		[NonSerialized] static uint mCbID = 0;
+		[NonSerialized] static Dictionary<uint, Action> mCallbacks = null;
+
+		/// <summary>
+		/// Bounces a packet from the server, then executes the chosen callback.
+		/// </summary>
+
+		public void SendCallback (Action callback)
+		{
+#if !MODDING
+			if (callback != null)
+			{
+				if (mCallbacks == null) mCallbacks = new Dictionary<uint, Action>();
+				mCallbacks.Add(++mCbID, callback);
+				BeginSend(Packet.Echo).Write(mCbID);
+				EndSend();
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Bounces a packet from the server, then executes the chosen callback.
+		/// </summary>
+
+		public void SendCallback (Action callback, IPEndPoint ip)
+		{
+#if !MODDING
+			if (callback != null)
+			{
+				if (mCallbacks == null) mCallbacks = new Dictionary<uint, Action>();
+				mCallbacks.Add(++mCbID, callback);
+				BeginSend(Packet.Echo).Write(mCbID);
+				EndSend(ip);
 			}
 #endif
 		}

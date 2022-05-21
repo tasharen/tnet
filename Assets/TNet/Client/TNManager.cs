@@ -1692,7 +1692,7 @@ namespace TNet
 					if (!IsInChannel(channelID))
 					{
 #if UNITY_EDITOR
-						Debug.LogWarning("Must join the channel first before calling instantiating objects.");
+						Debug.LogWarning("Must join the channel #" + channelID + " first before calling instantiating objects.");
 #endif
 						return;
 					}
@@ -1729,7 +1729,7 @@ namespace TNet
 					{
 						var tno = go.GetComponent<TNObject>();
 						if (tno == null) tno = go.AddComponent<TNObject>();
-						tno.uid = currentRccObjectID;
+						tno.id = currentRccObjectID;
 						tno.channelID = channelID;
 						go.SetActive(true);
 						tno.Register();
@@ -2203,7 +2203,7 @@ namespace TNet
 					var obj = go.GetComponent<TNObject>();
 					if (obj == null) obj = go.AddComponent<TNObject>();
 					obj.channelID = channelID;
-					obj.uid = objectID;
+					obj.id = objectID;
 					go.SetActive(true);
 					obj.Register();
 				}
@@ -2361,6 +2361,60 @@ namespace TNet
 
 		static public void SendChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
 
+		/// <summary>
+		/// Bounces a packet from the server, then executes the chosen callback. This is useful in case you create a send a bunch of data to the server,
+		/// then wait for it to get forwarded to all clients before proceeding with the rest of your code. Example usage:
+		/// 
+		///		TNManager.SendCallback(delegate ()
+		///		{
+		///			// Everything here will be executed after the packet comes back from the server.
+		///			// Note that this code will only execute on the client that made the call, as it's not an RFC.
+		///		});
+		/// </summary>
+
+		static public void SendCallback (Action callback)
+		{
+			if (isConnected) mInstance.mClient.SendCallback(callback);
+			else if (callback != null) callback();
+		}
+
+		/// <summary>
+		/// Bounces a packet from the server, then executes the chosen callback. This is useful in case you create a send a bunch of data to the server,
+		/// then wait for it to get forwarded to all clients before proceeding with the rest of your code. Example usage:
+		/// 
+		///		TNManager.SendCallback(delegate ()
+		///		{
+		///			// Everything here will be executed after the packet comes back from the server.
+		///			// You can use this to effectively ping servers without connecting to them first, provided both parties have UDP enabled.
+		///		}, ip);
+		/// </summary>
+
+		static public void SendCallback (Action callback, IPEndPoint ip) { if (isPlaying) client.SendCallback(callback, ip); }
+
+		/// <summary>
+		/// This can be used in a yield statement in order to wait for all previously called packets to travel to the server and get a response back.
+		/// This is useful in case you create a bunch of objects, then want to wait (yield) for these objects to be fully instantiated before proceeding with your code.
+		/// Example usage:
+		/// 
+		/// IEnumerator Start ()
+		/// {
+		///		// Do object instantiation RCC or RFC calls here
+		///		
+		///		// Wait for all of the above calls to finish being forwarded to all clients
+		///		yield return TNManager.WaitForBounceBack();
+		///		
+		///		// Now you can proceed with the rest of your code which guarantees to execute after all RCC and RFCs have arrived.
+		///	}
+		/// </summary>
+
+		static public System.Collections.IEnumerator WaitForBounceBack ()
+		{
+			var done = false;
+			SendCallback(delegate () { done = true; });
+			while (!done) yield return null;
+		}
+
+		#region Obsolete calls, kept for backwards compatibility
 		[System.Obsolete("Renamed to SendChat")]
 		static public void SendGlobalChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
 
@@ -2455,5 +2509,6 @@ namespace TNet
 
 		[System.Obsolete("Use gameObject.DestroySelf() instead")]
 		static public void Destroy (GameObject go) { go.DestroySelf(); }
+		#endregion
 	}
 }

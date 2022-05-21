@@ -2786,15 +2786,15 @@ namespace TNet
 							var list = obj as TList;
 
 							// Determine the prefix for this type
-							int elemPrefix = GetPrefix(elemType);
-							bool sameType = true;
+							var elemPrefix = GetPrefix(elemType);
+							var sameType = true;
 
 							// Make sure that all elements are of the same type
 							for (int i = 0, imax = list.Count; i < imax; ++i)
 							{
-								object o = list.Get(i);
+								var o = list.Get(i);
 
-								if (o != null && elemType != o.GetType())
+								if (o == null || elemType != o.GetType())
 								{
 									sameType = false;
 									elemPrefix = 255;
@@ -2807,12 +2807,22 @@ namespace TNet
 							bw.Write((byte)(sameType ? 1 : 0));
 							bw.WriteInt(list.Count);
 
-#if SERIALIZATION_WITHOUT_INTERFACE
-							if (elemType.HasBinarySerialization())
+							if (sameType && elemType.Implements(typeof(IBinarySerializable)))
 							{
 								for (int i = 0, imax = list.Count; i < imax; ++i)
 								{
-									if (!list.Get(i).Invoke("Serialize", bw))
+									var bs = list.Get(i) as IBinarySerializable;
+									bs.Serialize(bw);
+								}
+							}
+#if SERIALIZATION_WITHOUT_INTERFACE
+							else if (sameType && elemType.HasBinarySerialization())
+							{
+								for (int i = 0, imax = list.Count; i < imax; ++i)
+								{
+									var o = list.Get(i);
+
+									if (!o.Invoke("Serialize", bw))
 									{
 #if UNITY_EDITOR
 										Debug.LogError("Failed to invoke the binary serialization function on " + type + " " + prefix + " " + type.HasBinarySerialization(), obj as UnityEngine.Object);
@@ -2822,9 +2832,8 @@ namespace TNet
 									}
 								}
 							}
-							else
 #endif
-							for (int i = 0, imax = list.Count; i < imax; ++i) bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
+							else for (int i = 0, imax = list.Count; i < imax; ++i) bw.WriteObject(list.Get(i), elemPrefix, sameType, useReflection);
 							return;
 						}
 					}
@@ -2841,7 +2850,7 @@ namespace TNet
 					if (useReflection)
 					{
 						var elemType = type.GetGenericArgument();
-						bool fixedSize = false;
+						var fixedSize = false;
 
 						if (elemType == null)
 						{
@@ -2852,14 +2861,14 @@ namespace TNet
 						if (fixedSize || elemType != null)
 						{
 							// Determine the prefix for this type
-							int elemPrefix = GetPrefix(elemType);
-							IList list = obj as IList;
-							bool sameType = true;
+							var elemPrefix = GetPrefix(elemType);
+							var list = obj as IList;
+							var sameType = true;
 
 							// Make sure that all elements are of the same type
 							foreach (object o in list)
 							{
-								if (o != null && elemType != o.GetType())
+								if (o == null || elemType != o.GetType())
 								{
 									sameType = false;
 									elemPrefix = 255;
@@ -2869,27 +2878,34 @@ namespace TNet
 
 							if (!typeIsKnown) bw.Write(fixedSize ? (byte)100 : (byte)99);
 							bw.Write(fixedSize ? type : elemType);
-							bw.Write((byte)(sameType ? 1 : 0));
+							bw.Write((byte)(sameType ? 1: 0));
 							bw.WriteInt(list.Count);
 
+							if (sameType && elemType.Implements(typeof(IBinarySerializable)))
+							{
+								foreach (object o in list)
+								{
+									var bs = o as IBinarySerializable;
+									bs.Serialize(bw);
+								}
+							}
 #if SERIALIZATION_WITHOUT_INTERFACE
-							if (elemType.HasBinarySerialization())
+							else if (sameType && elemType.HasBinarySerialization())
 							{
 								foreach (object o in list)
 								{
 									if (!o.Invoke("Serialize", bw))
 									{
 #if UNITY_EDITOR
-										Debug.LogError("Failed to invoke the binary serialization function on " + type + " " + prefix + " " + type.HasBinarySerialization(), obj as UnityEngine.Object);
+										Debug.LogError("Failed to invoke the binary serialization function on " + elemType + " " + prefix + " " + elemType.HasBinarySerialization(), obj as UnityEngine.Object);
 #else
-										Tools.LogError("Failed to invoke the binary serialization function on " + type);
+										Tools.LogError("Failed to invoke the binary serialization function on " + elemType);
 #endif
 									}
 								}
 							}
-							else
 #endif
-							foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
+							else foreach (object o in list) bw.WriteObject(o, elemPrefix, sameType, useReflection);
 							return;
 						}
 					}
@@ -2944,7 +2960,7 @@ namespace TNet
 				{
 					TNObject tno = (obj as TNObject);
 					bw.Write(tno.channelID);
-					bw.Write(tno.uid);
+					bw.Write(tno.id);
 					break;
 				}
 #endif
@@ -3077,7 +3093,7 @@ namespace TNet
 					{
 						TNObject tno = arr[i];
 						bw.Write(tno.channelID);
-						bw.Write(tno.uid);
+						bw.Write(tno.id);
 					}
 					break;
 				}
@@ -3569,7 +3585,7 @@ namespace TNet
 
 		static public T ReadObject<T> (this BinaryReader reader)
 		{
-			object obj = ReadObject(reader);
+			var obj = ReadObject(reader);
 			if (obj == null) return default(T);
 			return (T)CastValue(obj, typeof(T));
 		}
@@ -3703,11 +3719,7 @@ namespace TNet
 
 						if (elements != 0)
 						{
-							for (int i = 0; i < elements; ++i)
-							{
-								object val = reader.ReadObject(null, prefix, type, sameType);
-								if (arr != null) arr.Add(val);
-							}
+							for (int i = 0; i < elements; ++i) arr.Add(reader.ReadObject(null, prefix, type, sameType));
 						}
 						return arr;
 					}
@@ -3737,6 +3749,7 @@ namespace TNet
 							if (elements != 0)
 							{
 								type = type.GetElementType();
+
 								if (type.Implements(typeof(IBinarySerializable))) prefix = 253;
 								else if (type.Implements(typeof(IDataNodeSerializable))) prefix = 251;
 #if SERIALIZATION_WITHOUT_INTERFACE
@@ -3744,10 +3757,11 @@ namespace TNet
 								else if (type.HasDataNodeSerialization()) prefix = 250;
 #endif
 								else if (prefix != 254) prefix = GetPrefix(type);
+
 								for (int i = 0; i < elements; ++i) arr[i] = reader.ReadObject(null, prefix, type, sameType);
 							}
 						}
-						else Tools.LogError("Failed to create a " + type);
+						else Tools.LogError("Failed to create a type '" + type + "' (" + prefix + ")");
 						return arr;
 #else
 						Tools.LogError("Reflection is not supported on this platform");

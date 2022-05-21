@@ -83,7 +83,7 @@ namespace TNet
 		/// Object's unique identifier (Static object IDs range 1 to 32767. Dynamic object IDs range from 32,768 to 16,777,215).
 		/// </summary>
 
-		public uint uid
+		public uint id
 		{
 			get
 			{
@@ -100,7 +100,10 @@ namespace TNet
 		/// Channel + UID in a single value.
 		/// </summary>
 
-		public ulong fullID { get { return ((ulong)channelID << 32) | uid; } }
+		public ulong uid { get { return ((ulong)channelID << 32) | id; } }
+
+		[System.Obsolete("Use TNObject.uid instead")]
+		public ulong fullID { get { return uid; } }
 
 		/// <summary>
 		/// Whether the player is currently joining this object's channel.
@@ -131,7 +134,7 @@ namespace TNet
 			{
 				if (!TNManager.isConnected) return true;
 
-				if (uid != 0 && !hasBeenDestroyed)
+				if (id != 0 && !hasBeenDestroyed)
 				{
 					if (mNextChannelID != 0 && TNManager.IsInChannel(mNextChannelID, true)) return true;
 					return TNManager.IsInChannel(channelID);
@@ -175,7 +178,7 @@ namespace TNet
 			get
 			{
 				if (mOwner != null) return mOwner.id;
-				if (uid == 0) return TNManager.playerID;
+				if (id == 0) return TNManager.playerID;
 				var host = TNManager.GetHost(channelID);
 				if (host != null) return host.id;
 				return 0;
@@ -184,7 +187,7 @@ namespace TNet
 			{
 				if (ownerID != value)
 				{
-					if (uid < 32768)
+					if (id < 32768)
 					{
 						Debug.LogError("It's not possible to change the owner of static objects", this);
 					}
@@ -192,7 +195,7 @@ namespace TNet
 					{
 						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
 						bw.Write(channelID);
-						bw.Write(uid);
+						bw.Write(id);
 						bw.Write(value);
 						TNManager.EndSend();
 #if UNITY_EDITOR && COUNT_PACKETS
@@ -216,7 +219,7 @@ namespace TNet
 			get
 			{
 				if (mOwner != null) return mOwner;
-				if (uid == 0) return TNManager.player;
+				if (id == 0) return TNManager.player;
 				return TNManager.GetHost(channelID);
 			}
 			set
@@ -229,7 +232,7 @@ namespace TNet
 
 		/// <summary>
 		/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
-		/// Note that setting the entire data node is only possible during the object creation (RCC). After that the individual Set functions should be used.
+		/// Note that setting the entire data node is ideal only during the object creation (RCC). After that the individual Set functions should be used.
 		/// </summary>
 
 		public DataNode dataNode
@@ -275,9 +278,9 @@ namespace TNet
 		/// Set the object-specific data.
 		/// </summary>
 
-		public void Set (string name, object val)
+		public void Set (string name, object val, bool sync = true)
 		{
-			if (mData == null) mData = new DataNode("ObjectData");
+			if (mData == null) mData = new DataNode("TNO");
 			mData.SetHierarchy(name, val);
 
 			if (!mSettingData)
@@ -288,7 +291,7 @@ namespace TNet
 				mSettingData = false;
 			}
 
-			if (enabled && uid != 0)
+			if (sync && enabled && id != 0)
 			{
 				if (isMine) Send(2, Target.OthersSaved, mData);
 				else Send("OnSet", ownerID, name, val);
@@ -311,7 +314,7 @@ namespace TNet
 				mSettingData = false;
 			}
 
-			if (enabled && uid != 0)
+			if (enabled && id != 0)
 			{
 				if (isMine) Send(2, Target.OthersSaved, mData);
 				else Send("OnSet", ownerID, null, mData);
@@ -390,7 +393,7 @@ namespace TNet
 				Unregister();
 				Object.Destroy(gameObject);
 			}
-			else if (uid == 0)
+			else if (id == 0)
 			{
 				OnDestroyPacket();
 			}
@@ -404,7 +407,7 @@ namespace TNet
 				{
 					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
 					bw.Write(channelID);
-					bw.Write(uid);
+					bw.Write(id);
 					TNManager.EndSend(channelID, true);
 #if UNITY_EDITOR && COUNT_PACKETS
 					if (sentDictionary.ContainsKey("DestroyNow")) ++sentDictionary["DestroyNow"];
@@ -541,13 +544,13 @@ namespace TNet
 #endif
 
 		/// <summary>
-		/// Retrieve the Tasharen Network Object by its full ID.
+		/// Retrieve the Tasharen Network Object by its UID.
 		/// </summary>
 
-		static public TNObject Find (ulong fullID)
+		static public TNObject Find (ulong uid)
 		{
-			var ch = (int)(fullID >> 32);
-			var id = (uint)(fullID & 0xFFFFFFFF);
+			var ch = (int)(uid >> 32);
+			var id = (uint)(uid & 0xFFFFFFFF);
 			return Find(ch, id);
 		}
 
@@ -570,7 +573,7 @@ namespace TNet
 					for (int i = 0; i < list.size; ++i)
 					{
 						var ts = list.buffer[i];
-						if (ts != null && ts.uid < mLastDynID && ts.uid > 32767) mLastDynID = ts.uid;
+						if (ts != null && ts.id < mLastDynID && ts.id > 32767) mLastDynID = ts.id;
 					}
 				}
 				return --mLastDynID;
@@ -584,7 +587,7 @@ namespace TNet
 					for (int i = 0; i < list.size; ++i)
 					{
 						var ts = list.buffer[i];
-						if (ts != null && ts.uid > mLastID && ts.uid < 32768) mLastID = ts.uid;
+						if (ts != null && ts.id > mLastID && ts.id < 32768) mLastID = ts.id;
 					}
 				}
 				return ++mLastID;
@@ -637,14 +640,14 @@ namespace TNet
 
 		void UniqueCheck ()
 		{
-			if (uid == 0)
+			if (id == 0)
 			{
-				if (!Application.isPlaying) uid = GetUniqueID(false);
+				if (!Application.isPlaying) id = GetUniqueID(false);
 				else Debug.LogError("All TNObjects must be instantiated via TNManager.Instantiate, or network communication is not going to be possible.", this);
 			}
 			else
 			{
-				TNObject tobj = Find(channelID, uid);
+				TNObject tobj = Find(channelID, id);
 
 				if (tobj != null && tobj != this)
 				{
@@ -652,7 +655,7 @@ namespace TNet
 					{
 						if (tobj != null)
 						{
-							Debug.LogError("Network ID " + channelID + "." + uid + " is already in use by " +
+							Debug.LogError("Network ID " + channelID + "." + id + " is already in use by " +
 								GetHierarchy(tobj.gameObject) +
 								".\nPlease make sure that the network IDs are unique.", tobj.gameObject);
 							Destroy(gameObject);
@@ -661,7 +664,7 @@ namespace TNet
 						{
 							Debug.LogError("Network ID of 0 is used by " + GetHierarchy(gameObject) +
 								"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
-							uid = GetUniqueID(false);
+							id = GetUniqueID(false);
 						}
 					}
 				}
@@ -681,12 +684,12 @@ namespace TNet
 
 		public void OnStart ()
 		{
-			if (uid == 0 && !TNManager.isConnected && Application.isPlaying)
+			if (id == 0 && !TNManager.isConnected && Application.isPlaying)
 			{
-				uid = GetUniqueID(true);
+				id = GetUniqueID(true);
 			}
 
-			if (uid != 0)
+			if (id != 0)
 			{
 				Register();
 
@@ -712,7 +715,7 @@ namespace TNet
 		{
 			if (!mIsRegistered)
 			{
-				if (uid != 0)
+				if (id != 0)
 				{
 #if UNITY_EDITOR
 					UniqueCheck();
@@ -725,7 +728,7 @@ namespace TNet
 						mDictionary[channelID] = dict;
 					}
 
-					dict[uid] = this;
+					dict[id] = this;
 
 					TNet.List<TNObject> list;
 
@@ -758,7 +761,7 @@ namespace TNet
 
 					if (mDictionary.TryGetValue(channelID, out dict) && dict != null)
 					{
-						dict.Remove(uid);
+						dict.Remove(id);
 						if (dict.Count == 0) mDictionary.Remove(channelID);
 					}
 				}
@@ -1604,27 +1607,27 @@ namespace TNet
 		/// Remove a previously saved remote function call.
 		/// </summary>
 
-		public void RemoveSavedRFC (string rfcName) { RemoveSavedRFC(channelID, uid, 0, rfcName); }
+		public void RemoveSavedRFC (string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
 
 		/// <summary>
 		/// Remove a previously saved remote function call.
 		/// </summary>
 
-		public void RemoveSavedRFC (byte rfcID) { RemoveSavedRFC(channelID, uid, rfcID, null); }
-
-		/// <summary>
-		/// Remove a previously saved remote function call.
-		/// </summary>
-
-		[System.Obsolete("Use RemoveSavedRFC instead")]
-		public void Remove (string rfcName) { RemoveSavedRFC(channelID, uid, 0, rfcName); }
+		public void RemoveSavedRFC (byte rfcID) { RemoveSavedRFC(channelID, id, rfcID, null); }
 
 		/// <summary>
 		/// Remove a previously saved remote function call.
 		/// </summary>
 
 		[System.Obsolete("Use RemoveSavedRFC instead")]
-		public void Remove (byte rfcID) { RemoveSavedRFC(channelID, uid, rfcID, null); }
+		public void Remove (string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
+
+		/// <summary>
+		/// Remove a previously saved remote function call.
+		/// </summary>
+
+		[System.Obsolete("Use RemoveSavedRFC instead")]
+		public void Remove (byte rfcID) { RemoveSavedRFC(channelID, id, rfcID, null); }
 
 		/// <summary>
 		/// Convert object and RFC IDs into a single UINT.
@@ -1684,7 +1687,7 @@ namespace TNet
 			// results in objs[] being a string[] instead, when it should be object[string[]].
 			if (objs != null && objs.GetType() != typeof(object[])) objs = new object[] { objs };
 
-			var uid = this.uid;
+			var uid = this.id;
 			var executeLocally = false;
 			var connected = TNManager.isConnected;
 
@@ -1826,7 +1829,7 @@ namespace TNet
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
 #endif
-			if (mDestroyed != 0 || uid == 0 || string.IsNullOrEmpty(targetName)) return;
+			if (mDestroyed != 0 || id == 0 || string.IsNullOrEmpty(targetName)) return;
 
 			if (targetName == TNManager.playerName)
 			{
@@ -1842,7 +1845,7 @@ namespace TNet
 				writer.Write(TNManager.playerID);
 				writer.Write(targetName);
 				writer.Write(channelID);
-				writer.Write(GetUID(uid, rfcID));
+				writer.Write(GetUID(id, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 #if UNITY_EDITOR && COUNT_PACKETS
 				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
@@ -1861,7 +1864,7 @@ namespace TNet
 
 		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
 		{
-			if (hasBeenDestroyed || uid == 0) return;
+			if (hasBeenDestroyed || id == 0) return;
 
 			if (TNManager.isConnected)
 			{
@@ -1870,7 +1873,7 @@ namespace TNet
 				writer.Write(TNManager.playerID);
 				writer.Write(target);
 				writer.Write(channelID);
-				writer.Write(GetUID(uid, rfcID));
+				writer.Write(GetUID(id, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 #if UNITY_EDITOR && COUNT_PACKETS
 				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
@@ -1896,7 +1899,7 @@ namespace TNet
 
 		void SendRFC (byte rfcID, string rfcName, List<int> targets, bool reliable, object[] objs)
 		{
-			if (hasBeenDestroyed || uid == 0 || targets == null || targets.size == 0) return;
+			if (hasBeenDestroyed || id == 0 || targets == null || targets.size == 0) return;
 
 			if (TNManager.isConnected)
 			{
@@ -1905,7 +1908,7 @@ namespace TNet
 				writer.Write(TNManager.playerID);
 				writer.WriteObject(targets);
 				writer.Write(channelID);
-				writer.Write(GetUID(uid, rfcID));
+				writer.Write(GetUID(id, rfcID));
 				if (rfcID == 0) writer.Write(rfcName);
 #if UNITY_EDITOR && COUNT_PACKETS
 				var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
@@ -1932,11 +1935,11 @@ namespace TNet
 		void BroadcastToLAN (int port, byte rfcID, string rfcName, object[] objs)
 		{
 #if !MODDING
-			if (hasBeenDestroyed || uid == 0) return;
+			if (hasBeenDestroyed || id == 0) return;
 			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
 			writer.Write(TNManager.playerID);
 			writer.Write(channelID);
-			writer.Write(GetUID(uid, rfcID));
+			writer.Write(GetUID(id, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
 			TNManager.EndSendToLAN(port);
@@ -1985,7 +1988,7 @@ namespace TNet
 #if !MODDING
 			if (mDestroyed != 0 || mNextChannelID != 0) return false;
 
-			if (uid > 32767 && channelID != newChannelID)
+			if (id > 32767 && channelID != newChannelID)
 			{
 				mNextChannelID = newChannelID;
 
@@ -1994,7 +1997,7 @@ namespace TNet
 					var writer = TNManager.BeginSend(Packet.RequestTransferObject);
 					writer.Write(channelID);
 					writer.Write(newChannelID);
-					writer.Write(uid);
+					writer.Write(id);
 					TNManager.EndSend(channelID, true);
 #if UNITY_EDITOR && COUNT_PACKETS
 					var sid = "TransferToChannel";
@@ -2019,7 +2022,7 @@ namespace TNet
 			var fw = new ForwardRecord();
 			fw.oldChannelID = channelID;
 			fw.newChannelID = newChannel;
-			fw.oldObjectID = uid;
+			fw.oldObjectID = id;
 			fw.newObjectID = newObjectID;
 			fw.expiration = TNManager.serverTime + 2000;
 			if (mForwardRecords == null) mForwardRecords = new List<ForwardRecord>();
@@ -2029,10 +2032,32 @@ namespace TNet
 
 			Unregister();
 			channelID = newChannel;
-			uid = newObjectID;
+			id = newObjectID;
 			Register();
 			mNextChannelID = 0;
 #endif
+		}
+
+		/// <summary>
+		/// Export this object into a binary array. It can then be imported using TNManager.Import().
+		/// </summary>
+
+		public void Export (System.Action<byte[]> callback)
+		{
+			var list = new List<TNObject>();
+			list.Add(this);
+			TNManager.ExportObjects(list, callback);
+		}
+
+		/// <summary>
+		/// Export this object into a DataNode format. It can then be imported using TNManager.Import().
+		/// </summary>
+
+		public void Export (System.Action<DataNode> callback)
+		{
+			var list = new List<TNObject>();
+			list.Add(this);
+			TNManager.ExportObjects(list, callback);
 		}
 	}
 }

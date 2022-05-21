@@ -145,7 +145,14 @@ namespace TNet
 					writer.Write(mTime);
 					writer.Write((ushort)mList.list.size);
 					EndSend(ip);
-					break;
+					return true;
+				}
+				case Packet.Echo:
+				{
+					var requestID = reader.ReadUInt32();
+					BeginSend(Packet.Echo).Write(requestID);
+					EndSend(ip);
+					return true;
 				}
 				case Packet.RequestAddServer:
 				{

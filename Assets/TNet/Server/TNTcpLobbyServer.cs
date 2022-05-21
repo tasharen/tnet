@@ -364,6 +364,13 @@ namespace TNet
 					if (ent != null) ent.recordTime = mTime;
 					return true;
 				}
+				case Packet.Echo:
+				{
+					var requestID = reader.ReadUInt32();
+					BeginSend(Packet.Echo).Write(requestID);
+					EndSend(tc);
+					return true;
+				}
 				case Packet.RequestSetAlias:
 				{
 					var s = reader.ReadString();

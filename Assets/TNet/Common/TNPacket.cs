@@ -840,6 +840,13 @@ namespace TNet
 		RequestSetPassword,
 
 		/// <summary>
+		/// Echo this packet back from the server.
+		/// uint32: request ID.
+		/// </summary>
+
+		Echo,
+
+		/// <summary>
 		/// Begin custom packets here.
 		/// </summary>
 

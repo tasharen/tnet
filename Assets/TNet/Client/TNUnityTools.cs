@@ -58,7 +58,7 @@ namespace TNet
 			if (ent.obj != null && ent.obj is TNBehaviour)
 			{
 				TNBehaviour tb = ent.obj as TNBehaviour;
-				err += "TNO #" + tb.tno.uid + " ";
+				err += "TNO #" + tb.tno.id + " ";
 			}
 
 			if (string.IsNullOrEmpty(funcName))

@@ -89,7 +89,7 @@ namespace TNet
 		/// Set the object-specific data.
 		/// </summary>
 
-		public void Set (string name, object val) { if (tno != null) mTNO.Set(name, val); }
+		public void Set (string name, object val, bool sync = true) { if (tno != null) mTNO.Set(name, val, sync); }
 
 		/// <summary>
 		/// Convenience function to set the data using a single string notation such as "key = value".

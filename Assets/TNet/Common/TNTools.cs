@@ -1009,11 +1009,7 @@ namespace TNet
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
 			path = FindFile(path, allowConfigAccess);
 
-			try
-			{
-				if (!string.IsNullOrEmpty(path))
-					return File.ReadAllBytes(path);
-			}
+			try { if (!string.IsNullOrEmpty(path)) return File.ReadAllBytes(path); }
 #if STANDALONE
 			catch (System.Exception) { }
 #else

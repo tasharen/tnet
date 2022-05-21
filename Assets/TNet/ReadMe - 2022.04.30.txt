@@ -116,6 +116,12 @@ http://www.tasharen.com/?page_id=4518
  Version History
 --------------------------------------------------------------------------------------------------------------------
 
+WIP
+- NEW: Added a new packet type (Echo), along with TNManager.SendCallback() functions to use it. Can be used to send a packet to the server, and when it returns, execute the specified callback. Can even be sent to a remote server via UDP (without connecting to it), facilitating ping-style checks. This new packet type is also handled by the lobby servers.
+- NEW: Added TNManager.WaitForBounceBack that can be used in a yield statement to wait for previously sent RCC/RFC calls to complete.
+- FIX: Renamed TNObject's 'uid' to 'id' and 'fullID' to 'uid' to clarify the intended usage better.
+- FIX: Fixed some inconsistencies related to serialization of arrays.
+
 2022.04.30
 - NEW: The server will now automatically reduce channel memory footprint when saving the server in channels that have no players left.
 - NEW: DataNode's list of children will now be null by default until some child gets added in order to reduce memory usage. Added null checks for this case everywhere, but for backwards compatibility you can disable this feature by commenting out #define DATANODE_CHILDREN_CAN_BE_NULL at the top of DataNode.cs.
