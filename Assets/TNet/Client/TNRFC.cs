@@ -126,7 +126,7 @@ namespace TNet
 
 				var tryAgain = false;
 
-				if (mParamCount == pars.Length)
+				if (pars != null && mParamCount == pars.Length)
 				{
 					if (mTypes == null)
 					{

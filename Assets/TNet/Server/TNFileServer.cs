@@ -37,16 +37,22 @@ namespace TNet
 		public string rootDirectory;
 
 		/// <summary>
+		/// Clear the lookup dictionary cache.
+		/// </summary>
+
+		public void ClearCache () { mSavedFiles.Clear(); }
+
+		/// <summary>
 		/// Save the specified file.
 		/// </summary>
 
-		public bool SaveFile (string fileName, byte[] data)
+		public bool SaveFile (string fileName, byte[] data, bool addToCache = false)
 		{
 			if (fileName.Contains("..")) return false;
 
 			if (Tools.WriteFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName), data, true))
 			{
-				mSavedFiles[fileName] = data;
+				if (addToCache) mSavedFiles[fileName] = data;
 				return true;
 			}
 			return false;
@@ -56,7 +62,7 @@ namespace TNet
 		/// Load the specified file.
 		/// </summary>
 
-		public byte[] LoadFile (string fileName)
+		public byte[] LoadFile (string fileName, bool addToCache = false)
 		{
 			if (fileName.Contains("..")) return null;
 
@@ -65,7 +71,7 @@ namespace TNet
 			if (!mSavedFiles.TryGetValue(fileName, out data))
 			{
 				data = Tools.ReadFile(string.IsNullOrEmpty(rootDirectory) ? fileName : Path.Combine(rootDirectory, fileName));
-				mSavedFiles[fileName] = data;
+				if (addToCache) mSavedFiles[fileName] = data;
 			}
 			return data;
 		}

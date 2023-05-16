@@ -691,7 +691,7 @@ namespace TNet
 			{
 				byte ch = data[i];
 				if (ch >= '!' && ch <= '~') continue;
-				if (ch == ' ') continue;
+				if (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t') continue;
 				return SaveType.Binary;
 			}
 			return SaveType.Text;

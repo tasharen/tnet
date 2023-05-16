@@ -302,7 +302,7 @@ namespace TNet
 			return new Vector2((float)x, (float)y);
 		}
 
-		static Vector2D Rotate (Vector2D pos, float rot)
+		static public Vector2D Rotate (Vector2D pos, float rot)
 		{
 			var halfZ = rot * Mathf.Deg2Rad * 0.5;
 			var sinz = Math.Sin(halfZ);

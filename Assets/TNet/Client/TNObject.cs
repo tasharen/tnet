@@ -327,11 +327,11 @@ namespace TNet
 			if (string.IsNullOrEmpty(name))
 			{
 				mData = val as DataNode;
-				if (mData == null) mData = new DataNode("ObjectData");
+				if (mData == null) mData = new DataNode("Data");
 			}
 			else
 			{
-				if (mData == null) mData = new DataNode("ObjectData");
+				if (mData == null) mData = new DataNode("Data");
 				mData.SetHierarchy(name, val);
 			}
 

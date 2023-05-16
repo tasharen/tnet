@@ -25,7 +25,7 @@ public class TNObjectEditor : Editor
 		{
 			EditorGUI.BeginDisabledGroup(true);
 			EditorGUILayout.LabelField("Channel", obj.channelID.ToString("N0"));
-			EditorGUILayout.LabelField("ID", obj.uid.ToString("N0"));
+			EditorGUILayout.LabelField("ID", obj.id.ToString("N0"));
 			EditorGUILayout.LabelField("Creator", obj.creatorPlayerID.ToString("N0"));
 
 			if (obj.owner != null)
@@ -72,7 +72,7 @@ public class TNObjectEditor : Editor
 				{
 					if (o == obj) continue;
 
-					if (o.uid == obj.uid)
+					if (o.id == obj.id)
 					{
 						EditorGUILayout.HelpBox("This ID is shared with other TNObjects. A unique ID is required in order for RFCs to function properly.", MessageType.Error);
 						break;

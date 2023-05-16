@@ -92,12 +92,12 @@ namespace TNet
 
 		static public void Broadcast (string methodName, params object[] parameters)
 		{
-			MonoBehaviour[] mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
+			var mbs = UnityEngine.Object.FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
 
 			for (int i = 0, imax = mbs.Length; i < imax; ++i)
 			{
-				MonoBehaviour mb = mbs[i];
-				MethodInfo method = mb.GetType().GetMethod(methodName,
+				var mb = mbs[i];
+				var method = mb.GetType().GetMethod(methodName,
 					BindingFlags.Instance |
 					BindingFlags.NonPublic |
 					BindingFlags.Public);
@@ -631,7 +631,7 @@ namespace TNet
 		/// regular prefabs.
 		/// </summary>
 
-		static public GameObject LoadPrefab (string path)
+		static public GameObject LoadPrefab (string path, bool createDummyIfMissing = true)
 		{
 			if (string.IsNullOrEmpty(path)) return null;
 			if (!Application.isPlaying) return Resources.Load(path, typeof(GameObject)) as GameObject;
@@ -681,6 +681,7 @@ namespace TNet
 
 			if (prefab == null)
 			{
+				if (!createDummyIfMissing) return null;
 #if UNITY_EDITOR
 				Debug.LogError("[TNet] Attempting to create a game object that can't be found in the Resources folder: [" + path + "]");
 #endif
@@ -697,10 +698,10 @@ namespace TNet
 
 		static public GameObject AddChild (this GameObject go)
 		{
-			GameObject inst = new GameObject();
+			var inst = new GameObject();
 			inst.name = inst.GetInstanceID().ToString();
 			inst.layer = go.layer;
-			Transform t = inst.transform;
+			var t = inst.transform;
 			t.parent = go.transform;
 			t.localPosition = Vector3.zero;
 			t.localRotation = Quaternion.identity;

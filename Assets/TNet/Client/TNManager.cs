@@ -1237,9 +1237,9 @@ namespace TNet
 		/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 		/// <param name="persistent">Whether the channel will remain active even when the last player leaves.</param>
 
-		static public void JoinChannel (int channelID, bool persistent = false, bool leaveCurrentChannel = false)
+		static public void JoinChannel (int channelID, bool persistent = false, bool leaveCurrentChannel = false, TNEvents.OnJoinChannel onJoin = null)
 		{
-			JoinChannel(channelID, null, persistent, 65535, null, leaveCurrentChannel);
+			JoinChannel(channelID, null, persistent, 65535, null, leaveCurrentChannel, onJoin);
 		}
 
 		/// <summary>
@@ -1285,7 +1285,7 @@ namespace TNet
 		/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 		/// <param name="levelName">Level that will be loaded first.</param>
 
-		static public void JoinChannel (int channelID, string levelName, bool leaveCurrentChannel = true)
+		static public void JoinChannel (int channelID, string levelName, bool leaveCurrentChannel = true, TNEvents.OnJoinChannel onJoin = null)
 		{
 			if (!IsInChannel(channelID))
 			{
@@ -1293,6 +1293,12 @@ namespace TNet
 
 				if (isConnected)
 				{
+					if (onJoin != null)
+					{
+						if (mJoinCallbacks == null) mJoinCallbacks = new System.Collections.Generic.Dictionary<int, TNEvents.OnJoinChannel>();
+						mJoinCallbacks[channelID] = onJoin;
+					}
+
 					mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
 				}
 				else
@@ -1303,9 +1309,12 @@ namespace TNet
 					mDummyCL.Add(ch);
 					lastChannelID = channelID;
 					onLoadScene(levelName);
+					if (onJoin != null) onJoin(channelID, true, null);
 				}
 			}
 		}
+
+		[NonSerialized] static System.Collections.Generic.Dictionary<int, TNEvents.OnJoinChannel> mJoinCallbacks;
 
 		/// <summary>
 		/// Join the specified channel.
@@ -1316,7 +1325,8 @@ namespace TNet
 		/// <param name="playerLimit">Maximum number of players that can be in this channel at once.</param>
 		/// <param name="password">Password for the channel. First player sets the password.</param>
 
-		static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password, bool leaveCurrentChannel = true)
+		static public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password,
+			bool leaveCurrentChannel = true, TNEvents.OnJoinChannel onJoin = null)
 		{
 			if (!IsInChannel(channelID))
 			{
@@ -1324,6 +1334,12 @@ namespace TNet
 
 				if (isConnected)
 				{
+					if (onJoin != null)
+					{
+						if (mJoinCallbacks == null) mJoinCallbacks = new System.Collections.Generic.Dictionary<int, TNEvents.OnJoinChannel>();
+						mJoinCallbacks[channelID] = onJoin;
+					}
+
 					mInstance.mClient.JoinChannel(channelID, levelName, persistent, playerLimit, password);
 				}
 				else
@@ -1335,6 +1351,7 @@ namespace TNet
 					lastChannelID = channelID;
 					onLoadScene(levelName);
 					onJoinChannel(channelID, true, null);
+					if (onJoin != null) onJoin(channelID, true, null);
 				}
 			}
 		}
@@ -2075,7 +2092,23 @@ namespace TNet
 		void SetDefaultCallbacks ()
 		{
 			mClient.onDisconnect = delegate () { mLoadingLevel.Clear(); };
-			mClient.onJoinChannel = delegate (int channelID, bool success, string message) { lastChannelID = channelID; };
+
+			mClient.onJoinChannel = delegate (int channelID, bool success, string message)
+			{
+				lastChannelID = channelID;
+
+				if (mJoinCallbacks != null)
+				{
+					TNEvents.OnJoinChannel onJoin;
+
+					if (mJoinCallbacks.TryGetValue(channelID, out onJoin))
+					{
+						onJoin(channelID, success, message);
+						mJoinCallbacks.Remove(channelID);
+					}
+				}
+			};
+
 			mClient.onLeaveChannel = delegate (int channelID)
 			{
 				UnityEngine.Profiling.Profiler.BeginSample("CleanupChannelObjects");

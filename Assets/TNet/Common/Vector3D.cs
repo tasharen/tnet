@@ -419,6 +419,17 @@ namespace TNet
 		{
 			return new Vector3D(Math.Round(x), Math.Round(y), Math.Round(z));
 		}
+
+		/// <summary>
+		/// Round the 3 values. Precision of 0.01 means round to the nearest 2 decimal places, 0.001 = 3 decimal places.
+		/// Precision of 10 means round to the nearest 10, 100 = nearest 100, and so on.
+		/// </summary>
+
+		public Vector3D Round (double precision)
+		{
+			var inv = 1d / precision;
+			return new Vector3D(Math.Round(x * inv) * precision, Math.Round(y * inv) * precision, Math.Round(z * inv) * precision);
+		}
 #endif // STANDALONE
 	}
 }

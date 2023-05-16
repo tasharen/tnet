@@ -1107,6 +1107,7 @@ namespace TNet
 #if !MODDING
 			var time = DateTime.UtcNow.Ticks / 10000;
 
+#if !UNITY_EDITOR
 			// If the time differs by more than 30 seconds, bail out. This prevents players from modifying their client time
 			// and causing potential problems when the game is based on TNManager.serverTime-based time.
 			if (mMyTime != 0)
@@ -1115,15 +1116,13 @@ namespace TNet
 
 				if (delta < 0 || delta > maxTimeDelta)
 				{
-#if UNITY_EDITOR
 					Debug.Log("Time delta exceeded the GameClient.maxTimeDelta value, forcing a disconnect (" + delta + " > " + maxTimeDelta + ")");
-#endif
 					mMyTime = time;
 					Disconnect();
 					return;
 				}
 			}
-
+#endif
 			mMyTime = time;
 
 			// Request pings every so often, letting the server know we're still here.
