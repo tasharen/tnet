@@ -261,7 +261,7 @@ namespace TNet
 		{
 			error = "Enable RUNTIME_CODE #define in order to use run-time code compilation";
 #if UNITY_EDITOR
-			Debug.LogError(error)
+			UnityEngine.Debug.LogError(error);
 #endif
 			return null;
 		}
@@ -288,7 +288,7 @@ namespace TNet
 		{
 			error = "Enable RUNTIME_CODE #define in order to use run-time code compilation";
 #if UNITY_EDITOR
-			Debug.LogError(error)
+			UnityEngine.Debug.LogError(error);
 #endif
 			return null;
 		}
