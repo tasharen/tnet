@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Must also be defined in TNGameServer.cs
@@ -34,9 +34,9 @@ namespace TNet
 			Active,
 		}
 
-		GameServer mGame = new GameServer();
-		LobbyServer mLobby;
-		UPnP mUp = new UPnP();
+		[System.NonSerialized] GameServer mGame = new GameServer();
+		[System.NonSerialized] LobbyServer mLobby;
+		[System.NonSerialized] UPnP mUp = new UPnP();
 
 		/// <summary>
 		/// Instance access is internal only as all the functions are static for convenience purposes.

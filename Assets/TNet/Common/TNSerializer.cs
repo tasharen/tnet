@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // NOTE: This class is meant to be internal. It provides efficient serialization for basic types such as Vector3, Vector3D, etc.
@@ -733,11 +733,8 @@ namespace TNet
 #if REFLECTION_SUPPORT
 			if (desiredType.IsEnum)
 			{
-				if (valueType == typeof(Int32))
-					return value;
-
-				if (valueType == typeof(byte))
-					return (Int32)(byte)value;
+				if (valueType == typeof(Int32)) return value;
+				if (valueType == typeof(byte)) return (Int32)(byte)value;
 
 				if (valueType == typeof(string))
 				{
@@ -745,10 +742,7 @@ namespace TNet
 
 					if (!string.IsNullOrEmpty(strVal))
 					{
-						try
-						{
-							return System.Enum.Parse(desiredType, strVal);
-						}
+						try { return System.Enum.Parse(desiredType, strVal); }
 						catch (Exception) { }
 
 						//string[] enumNames = Enum.GetNames(desiredType);
@@ -814,12 +808,10 @@ namespace TNet
 		{
 			if (value == null) return null;
 
-			var valueType = value.GetType();
-			if (valueType == desiredType) return value;
-			if (desiredType.IsAssignableFrom(valueType)) return value;
-
 			var retVal = CastValue(value, desiredType);
 			if (retVal != null) return retVal;
+
+			var valueType = value.GetType();
 
 #if !STANDALONE && REFLECTION_SUPPORT
 			if (valueType == typeof(string[]) && desiredType.IsArray)

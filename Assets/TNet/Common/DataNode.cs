@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #if UNITY_EDITOR || (!UNITY_FLASH && !NETFX_CORE && !UNITY_WP8 && !UNITY_WP_8_1)
@@ -172,20 +172,16 @@ namespace TNet
 		public void MarkChildrenAsChanged () { mCache = null; }
 
 		/// <summary>
-		/// Get the node's value cast into the specified type.
-		/// </summary>
-
-		public object Get (Type type) { return Serialization.ConvertObject(value, type); }
-
-		/// <summary>
 		/// Retrieve the value cast into the appropriate type.
 		/// </summary>
 
 		public T Get<T> ()
 		{
 			if (value is T) return (T)mValue;
+			if (value == null) return default(T);
+
 			var converted = Serialization.Convert<T>(mValue);
-			if ((mValue is byte[] || mValue is string) && converted != null) mValue = converted;
+			if (converted != null) mValue = converted;
 			return converted;
 		}
 
@@ -196,8 +192,10 @@ namespace TNet
 		public T Get<T> (T defaultVal)
 		{
 			if (value is T) return (T)mValue;
+			if (value == null) return defaultVal;
+
 			var converted = Serialization.Convert(mValue, defaultVal);
-			if (mValue is byte[] && converted != null) mValue = converted;
+			if (converted != null) mValue = converted;
 			return converted;
 		}
 
@@ -228,7 +226,7 @@ namespace TNet
 		/// Add a new child node without checking to see if another child with the same name already exists.
 		/// </summary>
 
-		public DataNode AddChild (string name)
+		public DataNode AddChild (in string name)
 		{
 			var node = AddChild();
 			node.name = name;
@@ -239,7 +237,7 @@ namespace TNet
 		/// Add a new child node without checking to see if another child with the same name already exists.
 		/// </summary>
 
-		public DataNode AddChild (string name, object value)
+		public DataNode AddChild (in string name, object value)
 		{
 			var node = AddChild();
 			node.name = name;
@@ -251,7 +249,7 @@ namespace TNet
 		/// Updates the specified value on the child, but only if the child is already present or 'addIfMissing' is 'true'.
 		/// </summary>
 
-		public void UpdateChild (string name, object value, bool addIfMissing = false)
+		public void UpdateChild (in string name, object value, bool addIfMissing = false)
 		{
 			var node = GetChild(name);
 			if (node == null && !addIfMissing) return;
@@ -264,7 +262,7 @@ namespace TNet
 		/// Add a new child node after checking to see if it already exists. If it does, the existing node is returned.
 		/// </summary>
 
-		public DataNode AddMissingChild (string name, object value = null)
+		public DataNode AddMissingChild (in string name, object value = null)
 		{
 			var node = GetChild(name);
 			if (node != null) return node;
@@ -396,7 +394,7 @@ namespace TNet
 		/// Retrieve a child by its path.
 		/// </summary>
 
-		public T GetHierarchy<T> (string path)
+		public T GetHierarchy<T> (in string path)
 		{
 			var node = GetHierarchy(path);
 			if (node == null) return default(T);
@@ -409,7 +407,7 @@ namespace TNet
 		/// Retrieve a child by its path.
 		/// </summary>
 
-		public T GetHierarchy<T> (string path, T defaultValue)
+		public T GetHierarchy<T> (in string path, T defaultValue)
 		{
 			var node = GetHierarchy(path);
 			if (node == null) return defaultValue;
@@ -510,13 +508,13 @@ namespace TNet
 		/// Remove the specified child from the list. Returns the parent node of the removed node if successful.
 		/// </summary>
 
-		public DataNode RemoveHierarchy (string path) { return SetHierarchy(path, null); }
+		public DataNode RemoveHierarchy (in string path) { return SetHierarchy(path, null); }
 
 		/// <summary>
 		/// Retrieve a child by name, optionally creating a new one if the child doesn't already exist.
 		/// </summary>
 
-		public DataNode GetChild (string name, bool createIfMissing = false)
+		public DataNode GetChild (in string name, bool createIfMissing = false)
 		{
 			if (string.IsNullOrEmpty(name)) return null;
 
@@ -554,7 +552,7 @@ namespace TNet
 		/// Get the value of the existing child.
 		/// </summary>
 
-		public T GetChild<T> (string name)
+		public T GetChild<T> (in string name)
 		{
 			var node = GetChild(name);
 			if (node == null) return default(T);
@@ -565,7 +563,7 @@ namespace TNet
 		/// Get the value of the existing child or the default value if the child is not present.
 		/// </summary>
 
-		public T GetChild<T> (string name, T defaultValue)
+		public T GetChild<T> (in string name, T defaultValue)
 		{
 			var node = GetChild(name);
 			if (node == null) return defaultValue;
@@ -576,7 +574,7 @@ namespace TNet
 		/// Remove the specified child from the list.
 		/// </summary>
 
-		public bool RemoveChild (string name)
+		public bool RemoveChild (in string name)
 		{
 			if (mCache != null) mCache.Remove(name);
 
@@ -657,6 +655,38 @@ namespace TNet
 				writer.Close();
 			}
 			return retVal;
+		}
+
+		/// <summary>
+		/// Write the node hierarchy to the specified filename.
+		/// The binary DataNode serialization will happen immediately, while the compression will happen on another thread for performance.
+		/// The specified callback will be executed back on the main thread when the operation finishes.
+		/// </summary>
+
+		public void WriteCompressedDelayed (string path, Action<bool> callback = null, bool inMyDocuments = false, bool allowConfigAccess = false)
+		{
+			var stream = new MemoryStream();
+			var writer = new BinaryWriter(stream);
+			writer.WriteObject(this);
+			stream.Position = 0;
+			var retVal = false;
+
+			WorkerThread.Create(delegate ()
+			{
+				var comp = LZMA.Compress(stream, mLZMA);
+
+				if (comp != null)
+				{
+					retVal = Tools.WriteFile(path, comp, inMyDocuments, allowConfigAccess);
+					comp.Close();
+				}
+				else
+				{
+					retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
+					writer.Close();
+				}
+			},
+			(callback != null) ? delegate() { callback(retVal); } : null);
 		}
 
 		/// <summary>

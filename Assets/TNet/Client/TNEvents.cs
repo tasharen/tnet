@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -20,7 +20,7 @@ namespace TNet
 		/// </summary>
 
 		public OnPing onPing;
-		public delegate void OnPing (IPEndPoint ip, int ping);
+		public delegate void OnPing (IPEndPoint ip, int ping, int playerCount);
 
 		/// <summary>
 		/// Error notification.

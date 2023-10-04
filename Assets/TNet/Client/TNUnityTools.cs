@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -234,8 +234,8 @@ namespace TNet
 
 		static public void DestroySelf (this GameObject go)
 		{
-			var tno = go.GetComponent<TNObject>();
-			if (tno != null) tno.DestroySelf();
+			TNObject tno;
+			if (go.TryGetComponent(out tno)) tno.DestroySelf();
 			else Object.Destroy(go);
 		}
 
@@ -245,8 +245,8 @@ namespace TNet
 
 		static public void DestroySelf (this GameObject go, float delay, bool onlyIfMine = true)
 		{
-			var tno = go.GetComponent<TNObject>();
-			if (tno != null) tno.DestroySelf(delay, onlyIfMine);
+			TNObject tno;
+			if (go.TryGetComponent(out tno)) tno.DestroySelf(delay, onlyIfMine);
 			else Object.Destroy(go, delay);
 		}
 
@@ -634,48 +634,63 @@ namespace TNet
 		static public GameObject LoadPrefab (string path, bool createDummyIfMissing = true)
 		{
 			if (string.IsNullOrEmpty(path)) return null;
-			if (!Application.isPlaying) return Resources.Load(path, typeof(GameObject)) as GameObject;
-
+			
 			GameObject prefab = null;
 
 			// Try to get it from cache
 			if (mPrefabs.TryGetValue(path, out prefab)) return prefab;
 
+			var original = path;
+
 			if (prefab == null)
 			{
-				// Try the custom function first
-				if (onLoadPrefab != null) prefab = onLoadPrefab(path);
-
-				// Load it from resources as a Game Object
-				if (prefab == null)
+				for (int i = 0; i < 2; ++i)
 				{
-					prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
-
-					if (prefab == null)
+					if (Application.isPlaying)
 					{
-						// Load it from resources as a binary asset
-						var bytes = UnityTools.LoadBinary(path);
+						// Try the custom function first
+						if (onLoadPrefab != null) prefab = onLoadPrefab(path);
 
-						if (bytes != null)
+						// Load it from resources as a Game Object
+						if (prefab == null)
 						{
-							// Parse the DataNode hierarchy
-							var data = DataNode.Read(bytes);
+							prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
 
-							if (data != null)
+							if (prefab == null)
 							{
-								// Instantiate and immediately disable the object
-								prefab = data.Instantiate(null, false);
+								// Load it from resources as a binary asset
+								var bytes = UnityTools.LoadBinary(path);
 
-								if (prefab != null)
+								if (bytes != null)
 								{
-									mPrefabs.Add(path, prefab);
-									Object.DontDestroyOnLoad(prefab);
-									prefab.transform.parent = prefabRoot;
-									return prefab;
+									// Parse the DataNode hierarchy
+									var data = DataNode.Read(bytes);
+
+									if (data != null)
+									{
+										// Instantiate and immediately disable the object
+										prefab = data.Instantiate(null, false);
+
+										if (prefab != null)
+										{
+											mPrefabs.Add(original, prefab);
+											Object.DontDestroyOnLoad(prefab);
+											prefab.transform.parent = prefabRoot;
+											return prefab;
+										}
+									}
 								}
 							}
 						}
 					}
+					else
+					{
+						var inst = Resources.Load(path, typeof(GameObject)) as GameObject;
+						if (inst != null || i == 1) return inst;
+					}
+
+					if (path.StartsWith("Prefabs")) break;
+					path = "Prefabs/" + path;
 				}
 			}
 
@@ -688,7 +703,7 @@ namespace TNet
 				prefab = GetDummyObject();
 			}
 
-			mPrefabs.Add(path, prefab);
+			mPrefabs.Add(original, prefab);
 			return prefab;
 		}
 

@@ -1,6 +1,6 @@
 ﻿//-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define PROFILE_PACKETS
@@ -32,6 +32,12 @@ namespace TNet
 			public IInfrequentUpdateable obj;
 		}
 
+		struct InvokeEntry
+		{
+			public float invokeTime;
+			public System.Action callback;
+		}
+
 		[System.NonSerialized] static TNUpdater mInst;
 		[System.NonSerialized] static bool mShuttingDown = false;
 		[System.NonSerialized] Generic.Queue<IStartable> mStartable = new Generic.Queue<IStartable>();
@@ -41,6 +47,7 @@ namespace TNet
 		[System.NonSerialized] Generic.List<ILateUpdateable> mRemoveLate = new Generic.List<ILateUpdateable>();
 		[System.NonSerialized] Generic.List<InfrequentEntry> mInfrequent = new Generic.List<InfrequentEntry>();
 		[System.NonSerialized] Generic.List<IInfrequentUpdateable> mRemoveInfrequent = new Generic.List<IInfrequentUpdateable>();
+		[System.NonSerialized] Generic.List<InvokeEntry> mInvoke = new Generic.List<InvokeEntry>();
 		[System.NonSerialized] System.Action mOnNextUpdate0;
 		[System.NonSerialized] System.Action mOnNextUpdate1;
 		[System.NonSerialized] bool mOnNextUpdateIndex0 = true;
@@ -142,6 +149,20 @@ namespace TNet
 				}
 
 				mOnNextUpdateIndex0 = !mOnNextUpdateIndex0;
+			}
+
+			if (mInvoke.Count != 0)
+			{
+				var time = Time.time;
+
+				for (int i = 0, imax = mInvoke.Count; i < imax; ++i)
+				{
+					var inv = mInvoke[i];
+					if (inv.invokeTime > time) continue;
+					inv.callback();
+					mInvoke.RemoveAt(i--);
+					--imax;
+				}
 			}
 		}
 
@@ -373,6 +394,30 @@ namespace TNet
 					mInst.mOnNextUpdate0 -= callback;
 					mInst.mOnNextUpdate1 -= callback;
 				}
+			}
+		}
+
+		/// <summary>
+		/// Invoke the specified callback after a delay.
+		/// </summary>
+
+		static public void Invoke (System.Action callback, float delay)
+		{
+			if (mShuttingDown) return;
+
+			if (mInst == null)
+			{
+				if (!Application.isPlaying) return;
+				Create();
+			}
+#if THREAD_SAFE_UPDATER
+			lock (mInst)
+#endif
+			{
+				var inv = new InvokeEntry();
+				inv.invokeTime = Time.time + delay;
+				inv.callback = callback;
+				mInst.mInvoke.Add(inv);
 			}
 		}
 	}

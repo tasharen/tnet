@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -24,7 +24,7 @@ namespace TNet
 	public class TNManager : MonoBehaviour
 	{
 		// Will be 'true' at play time unless the application is shutting down. 'false' at edit time.
-		static bool isPlaying { get { return !mDestroyed && Application.isPlaying; } }
+		static bool isPlaying { get { return !mDestroyed && !mShuttingDown && Application.isPlaying; } }
 		[System.NonSerialized] static bool mDestroyed = false;
 		[System.NonSerialized] static bool mShuttingDown = false;
 
@@ -450,13 +450,13 @@ namespace TNet
 		/// Current time on the server in milliseconds.
 		/// </summary>
 
-		static public long serverTime { get { return (mInstance != null) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
+		static public long serverTime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
 
 		/// <summary>
 		/// Server's uptime in milliseconds.
 		/// </summary>
 
-		static public long serverUptime { get { return (mInstance != null) ? mInstance.mClient.serverUptime : (System.DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
+		static public long serverUptime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverUptime : (System.DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
 		static readonly long mStartTime = (System.DateTime.UtcNow.Ticks / 10000);
 
 		/// <summary>
@@ -665,7 +665,7 @@ namespace TNet
 				if (playerName != value)
 				{
 					mPlayer.name = value;
-					if (mInstance.mClient != null) mInstance.mClient.playerName = value;
+					if (mInstance && mInstance.mClient != null) mInstance.mClient.playerName = value;
 				}
 			}
 		}
@@ -733,9 +733,12 @@ namespace TNet
 				if (mInstance == null)
 				{
 					if (mShuttingDown) return null;
-					GameObject go = new GameObject("Network Manager");
+					var go = new GameObject("Network Manager");
 					mInstance = go.AddComponent<TNManager>();
 					mDestroyed = false;
+#if UNITY_EDITOR
+					Debug.Log("TNet: Network Manager created", go);
+#endif
 				}
 				return mInstance;
 			}
@@ -758,11 +761,11 @@ namespace TNet
 				mInstance.mClient.ProcessPackets();
 #endif
 #if UNITY_EDITOR
-				if (sentPackets > 200)
+				if (sentPackets > 400)
 				{
 #if COUNT_PACKETS
 					var sb = new System.Text.StringBuilder();
-					sb.Append("[TNet] Packets in the last second:\nSent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
+					sb.Append("[TNet] Packets in the last second: Sent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
 						receivedPackets + " (" + receivedBytes.ToString("N0") + " bytes)");
 
 					foreach (var ent in TNObject.lastSentDictionary)
@@ -1744,8 +1747,8 @@ namespace TNet
 
 					if (go != null)
 					{
-						var tno = go.GetComponent<TNObject>();
-						if (tno == null) tno = go.AddComponent<TNObject>();
+						TNObject tno;
+						if (!go.TryGetComponent(out tno)) tno = go.AddComponent<TNObject>();
 						tno.id = currentRccObjectID;
 						tno.channelID = channelID;
 						go.SetActive(true);
@@ -2233,8 +2236,8 @@ namespace TNet
 				// If an object ID was requested, assign it to the TNObject
 				if (objectID != 0)
 				{
-					var obj = go.GetComponent<TNObject>();
-					if (obj == null) obj = go.AddComponent<TNObject>();
+					TNObject obj;
+					if (!go.TryGetComponent(out obj)) obj = go.AddComponent<TNObject>();
 					obj.channelID = channelID;
 					obj.id = objectID;
 					go.SetActive(true);
@@ -2353,15 +2356,20 @@ namespace TNet
 			yield return null;
 
 			loadLevelOperation = onLoadSceneAsync(pair.Value);
-			loadLevelOperation.allowSceneActivation = false;
 
-			while (loadLevelOperation.progress < 0.9f)
-				yield return null;
+			if (loadLevelOperation != null)
+			{
+				loadLevelOperation.allowSceneActivation = false;
 
-			loadLevelOperation.allowSceneActivation = true;
-			yield return loadLevelOperation;
+				while (loadLevelOperation.progress < 0.9f)
+					yield return null;
 
-			loadLevelOperation = null;
+				loadLevelOperation.allowSceneActivation = true;
+				yield return loadLevelOperation;
+
+				loadLevelOperation = null;
+			}
+
 			mLoadingLevel.Remove(pair.Key);
 		}
 

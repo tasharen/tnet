@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -19,7 +19,7 @@ public class TNObjectEditor : Editor
 
 	public override void OnInspectorGUI ()
 	{
-		TNObject obj = target as TNObject;
+		var obj = target as TNObject;
 
 		if (Application.isPlaying)
 		{
@@ -30,7 +30,7 @@ public class TNObjectEditor : Editor
 
 			if (obj.owner != null)
 			{
-				EditorGUILayout.LabelField("Owner", obj.owner.name + " (" + obj.ownerID.ToString("N0") + ")");
+				EditorGUILayout.LabelField("Owner", (obj.owner == TNManager.player) ? "[you]" : obj.owner.name + " (" + obj.ownerID.ToString("N0") + ")");
 			}
 			else EditorGUILayout.LabelField("Owner", obj.ownerID.ToString("N0"));
 

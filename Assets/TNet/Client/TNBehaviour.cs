@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using UnityEngine;
@@ -71,31 +71,31 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (string name) { return tno != null ? mTNO.Get(name) : null; }
+		public DataNode Get (in string name) { return tno != null ? mTNO.Get(name) : null; }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name) { return tno != null ? mTNO.Get<T>(name) : default(T); }
+		public T Get<T> (in string name) { return tno != null ? mTNO.Get<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name, T defVal) { return tno != null ? mTNO.Get<T>(name, defVal) : defVal; }
+		public T Get<T> (in string name, T defVal) { return tno != null ? mTNO.Get<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data.
 		/// </summary>
 
-		public void Set (string name, object val, bool sync = true) { if (tno != null) mTNO.Set(name, val, sync); }
+		public void Set (in string name, object val, bool sync = true) { if (tno != null) mTNO.Set(name, val, sync); }
 
 		/// <summary>
 		/// Convenience function to set the data using a single string notation such as "key = value".
 		/// </summary>
 
-		public void Set (string text)
+		public void Set (in string text)
 		{
 			if (!string.IsNullOrEmpty(text))
 			{

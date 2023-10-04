@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.Net;
@@ -987,7 +987,7 @@ namespace TNet
 
 		static public string ReadTextFile (string path)
 		{
-			byte[] bytes = Tools.ReadFile(path);
+			var bytes = Tools.ReadFile(path);
 
 			if (bytes != null)
 			{

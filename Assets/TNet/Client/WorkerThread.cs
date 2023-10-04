@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Use this for debugging purposes
@@ -45,7 +45,6 @@ namespace TNet
 		static public bool isShuttingDown = false;
 
 		public delegate bool BoolFunc ();
-		public delegate void VoidFunc ();
 		public delegate System.Collections.IEnumerator EnumFunc ();
 
 		// Actual worker thread
@@ -54,8 +53,8 @@ namespace TNet
 
 		struct Entry
 		{
-			public VoidFunc main;
-			public VoidFunc finished;
+			public System.Action main;
+			public System.Action finished;
 			public BoolFunc mainBool;       // Return 'true' when done, 'false' to execute again next update
 			public BoolFunc finishedBool;   // Return 'true' when done, 'false' to execute again next update
 			public EnumFunc finishedEnum;
@@ -446,7 +445,7 @@ namespace TNet
 		/// Add a new callback function to the worker thread.
 		/// </summary>
 
-		static public void Create (VoidFunc main, VoidFunc finished = null, bool highPriority = false)
+		static public void Create (System.Action main, System.Action finished = null, bool highPriority = false)
 		{
 #if SINGLE_THREADED
 			if (main != null) main();
@@ -464,6 +463,12 @@ namespace TNet
 #endif
 				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
+			}
+			else if (isShuttingDown)
+			{
+				if (main != null) main();
+				if (finished != null) finished();
+				return;
 			}
 
 			var ent = new Entry();
@@ -485,7 +490,7 @@ namespace TNet
 		/// Add a new callback function to the worker thread.
 		/// </summary>
 
-		static public void Create (VoidFunc main, EnumFunc finished, bool highPriority = false)
+		static public void Create (System.Action main, EnumFunc finished, bool highPriority = false)
 		{
 #if SINGLE_THREADED
 			if (main != null) main();
@@ -497,12 +502,18 @@ namespace TNet
 				if (!Application.isPlaying)
 				{
 					if (main != null) main();
-					if (finished != null) finished();
+					while (finished().MoveNext()) { }
 					return;
 				}
 #endif
 				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
+			}
+			else if (isShuttingDown)
+			{
+				if (main != null) main();
+				while (finished().MoveNext()) { }
+				return;
 			}
 
 			var ent = new Entry();
@@ -525,7 +536,7 @@ namespace TNet
 		/// Return 'false' if you want the same delegate to execute again in the next Update(), or 'true' if you're done.
 		/// </summary>
 
-		static public void CreateMultiStageCompletion (VoidFunc main, BoolFunc finished = null, bool highPriority = false)
+		static public void CreateMultiStageCompletion (System.Action main, BoolFunc finished = null, bool highPriority = false)
 		{
 #if SINGLE_THREADED
 			if (main != null) main();
@@ -566,7 +577,7 @@ namespace TNet
 		/// Return 'false' if you want the same delegate to execute again next time, or 'true' if you're done.
 		/// </summary>
 
-		static public void CreateMultiStageExecution (BoolFunc main, VoidFunc finished = null, bool highPriority = false)
+		static public void CreateMultiStageExecution (BoolFunc main, System.Action finished = null, bool highPriority = false)
 		{
 #if SINGLE_THREADED
 			if (main != null) { while (!main()) { } }

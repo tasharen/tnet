@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.Diagnostics;
@@ -201,9 +201,9 @@ namespace TNet
 		public void Add (T[] items, int offset, int count)
 		{
 			var needed = size + count;
-			if (buffer == null || size + needed >= buffer.Length) Allocate(size + needed);
+			if (buffer == null || needed >= buffer.Length) Allocate(needed);
 			System.Array.Copy(items, offset, buffer, size, count);
-			size += count;
+			size = needed;
 		}
 
 		/// <summary>

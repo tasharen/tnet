@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define DEBUG_PACKETS
@@ -203,7 +203,11 @@ namespace TNet
 			{
 				if (isListening != value)
 				{
-					if (Listen(value ? mListenerPort : 0))
+					var port = mListenerPort;
+#if W2
+					if (port == 0) port = 5137;
+#endif
+					if (Listen(value ? port : 0))
 					{
 						if (lobbyLink != null)
 						{

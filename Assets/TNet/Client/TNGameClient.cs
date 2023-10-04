@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 #define USE_MAX_PACKET_TIME
@@ -1116,7 +1116,7 @@ namespace TNet
 
 				if (delta < 0 || delta > maxTimeDelta)
 				{
-					Debug.Log("Time delta exceeded the GameClient.maxTimeDelta value, forcing a disconnect (" + delta + " > " + maxTimeDelta + ")");
+					UnityEngine.Debug.Log("Time delta exceeded the GameClient.maxTimeDelta value, forcing a disconnect (" + delta + " > " + maxTimeDelta + ")");
 					mMyTime = time;
 					Disconnect();
 					return;
@@ -1160,6 +1160,7 @@ namespace TNet
 			while (keepGoing && isActive && mUdp.ReceivePacket(out buffer, out ip))
 			{
 				mUdpIsUsable = true;
+				mReceivedBytesCount += buffer.size;
 				keepGoing = ProcessPacket(buffer, ip);
 				buffer.Recycle();
 			}
@@ -1243,7 +1244,6 @@ namespace TNet
 					mMyTime = DateTime.UtcNow.Ticks / 10000;
 					mTimeDifference = reader.ReadInt64() - mMyTime;
 					mStartTime = reader.ReadInt64();
-
 #if !UNITY_WEBPLAYER
 					if (mUdp.isActive)
 					{
@@ -1347,11 +1347,13 @@ namespace TNet
 				}
 				case Packet.ResponsePing:
 				{
+					var expectedTime = reader.ReadInt64();
+					var playerCount = reader.ReadUInt16();
 					int ping = (int)(mMyTime - mPingTime);
 
 					if (ip != null)
 					{
-						if (onPing != null && ip != null) onPing(ip, ping);
+						if (onPing != null && ip != null) onPing(ip, ping, playerCount);
 					}
 					else
 					{
@@ -1360,9 +1362,7 @@ namespace TNet
 					}
 
 					// Trivial time speed hack check
-					/*var expectedTime = reader.ReadInt64();
-					reader.ReadUInt16();
-					var diff = (serverTime - expectedTime) - ping;
+					/*var diff = (serverTime - expectedTime) - ping;
 
 					if ((diff < 0 ? -diff : diff) > 10000)
 					{
@@ -1998,6 +1998,9 @@ namespace TNet
 
 				EndSend();
 			}
+#if UNITY_EDITOR
+			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
+#endif
 #endif
 		}
 
@@ -2028,6 +2031,9 @@ namespace TNet
 
 				EndSend();
 			}
+#if UNITY_EDITOR
+			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
+#endif
 #endif
 		}
 
@@ -2049,6 +2055,9 @@ namespace TNet
 				writer.Write(data);
 				EndSend();
 			}
+#if UNITY_EDITOR
+			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
+#endif
 #endif
 		}
 
@@ -2083,6 +2092,9 @@ namespace TNet
 				writer.Write(buffer.buffer, buffer.position, buffer.size);
 				EndSend();
 			}
+#if UNITY_EDITOR
+			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
+#endif
 #endif
 		}
 

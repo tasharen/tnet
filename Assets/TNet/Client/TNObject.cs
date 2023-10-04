@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2020 Tasharen Entertainment Inc
+// Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -19,14 +19,14 @@ namespace TNet
 	/// </summary>
 
 	[ExecuteInEditMode]
-	public sealed class TNObject : MonoBehaviour, IStartable
+	public sealed class TNObject : MonoBehaviour
 	{
 		// List of network objs to iterate through (key = channel ID, value = list of objects)
-		static Dictionary<int, List<TNObject>> mList = new Dictionary<int, List<TNObject>>();
+		[System.NonSerialized] static Dictionary<int, List<TNObject>> mList = new Dictionary<int, List<TNObject>>();
 
 		// List of network objs to quickly look up
-		static Dictionary<int, Dictionary<uint, TNObject>> mDictionary = new Dictionary<int, Dictionary<uint, TNObject>>();
-		static Stack<TNet.List<TNObject>> mUnused;
+		[System.NonSerialized] static Dictionary<int, Dictionary<uint, TNObject>> mDictionary = new Dictionary<int, Dictionary<uint, TNObject>>();
+		[System.NonSerialized] static Stack<TNet.List<TNObject>> mUnused;
 
 		/// <summary>
 		/// Unique Network Identifier. All TNObjects have them and is how messages arrive at the correct destination.
@@ -260,25 +260,25 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (string name) { return (mData != null ? mData.GetHierarchy(name) : null); }
+		public DataNode Get (in string name) { return (mData != null ? mData.GetHierarchy(name) : null); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name) { return (mData != null) ? mData.GetHierarchy<T>(name) : default(T); }
+		public T Get<T> (in string name) { return (mData != null) ? mData.GetHierarchy<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
+		public T Get<T> (in string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data.
 		/// </summary>
 
-		public void Set (string name, object val, bool sync = true)
+		public void Set (in string name, object val, bool sync = true)
 		{
 			if (mData == null) mData = new DataNode("TNO");
 			mData.SetHierarchy(name, val);
@@ -459,7 +459,12 @@ namespace TNet
 			else Invoke("DestroySelf", delay);
 		}
 
-		void DestroyIfMine () { if (isMine) DestroySelf(); }
+		/// <summary>
+		/// This function is meant to be called via Unity's Invoke from DestroySelf(delay).
+		/// </summary>
+
+		[DoNotObfuscate]
+		public void DestroyIfMine () { if (isMine) DestroySelf(); }
 
 		/// <summary>
 		/// Remember the object's ownership, for convenience.
@@ -470,7 +475,6 @@ namespace TNet
 			mOwner = TNManager.isConnected ? TNManager.currentObjectOwner : TNManager.player;
 			channelID = TNManager.lastChannelID;
 			creatorPlayerID = TNManager.packetSourceID;
-			TNUpdater.AddStart(this);
 		}
 
 		/// <summary>
@@ -682,12 +686,9 @@ namespace TNet
 		/// Register the object with the lists.
 		/// </summary>
 
-		public void OnStart ()
+		void Start ()
 		{
-			if (id == 0 && !TNManager.isConnected && Application.isPlaying)
-			{
-				id = GetUniqueID(true);
-			}
+			if (id == 0 && !TNManager.isConnected) id = GetUniqueID(true);
 
 			if (id != 0)
 			{
@@ -1817,8 +1818,8 @@ namespace TNet
 
 #if UNITY_EDITOR && COUNT_PACKETS
 		// Used for debugging to determine what packets are sent too frequently
-		static internal Dictionary<string, int> sentDictionary = new Dictionary<string, int>();
-		static internal Dictionary<string, int> lastSentDictionary = new Dictionary<string, int>();
+		[System.NonSerialized] static internal Dictionary<string, int> sentDictionary = new Dictionary<string, int>();
+		[System.NonSerialized] static internal Dictionary<string, int> lastSentDictionary = new Dictionary<string, int>();
 #endif
 		/// <summary>
 		/// Send a new RFC call to the specified target.
