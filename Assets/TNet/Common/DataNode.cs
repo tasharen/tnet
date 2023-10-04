@@ -657,6 +657,7 @@ namespace TNet
 			return retVal;
 		}
 
+		#if !STANDALONE
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.
 		/// The binary DataNode serialization will happen immediately, while the compression will happen on another thread for performance.
@@ -688,6 +689,7 @@ namespace TNet
 			},
 			(callback != null) ? delegate() { callback(retVal); } : null);
 		}
+		#endif
 
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.

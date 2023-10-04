@@ -27,8 +27,7 @@
 /*.exe
 /*.config
 /.vs
-/ProjectSettings/ProjectVersion.txt
-/ProjectSettings/ClusterInputManager.asset
-/ProjectSettings/NavMeshAreas.asset
-/ProjectSettings/UnityAdsSettings.asset
-/ProjectSettings/UnityConnectSettings.asset
+/Logs
+/Packages
+/ProjectSettings
+/UserSettings

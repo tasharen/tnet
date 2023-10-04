@@ -1,7 +1,7 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
-     Copyright © 2012-2019 Tasharen Entertainment Inc.
-                  Version 2022.04.30
+     Copyright © 2012-2023 Tasharen Entertainment Inc.
+                  Version 2023.10.04
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
 
@@ -116,9 +116,15 @@ http://www.tasharen.com/?page_id=4518
  Version History
 --------------------------------------------------------------------------------------------------------------------
 
-WIP
+2023.10.04
 - NEW: Added a new packet type (Echo), along with TNManager.SendCallback() functions to use it. Can be used to send a packet to the server, and when it returns, execute the specified callback. Can even be sent to a remote server via UDP (without connecting to it), facilitating ping-style checks. This new packet type is also handled by the lobby servers.
 - NEW: Added TNManager.WaitForBounceBack that can be used in a yield statement to wait for previously sent RCC/RFC calls to complete.
+- NEW: Added TNUpdater.Invoke(callback, delay) that can be used similar to Unity's Invoke() but without requiring a MonoBehaviour.
+- NEW: Added DataNode.WriteCompressedDelayed that will immediately serialize the data into binary, then use a worker thread to compress it using LZMA before writing it out.
+- NEW: TNManager.JoinChannel now has an optional OnJoin style delegate that will be called when the join completes (and only once).
+- FIX: File server no longer caches files in memory by default, and will instead read them from disk every time they are requested.
+- FIX: Removed the need for Runtime Code to use a reference file that modern Unity doesn't support anyway.
+- FIX: Replaced many string parameters in functions with passing by constant reference using the 'in' prefix.
 - FIX: Renamed TNObject's 'uid' to 'id' and 'fullID' to 'uid' to clarify the intended usage better.
 - FIX: Fixed some inconsistencies related to serialization of arrays.
 
