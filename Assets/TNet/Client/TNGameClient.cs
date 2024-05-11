@@ -578,12 +578,12 @@ namespace TNet
 		/// Send the outgoing buffer.
 		/// </summary>
 
-		public void EndSend (bool forced = false, bool instant = false)
+		public void EndSend (bool instant = false)
 		{
 			if (mBuffer == null) return;
 			++mSentPacketCount;
 			mSentBytesCount += mBuffer.EndPacket();
-			if (isActive || forced) mTcp.SendTcpPacket(mBuffer, instant);
+			mTcp.SendTcpPacket(mBuffer, instant);
 			mBuffer.Recycle();
 			mBuffer = null;
 		}
@@ -598,18 +598,15 @@ namespace TNet
 			++mSentPacketCount;
 			mSentBytesCount += mBuffer.EndPacket();
 
-			if (isActive)
-			{
 #if UNITY_WEBPLAYER || MODDING
-				mTcp.SendTcpPacket(mBuffer, instant);
+			mTcp.SendTcpPacket(mBuffer, instant);
 #else
-				if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
-				{
-					mTcp.SendTcpPacket(mBuffer, instant);
-				}
-				else mUdp.Send(mBuffer, mServerUdpEndPoint);
-#endif
+			if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
+			{
+				mTcp.SendTcpPacket(mBuffer, instant);
 			}
+			else mUdp.Send(mBuffer, mServerUdpEndPoint);
+#endif
 
 			mBuffer.Recycle();
 			mBuffer = null;
@@ -625,7 +622,7 @@ namespace TNet
 			++mSentPacketCount;
 			mSentBytesCount += mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER && !MODDING
-			if (isActive) mUdp.Broadcast(mBuffer, port);
+			mUdp.Broadcast(mBuffer, port);
 #endif
 			mBuffer.Recycle();
 			mBuffer = null;
@@ -641,7 +638,7 @@ namespace TNet
 			++mSentPacketCount;
 			mSentBytesCount += mBuffer.EndPacket();
 #if !UNITY_WEBPLAYER && !MODDING
-			if (isActive) mUdp.Send(mBuffer, target);
+			mUdp.Send(mBuffer, target);
 #endif
 			mBuffer.Recycle();
 			mBuffer = null;
@@ -716,10 +713,17 @@ namespace TNet
 				}
 			}
 
+			if (mLocalServer != null)
+			{
+				mLocalServer.Stop();
+				mLocalServer.localClient = null;
+				mLocalServer = null;
+			}
+			else mTcp.Close(false);
+
 			mChannels.Clear();
 			mGetChannelsCallbacks.Clear();
 			mDictionary.Clear();
-			mTcp.Close(false);
 			mLoadFiles.Clear();
 			mGetFiles.Clear();
 			mJoining.Clear();
@@ -727,12 +731,6 @@ namespace TNet
 			mOnExport.Clear();
 			mOnImport.Clear();
 			mMyTime = 0;
-
-			if (mLocalServer != null)
-			{
-				mLocalServer.localClient = null;
-				mLocalServer = null;
-			}
 
 #if !UNITY_WEBPLAYER
 			mUdp.Stop();
@@ -1408,7 +1406,7 @@ namespace TNet
 				case Packet.ResponseJoiningChannel:
 				{
 					int channelID = reader.ReadInt32();
-					int count = reader.ReadInt16();
+					int count = reader.ReadUInt16();
 					var ch = GetChannel(channelID, true);
 
 					for (int i = 0; i < count; ++i)
@@ -1912,6 +1910,14 @@ namespace TNet
 #if !MODDING
 			var ch = GetChannel(channelID);
 
+			if (ch == null)
+			{
+#if UNITY_EDITOR
+				Debug.LogError("You have to join the channel first before being able to set its channel data (channel #" + channelID + ")");
+#endif
+				return;
+			}
+
 			if (ch != null && !string.IsNullOrEmpty(path))
 			{
 				if (!ch.isLocked || isAdmin)
@@ -1937,7 +1943,7 @@ namespace TNet
 #endif
 			}
 #if UNITY_EDITOR
-			else Debug.LogWarning("Calling SetChannelData with invalid parameters: " + channelID + " = " + (ch != null) + ", " + path);
+			else Debug.LogError("Calling SetChannelData with invalid parameters: " + path + " = " + val);
 #endif
 #endif
 		}

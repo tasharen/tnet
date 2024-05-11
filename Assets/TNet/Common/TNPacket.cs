@@ -146,7 +146,7 @@ namespace TNet
 		///
 		/// Parameters:
 		/// int32: Channel ID.
-		/// int16: Number of players.
+		/// uint16: Number of players.
 		///
 		/// Then for each player:
 		/// int32: Player ID.

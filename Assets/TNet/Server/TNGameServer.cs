@@ -97,7 +97,7 @@ namespace TNet
 		/// Custom delegate called from the packet receiving thread.
 		/// </summary>
 
-		public System.Action onReceivePackets;
+		public Action onReceivePackets;
 
 		// List of players in a consecutive order for each looping.
 		protected List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
@@ -330,7 +330,10 @@ namespace TNet
 
 		public void LoadAdminList ()
 		{
-			Tools.Print("Admins: " + (Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? adminFilePath : Path.Combine(rootDirectory, adminFilePath), mAdmin) ? mAdmin.Count.ToString() : "file not found"));
+			Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? adminFilePath : Path.Combine(rootDirectory, adminFilePath), mAdmin);
+#if !UNITY_EDITOR
+			Tools.Print("Admins: " + mAdmin.Count);
+#endif
 		}
 
 		/// <summary>
@@ -507,20 +510,30 @@ namespace TNet
 #endif
 				lock (mLock)
 				{
-					Buffer buffer;
 					mTime = DateTime.UtcNow.Ticks / 10000;
-					IPEndPoint ip;
 
 					// Add all pending connections
-					while (mListener != null && mListener.Pending())
+					while (mListener != null)
 					{
-						Socket socket = mListener.AcceptSocket();
+						try
+						{
+							if (!mListener.Pending()) break;
+						}
+						catch (ThreadInterruptedException)
+						{
+							try { if (mListener != null) mListener.Stop(); }
+							catch (Exception) { }
+							mListener = null;
+							break;
+						}
+
+						var socket = mListener.AcceptSocket();
 
 						try
 						{
 							if (socket != null && socket.Connected)
 							{
-								IPEndPoint remote = socket.RemoteEndPoint as IPEndPoint;
+								var remote = socket.RemoteEndPoint as IPEndPoint;
 
 								if (remote == null || mBan.Contains(remote.Address.ToString()))
 								{
@@ -541,6 +554,9 @@ namespace TNet
 
 					// Process custom packets
 					if (onReceivePackets != null) onReceivePackets();
+
+					Buffer buffer;
+					IPEndPoint ip;
 
 					// Process datagrams
 					while (mUdp.listeningPort != 0 && mUdp.ReceivePacket(out buffer, out ip))
@@ -1294,7 +1310,7 @@ namespace TNet
 			var writer = buffer.BeginPacket(Packet.ResponseJoiningChannel);
 			{
 				writer.Write(channel.id);
-				writer.Write((short)channel.players.size);
+				writer.Write((ushort)channel.players.size);
 
 				for (int i = 0; i < channel.players.size; ++i)
 				{
@@ -2995,14 +3011,14 @@ namespace TNet
 				}
 				case Packet.RequestDeleteChannel:
 				{
-					int id = reader.ReadInt32();
-					bool dc = reader.ReadBoolean();
+					var id = reader.ReadInt32();
+					var dc = reader.ReadBoolean();
 
-					if (player.isAdmin)
+					Channel ch;
+
+					if (mChannelDict.TryGetValue(id, out ch))
 					{
-						Channel ch;
-
-						if (mChannelDict.TryGetValue(id, out ch))
+						if (player.isAdmin || (ch.players.size == 0 && mServerData.GetChild<bool>("playersCanDeleteEmptyChannels", true)))
 						{
 							for (int b = ch.players.size; b > 0;)
 							{
@@ -3022,11 +3038,11 @@ namespace TNet
 							mChannelDict.Remove(id);
 							mChannelList.Remove(ch);
 						}
-					}
-					else
-					{
-						player.LogError("Tried to call a delete a channel #" + id + " while not authorized", null);
-						RemovePlayer(player);
+						else
+						{
+							player.LogError("Tried to delete channel " + ch.id + " while not authorized", null);
+							RemovePlayer(player);
+						}
 					}
 					break;
 				}
@@ -3038,8 +3054,7 @@ namespace TNet
 
 					if (ch != null)
 					{
-						if (player.isAdmin || mServerData == null ||
-							(ch.host == player && (!ch.isPersistent || mServerData.GetChild<bool>("hostCanSetPlayerLimit", true))))
+						if (player.isAdmin || mServerData == null || (ch.host == player && (!ch.isPersistent || mServerData.GetChild<bool>("hostCanSetPlayerLimit", true))))
 						{
 							ch.playerLimit = limit;
 							var b = Buffer.Create();

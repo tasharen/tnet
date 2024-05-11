@@ -98,7 +98,10 @@ namespace TNet
 
 		public void LoadBanList ()
 		{
-			Tools.Print("Bans: " + (Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? banFilePath : Path.Combine(rootDirectory, banFilePath), mBan) ? mBan.Count.ToString() : "file not found"));
+			Tools.LoadList(string.IsNullOrEmpty(rootDirectory) ? banFilePath : Path.Combine(rootDirectory, banFilePath), mBan);
+#if !UNITY_EDITOR
+			Tools.Print("Bans: " + mBan.Count);
+#endif
 		}
 
 		/// <summary>

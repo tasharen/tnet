@@ -384,7 +384,7 @@ namespace TNet
 			if (ResolveExternalIP(ipCheckerUrl)) return;
 			if (ResolveExternalIP("http://ipv4.icanhazip.com")) return;
 			if (ResolveExternalIP("http://ipinfo.io/ip")) return;
-			if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
+			//if (ResolveExternalIP("http://bot.whatismyipaddress.com")) return;
 
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogWarning("Unable to resolve the external IP address via " + mChecker);
@@ -917,6 +917,8 @@ namespace TNet
 			}
 		}
 
+		[System.NonSerialized] static object mRWLock = new object();
+
 		/// <summary>
 		/// Write the specified file, creating all the subdirectories in the process.
 		/// </summary>
@@ -936,7 +938,7 @@ namespace TNet
 
 			if (data == null || data.Length == 0)
 			{
-				return DeleteFile(path);
+				lock (mRWLock) return DeleteFile(path);
 			}
 			else
 			{
@@ -944,29 +946,31 @@ namespace TNet
 
 				try
 				{
-					string dir = Path.GetDirectoryName(path);
+					var dir = Path.GetDirectoryName(path);
 
-					if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-						Directory.CreateDirectory(dir);
-
-					if (File.Exists(path))
+					lock (mRWLock)
 					{
-						var att = File.GetAttributes(path);
+						if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-						if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+						if (File.Exists(path))
 						{
-							att = (att & ~FileAttributes.ReadOnly);
-							File.SetAttributes(path, att);
+							var att = File.GetAttributes(path);
+
+							if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+							{
+								att = (att & ~FileAttributes.ReadOnly);
+								File.SetAttributes(path, att);
+							}
 						}
+					
+						var fs = new FileStream(path, FileMode.Create);
+						data.Seek(0, SeekOrigin.Begin);
+						data.WriteTo(fs);
+						fs.Flush();
+						fs.Close();
+
+						if (File.Exists(path)) return true;
 					}
-
-					var fs = new FileStream(path, FileMode.Create);
-					data.Seek(0, SeekOrigin.Begin);
-					data.WriteTo(fs);
-					fs.Flush();
-					fs.Close();
-
-					if (File.Exists(path)) return true;
 #if !STANDALONE
 					UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
@@ -987,13 +991,13 @@ namespace TNet
 
 		static public string ReadTextFile (string path)
 		{
-			var bytes = Tools.ReadFile(path);
+			var bytes = ReadFile(path);
 
 			if (bytes != null)
 			{
-				MemoryStream ms = new MemoryStream(bytes);
-				StreamReader sr = new StreamReader(ms);
-				string s = sr.ReadToEnd();
+				var ms = new MemoryStream(bytes);
+				var sr = new StreamReader(ms);
+				var s = sr.ReadToEnd();
 				sr.Dispose();
 				return s;
 			}
@@ -1009,7 +1013,7 @@ namespace TNet
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
 			path = FindFile(path, allowConfigAccess);
 
-			try { if (!string.IsNullOrEmpty(path)) return File.ReadAllBytes(path); }
+			try { if (!string.IsNullOrEmpty(path)) lock (mRWLock) return File.ReadAllBytes(path); }
 #if STANDALONE
 			catch (System.Exception) { }
 #else
@@ -1032,7 +1036,7 @@ namespace TNet
 
 				if (!string.IsNullOrEmpty(path) && File.Exists(path))
 				{
-					File.Delete(path);
+					lock (mRWLock) File.Delete(path);
 					return true;
 				}
 			}
@@ -1477,7 +1481,7 @@ namespace TNet
 			if (string.IsNullOrEmpty(path)) return null;
 			var a = path.LastIndexOf('\\');
 			var b = path.LastIndexOf('/');
-			var start = (a == -1) ? b : (b == -1 ? a : (a < b ? a : b));
+			var start = (a == -1) ? b : (b == -1 ? a : (a > b ? a : b));
 
 			if (!extension)
 			{

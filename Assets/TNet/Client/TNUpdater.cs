@@ -8,6 +8,7 @@
 
 using UnityEngine;
 using Generic = System.Collections.Generic;
+using IEnumerator = System.Collections.IEnumerator;
 
 namespace TNet
 {
@@ -40,18 +41,19 @@ namespace TNet
 
 		[System.NonSerialized] static TNUpdater mInst;
 		[System.NonSerialized] static bool mShuttingDown = false;
-		[System.NonSerialized] Generic.Queue<IStartable> mStartable = new Generic.Queue<IStartable>();
-		[System.NonSerialized] Generic.HashSet<IUpdateable> mUpdateable = new Generic.HashSet<IUpdateable>();
-		[System.NonSerialized] Generic.HashSet<ILateUpdateable> mLateUpdateable = new Generic.HashSet<ILateUpdateable>();
-		[System.NonSerialized] Generic.List<IUpdateable> mRemoveUpdateable = new Generic.List<IUpdateable>();
-		[System.NonSerialized] Generic.List<ILateUpdateable> mRemoveLate = new Generic.List<ILateUpdateable>();
-		[System.NonSerialized] Generic.List<InfrequentEntry> mInfrequent = new Generic.List<InfrequentEntry>();
-		[System.NonSerialized] Generic.List<IInfrequentUpdateable> mRemoveInfrequent = new Generic.List<IInfrequentUpdateable>();
-		[System.NonSerialized] Generic.List<InvokeEntry> mInvoke = new Generic.List<InvokeEntry>();
-		[System.NonSerialized] System.Action mOnNextUpdate0;
-		[System.NonSerialized] System.Action mOnNextUpdate1;
-		[System.NonSerialized] bool mOnNextUpdateIndex0 = true;
-		[System.NonSerialized] bool mUpdating = false;
+		[System.NonSerialized] static Generic.Queue<IStartable> mStartable = new Generic.Queue<IStartable>();
+		[System.NonSerialized] static Generic.HashSet<IUpdateable> mUpdateable = new Generic.HashSet<IUpdateable>();
+		[System.NonSerialized] static Generic.HashSet<ILateUpdateable> mLateUpdateable = new Generic.HashSet<ILateUpdateable>();
+		[System.NonSerialized] static Generic.List<IUpdateable> mRemoveUpdateable = new Generic.List<IUpdateable>();
+		[System.NonSerialized] static Generic.List<ILateUpdateable> mRemoveLate = new Generic.List<ILateUpdateable>();
+		[System.NonSerialized] static Generic.List<InfrequentEntry> mInfrequent = new Generic.List<InfrequentEntry>();
+		[System.NonSerialized] static Generic.List<IInfrequentUpdateable> mRemoveInfrequent = new Generic.List<IInfrequentUpdateable>();
+		[System.NonSerialized] static Generic.List<InvokeEntry> mInvoke = new Generic.List<InvokeEntry>();
+		[System.NonSerialized] static Generic.List<WorkerThread.EnumFunc> mCoroutines = new Generic.List<WorkerThread.EnumFunc>();
+		[System.NonSerialized] static System.Action mOnNextUpdate0;
+		[System.NonSerialized] static System.Action mOnNextUpdate1;
+		[System.NonSerialized] static bool mOnNextUpdateIndex0 = true;
+		[System.NonSerialized] static bool mUpdating = false;
 		[System.NonSerialized] static public System.Action onQuit;
 
 		void OnDestroy ()
@@ -104,7 +106,7 @@ namespace TNet
 					mUpdating = true;
 					var time = Time.time;
 
-					for (int i = 0; i < mInst.mInfrequent.Count; ++i)
+					for (int i = 0; i < mInfrequent.Count; ++i)
 					{
 						if (mInfrequent[i].nextTime < time)
 						{
@@ -122,7 +124,7 @@ namespace TNet
 				{
 					foreach (var e in mRemoveInfrequent)
 					{
-						for (int i = 0; i < mInst.mInfrequent.Count; ++i)
+						for (int i = 0; i < mInfrequent.Count; ++i)
 						{
 							if (mInfrequent[i].obj == e)
 							{
@@ -162,6 +164,15 @@ namespace TNet
 					inv.callback();
 					mInvoke.RemoveAt(i--);
 					--imax;
+				}
+			}
+
+			if (mCoroutines.Count != 0)
+			{
+				for (int i = 0; i < mCoroutines.Count; ++i)
+				{
+					var e = mCoroutines[i]().MoveNext();
+					if (!e) mCoroutines.RemoveAt(i--);
 				}
 			}
 		}
@@ -240,7 +251,7 @@ namespace TNet
 #if THREAD_SAFE_UPDATER
 			lock (mInst)
 #endif
-			mInst.mStartable.Enqueue(obj);
+			mStartable.Enqueue(obj);
 		}
 
 		static public void AddUpdate (IUpdateable obj)
@@ -256,7 +267,7 @@ namespace TNet
 #if THREAD_SAFE_UPDATER
 			lock (mInst)
 #endif
-			mInst.mUpdateable.Add(obj);
+			mUpdateable.Add(obj);
 		}
 
 		static public void AddInfrequentUpdate (IInfrequentUpdateable obj, float interval)
@@ -277,7 +288,7 @@ namespace TNet
 				ent.nextTime = Time.time + interval * Random.value;
 				ent.interval = interval;
 				ent.obj = obj;
-				mInst.mInfrequent.Add(ent);
+				mInfrequent.Add(ent);
 			}
 		}
 
@@ -294,7 +305,7 @@ namespace TNet
 #if THREAD_SAFE_UPDATER
 			lock (mInst)
 #endif
-			mInst.mLateUpdateable.Add(obj);
+			mLateUpdateable.Add(obj);
 		}
 
 		static public void RemoveUpdate (IUpdateable obj)
@@ -305,8 +316,8 @@ namespace TNet
 				lock (mInst)
 #endif
 				{
-					if (mInst.mUpdating) mInst.mRemoveUpdateable.Add(obj);
-					else mInst.mUpdateable.Remove(obj);
+					if (mUpdating) mRemoveUpdateable.Add(obj);
+					else mUpdateable.Remove(obj);
 				}
 			}
 		}
@@ -319,8 +330,8 @@ namespace TNet
 				lock (mInst)
 #endif
 				{
-					if (mInst.mUpdating) mInst.mRemoveLate.Add(obj);
-					else mInst.mLateUpdateable.Remove(obj);
+					if (mUpdating) mRemoveLate.Add(obj);
+					else mLateUpdateable.Remove(obj);
 				}
 			}
 		}
@@ -333,17 +344,17 @@ namespace TNet
 				lock (mInst)
 #endif
 				{
-					if (mInst.mUpdating)
+					if (mUpdating)
 					{
-						mInst.mRemoveInfrequent.Add(obj);
+						mRemoveInfrequent.Add(obj);
 					}
 					else
 					{
-						for (int i = 0; i < mInst.mInfrequent.Count; ++i)
+						for (int i = 0; i < mInfrequent.Count; ++i)
 						{
-							if (mInst.mInfrequent[i].obj == obj)
+							if (mInfrequent[i].obj == obj)
 							{
-								mInst.mInfrequent.RemoveAt(i);
+								mInfrequent.RemoveAt(i);
 								break;
 							}
 						}
@@ -365,15 +376,15 @@ namespace TNet
 
 			if (mInst == null)
 			{
-				if (!Application.isPlaying) return;
+				if (!Application.isPlaying) { callback(); return; }
 				Create();
 			}
 #if THREAD_SAFE_UPDATER
 			lock (mInst)
 #endif
 			{
-				if (mInst.mOnNextUpdateIndex0) mInst.mOnNextUpdate0 += callback;
-				else mInst.mOnNextUpdate1 += callback;
+				if (mOnNextUpdateIndex0) mOnNextUpdate0 += callback;
+				else mOnNextUpdate1 += callback;
 			}
 		}
 
@@ -385,17 +396,59 @@ namespace TNet
 		{
 			if (mShuttingDown) return;
 
+#if THREAD_SAFE_UPDATER
 			if (mInst != null)
 			{
-#if THREAD_SAFE_UPDATER
 				lock (mInst)
-#endif
 				{
-					mInst.mOnNextUpdate0 -= callback;
-					mInst.mOnNextUpdate1 -= callback;
+					mOnNextUpdate0 -= callback;
+					mOnNextUpdate1 -= callback;
 				}
 			}
+#else
+			mOnNextUpdate0 -= callback;
+			mOnNextUpdate1 -= callback;
+#endif
 		}
+
+		/// <summary>
+		/// Adds a coroutine that will start to be executed. This works both in Play and Edit modes.
+		/// </summary>
+
+		static public void AddCoroutine (WorkerThread.EnumFunc e)
+		{
+			mCoroutines.Add(e);
+
+			if (mInst == null)
+			{
+				if (!Application.isPlaying)
+				{
+#if UNITY_EDITOR
+					if (mCoroutines.Count == 1) UnityEditor.EditorApplication.update += EditorUpdate;
+#endif
+					return;
+				}
+
+				Create();
+			}
+		}
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// Edit mode coroutine processing.
+		/// </summary>
+
+		static void EditorUpdate ()
+		{
+			for (int i = 0; i < mCoroutines.Count; ++i)
+			{
+				var e = mCoroutines[i]().MoveNext();
+				if (!e) mCoroutines.RemoveAt(i--);
+			}
+
+			if (mCoroutines.Count == 0) UnityEditor.EditorApplication.update -= EditorUpdate;
+		}
+#endif
 
 		/// <summary>
 		/// Invoke the specified callback after a delay.
@@ -410,15 +463,16 @@ namespace TNet
 				if (!Application.isPlaying) return;
 				Create();
 			}
+
+			var inv = new InvokeEntry();
+			inv.invokeTime = Time.time + delay;
+			inv.callback = callback;
+
 #if THREAD_SAFE_UPDATER
-			lock (mInst)
+			lock (mInst) mInvoke.Add(inv);
+#else
+			mInvoke.Add(inv);
 #endif
-			{
-				var inv = new InvokeEntry();
-				inv.invokeTime = Time.time + delay;
-				inv.callback = callback;
-				mInst.mInvoke.Add(inv);
-			}
 		}
 	}
 }

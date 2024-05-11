@@ -33,103 +33,103 @@ namespace TNet
 		/// Ping notification.
 		/// </summary>
 
-		static public TNEvents.OnPing onPing { get { return isPlaying ? instance.mClient.onPing : null; } set { if (isPlaying) instance.mClient.onPing = value; } }
+		static public TNEvents.OnPing onPing { get { return instance ? instance.mClient.onPing : null; } set { if (instance) instance.mClient.onPing = value; } }
 
 		/// <summary>
 		/// Error notification.
 		/// </summary>
 
-		static public TNEvents.OnError onError { get { return isPlaying ? instance.mClient.onError : null; } set { if (isPlaying) instance.mClient.onError = value; } }
+		static public TNEvents.OnError onError { get { return instance ? instance.mClient.onError : null; } set { if (instance) instance.mClient.onError = value; } }
 
 		/// <summary>
 		/// Connection attempt result indicating success or failure.
 		/// </summary>
 
-		static public TNEvents.OnConnect onConnect { get { return isPlaying ? instance.mClient.onConnect : null; } set { if (isPlaying) instance.mClient.onConnect = value; } }
+		static public TNEvents.OnConnect onConnect { get { return instance ? instance.mClient.onConnect : null; } set { if (instance) instance.mClient.onConnect = value; } }
 
 		/// <summary>
 		/// Notification sent after the connection terminates for any reason.
 		/// </summary>
 
-		static public TNEvents.OnDisconnect onDisconnect { get { return isPlaying ? instance.mClient.onDisconnect : null; } set { if (isPlaying) instance.mClient.onDisconnect = value; } }
+		static public TNEvents.OnDisconnect onDisconnect { get { return instance ? instance.mClient.onDisconnect : null; } set { if (instance) instance.mClient.onDisconnect = value; } }
 
 		/// <summary>
 		/// Notification sent when attempting to join a channel, indicating a success or failure.
 		/// </summary>
 
-		static public TNEvents.OnJoinChannel onJoinChannel { get { return isPlaying ? instance.mClient.onJoinChannel : null; } set { if (isPlaying) instance.mClient.onJoinChannel = value; } }
+		static public TNEvents.OnJoinChannel onJoinChannel { get { return instance ? instance.mClient.onJoinChannel : null; } set { if (instance) instance.mClient.onJoinChannel = value; } }
 
 		/// <summary>
 		/// Notification sent when the channel gets updated.
 		/// </summary>
 
-		static public TNEvents.OnUpdateChannel onUpdateChannel { get { return isPlaying ? instance.mClient.onUpdateChannel : null; } set { if (isPlaying) instance.mClient.onUpdateChannel = value; } }
+		static public TNEvents.OnUpdateChannel onUpdateChannel { get { return instance ? instance.mClient.onUpdateChannel : null; } set { if (instance) instance.mClient.onUpdateChannel = value; } }
 
 		/// <summary>
 		/// Notification sent when leaving a channel for any reason, including being disconnected.
 		/// </summary>
 
-		static public TNEvents.OnLeaveChannel onLeaveChannel { get { return isPlaying ? instance.mClient.onLeaveChannel : null; } set { if (isPlaying) instance.mClient.onLeaveChannel = value; } }
+		static public TNEvents.OnLeaveChannel onLeaveChannel { get { return instance ? instance.mClient.onLeaveChannel : null; } set { if (instance) instance.mClient.onLeaveChannel = value; } }
 
 		/// <summary>
 		/// Notification sent when changing levels.
 		/// </summary>
 
-		static public TNEvents.OnLoadLevel onLoadLevel { get { return isPlaying ? instance.mClient.onLoadLevel : null; } set { if (isPlaying) instance.mClient.onLoadLevel = value; } }
+		static public TNEvents.OnLoadLevel onLoadLevel { get { return instance ? instance.mClient.onLoadLevel : null; } set { if (instance) instance.mClient.onLoadLevel = value; } }
 
 		/// <summary>
 		/// Notification sent when a new player joins the channel.
 		/// </summary>
 
-		static public TNEvents.OnPlayerJoin onPlayerJoin { get { return isPlaying ? instance.mClient.onPlayerJoin : null; } set { if (isPlaying) instance.mClient.onPlayerJoin = value; } }
+		static public TNEvents.OnPlayerJoin onPlayerJoin { get { return instance ? instance.mClient.onPlayerJoin : null; } set { if (instance) instance.mClient.onPlayerJoin = value; } }
 
 		/// <summary>
 		/// Notification sent when a player leaves the channel.
 		/// </summary>
 
-		static public TNEvents.OnPlayerLeave onPlayerLeave { get { return isPlaying ? instance.mClient.onPlayerLeave : null; } set { if (isPlaying) instance.mClient.onPlayerLeave = value; } }
+		static public TNEvents.OnPlayerLeave onPlayerLeave { get { return instance ? instance.mClient.onPlayerLeave : null; } set { if (instance) instance.mClient.onPlayerLeave = value; } }
 
 		/// <summary>
 		/// Notification of some player changing their name.
 		/// </summary>
 
-		static public TNEvents.OnRenamePlayer onRenamePlayer { get { return isPlaying ? instance.mClient.onRenamePlayer : null; } set { if (isPlaying) instance.mClient.onRenamePlayer = value; } }
+		static public TNEvents.OnRenamePlayer onRenamePlayer { get { return instance ? instance.mClient.onRenamePlayer : null; } set { if (instance) instance.mClient.onRenamePlayer = value; } }
 
 		/// <summary>
 		/// Notification sent when the channel's host changes.
 		/// </summary>
 
-		static public TNEvents.OnHostChanged onHostChanged { get { return isPlaying ? instance.mClient.onHostChanged : null; } set { if (isPlaying) instance.mClient.onHostChanged = value; } }
+		static public TNEvents.OnHostChanged onHostChanged { get { return instance ? instance.mClient.onHostChanged : null; } set { if (instance) instance.mClient.onHostChanged = value; } }
 
 		/// <summary>
 		/// Notification sent when the server's data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetServerData onSetServerData { get { return isPlaying ? instance.mClient.onSetServerData : null; } set { if (isPlaying) instance.mClient.onSetServerData = value; } }
+		static public TNEvents.OnSetServerData onSetServerData { get { return instance ? instance.mClient.onSetServerData : null; } set { if (instance) instance.mClient.onSetServerData = value; } }
 
 		/// <summary>
 		/// Notification sent when the channel's data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetChannelData onSetChannelData { get { return isPlaying ? instance.mClient.onSetChannelData : null; } set { if (isPlaying) instance.mClient.onSetChannelData = value; } }
+		static public TNEvents.OnSetChannelData onSetChannelData { get { return instance ? instance.mClient.onSetChannelData : null; } set { if (instance) instance.mClient.onSetChannelData = value; } }
 
 		/// <summary>
 		/// Notification sent when player data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetPlayerData onSetPlayerData { get { return isPlaying ? instance.mClient.onSetPlayerData : null; } set { if (isPlaying) instance.mClient.onSetPlayerData = value; } }
+		static public TNEvents.OnSetPlayerData onSetPlayerData { get { return instance ? instance.mClient.onSetPlayerData : null; } set { if (instance) instance.mClient.onSetPlayerData = value; } }
 
 		/// <summary>
 		/// Callback triggered when the player gets verified as an administrator.
 		/// </summary>
 
-		static public TNEvents.OnSetAdmin onSetAdmin { get { return isPlaying ? instance.mClient.onSetAdmin : null; } set { if (isPlaying) instance.mClient.onSetAdmin = value; } }
+		static public TNEvents.OnSetAdmin onSetAdmin { get { return instance ? instance.mClient.onSetAdmin : null; } set { if (instance) instance.mClient.onSetAdmin = value; } }
 
 		/// <summary>
 		/// Callback triggered when a chat message arrives.
 		/// </summary>
 
-		static public TNEvents.OnChatPacket onChat { get { return isPlaying ? instance.mClient.onChat : null; } set { if (isPlaying) instance.mClient.onChat = value; } }
+		static public TNEvents.OnChatPacket onChat { get { return instance ? instance.mClient.onChat : null; } set { if (instance) instance.mClient.onChat = value; } }
 		#endregion
 
 		/// <summary>
@@ -736,9 +736,6 @@ namespace TNet
 					var go = new GameObject("Network Manager");
 					mInstance = go.AddComponent<TNManager>();
 					mDestroyed = false;
-#if UNITY_EDITOR
-					Debug.Log("TNet: Network Manager created", go);
-#endif
 				}
 				return mInstance;
 			}
@@ -1158,12 +1155,11 @@ namespace TNet
 				else
 				{
 					Application.runInBackground = true;
-					IPEndPoint ip = TNet.Tools.ResolveEndPoint(address, port);
+					var ip = Tools.ResolveEndPoint(address, port);
 
 					if (ip == null)
 					{
-						if (onConnect != null)
-							onConnect(false, "Unable to resolve [" + address + "]");
+						if (onConnect != null) onConnect(false, "Unable to resolve [" + address + "]");
 					}
 					else instance.mClient.Connect(ip, null);
 				}
@@ -1288,7 +1284,7 @@ namespace TNet
 		/// <param name="channelID">ID of the channel. Every player joining this channel will see one another.</param>
 		/// <param name="levelName">Level that will be loaded first.</param>
 
-		static public void JoinChannel (int channelID, string levelName, bool leaveCurrentChannel = true, TNEvents.OnJoinChannel onJoin = null)
+		static public void JoinChannel (int channelID, string levelName, bool persistent, bool leaveCurrentChannel = true, TNEvents.OnJoinChannel onJoin = null)
 		{
 			if (!IsInChannel(channelID))
 			{
@@ -1302,7 +1298,7 @@ namespace TNet
 						mJoinCallbacks[channelID] = onJoin;
 					}
 
-					mInstance.mClient.JoinChannel(channelID, levelName, false, 65535, null);
+					mInstance.mClient.JoinChannel(channelID, levelName, persistent, 65535, null);
 				}
 				else
 				{
@@ -1943,7 +1939,7 @@ namespace TNet
 			{
 				mInstance.mClient.CancelSend();
 #if UNITY_EDITOR
-				Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
+				Debug.LogWarning("Trying to send a packet to channel " + channelID + " while still joining it. This packet will be ignored. You should check [tno.canSend] before trying to send something.");
 #endif
 			}
 		}
@@ -2060,26 +2056,25 @@ namespace TNet
 				SetDefaultCallbacks();
 
 #if UNITY_EDITOR
-				List<IPAddress> ips = TNet.Tools.localAddresses;
+				var ips = Tools.localAddresses;
 
 				if (ips != null && ips.size > 0)
 				{
-					var ipv6 = (TNet.Tools.localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6);
-					string text = "[TNet] Local IPs: " + ips.size;
+					var ipv6 = (Tools.localAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6);
+					var text = "[TNet] Local IPs: " + ips.size;
 
 					for (int i = 0; i < ips.size; ++i)
 					{
 						var ip = ips.buffer[i];
 						text += "\n  " + (i + 1) + ": " + ips.buffer[i];
 
-						if (ip == TNet.Tools.localAddress)
+						if (ip == Tools.localAddress)
 						{
 							text += " (LAN)";
 						}
 						else if (ipv6 && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
 						{
-							if (ip == TNet.Tools.externalAddress)
-								text += " (WAN)";
+							if (ip == Tools.externalAddress) text += " (WAN)";
 						}
 					}
 					Debug.Log(text);

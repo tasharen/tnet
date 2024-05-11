@@ -18,19 +18,27 @@ namespace TNet
 	[RequireComponent(typeof(Rigidbody))]
 	public class TNSyncRigidbody : TNBehaviour
 	{
-		/// <summary>
-		/// How many times per second to send updates.
-		/// The actual number of updates sent may be higher (if new players connect) or lower (if the rigidbody is still).
-		/// </summary>
-
+		[Tooltip("How many times per second to send updates. The actual number of updates sent may be higher (if a collision happens) or lower (if the rigidbody is still). If this value is '0', then only collisions will cause a sync to happen without you calling Sync() manually.")]
 		public float updatesPerSecond = 10f;
 
-		/// <summary>
-		/// Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.
-		/// If you have a lot of frequent updates, mark it as not important.
-		/// </summary>
-
+		[Tooltip("Whether to send through UDP or TCP. If it's important, TCP will be used. If not, UDP.  If you have a lot of frequent updates, mark it as not important. If the number of updates per second is 1 or lower, this is always considered to be 'true'.")]
 		public bool isImportant = false;
+
+		[Tooltip("(Optional) Assign this value to the SmoothTransform that resides underneath this object's hierarchy that should be informed when the rigidodby performs its correction")]
+		public SmoothTransform smoothTrans;
+
+		[Header("Sync Delta Thresholds")]
+		[Tooltip("Position must change by at least this value for from the previous sync in order for another to be considered")]
+		public float posSyncDelta = 0.01f;
+		
+		[Tooltip("Rotation must change by at least this many degrees for from the previous sync in order for another to be considered")]
+		public float rotSyncDelta = 0.01f;
+		
+		[Tooltip("Velocity must change by at least this value for from the previous sync in order for another to be considered")]
+		public float velSyncDelta = 0.01f;
+		
+		[Tooltip("Angular velocity must change by at least this many degrees for from the previous sync in order for another to be considered")]
+		public float angSyncDelta = 0.01f;
 
 		/// <summary>
 		/// Set this to 'false' to stop sending updates.
@@ -38,16 +46,15 @@ namespace TNet
 
 		[System.NonSerialized] public bool isActive = true;
 
-		Transform mTrans;
-		Rigidbody mRb;
-		float mNext = 0f;
-		bool mWasSleeping = false;
-		Quaternion mLastRot;
-#if W2
-		Vector3D mLastPos;
-#else
-		Vector3 mLastPos;
-#endif
+		[System.NonSerialized] protected Transform mTrans;
+		[System.NonSerialized] protected Rigidbody mRb;
+		[System.NonSerialized] protected float mNext = 0f;
+		[System.NonSerialized] protected bool mWasSleeping = false;
+		[System.NonSerialized] protected Quaternion mLastRot;
+		[System.NonSerialized] protected Vector3 mLastPos;
+		[System.NonSerialized] protected Vector3 mLastVel;
+		[System.NonSerialized] protected Vector3 mLastAngVel;
+
 		protected override void Awake ()
 		{
 			base.Awake();
@@ -58,20 +65,28 @@ namespace TNet
 		public override void OnStart ()
 		{
 			base.OnStart();
+			
 			mLastRot = mTrans.rotation;
-			UpdateInterval();
-#if W2
-			mLastPos = FloatingOrigin.positionOffset + mTrans.position;
-#else
 			mLastPos = mTrans.position;
-#endif
+			mLastVel = mRb.velocity;
+			mLastAngVel = mRb.angularVelocity;
+
+			// This ensures that multiple rigidbody updates are spaced out and don't happen at once
+			if (updatesPerSecond > 0f) mNext = Random.Range(0.5f, 1.5f) * 1f / updatesPerSecond;
 		}
 
 		/// <summary>
 		/// Update the timer, offsetting the time by the update frequency.
 		/// </summary>
 
-		void UpdateInterval () { mNext = Random.Range(0.85f, 1.15f) * (updatesPerSecond > 0f ? (1f / updatesPerSecond) : 0f); }
+		void UpdateInterval () { if (updatesPerSecond > 0f) mNext = 1f / updatesPerSecond; }
+
+		static bool IsNanOrInfinity (Vector3 v)
+		{
+			if (float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)) return true;
+			if (float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z)) return true;
+			return false;
+		}
 
 		/// <summary>
 		/// Only the host should be sending out updates. Everyone else should be simply observing the changes.
@@ -79,40 +94,50 @@ namespace TNet
 
 		void FixedUpdate ()
 		{
-			if (updatesPerSecond < 0.001f) return;
+			if (updatesPerSecond < 0.001f || !isActive || !tno.isMine || !tno.canSend) return;
 
-			if (isActive && tno.isMine && !tno.hasBeenDestroyed && TNManager.IsInChannel(tno.channelID))
+			var isSleeping = mRb.IsSleeping();
+			if (isSleeping && mWasSleeping) return;
+
+			mNext -= Time.deltaTime;
+			if (mNext > 0f) return;
+
+			UpdateInterval();
+
+			var pos = mTrans.position;
+
+			if (IsNanOrInfinity(pos))
 			{
-				bool isSleeping = mRb.IsSleeping();
-				if (isSleeping && mWasSleeping) return;
-
-				mNext -= Time.deltaTime;
-				if (mNext > 0f) return;
-				UpdateInterval();
-#if W2
-				var pos = FloatingOrigin.positionOffset + mRb.position;
-				var vel = FloatingOrigin.velocityOffset + mRb.velocity;
-#else
-				var pos = mRb.position;
-				var vel = mRb.velocity;
-#endif
-				Quaternion rot = mTrans.rotation;
-
-				if (mWasSleeping || pos != mLastPos || Quaternion.Dot(rot, mLastRot) < 0.99f)
-				{
-					mLastPos = pos;
-					mLastRot = rot;
-
-					// Send the update. Note that we're using an RFC ID here instead of the function name.
-					// Using an ID speeds up the function lookup time and reduces the size of the packet.
-					// Since the target is "OthersSaved", even players that join later will receive this update.
-					// Each consecutive Send() updates the previous, so only the latest one is kept on the server.
-
-					if (isImportant) tno.Send(1, Target.OthersSaved, pos, rot, vel, mRb.angularVelocity);
-					else tno.SendQuickly(1, Target.OthersSaved, pos, rot, vel, mRb.angularVelocity);
-				}
-				mWasSleeping = isSleeping;
+				Debug.LogError("Invalid position: " + pos + ", fixing", this);
+				pos = new Vector3(0f, 30f + Random.Range(0f, 20f), 0f);
+				mTrans.position = pos;
 			}
+
+			var rot = mTrans.rotation;
+			var vel = mRb.velocity;
+			var ang = mRb.angularVelocity;
+			var asd = angSyncDelta * Mathf.Deg2Rad;
+
+			if (mWasSleeping || (pos - mLastPos).sqrMagnitude > posSyncDelta * posSyncDelta ||
+				Quaternion.Angle(rot, mLastRot) > rotSyncDelta ||
+				(vel - mLastVel).sqrMagnitude > velSyncDelta * velSyncDelta ||
+				(ang - mLastAngVel).sqrMagnitude > asd * asd)
+			{
+				mLastPos = pos;
+				mLastRot = rot;
+				mLastVel = vel;
+				mLastAngVel = ang;
+
+				// Send the update. Note that we're using an RFC ID here instead of the function name.
+				// Using an ID speeds up the function lookup time and reduces the size of the packet.
+				// Since the target is "OthersSaved", even players that join later will receive this update.
+				// Each consecutive Send() updates the previous, so only the latest one is kept on the server.
+
+				if (isImportant || updatesPerSecond <= 1f) tno.Send(1, Target.OthersSaved, pos, rot, vel, ang);
+				else tno.SendQuickly(1, Target.OthersSaved, pos, rot, vel, ang);
+			}
+
+			mWasSleeping = isSleeping;
 		}
 
 		/// <summary>
@@ -120,30 +145,22 @@ namespace TNet
 		/// Note that an RFC ID is specified here. This shrinks the size of the packet and speeds up
 		/// the function lookup time. It's a good idea to do this with all frequently called RFCs.
 		/// </summary>
-#if W2
-		[RFC(1)]
-		void OnSync (Vector3D pos, Quaternion rot, Vector3D vel, Vector3 ang)
-#else
+
 		[RFC(1)]
 		void OnSync (Vector3 pos, Quaternion rot, Vector3 vel, Vector3 ang)
-#endif
 		{
 			mLastPos = pos;
 			mLastRot = rot;
+			mLastVel = vel;
+			mLastAngVel = ang;
 
 			if (mRb.isKinematic)
 			{
-#if W2
-				mTrans.position = pos - FloatingOrigin.positionOffset;
-				mRb.velocity = vel - FloatingOrigin.velocityOffset;
-#else
 				mTrans.position = pos;
-				mRb.velocity = vel;
-#endif
 				mTrans.rotation = rot;
 
-				// Does this actually do anything? Needs to be investigated...
 				mRb.isKinematic = false;
+				mRb.velocity = vel;
 				mRb.angularVelocity = ang;
 				mRb.isKinematic = true;
 			}
@@ -152,28 +169,53 @@ namespace TNet
 				if (TNManager.IsJoiningChannel(tno.channelID))
 				{
 					mTrans.rotation = rot;
-#if W2
-					mTrans.position = pos - FloatingOrigin.positionOffset;
-					mRb.velocity = vel - FloatingOrigin.velocityOffset;
-#else
 					mTrans.position = pos;
+					
 					mRb.velocity = vel;
-#endif
+					mRb.angularVelocity = ang;
 				}
 				else
 				{
-					mRb.rotation = rot;
-#if W2
-					mRb.position = pos - FloatingOrigin.positionOffset;
-					mRb.velocity = vel - FloatingOrigin.velocityOffset;
-#else
-					mRb.position = pos;
-					mRb.velocity = vel;
-#endif
-				}
+					if (smoothTrans && updatesPerSecond > 0f)
+					{
+						if (updatesPerSecond > 1f)
+						{
+							Debug.LogWarning("Smooth transform is meant to be used with rigidbodies that don't sync frequently -- usually only once every couple seconds at most.", smoothTrans);
+							updatesPerSecond = 1f;
+						}
 
-				mRb.angularVelocity = ang;
+						var delta = updatesPerSecond > 0f ? 1f / updatesPerSecond : 0f;
+						if (smoothTrans.lerpTime > delta) smoothTrans.lerpTime = delta;
+
+						var mag = Mathf.Max(((mRb.position - pos).magnitude - 0.1f) * 0.5f, (Quaternion.Angle(mRb.rotation, rot) - 2f) / 20f);
+
+						if (mag > 0f)
+						{
+							// Immediately finish the smooth transform animation if it's currently in progress
+							if (smoothTrans.enabled) smoothTrans.Finish();
+
+							// Use the current position/rotation as the start of the smooth transition
+							smoothTrans.Init();
+						}
+
+						mRb.rotation = rot;
+						mRb.position = pos;
+						mRb.velocity = vel;
+						mRb.angularVelocity = ang;
+
+						// Start the smooth transition
+						if (mag > 0f) smoothTrans.Activate();
+					}
+					else
+					{
+						mRb.rotation = rot;
+						mRb.position = pos;
+						mRb.velocity = vel;
+						mRb.angularVelocity = ang;
+					}
+				}
 			}
+
 			UpdateInterval();
 		}
 
@@ -189,16 +231,13 @@ namespace TNet
 
 		public void Sync ()
 		{
-			if (isActive && !tno.hasBeenDestroyed && TNManager.IsInChannel(tno.channelID))
+			if (isActive && tno.canSend)
 			{
 				UpdateInterval();
-#if W2
-				mLastPos = FloatingOrigin.positionOffset + mRb.position;
-				var vel = FloatingOrigin.velocityOffset + mRb.velocity;
-#else
+
 				mLastPos = mRb.position;
 				var vel = mRb.velocity;
-#endif
+
 				mWasSleeping = false;
 				mLastRot = mRb.rotation;
 				tno.Send(1, Target.OthersSaved, mLastPos, mLastRot, vel, mRb.angularVelocity);

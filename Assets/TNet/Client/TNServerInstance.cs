@@ -148,7 +148,7 @@ namespace TNet
 		/// Start dummy server instance without using sockets. Ideal for single-player.
 		/// </summary>
 
-		static public bool Start (string fileName)
+		static public bool Start (string fileName = null)
 		{
 			return instance.StartLocal(fileName);
 		}
@@ -157,7 +157,7 @@ namespace TNet
 		/// Start a local server instance listening to the specified port.
 		/// </summary>
 
-		static public bool Start (int tcpPort, bool openPort = true)
+		static public bool Start (int tcpPort, bool openPort = false)
 		{
 			return instance.StartLocal(tcpPort, 0, null, 0, Type.Udp, openPort);
 		}
@@ -166,16 +166,25 @@ namespace TNet
 		/// Start a local server instance listening to the specified port.
 		/// </summary>
 
-		static public bool Start (int tcpPort, int udpPort, bool openPort = true)
+		static public bool Start (int tcpPort, int udpPort, bool openPort = false)
 		{
 			return instance.StartLocal(tcpPort, udpPort, null, 0, Type.Udp, openPort);
+		}
+
+		/// <summary>
+		/// Start a local server instance listening to the specified port.
+		/// </summary>
+
+		static public bool Start (int tcpPort, string fileName, bool openPort = false)
+		{
+			return instance.StartLocal(tcpPort, 0, fileName, 0, Type.Udp, openPort);
 		}
 
 		/// <summary>
 		/// Start a local server instance listening to the specified port and loading the saved data from the specified file.
 		/// </summary>
 
-		static public bool Start (int tcpPort, int udpPort, string fileName, bool openPort = true)
+		static public bool Start (int tcpPort, int udpPort, string fileName, bool openPort = false)
 		{
 			return instance.StartLocal(tcpPort, udpPort, fileName, 0, Type.Udp, openPort);
 		}
@@ -190,7 +199,7 @@ namespace TNet
 		/// Start a local game and lobby server instances.
 		/// </summary>
 
-		static public bool Start (int tcpPort, int udpPort, int lobbyPort, string fileName, bool openPort = true)
+		static public bool Start (int tcpPort, int udpPort, int lobbyPort, string fileName, bool openPort = false)
 		{
 			return instance.StartLocal(tcpPort, udpPort, fileName, lobbyPort, Type.Udp, openPort);
 		}
@@ -199,7 +208,7 @@ namespace TNet
 		/// Start a local game and lobby server instances.
 		/// </summary>
 
-		static public bool Start (int tcpPort, int udpPort, int lobbyPort, string fileName, Type type, bool openPort = true)
+		static public bool Start (int tcpPort, int udpPort, int lobbyPort, string fileName, Type type, bool openPort = false)
 		{
 			return instance.StartLocal(tcpPort, udpPort, fileName, lobbyPort, type, openPort);
 		}
@@ -208,7 +217,7 @@ namespace TNet
 		/// Start a local game server and connect to a remote lobby server.
 		/// </summary>
 
-		static public bool Start (int tcpPort, int udpPort, string fileName, Type type, IPEndPoint remoteLobby, bool openPort = true)
+		static public bool Start (int tcpPort, int udpPort, string fileName, Type type, IPEndPoint remoteLobby, bool openPort = false)
 		{
 			return instance.StartRemote(tcpPort, udpPort, fileName, remoteLobby, type, openPort);
 		}

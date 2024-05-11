@@ -654,17 +654,23 @@ namespace TNet
 						// Load it from resources as a Game Object
 						if (prefab == null)
 						{
-							prefab = Resources.Load(path, typeof(GameObject)) as GameObject;
+							UnityEngine.Profiling.Profiler.BeginSample("Resources.Load: " + path);
+							prefab = Resources.Load<GameObject>(path);
+							UnityEngine.Profiling.Profiler.EndSample();
 
 							if (prefab == null)
 							{
 								// Load it from resources as a binary asset
-								var bytes = UnityTools.LoadBinary(path);
+								UnityEngine.Profiling.Profiler.BeginSample("LoadBinary: " + path);
+								var bytes = LoadBinary(path);
+								UnityEngine.Profiling.Profiler.EndSample();
 
 								if (bytes != null)
 								{
 									// Parse the DataNode hierarchy
+									UnityEngine.Profiling.Profiler.BeginSample("DataNode.Read");
 									var data = DataNode.Read(bytes);
+									UnityEngine.Profiling.Profiler.EndSample();
 
 									if (data != null)
 									{
@@ -685,7 +691,7 @@ namespace TNet
 					}
 					else
 					{
-						var inst = Resources.Load(path, typeof(GameObject)) as GameObject;
+						var inst = Resources.Load<GameObject>(path);
 						if (inst != null || i == 1) return inst;
 					}
 

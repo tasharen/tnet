@@ -217,8 +217,12 @@ namespace TNet
 
 		public DataNode AddChild (DataNode child, bool clone = false)
 		{
-			if (children == null) children = new List<DataNode>();
-			children.Add(clone ? child.Clone() : child);
+			if (child != null)
+			{
+				if (children == null) children = new List<DataNode>();
+				if (clone) child = child.Clone();
+				children.Add(child);
+			}
 			return child;
 		}
 
@@ -351,6 +355,7 @@ namespace TNet
 
 		public DataNode GetHierarchy (string path)
 		{
+			if (string.IsNullOrEmpty(path)) return null;
 			if (path.IndexOf('\\') != -1) path = path.Replace("\\", "/");
 
 			if (path.IndexOf('/') != -1)
@@ -672,6 +677,7 @@ namespace TNet
 			stream.Position = 0;
 			var retVal = false;
 
+#if UNITY_2021_1_OR_NEWER
 			WorkerThread.Create(delegate ()
 			{
 				var comp = LZMA.Compress(stream, mLZMA);
@@ -688,8 +694,47 @@ namespace TNet
 				}
 			},
 			(callback != null) ? delegate() { callback(retVal); } : null);
+#else
+			if (callback != null)
+			{
+				WorkerThread.Create(delegate ()
+				{
+					var comp = LZMA.Compress(stream, mLZMA);
+
+					if (comp != null)
+					{
+						retVal = Tools.WriteFile(path, comp, inMyDocuments, allowConfigAccess);
+						comp.Close();
+					}
+					else
+					{
+						retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
+						writer.Close();
+					}
+				},
+				delegate() { callback(retVal); });
+			}
+			else
+			{
+				WorkerThread.Create(delegate ()
+				{
+					var comp = LZMA.Compress(stream, mLZMA);
+
+					if (comp != null)
+					{
+						retVal = Tools.WriteFile(path, comp, inMyDocuments, allowConfigAccess);
+						comp.Close();
+					}
+					else
+					{
+						retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
+						writer.Close();
+					}
+				});
+			}
+#endif
 		}
-		#endif
+#endif
 
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.

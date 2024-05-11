@@ -136,8 +136,7 @@ namespace TNet
 
 				if (id != 0 && !hasBeenDestroyed)
 				{
-					if (mNextChannelID != 0 && TNManager.IsInChannel(mNextChannelID, true)) return true;
-					return TNManager.IsInChannel(channelID);
+					return TNManager.IsInChannel(channelID, true) && !TNManager.IsJoiningChannel(channelID);
 				}
 				return false;
 			}
@@ -193,6 +192,9 @@ namespace TNet
 					}
 					else if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
 					{
+						// Set it locally so that the effect is immediate and all further checks pass as expected
+						if (value == TNManager.playerID) mOwner = TNManager.player;
+
 						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
 						bw.Write(channelID);
 						bw.Write(id);
@@ -275,14 +277,91 @@ namespace TNet
 		public T Get<T> (in string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
 
 		/// <summary>
-		/// Set the object-specific data.
+		/// Set the object-specific data. Note that ideally it's the object's owner that should be calling this function.
+		/// The code supports non-object owner doing so, but there will be two onDataChanged callbacks in this case:
+		/// one immediately to keep all local data in sync, and another one after the packet returns from the object's owner.
 		/// </summary>
 
 		public void Set (in string name, object val, bool sync = true)
 		{
 			if (mData == null) mData = new DataNode("TNO");
+
+			// Set the local data immediately so that the change is available right away
 			mData.SetHierarchy(name, val);
 
+			// If a sync is requested, make sure it's actually possible at this time
+			if (sync && enabled && id != 0)
+			{
+				if (canSend)
+				{
+					if (isMine)
+					{
+						// Inform others of this change
+						Send("OnSet", Target.Others, name, val);
+
+						// Update the entire data tree on the server for future users
+						Send(2, Target.NoneSaved, mData);
+					}
+					// All set requests must go through the object's owner
+					else Send("OnSet", ownerID, name, val);
+
+					// Inform the listeners
+					if (!mSettingData)
+					{
+						mSettingData = true;
+						mCallDataChanged = false;
+						if (onDataChanged != null) onDataChanged(mData);
+						mSettingData = false;
+					}
+				}
+				else
+				{
+					// Delay the send operation until actually able to do so
+					var q = new SetEntry();
+					q.name = name;
+					if (val != null && val is DataNode) q.val = (val as DataNode).Clone();
+					else q.val = val;
+
+					if (mSetQueue == null || mSetQueue.Count == 0)
+					{
+						if (mSetQueue == null) mSetQueue = new Queue<SetEntry>();
+						mSetQueue.Enqueue(q);
+						StartCoroutine(WaitToSend());
+					}
+					else mSetQueue.Enqueue(q);
+				}
+			}
+			else if (!mSettingData)
+			{
+				// Inform the listeners
+				mSettingData = true;
+				mCallDataChanged = false;
+				if (onDataChanged != null) onDataChanged(mData);
+				mSettingData = false;
+			}
+		}
+
+		System.Collections.IEnumerator WaitToSend ()
+		{
+			while (!canSend) yield return null;
+
+			if (isMine)
+			{
+				// If we're the owner, keep it simple and just send the entire tree
+				Send(2, Target.OthersSaved, mData);
+				mSetQueue.Clear();
+			}
+			else
+			{
+				// Not the owner? Send all queued up commands one at a time
+				while (mSetQueue.Count != 0)
+				{
+					var q = mSetQueue.Dequeue();
+					Send("OnSet", ownerID, q.name, q.val);
+				}
+			}
+
+			// Inform the listeners
 			if (!mSettingData)
 			{
 				mSettingData = true;
@@ -290,13 +369,15 @@ namespace TNet
 				if (onDataChanged != null) onDataChanged(mData);
 				mSettingData = false;
 			}
-
-			if (sync && enabled && id != 0)
-			{
-				if (isMine) Send(2, Target.OthersSaved, mData);
-				else Send("OnSet", ownerID, name, val);
-			}
 		}
+
+		struct SetEntry
+		{
+			public string name;
+			public object val;
+		}
+
+		[System.NonSerialized] Queue<SetEntry> mSetQueue = null;
 
 		/// <summary>
 		/// Can be used after modifying the data directly. Will sync all of the object's data.
@@ -306,18 +387,36 @@ namespace TNet
 		{
 			if (mData == null) return;
 
+			if (enabled && id != 0)
+			{
+				if (canSend)
+				{
+					if (isMine) Send(2, Target.OthersSaved, mData);
+					else Send("OnSet", ownerID, null, mData);
+				}
+				else
+				{
+					// Delay the send operation until actually able to do so
+					var q = new SetEntry();
+					q.name = null;
+					q.val = mData;
+
+					if (mSetQueue == null || mSetQueue.Count == 0)
+					{
+						if (mSetQueue == null) mSetQueue = new Queue<SetEntry>();
+						mSetQueue.Enqueue(q);
+						StartCoroutine(WaitToSend());
+					}
+					else mSetQueue.Enqueue(q);
+				}
+			}
+
 			if (!mSettingData)
 			{
 				mSettingData = true;
 				mCallDataChanged = false;
 				if (onDataChanged != null) onDataChanged(mData);
 				mSettingData = false;
-			}
-
-			if (enabled && id != 0)
-			{
-				if (isMine) Send(2, Target.OthersSaved, mData);
-				else Send("OnSet", ownerID, null, mData);
 			}
 		}
 
@@ -336,7 +435,15 @@ namespace TNet
 			}
 
 			OnSetData(mData);
-			Send(2, Target.OthersSaved, mData);
+
+			if (isMine)
+			{
+				// Inform others of this change
+				Send("OnSet", Target.Others, name, val);
+
+				// Update the entire data tree on the server for future users
+				Send(2, Target.NoneSaved, mData);
+			}
 		}
 
 		[RFC(2)]
@@ -405,7 +512,7 @@ namespace TNet
 				}
 				else
 				{
-					BinaryWriter bw = TNManager.BeginSend(Packet.RequestDestroyObject);
+					var bw = TNManager.BeginSend(Packet.RequestDestroyObject);
 					bw.Write(channelID);
 					bw.Write(id);
 					TNManager.EndSend(channelID, true);
@@ -496,7 +603,7 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Retrieve the Tasharen Network Object by ID.
+		/// Retrieve the Tasharen Network Object by ID. This is an O(1) call.
 		/// </summary>
 
 		static public TNObject Find (int channelID, uint tnID)

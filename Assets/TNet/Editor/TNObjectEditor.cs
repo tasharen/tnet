@@ -26,6 +26,7 @@ public class TNObjectEditor : Editor
 			EditorGUI.BeginDisabledGroup(true);
 			EditorGUILayout.LabelField("Channel", obj.channelID.ToString("N0"));
 			EditorGUILayout.LabelField("ID", obj.id.ToString("N0"));
+			EditorGUILayout.LabelField("UID", obj.uid.ToString());
 			EditorGUILayout.LabelField("Creator", obj.creatorPlayerID.ToString("N0"));
 
 			if (obj.owner != null)
