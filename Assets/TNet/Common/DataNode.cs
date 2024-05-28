@@ -77,7 +77,7 @@ namespace TNet
 
 		// This many child nodes have to be present before a lookup dictionary will be used to speed up GetChild(name) calls.
 		// The lookup dictionary is created when GetChild(name) is used, and is only populated one GetChild call at a time.
-		const int LOOKUP_CHILD_REQUIREMENT = 8;
+		const int LOOKUP_CHILD_REQUIREMENT = 16;
 
 		// Must remain 4 bytes long
 		static byte[] mLZMA = new byte[] { (byte)'C', (byte)'D', (byte)'0', (byte)'1' };
@@ -525,7 +525,15 @@ namespace TNet
 
 			// Automatically create a lookup dictionary
 			if (mCache == null && children != null && children.size >= LOOKUP_CHILD_REQUIREMENT)
+			{
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.BeginSample("DataNode.GetChild (allocating lookup cache)");
 				mCache = new Dictionary<string, DataNode>();
+				UnityEngine.Profiling.Profiler.EndSample();
+#else
+				mCache = new Dictionary<string, DataNode>();
+#endif
+			}
 
 			// Try to use the lookup dictionary if possible
 			if (mCache != null)

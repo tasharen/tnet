@@ -399,6 +399,7 @@ namespace TNet
 							}
 						}
 					}
+
 #if STANDALONE || UNITY_EDITOR
 					if (tc.aliases == null || tc.aliases.size == 0) Tools.Log(tc.name + " (" + tc.address + "): Connected [" + tc.id + "]");
 					tc.Log("Passed a ban check: " + s);
@@ -414,6 +415,9 @@ namespace TNet
 				}
 				case Packet.RequestServerList:
 				{
+#if W2
+					if ((tc.aliases == null ? 0 : tc.aliases.size) < 2) return false;
+#endif
 					if (reader.ReadUInt16() != GameServer.gameID) return false;
 					tc.Set("lastSend", 1);
 					return true;

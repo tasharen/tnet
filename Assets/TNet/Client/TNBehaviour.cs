@@ -71,31 +71,31 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (in string name) { return tno != null ? mTNO.Get(name) : null; }
+		public virtual DataNode Get (in string name) { return mTNO ? mTNO.Get(name) : null; }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (in string name) { return tno != null ? mTNO.Get<T>(name) : default(T); }
+		public virtual T Get<T> (in string name) { return mTNO ? mTNO.Get<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (in string name, T defVal) { return tno != null ? mTNO.Get<T>(name, defVal) : defVal; }
+		public virtual T Get<T> (in string name, T defVal) { return mTNO ? mTNO.Get<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data.
 		/// </summary>
 
-		public void Set (in string name, object val, bool sync = true) { if (tno != null) mTNO.Set(name, val, sync); }
+		public virtual void Set (in string name, object val, bool sync = true) { if (mTNO) mTNO.Set(name, val, sync); }
 
 		/// <summary>
 		/// Convenience function to set the data using a single string notation such as "key = value".
 		/// </summary>
 
-		public void Set (in string text)
+		public virtual void Set (in string text)
 		{
 			if (!string.IsNullOrEmpty(text))
 			{
@@ -116,13 +116,13 @@ namespace TNet
 		/// Destroy this game object.
 		/// </summary>
 
-		public virtual void DestroySelf () { if (tno != null) mTNO.DestroySelf(); else Destroy(gameObject); }
+		public virtual void DestroySelf () { if (mTNO) mTNO.DestroySelf(); else Destroy(gameObject); }
 
 		/// <summary>
 		/// Destroy this game object on all connected clients and remove it from the server.
 		/// </summary>
 
-		public void DestroySelf (float delay, bool onlyIfOwner = true) { if (tno != null) mTNO.DestroySelf(delay, onlyIfOwner); }
+		public void DestroySelf (float delay, bool onlyIfOwner = true) { if (mTNO) mTNO.DestroySelf(delay, onlyIfOwner); }
 
 		/// <summary>
 		/// Convenience method mirroring TNManager.Instantiate.

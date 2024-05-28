@@ -128,6 +128,9 @@ namespace TNet
 
 		static public Buffer Create ()
 		{
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.Create()");
+#endif
 			Buffer b = null;
 
 			if (mPool.Count == 0)
@@ -165,6 +168,9 @@ namespace TNet
 			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use (counter == " + b.mCounter + ")");
 #endif
 			b.mCounter = 1;
+#endif
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
 #endif
 			return b;
 		}
@@ -352,6 +358,9 @@ namespace TNet
 		{
 			if (!mWriting)
 			{
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.BeginWriting");
+#endif
 				if (append)
 				{
 					mStream.Seek(mSize, SeekOrigin.Begin);
@@ -378,13 +387,15 @@ namespace TNet
 
 		public BinaryWriter BeginWriting (int startOffset)
 		{
+#if UNITY_EDITOR
+			if (!mWriting) UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.BeginWriting");
+#endif
 			if (mStream.Position != startOffset)
 			{
 				if (startOffset > mStream.Length)
 				{
 					mStream.Seek(0, SeekOrigin.End);
-					for (long i = mStream.Length; i < startOffset; ++i)
-						mWriter.Write((byte)0);
+					for (long i = mStream.Length; i < startOffset; ++i) mWriter.Write((byte)0);
 				}
 				else mStream.Seek(startOffset, SeekOrigin.Begin);
 			}
@@ -405,6 +416,9 @@ namespace TNet
 				mWriting = false;
 				mSize = (int)mStream.Position;
 				mStream.Seek(0, SeekOrigin.Begin);
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.EndSample();
+#endif
 			}
 			return mSize;
 		}

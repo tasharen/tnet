@@ -253,13 +253,8 @@ namespace TNet
 
 		static public void SetAlias (string alias)
 		{
-#if !MODDING
-			if (mInstance)
-			{
-				BeginSend(Packet.RequestSetAlias).Write(alias);
-				EndSend();
-			}
-#endif
+			if (mInstance != null && mInstance.mClient.isConnected) mInstance.mClient.SetAlias(alias);
+			else GameClient.AddAlias(alias);
 		}
 
 		/// <summary>
@@ -1128,6 +1123,7 @@ namespace TNet
 
 		static public void Connect (string address)
 		{
+			if (isTryingToConnect) return;
 			string[] split = address.Split(new char[] { ':' });
 			int port = 5127;
 			if (split.Length == 2 && int.TryParse(split[1], out port)) Connect(split[0], port);
@@ -1141,7 +1137,7 @@ namespace TNet
 		static public void Connect (string address, int port)
 		{
 #if !MODDING
-			if (!instance.mClient.isTryingToConnect)
+			if (!instance.mClient.isTryingToConnect && !instance.mClient.isConnected)
 			{
 				mInstance.CancelInvoke("DisconnectDelayed");
 				mInstance.mDelayedDisconnect = false;
@@ -1164,9 +1160,6 @@ namespace TNet
 					else instance.mClient.Connect(ip, null);
 				}
 			}
-#if UNITY_EDITOR
-			else Debug.LogWarning("Already connecting...");
-#endif
 #endif
 		}
 
@@ -1177,7 +1170,7 @@ namespace TNet
 		static public void Connect (IPEndPoint externalIP, IPEndPoint internalIP)
 		{
 #if !MODDING
-			if (!instance.mClient.isTryingToConnect)
+			if (!instance.mClient.isTryingToConnect && !instance.mClient.isConnected)
 			{
 				mInstance.CancelInvoke("DisconnectDelayed");
 				mInstance.mDelayedDisconnect = false;
@@ -1186,9 +1179,6 @@ namespace TNet
 				mInstance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 				mInstance.mClient.Connect(externalIP, internalIP);
 			}
-#if UNITY_EDITOR
-			else Debug.LogWarning("Already connecting...");
-#endif
 #endif
 		}
 

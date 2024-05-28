@@ -16,7 +16,7 @@ using System.Threading;
 using System.Net;
 using System.Collections.Generic;
 
-#if UNITY_EDITOR
+#if !STANDALONE
 using UnityEngine;
 #endif
 
@@ -127,6 +127,12 @@ namespace TNet
 		// Server configuration data
 		DataNode mConfig = new DataNode("Version", Player.version);
 		int mDataHash = 0;
+
+		/// <summary>
+		/// List of user aliases used by the game servers.
+		/// </summary>
+
+		[NonSerialized] static public System.Collections.Generic.List<string> aliases = new System.Collections.Generic.List<string>();
 
 		/// <summary>
 		/// Whether the player has verified himself as an administrator.
@@ -546,6 +552,9 @@ namespace TNet
 
 		public BinaryWriter BeginSend (Packet type)
 		{
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.BeginSend(Packet)");
+#endif
 			mBuffer = Buffer.Create();
 			return mBuffer.BeginPacket(type);
 		}
@@ -556,6 +565,9 @@ namespace TNet
 
 		public BinaryWriter BeginSend (byte packetID)
 		{
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.BeginSend(byte)");
+#endif
 			mBuffer = Buffer.Create();
 			return mBuffer.BeginPacket(packetID);
 		}
@@ -571,6 +583,9 @@ namespace TNet
 				mBuffer.EndPacket();
 				mBuffer.Recycle();
 				mBuffer = null;
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.EndSample();
+#endif
 			}
 		}
 
@@ -586,6 +601,9 @@ namespace TNet
 			mTcp.SendTcpPacket(mBuffer, instant);
 			mBuffer.Recycle();
 			mBuffer = null;
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -610,6 +628,9 @@ namespace TNet
 
 			mBuffer.Recycle();
 			mBuffer = null;
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -626,6 +647,9 @@ namespace TNet
 #endif
 			mBuffer.Recycle();
 			mBuffer = null;
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -642,6 +666,9 @@ namespace TNet
 #endif
 			mBuffer.Recycle();
 			mBuffer = null;
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -662,10 +689,11 @@ namespace TNet
 				var writer = BeginSend(Packet.RequestID);
 				writer.Write(TcpProtocol.version);
 #if UNITY_EDITOR
-				writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Editor" : mTcp.name);
+				var n = string.IsNullOrEmpty(mTcp.name) ? "Editor" : mTcp.name;
 #else
-				writer.Write(string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name);
+				var n = string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name;
 #endif
+				writer.Write(n);
 				writer.Write(mTcp.dataNode);
 				EndSend();
 			}
@@ -987,6 +1015,28 @@ namespace TNet
 			if (isConnected)
 			{
 				BeginSend(Packet.RequestSetTimeout).Write(seconds);
+				EndSend();
+			}
+#endif
+		}
+
+		/// <summary>
+		/// Add a new alias. Aliases are used to uniquely identify users on the server-side.
+		/// </summary>
+
+		static public void AddAlias (string a) { if (!aliases.Contains(a)) aliases.Add(a); }
+
+		/// <summary>
+		/// Add a new alias. Aliases are used to uniquely identify users on the server-side.
+		/// </summary>
+
+		public void SetAlias (string a)
+		{
+			AddAlias(a);
+#if !MODDING
+			if (isConnected)
+			{
+				BeginSend(Packet.RequestSetAlias).Write(a);
 				EndSend();
 			}
 #endif
@@ -1437,21 +1487,33 @@ namespace TNet
 				case Packet.ResponsePlayerJoined:
 				{
 					int channelID = reader.ReadInt32();
-
 					var ch = GetChannel(channelID);
+					var pid = reader.ReadInt32();
+					var bn = reader.ReadBoolean();
+					string pn = null;
+					DataNode dn = null;
+
+					if (bn)
+					{
+						pn = reader.ReadString();
+						dn = reader.ReadDataNode();
+					}
 
 					if (ch != null)
 					{
-						Player p = GetPlayer(reader.ReadInt32(), true);
+						var p = GetPlayer(pid, true);
 
-						if (reader.ReadBoolean())
+						if (p != null)
 						{
-							p.name = reader.ReadString();
-							p.dataNode = reader.ReadDataNode();
-						}
+							if (bn)
+							{
+								p.name = pn;
+								p.dataNode = dn;
+							}
 
-						ch.players.Add(p);
-						if (onPlayerJoin != null) onPlayerJoin(channelID, p);
+							ch.players.Add(p);
+							if (onPlayerJoin != null) onPlayerJoin(channelID, p);
+						}
 					}
 					break;
 				}
@@ -1459,16 +1521,31 @@ namespace TNet
 				{
 					int channelID = reader.ReadInt32();
 					int playerID = reader.ReadInt32();
-
 					var ch = GetChannel(channelID);
 
 					if (ch != null)
 					{
-						Player p = ch.GetPlayer(playerID);
-						ch.players.Remove(p);
-						RebuildPlayerDictionary();
-						if (onPlayerLeave != null) onPlayerLeave(channelID, p);
+						var p = ch.GetPlayer(playerID);
+
+						if (p != null)
+						{
+							ch.players.Remove(p);
+							RebuildPlayerDictionary();
+							if (onPlayerLeave != null) onPlayerLeave(channelID, p);
+						}
+#if !STANDALONE
+						else
+						{
+							var sb = new System.Text.StringBuilder();
+							sb.AppendLine("ResponsePlayerLeft in channel " + channelID + ", player #" + playerID + " returned a null player. Players here:");
+							foreach (var cp in ch.players) sb.AppendLine("   " + cp.id + " = " + cp.name);
+							Debug.LogWarning(sb.ToString());
+						}
+#endif
 					}
+#if !STANDALONE
+					else Debug.LogWarning("ResponsePlayerLeft for a channel (" + channelID + ") the player isn't currently in, ignoring.");
+#endif
 					break;
 				}
 				case Packet.ResponseSetHost:
@@ -1491,13 +1568,13 @@ namespace TNet
 				}
 				case Packet.ResponseSetChannelData:
 				{
-					int channelID = reader.ReadInt32();
-					Channel ch = GetChannel(channelID);
+					var channelID = reader.ReadInt32();
+					var ch = GetChannel(channelID);
+					var path = reader.ReadString();
+					var node = ch.Set(path, reader.ReadObject());
 
 					if (ch != null)
 					{
-						string path = reader.ReadString();
-						DataNode node = ch.Set(path, reader.ReadObject());
 						if (onSetChannelData != null) onSetChannelData(ch, path, node);
 					}
 					break;
@@ -1764,6 +1841,12 @@ namespace TNet
 				}
 				case Packet.ResponseConnected:
 				{
+					foreach (var a in aliases)
+					{
+						BeginSend(Packet.RequestSetAlias).Write(a);
+						EndSend();
+					}
+
 					if (onConnect != null) onConnect(true, null);
 					break;
 				}

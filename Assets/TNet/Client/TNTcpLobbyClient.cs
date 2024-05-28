@@ -56,6 +56,7 @@ namespace TNet
 				if (mNextConnect < time)
 				{
 					mNextConnect = time + 5000;
+					mTcp.name = TNManager.playerName;
 					mTcp.Connect(mRemoteAddress);
 				}
 			}
@@ -75,6 +76,13 @@ namespace TNet
 							if (mTcp.VerifyResponseID(response, reader))
 							{
 								isActive = true;
+
+								// Send all previously set aliases
+								foreach (var a in GameClient.aliases)
+								{
+									mTcp.BeginSend(Packet.RequestSetAlias).Write(a);
+									mTcp.EndSend();
+								}
 
 								// Request the server list -- with TCP this only needs to be done once
 								mTcp.BeginSend(Packet.RequestServerList).Write(GameServer.gameID);

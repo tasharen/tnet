@@ -42,20 +42,20 @@ public class Application : IDisposable
 	public void Start (string serverName, int tcpPort, int udpPort, string lobbyAddress, int lobbyPort, bool useTcp, bool service, string fn = "server.dat")
 	{
 		mFilename = fn;
-		List<IPAddress> ips = Tools.localAddresses;
+		var ips = Tools.localAddresses;
 		string text = "\nLocal IPs: " + ips.size;
 		var ipv6 = (Tools.localAddress.AddressFamily == AddressFamily.InterNetworkV6);
 
 		for (int i = 0; i < ips.size; ++i)
 		{
 			var ip = ips.buffer[i];
-			text += "\n  " + (i + 1) + ": " + ips.buffer[i];
+			text += "\n  " + (i + 1) + ": " + ip;
 
-			if (ip == TNet.Tools.localAddress)
+			if (ip == Tools.localAddress)
 			{
 				text += " (LAN)";
 			}
-			else if (ipv6 && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+			else if (ipv6 && ip.AddressFamily == AddressFamily.InterNetworkV6)
 			{
 				if (ip == TNet.Tools.externalAddress)
 					text += " (WAN)";
@@ -77,6 +77,7 @@ public class Application : IDisposable
 			{
 				mGameServer = new GameServer();
 				mGameServer.name = serverName;
+				mGameServer.backupInterval = 3600; // Once per hour
 
 				if (!string.IsNullOrEmpty(lobbyAddress))
 				{
@@ -172,7 +173,11 @@ public class Application : IDisposable
 					string command = Console.ReadLine();
 					if (command == "q") break;
 
-					if (command.StartsWith("ban "))
+					if (command.StartsWith("name "))
+					{
+						if (mGameServer != null) mGameServer.name = command.Substring(5).Replace('|', '\n').Replace("\\n", "\n");
+					}
+					else if (command.StartsWith("ban "))
 					{
 						if (mLobbyServer != null) mLobbyServer.Ban(command.Substring(4));
 						if (mGameServer != null) mGameServer.Ban(command.Substring(4));
@@ -334,9 +339,9 @@ public class Application : IDisposable
 
 			if (param == "-name")
 			{
-				if (val0 != null) serverName = val0;
+				if (val0 != null) serverName = val0.Replace('|', '\n').Replace("\\n", "\n");
 			}
-			else if (param == "-tcp")
+			else if (param == "-tcp" || param == "-port")
 			{
 				if (val0 != null) int.TryParse(val0, out tcpPort);
 			}
@@ -344,7 +349,7 @@ public class Application : IDisposable
 			{
 				if (val0 != null) int.TryParse(val0, out udpPort);
 			}
-			else if (param == "-ip")
+			else if (param == "-ip" || param == "-lan")
 			{
 				if (val0 != null) UdpProtocol.defaultNetworkInterface = Tools.ResolveAddress(val0);
 			}

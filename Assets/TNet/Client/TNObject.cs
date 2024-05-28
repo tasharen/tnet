@@ -1771,6 +1771,9 @@ namespace TNet
 				return;
 #endif
 			}
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(1)");
+#endif
 
 #if UNITY_EDITOR
 			if (rebuildMethodList) RebuildMethodList();
@@ -1782,18 +1785,33 @@ namespace TNet
 				if (!mDict0.TryGetValue(rfcID, out ent))
 				{
 					Debug.LogWarning("RFC " + rfcID + " is not present on " + name, this);
+#if UNITY_EDITOR
+					UnityEngine.Profiling.Profiler.EndSample();
+#endif
 					return;
 				}
 			}
 			else if (!mDict1.TryGetValue(rfcName, out ent))
 			{
 				Debug.LogWarning("RFC " + rfcName + " is not present on " + name, this);
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.EndSample();
+#endif
 				return;
 			}
 #endif
 			// Some very odd special case... sending a string[] as the only parameter
 			// results in objs[] being a string[] instead, when it should be object[string[]].
-			if (objs != null && objs.GetType() != typeof(object[])) objs = new object[] { objs };
+			if (objs != null && !(objs is object[]))
+			{
+#if UNITY_EDITOR
+				UnityEngine.Profiling.Profiler.BeginSample("Special case");
+				objs = new object[] { objs };
+				UnityEngine.Profiling.Profiler.EndSample();
+#else
+				objs = new object[] { objs };
+#endif
+			}
 
 			var uid = this.id;
 			var executeLocally = false;
@@ -1921,6 +1939,9 @@ namespace TNet
 				else Execute(rfcName, objs);
 				TNManager.packetSourceID = -1;
 			}
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 #if UNITY_EDITOR && COUNT_PACKETS
@@ -1938,7 +1959,9 @@ namespace TNet
 			if (!Application.isPlaying) return;
 #endif
 			if (mDestroyed != 0 || id == 0 || string.IsNullOrEmpty(targetName)) return;
-
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(2)");
+#endif
 			if (targetName == TNManager.playerName)
 			{
 				TNManager.packetSourceID = TNManager.playerID;
@@ -1964,6 +1987,9 @@ namespace TNet
 				TNManager.EndSend(channelID, reliable);
 #endif
 			}
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -1973,6 +1999,9 @@ namespace TNet
 		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0) return;
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(3)");
+#endif
 
 			if (TNManager.isConnected)
 			{
@@ -1999,6 +2028,9 @@ namespace TNet
 				else Execute(rfcName, objs);
 				TNManager.packetSourceID = -1;
 			}
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
@@ -2008,6 +2040,10 @@ namespace TNet
 		void SendRFC (byte rfcID, string rfcName, List<int> targets, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0 || targets == null || targets.size == 0) return;
+
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(4)");
+#endif
 
 			if (TNManager.isConnected)
 			{
@@ -2034,6 +2070,9 @@ namespace TNet
 				else Execute(rfcName, objs);
 				TNManager.packetSourceID = -1;
 			}
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
 		}
 
 		/// <summary>
