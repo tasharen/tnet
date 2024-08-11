@@ -228,13 +228,15 @@ namespace TNet
 		/// Remove the specified player from the channel.
 		/// </summary>
 
-		public void RemovePlayer (TcpPlayer p, List<uint> destroyedObjects)
+		public bool RemovePlayer (TcpPlayer p, List<uint> destroyedObjects)
 		{
 #if !MODDING
 			destroyedObjects.Clear();
 
 			if (players.Remove(p))
 			{
+				p.channels.Remove(this);
+
 				// When the host leaves, clear the host (it gets changed in SendLeaveChannel)
 				if (p == host) host = null;
 
@@ -267,8 +269,10 @@ namespace TNet
 					for (int i = 0; i < rfcs.size; ++i) rfcs.buffer[i].Recycle();
 					rfcs.Clear();
 				}
+				return true;
 			}
 #endif
+			return false;
 		}
 
 		/// <summary>

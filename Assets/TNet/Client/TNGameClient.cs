@@ -678,7 +678,7 @@ namespace TNet
 		public void Connect (GameServer server)
 		{
 #if !MODDING
-			Disconnect();
+			if (isConnected || isTryingToConnect) return;
 
 			if (server != null)
 			{
@@ -707,7 +707,7 @@ namespace TNet
 		public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 		{
 #if !MODDING
-			Disconnect();
+			if (isConnected || isTryingToConnect) return;
 			if (externalIP == null) UnityEngine.Debug.LogError("Expecting a valid IP address or a local server to be running");
 			else mTcp.Connect(externalIP, internalIP);
 #endif
@@ -741,13 +741,14 @@ namespace TNet
 				}
 			}
 
+			mTcp.Close(false);
+
 			if (mLocalServer != null)
 			{
 				mLocalServer.Stop();
 				mLocalServer.localClient = null;
 				mLocalServer = null;
 			}
-			else mTcp.Close(false);
 
 			mChannels.Clear();
 			mGetChannelsCallbacks.Clear();

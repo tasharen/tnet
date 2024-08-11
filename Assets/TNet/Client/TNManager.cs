@@ -206,7 +206,7 @@ namespace TNet
 		/// Whether the player has verified himself as an administrator.
 		/// </summary>
 
-		static public bool isAdmin { get { return (mInstance == null || !mInstance.mClient.isConnected || mInstance.mClient.isAdmin); } }
+		static public bool isAdmin { get { return (TNServerInstance.isActive || mInstance == null || !mInstance.mClient.isConnected || mInstance.mClient.isAdmin); } }
 
 		/// <summary>
 		/// Set administrator privileges. Note that failing the password test will cause a disconnect.
@@ -1125,7 +1125,11 @@ namespace TNet
 		{
 			if (isTryingToConnect) return;
 			string[] split = address.Split(new char[] { ':' });
+#if W2
+			int port = 5137;
+#else
 			int port = 5127;
+#endif
 			if (split.Length == 2 && int.TryParse(split[1], out port)) Connect(split[0], port);
 			else Connect(address, port);
 		}
@@ -1174,7 +1178,6 @@ namespace TNet
 			{
 				mInstance.CancelInvoke("DisconnectDelayed");
 				mInstance.mDelayedDisconnect = false;
-				mInstance.mClient.Disconnect();
 				mInstance.mClient.playerName = mPlayer.name;
 				mInstance.mClient.playerData = (mPlayer.dataNode != null) ? mPlayer.dataNode.Clone() : null;
 				mInstance.mClient.Connect(externalIP, internalIP);
@@ -1278,6 +1281,9 @@ namespace TNet
 		{
 			if (!IsInChannel(channelID))
 			{
+#if UNITY_EDITOR
+				Debug.Log("JoinChannel " + channelID);
+#endif
 				if (leaveCurrentChannel) LeaveAllChannels();
 
 				if (isConnected)

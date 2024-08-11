@@ -447,6 +447,7 @@ namespace TNet
 			if (valueType == typeof(int))
 			{
 				// Integer conversion
+				if (desiredType == typeof(bool)) return (int)value != 0;
 				if (desiredType == typeof(byte)) return (byte)(int)value;
 				if (desiredType == typeof(short)) return (short)(int)value;
 				if (desiredType == typeof(ushort)) return (ushort)(int)value;
@@ -472,6 +473,7 @@ namespace TNet
 			else if (valueType == typeof(float))
 			{
 				// Float conversion
+				if (desiredType == typeof(bool)) return (float)value != 0f;
 				if (desiredType == typeof(byte)) return (byte)Round((float)value);
 				if (desiredType == typeof(short)) return (short)Round((float)value);
 				if (desiredType == typeof(ushort)) return (ushort)Round((float)value);
@@ -485,6 +487,7 @@ namespace TNet
 			else if (valueType == typeof(double))
 			{
 				// Float conversion
+				if (desiredType == typeof(bool)) return (double)value != 0d;
 				if (desiredType == typeof(byte)) return (byte)Round((double)value);
 				if (desiredType == typeof(short)) return (short)Round((double)value);
 				if (desiredType == typeof(ushort)) return (ushort)Round((double)value);
@@ -497,6 +500,7 @@ namespace TNet
 			}
 			else if (valueType == typeof(long))
 			{
+				if (desiredType == typeof(bool)) return (long)value != 0;
 				if (desiredType == typeof(byte)) return (byte)(long)value;
 				if (desiredType == typeof(short)) return (short)(long)value;
 				if (desiredType == typeof(ushort)) return (ushort)(long)value;
@@ -508,6 +512,7 @@ namespace TNet
 			}
 			else if (valueType == typeof(ulong))
 			{
+				if (desiredType == typeof(bool)) return (ulong)value != 0;
 				if (desiredType == typeof(byte)) return (byte)(ulong)value;
 				if (desiredType == typeof(short)) return (short)(ulong)value;
 				if (desiredType == typeof(ushort)) return (ushort)(ulong)value;
@@ -519,6 +524,7 @@ namespace TNet
 			}
 			else if (valueType == typeof(ushort))
 			{
+				if (desiredType == typeof(bool)) return (ushort)value != 0;
 				if (desiredType == typeof(byte)) return (byte)(ushort)value;
 				if (desiredType == typeof(short)) return (short)(ushort)value;
 				if (desiredType == typeof(int)) return (int)(ushort)value;
@@ -529,6 +535,7 @@ namespace TNet
 			}
 			else if (valueType == typeof(byte))
 			{
+				if (desiredType == typeof(bool)) return (byte)value != 0;
 				if (desiredType == typeof(short)) return (short)(byte)value;
 				if (desiredType == typeof(ushort)) return (ushort)(byte)value;
 				if (desiredType == typeof(int)) return (int)(byte)value;

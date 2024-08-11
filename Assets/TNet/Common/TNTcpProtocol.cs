@@ -208,7 +208,7 @@ namespace TNet
 		/// Whether we are currently trying to establish a new connection.
 		/// </summary>
 
-		public bool isTryingToConnect { get { return mConnecting.size != 0; } }
+		public bool isTryingToConnect { get { return stage == Stage.Connecting ||  stage == Stage.Verifying; } }
 
 #if !MODDING
 		/// <summary>
@@ -250,9 +250,8 @@ namespace TNet
 
 		public void Connect (IPEndPoint externalIP, IPEndPoint internalIP = null)
 		{
+			if (isConnected || isTryingToConnect) return;
 #if !MODDING
-			Disconnect();
-
 			lock (mIn) Buffer.Recycle(mIn);
 			lock (mOut) Buffer.Recycle(mOut);
 
@@ -278,6 +277,7 @@ namespace TNet
 					tcpEndPoint = externalIP;
 					mFallback = internalIP;
 				}
+
 				ConnectToTcpEndPoint();
 			}
 #endif
@@ -358,6 +358,7 @@ namespace TNet
 									Close(false);
 								}
 							}
+
 							mConnecting.Remove(sock);
 						}
 					}
@@ -465,9 +466,16 @@ namespace TNet
 
 		void CloseNotThreadSafe (bool notify)
 		{
+			if (stage == Stage.NotConnected) return;
 #if !MODDING
 #if STANDALONE || UNITY_EDITOR
-			if (id != 0) Tools.Log(name + " (" + address + "): Disconnected [" + id + "]");
+			if (id != 0)
+			{
+#if W2
+				if (aliases != null && aliases.size > 0)
+#endif
+				Tools.Log(name + " (" + address + "): Disconnected [" + id + "]");
+			}
 #endif
 			Buffer.Recycle(mOut);
 			stage = Stage.NotConnected;
@@ -522,7 +530,11 @@ namespace TNet
 				mReceiveBuffer = null;
 			}
 
-			if (onClose != null) onClose(this);
+			if (onClose != null)
+			{
+				onClose(this);
+				onClose = null;
+			}
 
 			id = 0;
 #endif
@@ -804,9 +816,9 @@ namespace TNet
 		public void StartReceiving (Socket socket)
 		{
 #if !MODDING
-			if (socket != null)
+			if (socket != null && mSocket != socket)
 			{
-				Close(false);
+				if (mSocket != null) Close(false);
 				mSocket = socket;
 			}
 
@@ -1145,6 +1157,7 @@ namespace TNet
 				sb.Append("\n");
 				sb.Append(stack);
 			}
+
 			Tools.Log(sb.ToString(), logInFile);
 		}
 
@@ -1221,7 +1234,7 @@ namespace TNet
 				{
 					name = reader.ReadString();
 					dataNode = reader.ReadDataNode();
-					stage = TcpProtocol.Stage.Connected;
+					stage = Stage.Connected;
 					return true;
 				}
 			}
@@ -1262,7 +1275,7 @@ namespace TNet
 			}
 			else if (packet == Packet.Error)
 			{
-				string text = reader.ReadString();
+				var text = reader.ReadString();
 				AddError("Expected a response ID, got " + packet + ": " + text);
 				Close(false);
 #if UNITY_EDITOR

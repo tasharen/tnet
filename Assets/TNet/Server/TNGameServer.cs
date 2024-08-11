@@ -273,7 +273,7 @@ namespace TNet
 						mLocalClient = value;
 						mLocalPlayer = new TcpPlayer();
 						mLocalPlayer.id = 0;
-						mLocalPlayer.onClose = OnDC;
+						mLocalPlayer.onClose = OnClose;
 						mLocalPlayer.name = "Guest";
 						mLocalPlayer.stage = TcpProtocol.Stage.Verifying;
 						mLocalPlayer.sendQueue = mLocalClient.receiveQueue;
@@ -434,7 +434,7 @@ namespace TNet
 		public void Stop ()
 		{
 #if !MODDING
-			if (shouldSave) Save();
+			if (shouldSave) Save(true);
 
 			if (onShutdown != null) onShutdown();
 			if (lobbyLink != null) lobbyLink.Stop();
@@ -719,8 +719,8 @@ namespace TNet
 			player.id = 0;
 			player.name = "Guest";
 			player.stage = TcpProtocol.Stage.Verifying;
-			player.onClose = OnDC;
 			player.StartReceiving(socket);
+			player.onClose = OnClose;
 			mPlayerList.Add(player);
 			return player;
 		}
@@ -735,7 +735,7 @@ namespace TNet
 			player.id = 0;
 			player.name = "Guest";
 			player.custom = p;
-			player.onClose = OnDC;
+			player.onClose = OnClose;
 			player.stage = TcpProtocol.Stage.Verifying;
 			mPlayerList.Add(player);
 			return player;
@@ -778,17 +778,21 @@ namespace TNet
 #endif
 		}
 
-		protected void OnDC (TcpProtocol tcp)
+		protected void OnClose (TcpProtocol tcp)
 		{
 #if !MODDING
 			var p = tcp as TcpPlayer;
-			if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p);
 
-			while (p.channels.size > 0)
+			if (p.id != 0)
 			{
-				var ch = p.channels.buffer[0];
-				if (ch != null) SendLeaveChannel(p, ch, false);
-				else p.channels.RemoveAt(0);
+				if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p, true);
+
+				for (int i = p.channels.size; i > 0;)
+				{
+					var ch = p.channels.buffer[--i];
+					if (ch != null) SendLeaveChannel(p, ch, false);
+					else p.channels.RemoveAt(i);
+				}
 			}
 
 			mPlayerList.Remove(p);
@@ -1162,9 +1166,7 @@ namespace TNet
 			if (ch == null) return;
 
 			// Remove this player from the channel
-			ch.RemovePlayer(player, mTemp);
-
-			if (player.channels.Remove(ch))
+			if (ch.RemovePlayer(player, mTemp))
 			{
 				// Are there other players left?
 				if (ch.players.size > 0)
@@ -1503,13 +1505,17 @@ namespace TNet
 #if DEBUG_PACKETS && !STANDALONE
 					UnityEngine.Debug.Log("Protocol verified");
 #endif
-					player.isAdmin = (player.custom == null) && (player.address == null || player.address == "0.0.0.0:0" || player.address.StartsWith("127.0.0.1:"));
+					player.isAdmin = (player.custom == null) && (player.id == 1 || player.address == null || player.address == "0.0.0.0:0" || player.address.StartsWith("127.0.0.1:"));
 
 					if (player.isAdmin || !mBan.Contains(player.name))
 					{
 						player.AssignID();
+#if !STANDALONE
+						// First player on a local server is always an admin
+						if (player.id == 1) player.isAdmin = true;
+#endif
 #if STANDALONE || UNITY_EDITOR
-						Tools.Log(player.name + " (" + player.address + "): Connected [" + player.id + "]");
+						Tools.Log(player.name + " (" + player.address + "): Connected [" + player.id + "], admin: " + player.isAdmin);
 #endif
 						mPlayerDict.Add(player.id, player);
 
@@ -1649,7 +1655,11 @@ namespace TNet
 
 					if (mServerData != null)
 					{
-						int min = mServerData.GetChild<int>("minAlias", 0);
+#if W2
+						int min = mServerData.GetChild("minAlias", 2);
+#else
+						int min = mServerData.GetChild("minAlias", 0);
+#endif
 						int aliasCount = (player.aliases == null ? 0 : player.aliases.size);
 
 						if (aliasCount < min)
@@ -2724,14 +2734,6 @@ namespace TNet
 			int playerID = reader.ReadInt32();
 			int channelID = reader.ReadInt32();
 
-			// Exploit: echoed packet of another player
-			if (playerID != player.id)
-			{
-				player.LogError("Tried to echo a " + request + " packet (" + playerID + " vs " + player.id + ")", null);
-				RemovePlayer(player);
-				return;
-			}
-
 			// The channel must exist
 			Channel ch;
 			mChannelDict.TryGetValue(channelID, out ch);
@@ -2745,9 +2747,17 @@ namespace TNet
 				// Save this packet on the server without echoing it to anyone
 				if (!ch.isLocked || player.isAdmin)
 				{
-					uint target = reader.ReadUInt32();
-					string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-					ch.AddRFC(target, funcName, buffer, mTime);
+					var target = reader.ReadUInt32();
+					var funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+
+					// Exploit: echoed packet of another player
+					if (playerID != player.id)
+					{
+						player.LogError("Tried to echo a " + request + " packet from PID #" + playerID + " as " + player.id + ". Func: " + funcName, null);
+						RemovePlayer(player);
+						return;
+					}
+					else ch.AddRFC(target, funcName, buffer, mTime);
 				}
 			}
 			else
@@ -2762,9 +2772,17 @@ namespace TNet
 				{
 					if (!ch.isLocked || player.isAdmin)
 					{
-						uint target = reader.ReadUInt32();
-						string funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-						ch.AddRFC(target, funcName, buffer, mTime);
+						var target = reader.ReadUInt32();
+						var funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+
+						// Exploit: echoed packet of another player
+						if (playerID != player.id)
+						{
+							player.LogError("Tried to echo a " + request + " packet from PID #" + playerID + " as " + player.id + ". Func: " + funcName, null);
+							RemovePlayer(player);
+							return;
+						}
+						else ch.AddRFC(target, funcName, buffer, mTime);
 					}
 				}
 
@@ -2802,7 +2820,7 @@ namespace TNet
 					// Exploit: echoed packet of another player
 					if (playerID != player.id)
 					{
-						player.LogError("Tried to echo a create packet (" + playerID + " vs " + player.id + ")", null);
+						player.LogError("Tried to echo a create packet from PID #" + playerID + " as " + player.id, null);
 						RemovePlayer(player);
 						return;
 					}
@@ -3124,7 +3142,7 @@ namespace TNet
 		/// Save the server's current state into the file that was loaded previously with Load().
 		/// </summary>
 
-		public void Save ()
+		public void Save (bool stopping = false)
 		{
 #if !MODDING
 			mNextSave = 0;
@@ -3212,7 +3230,7 @@ namespace TNet
 			}
 
 			// Save the player data
-			for (int i = 0; i < mPlayerList.size; ++i) SavePlayer(mPlayerList.buffer[i]);
+			for (int i = 0; i < mPlayerList.size; ++i) SavePlayer(mPlayerList.buffer[i], stopping);
 
 #if STANDALONE
 			var elapsed = timer.ElapsedMilliseconds;
@@ -3229,10 +3247,10 @@ namespace TNet
 		/// Save this player's data.
 		/// </summary>
 
-		protected void SavePlayer (TcpPlayer player)
+		protected void SavePlayer (TcpPlayer player, bool force = false)
 		{
 #if !MODDING
-			if (player == null || !player.saveNeeded || string.IsNullOrEmpty(player.savePath)) return;
+			if (player == null || string.IsNullOrEmpty(player.savePath) || (!force && !player.saveNeeded)) return;
 			player.saveNeeded = false;
 
 			if (player.dataNode == null || player.dataNode.children == null || player.dataNode.children.size == 0)
@@ -3253,7 +3271,7 @@ namespace TNet
 				save.value = mTime;
 
 				// Save to file
-				byte[] bytes = player.dataNode.ToArray(player.saveType);
+				var bytes = player.dataNode.ToArray(player.saveType);
 				if (!SaveFile(player.savePath, bytes)) player.LogError("Unable to save " + player.savePath);
 			}
 #endif

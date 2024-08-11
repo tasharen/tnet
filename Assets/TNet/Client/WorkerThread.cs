@@ -239,9 +239,9 @@ namespace TNet
 							for (int b = active.size; b > 0;)
 							{
 								var ent = active.buffer[--b];
-#if DEBUG_THREAD_TIMING
-								FastLog.Log("Worker Thread\n   " + ent.trace + "\n");
-#endif
+//#if DEBUG_THREAD_TIMING
+//								FastLog.Log("Worker Thread\n   " + ent.trace + "\n");
+//#endif
 								sw.Reset();
 								sw.Start();
 
@@ -295,6 +295,9 @@ namespace TNet
 
 		void StopThreads ()
 		{
+#if UNITY_EDITOR
+			UnityEngine.Debug.Log("Shutting down worker threads");
+#endif
 			isShuttingDown = true;
 
 			if (mThreads != null)
@@ -306,7 +309,7 @@ namespace TNet
 					if (thread != null)
 					{
 						thread.Interrupt();
-						thread.Join();
+						thread.Join(2000);
 					}
 				}
 				mThreads = null;
@@ -423,9 +426,9 @@ namespace TNet
 							continue;
 						}
 					}
-#if DEBUG_THREAD_TIMING
-					FastLog.Log("Time: " + ent.threadTime.ToString("N3") + " ms (thread) + " + ent.mainTime.ToString("N3") + " ms (main)\n   " + ent.trace + "\n");
-#endif
+//#if DEBUG_THREAD_TIMING
+//					FastLog.Log("Time: " + ent.threadTime.ToString("N3") + " ms (thread) + " + ent.mainTime.ToString("N3") + " ms (main)\n   " + ent.trace + "\n");
+//#endif
 					if (mStopwatch.GetElapsedMilliseconds() > maxMillisecondsPerFrame) break;
 				}
 			}
@@ -440,6 +443,53 @@ namespace TNet
 				}
 			}
 		}
+
+#if UNITY_EDITOR
+		[ContextMenu("Check threads")]
+		public void CheckThreads ()
+		{
+			lock (mInstance.mPriority)
+			{
+				UnityEngine.Debug.Log("Priority: " + mPriority.Count);
+
+#if DEBUG_THREAD_TIMING
+				var i = 0;
+				foreach (var p in mInstance.mPriority)
+				{
+					UnityEngine.Debug.Log(i + " (" + p.threadTime + " ms): " + p.trace);
+					++i;
+				}
+#endif
+			}
+
+			lock (mInstance.mRegular)
+			{
+				UnityEngine.Debug.Log("Regular: " + mRegular.Count);
+
+#if DEBUG_THREAD_TIMING
+				var i = 0;
+				foreach (var p in mInstance.mRegular)
+				{
+					UnityEngine.Debug.Log(i + " (" + p.threadTime + " ms): " + p.trace);
+					++i;
+				}
+#endif
+			}
+
+			lock (mInstance.mFinished)
+			{
+				UnityEngine.Debug.Log("Finished: " + mFinished.Count);
+#if DEBUG_THREAD_TIMING
+				var i = 0;
+				foreach (var p in mInstance.mFinished)
+				{
+					UnityEngine.Debug.Log(i + " (" + p.threadTime + " ms): " + p.trace);
+					++i;
+				}
+#endif
+			}
+		}
+#endif
 
 		/// <summary>
 		/// Add a new callback function to the worker thread.
@@ -463,6 +513,7 @@ namespace TNet
 #endif
 				var go = new GameObject("Worker Thread");
 				mInstance = go.AddComponent<WorkerThread>();
+				DontDestroyOnLoad(go);
 			}
 			else if (isShuttingDown)
 			{
