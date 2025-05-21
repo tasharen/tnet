@@ -193,13 +193,18 @@ namespace TNet
 					else if (value == 0 || TNManager.IsPlayerInChannel(value, channelID))
 					{
 						// Set it locally so that the effect is immediate and all further checks pass as expected
-						if (value == TNManager.playerID) mOwner = TNManager.player;
+						var target = (value == TNManager.playerID) ? TNManager.player : TNManager.GetPlayer(value);
+//#if UNITY_EDITOR
+//						Debug.Log("Requesting " + name + " ownership change from " + (mOwner != null ? mOwner.name : "null") + " to " + (target != null ? target.name : "null"), this);
+//#endif
+						mOwner = target;
 
-						var bw = TNManager.BeginSend(Packet.RequestSetOwner);
-						bw.Write(channelID);
-						bw.Write(id);
-						bw.Write(value);
-						TNManager.EndSend();
+						var b = TNManager.CreatePacket(Packet.RequestSetOwner);
+						var w = b.writer;
+						w.Write(channelID);
+						w.Write(id);
+						w.Write(value);
+						TNManager.SendPacket(b);
 #if UNITY_EDITOR && COUNT_PACKETS
 						if (sentDictionary.ContainsKey("ownerID")) ++sentDictionary["ownerID"];
 						else sentDictionary["ownerID"] = 1;
@@ -230,7 +235,13 @@ namespace TNet
 			}
 		}
 
-		public void OnChangeOwnerPacket (Player p) { mOwner = p; }
+		public void OnChangeOwnerPacket (Player p)
+		{
+//#if UNITY_EDITOR
+//			if (mOwner != p) Debug.Log($"{name} changing ownership from " + (mOwner != null ? mOwner.name : "null") + " to " + (p != null ? p.name : "null"), this);
+//#endif
+			mOwner = p;
+		}
 
 		/// <summary>
 		/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
@@ -410,6 +421,7 @@ namespace TNet
 					else mSetQueue.Enqueue(q);
 				}
 			}
+			else Debug.LogWarning("Calling TNObject.SyncData() on an object with ID of " + id + " (enabled: " + enabled + ", destroyed: " + mDestroyed + "), this will do nothing", this);
 
 			if (!mSettingData)
 			{
@@ -512,10 +524,11 @@ namespace TNet
 				}
 				else
 				{
-					var bw = TNManager.BeginSend(Packet.RequestDestroyObject);
+					var b = TNManager.CreatePacket(Packet.RequestDestroyObject);
+					var bw = b.writer;
 					bw.Write(channelID);
 					bw.Write(id);
-					TNManager.EndSend(channelID, true);
+					TNManager.SendPacket(b, channelID);
 #if UNITY_EDITOR && COUNT_PACKETS
 					if (sentDictionary.ContainsKey("DestroyNow")) ++sentDictionary["DestroyNow"];
 					else sentDictionary["DestroyNow"] = 1;
@@ -919,6 +932,10 @@ namespace TNet
 			return ent;
 		}
 
+		[System.NonSerialized] System.Collections.Generic.List<string> mErr0 = null;
+		[System.NonSerialized] System.Collections.Generic.List<byte> mErr1 = null;
+		[System.NonSerialized] bool mRemovalQueued = false;
+
 		/// <summary>
 		/// Invoke the function specified by the ID.
 		/// </summary>
@@ -932,6 +949,22 @@ namespace TNet
 			if (mDict0 != null && mDict0.TryGetValue(funcID, out ent))
 			{
 				ent.Execute(parameters);
+				
+				// If a critical error occurs (usually related to type conversion), then this RFC should be automatically removed to avoid further errors
+				if (!ent.success)
+				{
+					if (mErr1 == null) mErr1 = new System.Collections.Generic.List<byte>();
+
+					if (!mErr1.Contains(funcID))
+					{
+						mErr1.Add(funcID);
+						QueueRemoval();
+					}
+				}
+				else if (mErr1 != null)
+				{
+					mErr1.Remove(funcID);
+				}
 				return true;
 			}
 			return false;
@@ -941,18 +974,61 @@ namespace TNet
 		/// Invoke the function specified by the function name.
 		/// </summary>
 
-		public bool Execute (string funcName, params object[] parameters)
+		public CachedFunc Execute (string funcName, params object[] parameters)
 		{
 			if (rebuildMethodList) RebuildMethodList();
 
-			CachedFunc ent;
+			CachedFunc ent = null;
 
 			if (mDict1 != null && mDict1.TryGetValue(funcName, out ent))
 			{
 				ent.Execute(parameters);
-				return true;
+
+				// If a critical error occurs (usually related to type conversion), then this RFC should be automatically removed to avoid further errors
+				if (!ent.success)
+				{
+					if (mErr0 == null) mErr0 = new System.Collections.Generic.List<string>();
+
+					if (!mErr0.Contains(funcName))
+					{
+						mErr0.Add(funcName);
+						QueueRemoval();
+					}
+				}
+				else if (mErr0 != null)
+				{
+					mErr0.Remove(funcName);
+				}
 			}
-			return false;
+			return ent;
+		}
+
+		void QueueRemoval ()
+		{
+			if (!mRemovalQueued)
+			{
+				mRemovalQueued = true;
+				StartCoroutine("OnDelayedRemove");
+			}
+		}
+
+		System.Collections.IEnumerator OnDelayedRemove ()
+		{
+			while (!canSend) yield return null;
+
+			if (mErr0 != null)
+			{
+				if (isMine) foreach (var id in mErr0) RemoveSavedRFC(id);
+				mErr0 = null;
+			}
+
+			if (mErr1 != null)
+			{
+				if (isMine) foreach (var id in mErr1) RemoveSavedRFC(id);
+				mErr1 = null;
+			}
+
+			mRemovalQueued = false;
 		}
 
 		/// <summary>
@@ -984,18 +1060,20 @@ namespace TNet
 		/// Invoke the specified function. It's unlikely that you will need to call this function yourself.
 		/// </summary>
 
-		static public void FindAndExecute (int channelID, uint objID, string funcName, params object[] parameters)
+		static public CachedFunc FindAndExecute (int channelID, uint objID, string funcName, params object[] parameters)
 		{
 			var obj = Find(channelID, objID);
 
 			if (obj != null)
 			{
-				if (obj.Execute(funcName, parameters)) return;
+				var result = obj.Execute(funcName, parameters);
+				if (result != null && result.success) return result;
 #if UNITY_EDITOR
 				if (!obj.ignoreWarnings && !TNManager.IsJoiningChannel(channelID))
 					Debug.LogWarning("[TNet] Unable to execute function '" + funcName + "'. Did you forget an [RFC] prefix, perhaps?\n" +
 						"GameObject: " + GetHierarchy(obj.gameObject), obj.gameObject);
 #endif
+				return result;
 			}
 //#if UNITY_EDITOR
 //			else
@@ -1003,6 +1081,7 @@ namespace TNet
 //				Debug.LogWarning("[TNet] Trying to execute a function '" + funcName + "' on TNObject #" + objID + " before it has been created in channel " + channelID);
 //			}
 //#endif
+			return null;
 		}
 
 		[System.NonSerialized] static System.Collections.Generic.List<MonoBehaviour> mTempMono = new System.Collections.Generic.List<MonoBehaviour>();
@@ -1090,13 +1169,13 @@ namespace TNet
 		}
 
 #region Send functions
-		[System.NonSerialized] static object[] mObj1;
-		[System.NonSerialized] static object[] mObj2;
-		[System.NonSerialized] static object[] mObj3;
-		[System.NonSerialized] static object[] mObj4;
-		[System.NonSerialized] static object[] mObj5;
-		[System.NonSerialized] static object[] mObj6;
-		[System.NonSerialized] static object[] mObj7;
+		[System.NonSerialized] object[] mObj1;
+		[System.NonSerialized] object[] mObj2;
+		[System.NonSerialized] object[] mObj3;
+		[System.NonSerialized] object[] mObj4;
+		[System.NonSerialized] object[] mObj5;
+		[System.NonSerialized] object[] mObj6;
+		[System.NonSerialized] object[] mObj7;
 
 		/// <summary>
 		/// Send a remote function call.
@@ -1507,6 +1586,65 @@ namespace TNet
 			SendRFC(0, rfcName, playerIDs, true, mObj6);
 		}
 
+		public void SendQuickly (string rfcName, List<int> playerIDs, params object[] objs) { SendRFC(0, rfcName, playerIDs, true, objs); }
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0)
+		{
+			if (mObj1 == null) mObj1 = new object[1];
+			mObj1[0] = obj0;
+			SendRFC(0, rfcName, playerIDs, false, mObj1);
+		}
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0, object obj1)
+		{
+			if (mObj2 == null) mObj2 = new object[2];
+			mObj2[0] = obj0;
+			mObj2[1] = obj1;
+			SendRFC(0, rfcName, playerIDs, false, mObj2);
+		}
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2)
+		{
+			if (mObj3 == null) mObj3 = new object[3];
+			mObj3[0] = obj0;
+			mObj3[1] = obj1;
+			mObj3[2] = obj2;
+			SendRFC(0, rfcName, playerIDs, false, mObj3);
+		}
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3)
+		{
+			if (mObj4 == null) mObj4 = new object[4];
+			mObj4[0] = obj0;
+			mObj4[1] = obj1;
+			mObj4[2] = obj2;
+			mObj4[3] = obj3;
+			SendRFC(0, rfcName, playerIDs, false, mObj4);
+		}
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3, object obj4)
+		{
+			if (mObj5 == null) mObj5 = new object[5];
+			mObj5[0] = obj0;
+			mObj5[1] = obj1;
+			mObj5[2] = obj2;
+			mObj5[3] = obj3;
+			mObj5[4] = obj4;
+			SendRFC(0, rfcName, playerIDs, false, mObj5);
+		}
+
+		public void SendQuickly (string rfcName, List<int> playerIDs, object obj0, object obj1, object obj2, object obj3, object obj4, object obj5)
+		{
+			if (mObj6 == null) mObj6 = new object[6];
+			mObj6[0] = obj0;
+			mObj6[1] = obj1;
+			mObj6[2] = obj2;
+			mObj6[3] = obj3;
+			mObj6[4] = obj4;
+			mObj6[5] = obj5;
+			SendRFC(0, rfcName, playerIDs, false, mObj6);
+		}
+
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
@@ -1595,18 +1733,18 @@ namespace TNet
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
+		public void SendQuickly (in string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
 
-		public void SendQuickly (string rfcName, Target target) { SendRFC(0, rfcName, target, false, null); }
+		public void SendQuickly (in string rfcName, Target target) { SendRFC(0, rfcName, target, false, null); }
 
-		public void SendQuickly (string rfcName, Target target, object obj0)
+		public void SendQuickly (in string rfcName, Target target, object obj0)
 		{
 			if (mObj1 == null) mObj1 = new object[1];
 			mObj1[0] = obj0;
 			SendRFC(0, rfcName, target, false, mObj1);
 		}
 
-		public void SendQuickly (string rfcName, Target target, object obj0, object obj1)
+		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1)
 		{
 			if (mObj2 == null) mObj2 = new object[2];
 			mObj2[0] = obj0;
@@ -1614,7 +1752,7 @@ namespace TNet
 			SendRFC(0, rfcName, target, false, mObj2);
 		}
 
-		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2)
+		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1, object obj2)
 		{
 			if (mObj3 == null) mObj3 = new object[3];
 			mObj3[0] = obj0;
@@ -1623,7 +1761,7 @@ namespace TNet
 			SendRFC(0, rfcName, target, false, mObj3);
 		}
 
-		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
+		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
 		{
 			if (mObj4 == null) mObj4 = new object[4];
 			mObj4[0] = obj0;
@@ -1648,29 +1786,29 @@ namespace TNet
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
-		public void SendQuickly (string rfcName, Player target) { if (target != null) SendQuickly(rfcName, target.id); }
-		public void SendQuickly (string rfcName, Player target, object obj0) { if (target != null) SendQuickly(rfcName, target.id, obj0); }
-		public void SendQuickly (string rfcName, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1); }
-		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2); }
-		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2, obj3); }
+		public void SendQuickly (in string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
+		public void SendQuickly (in string rfcName, Player target) { if (target != null) SendQuickly(rfcName, target.id); }
+		public void SendQuickly (in string rfcName, Player target, object obj0) { if (target != null) SendQuickly(rfcName, target.id, obj0); }
+		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1); }
+		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2); }
+		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2, obj3); }
 
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, false, objs); }
+		public void SendQuickly (in string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, false, objs); }
 
-		public void SendQuickly (string rfcName, int playerID) { SendRFC(0, rfcName, playerID, false, null); }
+		public void SendQuickly (in string rfcName, int playerID) { SendRFC(0, rfcName, playerID, false, null); }
 
-		public void SendQuickly (string rfcName, int playerID, object obj0)
+		public void SendQuickly (in string rfcName, int playerID, object obj0)
 		{
 			if (mObj1 == null) mObj1 = new object[1];
 			mObj1[0] = obj0;
 			SendRFC(0, rfcName, playerID, false, mObj1);
 		}
 
-		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1)
+		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1)
 		{
 			if (mObj2 == null) mObj2 = new object[2];
 			mObj2[0] = obj0;
@@ -1678,7 +1816,7 @@ namespace TNet
 			SendRFC(0, rfcName, playerID, false, mObj2);
 		}
 
-		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2)
+		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1, object obj2)
 		{
 			if (mObj3 == null) mObj3 = new object[3];
 			mObj3[0] = obj0;
@@ -1687,7 +1825,7 @@ namespace TNet
 			SendRFC(0, rfcName, playerID, false, mObj3);
 		}
 
-		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
+		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
 		{
 			if (mObj4 == null) mObj4 = new object[4];
 			mObj4[0] = obj0;
@@ -1707,7 +1845,7 @@ namespace TNet
 		/// Send a broadcast to the entire LAN. Does not require an active connection.
 		/// </summary>
 
-		public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, 0, rfcName, objs); }
+		public void BroadcastToLAN (int port, in string rfcName, params object[] objs) { BroadcastToLAN(port, 0, rfcName, objs); }
 
 #endregion
 
@@ -1728,7 +1866,7 @@ namespace TNet
 		/// </summary>
 
 		[System.Obsolete("Use RemoveSavedRFC instead")]
-		public void Remove (string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
+		public void Remove (in string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
 
 		/// <summary>
 		/// Remove a previously saved remote function call.
@@ -1757,7 +1895,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, Target target, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, in string rfcName, Target target, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -1778,11 +1916,9 @@ namespace TNet
 #if UNITY_EDITOR
 			if (rebuildMethodList) RebuildMethodList();
 
-			CachedFunc ent;
-
 			if (rfcID != 0)
 			{
-				if (!mDict0.TryGetValue(rfcID, out ent))
+				if (!mDict0.ContainsKey(rfcID))
 				{
 					Debug.LogWarning("RFC " + rfcID + " is not present on " + name, this);
 #if UNITY_EDITOR
@@ -1791,7 +1927,7 @@ namespace TNet
 					return;
 				}
 			}
-			else if (!mDict1.TryGetValue(rfcName, out ent))
+			else if (!mDict1.ContainsKey(rfcName))
 			{
 				Debug.LogWarning("RFC " + rfcName + " is not present on " + name, this);
 #if UNITY_EDITOR
@@ -1824,13 +1960,14 @@ namespace TNet
 #if !MODDING
 					if (uid != 0)
 					{
-						var writer = TNManager.BeginSend(Packet.Broadcast);
+						var b = TNManager.CreatePacket(Packet.Broadcast);
+						var writer = b.writer;
 						writer.Write(TNManager.playerID);
 						writer.Write(channelID);
 						writer.Write(GetUID(uid, rfcID));
 						if (rfcID == 0) writer.Write(rfcName);
 						writer.WriteArray(objs);
-						TNManager.EndSend(channelID, reliable);
+						TNManager.SendPacket(b, reliable);
 #if UNITY_EDITOR && COUNT_PACKETS
 						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
 						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
@@ -1851,13 +1988,14 @@ namespace TNet
 #if !MODDING
 					if (uid != 0)
 					{
-						var writer = TNManager.BeginSend(Packet.BroadcastAdmin);
+						var b = TNManager.CreatePacket(Packet.BroadcastAdmin);
+						var writer = b.writer;
 						writer.Write(TNManager.playerID);
 						writer.Write(channelID);
 						writer.Write(GetUID(uid, rfcID));
 						if (rfcID == 0) writer.Write(rfcName);
 						writer.WriteArray(objs);
-						TNManager.EndSend(channelID, reliable);
+						TNManager.SendPacket(b, channelID, reliable);
 #if UNITY_EDITOR && COUNT_PACKETS
 						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
 						if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
@@ -1899,25 +2037,28 @@ namespace TNet
 						if (target != Target.Host)
 						{
 							var packetID = (byte)(target == Target.NoneSaved ? (int)Packet.ForwardToServerSaved : (int)Packet.ForwardToAll + (int)target);
-							var writer = TNManager.BeginSend(packetID);
+
+							var b = TNManager.CreatePacket(packetID);
+							var writer = b.writer;
 							writer.Write(TNManager.playerID);
 							writer.Write(channelID);
 							writer.Write(GetUID(uid, rfcID));
 							if (rfcID == 0) writer.Write(rfcName);
 							writer.WriteArray(objs);
-							TNManager.EndSend(channelID, reliable);
+							TNManager.SendPacket(b, channelID, reliable);
 						}
 						else // target == Host, backwards compatibility
 						{
 							var ch = TNManager.GetChannel(channelID);
-							var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+							var b = TNManager.CreatePacket(Packet.ForwardToPlayer);
+							var writer = b.writer;
 							writer.Write(TNManager.playerID);
 							writer.Write(ch.host.id);
 							writer.Write(channelID);
 							writer.Write(GetUID(uid, rfcID));
 							if (rfcID == 0) writer.Write(rfcName);
 							writer.WriteArray(objs);
-							TNManager.EndSend(channelID, reliable);
+							TNManager.SendPacket(b, channelID, reliable);
 						}
 #if UNITY_EDITOR && COUNT_PACKETS
 						var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
@@ -1953,7 +2094,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, string targetName, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, in string rfcName, in string targetName, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -1962,17 +2103,11 @@ namespace TNet
 #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(2)");
 #endif
-			if (targetName == TNManager.playerName)
-			{
-				TNManager.packetSourceID = TNManager.playerID;
-				if (rfcID != 0) Execute(rfcID, objs);
-				else Execute(rfcName, objs);
-				TNManager.packetSourceID = -1;
-			}
-			else
+			if (TNManager.isConnected)
 			{
 #if !MODDING
-				var writer = TNManager.BeginSend(Packet.ForwardByName);
+				var b = TNManager.CreatePacket(Packet.ForwardByName);
+				var writer = b.writer;
 				writer.Write(TNManager.playerID);
 				writer.Write(targetName);
 				writer.Write(channelID);
@@ -1984,8 +2119,15 @@ namespace TNet
 				else sentDictionary[sid] = 1;
 #endif
 				writer.WriteArray(objs);
-				TNManager.EndSend(channelID, reliable);
+				TNManager.SendPacket(b, channelID, reliable);
 #endif
+			}
+			else if (targetName == TNManager.playerName)
+			{
+				TNManager.packetSourceID = TNManager.playerID;
+				if (rfcID != 0) Execute(rfcID, objs);
+				else Execute(rfcName, objs);
+				TNManager.packetSourceID = -1;
 			}
 #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.EndSample();
@@ -1996,17 +2138,17 @@ namespace TNet
 		/// Send a new remote function call to the specified player.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, in string rfcName, int target, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0) return;
 #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.BeginSample("TNObject.SendRFC(3)");
 #endif
-
 			if (TNManager.isConnected)
 			{
 #if !MODDING
-				var writer = TNManager.BeginSend(Packet.ForwardToPlayer);
+				var b = TNManager.CreatePacket(Packet.ForwardToPlayer);
+				var writer = b.writer;
 				writer.Write(TNManager.playerID);
 				writer.Write(target);
 				writer.Write(channelID);
@@ -2018,7 +2160,7 @@ namespace TNet
 				else sentDictionary[sid] = 1;
 #endif
 				writer.WriteArray(objs);
-				TNManager.EndSend(channelID, reliable);
+				TNManager.SendPacket(b, channelID, reliable);
 #endif
 			}
 			else if (target == TNManager.playerID)
@@ -2037,7 +2179,7 @@ namespace TNet
 		/// Send a new remote function call to the specified player.
 		/// </summary>
 
-		void SendRFC (byte rfcID, string rfcName, List<int> targets, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, in string rfcName, List<int> targets, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0 || targets == null || targets.size == 0) return;
 
@@ -2048,7 +2190,8 @@ namespace TNet
 			if (TNManager.isConnected)
 			{
 #if !MODDING
-				var writer = TNManager.BeginSend(Packet.ForwardToPlayers);
+				var b = TNManager.CreatePacket(Packet.ForwardToPlayers);
+				var writer = b.writer;
 				writer.Write(TNManager.playerID);
 				writer.WriteObject(targets);
 				writer.Write(channelID);
@@ -2060,7 +2203,7 @@ namespace TNet
 				else sentDictionary[sid] = 1;
 #endif
 				writer.WriteArray(objs);
-				TNManager.EndSend(channelID, reliable);
+				TNManager.SendPacket(b, channelID, reliable);
 #endif
 			}
 			else if (targets.Contains(TNManager.playerID))
@@ -2079,17 +2222,18 @@ namespace TNet
 		/// Broadcast a remote function call to all players on the network.
 		/// </summary>
 
-		void BroadcastToLAN (int port, byte rfcID, string rfcName, object[] objs)
+		void BroadcastToLAN (int port, byte rfcID, in string rfcName, object[] objs)
 		{
 #if !MODDING
 			if (hasBeenDestroyed || id == 0) return;
-			BinaryWriter writer = TNManager.BeginSend(Packet.ForwardToAll);
+			var b = TNManager.CreatePacket(Packet.ForwardToAll);
+			var writer = b.writer;
 			writer.Write(TNManager.playerID);
 			writer.Write(channelID);
 			writer.Write(GetUID(id, rfcID));
 			if (rfcID == 0) writer.Write(rfcName);
 			writer.WriteArray(objs);
-			TNManager.EndSendToLAN(port);
+			TNManager.SendPacket(b, port);
 #if UNITY_EDITOR && COUNT_PACKETS
 			var sid = (rfcID == 0) ? rfcName : "RFC " + rfcID;
 			if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
@@ -2102,16 +2246,17 @@ namespace TNet
 		/// Remove a previously saved remote function call.
 		/// </summary>
 
-		static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, string funcName)
+		static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, in string funcName)
 		{
 #if !MODDING
 			if (TNManager.IsInChannel(channelID))
 			{
-				var writer = TNManager.BeginSend(Packet.RequestRemoveRFC);
+				var b = TNManager.CreatePacket(Packet.RequestRemoveRFC);
+				var writer = b.writer;
 				writer.Write(channelID);
 				writer.Write(GetUID(objID, rfcID));
 				if (rfcID == 0) writer.Write(funcName);
-				TNManager.EndSend(channelID, true);
+				TNManager.SendPacket(b);
 #if UNITY_EDITOR && COUNT_PACKETS
 				var sid = "Remove RFC " + rfcID + " " + funcName;
 				if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
@@ -2141,11 +2286,12 @@ namespace TNet
 
 				if (TNManager.isConnected)
 				{
-					var writer = TNManager.BeginSend(Packet.RequestTransferObject);
+					var b = TNManager.CreatePacket(Packet.RequestTransferObject);
+					var writer = b.writer;
 					writer.Write(channelID);
 					writer.Write(newChannelID);
 					writer.Write(id);
-					TNManager.EndSend(channelID, true);
+					TNManager.SendPacket(b);
 #if UNITY_EDITOR && COUNT_PACKETS
 					var sid = "TransferToChannel";
 					if (sentDictionary.ContainsKey(sid)) ++sentDictionary[sid];
@@ -2206,5 +2352,10 @@ namespace TNet
 			list.Add(this);
 			TNManager.ExportObjects(list, callback);
 		}
+
+		#if UNITY_EDITOR
+		[ContextMenu("Make mine")]
+		void MakeMine () { isMine = true; }
+		#endif
 	}
 }

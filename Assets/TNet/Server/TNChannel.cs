@@ -29,24 +29,12 @@ namespace TNet
 			public Buffer data;
 
 			public uint objectID { get { return (uid >> 8); } set { uid = ((value << 8) | (uid & 0xFF)); } }
+
 			public uint functionID { get { return (uid & 0xFF); } }
 
-			public void Recycle ()
-			{
-				if (data != null)
-				{
-					data.Recycle();
-					data = null;
-				}
-			}
+			public void Recycle () { if (data != null) { data.Recycle(); data = null; } }
 
-			public void ReplaceData (Buffer data)
-			{
-				if (this.data != null) this.data.Recycle();
-				this.data = data;
-			}
-
-			public bool Matches (uint uid, ref string funcName) { return uid == this.uid && funcName == functionName; }
+			public bool Matches (uint uid, in string funcName) { return uid == this.uid && funcName == functionName; }
 
 			/// <summary>
 			/// Write a complete ForwardToOthers packet to the specified buffer.
@@ -60,7 +48,15 @@ namespace TNet
 				writer.Write(channelID);
 				writer.Write(uid);
 				if (functionID == 0) writer.Write(functionName);
-				writer.Write(data.buffer, 0, data.size);
+
+				if (data != null && data.size > 0)
+				{
+					// This already contains WriteInt() as a part of it, so no need to WriteInt(size).
+					// When the client reads this, it will ReadInt() the size before processing the rest of the data.
+					writer.Write(data.buffer, data.position, data.size);
+				}
+				else writer.WriteInt(0);
+
 				return buffer.EndTcpPacketStartingAt(offset);
 #else
 				return 0;
@@ -76,7 +72,7 @@ namespace TNet
 		{
 			public int playerID;
 			public uint objectID;
-			public byte type;
+			public byte type;		// 1 = Persistent. 2 = Destroyed when owner leaves.
 			public Buffer data;
 
 			public void Recycle () { if (data != null) { data.Recycle(); data = null; } }
@@ -243,31 +239,38 @@ namespace TNet
 				// Remove all of the non-persistent objects that were created by this player
 				for (int i = 0; i < created.size;)
 				{
-					if (created.buffer[i].playerID == p.id)
+					var r = created.buffer[i];
+
+					if (r.playerID == p.id)
 					{
-						if (created.buffer[i].type == 2)
+						if (r.type == 2)
 						{
-							created.buffer[i].Recycle();
-							uint objID = created.buffer[i].objectID;
 							created.RemoveAt(i);
+
+							var objID = r.objectID;
+							r.Recycle();
+
 							destroyedObjects.Add(objID);
 							if (objID >= 32768) mCreatedObjectDictionary.Remove(objID);
 							DestroyObjectRFCs(objID);
 							continue;
 						}
 
-						// The same operation happens on the client as well
-						if (players.size != 0) created.buffer[i].playerID = players.buffer[0].id;
+						// Give object ownership to another player
+						if (players.size != 0)
+						{
+							r.playerID = players.buffer[0].id;
+							created.buffer[i] = r;
+						}
 					}
 					++i;
 				}
 
 				// Close the channel if it wasn't persistent
-				if ((!isPersistent || playerLimit < 1) && players.size == 0)
+				if (players.size == 0 && (!isPersistent || isClosed || playerLimit < 1))
 				{
 					isClosed = true;
-					for (int i = 0; i < rfcs.size; ++i) rfcs.buffer[i].Recycle();
-					rfcs.Clear();
+					Reset();
 				}
 				return true;
 			}
@@ -291,6 +294,7 @@ namespace TNet
 					var co = created.buffer[i];
 					if (co.objectID != objID) continue;
 
+					writer.Write(co.type);
 					writer.Write(co.data.size);
 
 					if (co.data.size > 0) writer.Write(co.data.buffer, co.data.position, co.data.size);
@@ -307,18 +311,18 @@ namespace TNet
 
 					if (count != 0)
 					{
-						for (int r = 0; r < rfcs.size; ++r)
+						for (int b = 0; b < rfcs.size; ++b)
 						{
-							var rfc = rfcs.buffer[r];
-							if (rfc.objectID != objID) continue;
+							var r = rfcs.buffer[b];
+							if (r.objectID != objID) continue;
 
-							writer.Write(rfc.uid);
-							if (rfc.functionID == 0) writer.Write(rfc.functionName);
+							writer.Write(r.uid);
+							if (r.functionID == 0) writer.Write(r.functionName);
 
-							if (rfc.data != null)
+							if (r.data != null && r.data.size > 0)
 							{
-								writer.Write(rfc.data.size);
-								if (rfc.data.size > 0) writer.Write(rfc.data.buffer, rfc.data.position, rfc.data.size);
+								writer.Write(r.data.size);
+								writer.Write(r.data.buffer, r.data.position, r.data.size);
 							}
 							else writer.Write(0);
 						}
@@ -348,7 +352,7 @@ namespace TNet
 			// Create a new object and read its RCC data
 			var co = new CreatedObject();
 			co.objectID = GetUniqueID();
-			co.type = 1;
+			co.type = reader.ReadByte();
 			co.data = Buffer.Create();
 			var bytes = reader.ReadBytes(reader.ReadInt32());
 			co.data.BeginWriting(false).Write(bytes);
@@ -367,22 +371,29 @@ namespace TNet
 			packet.Recycle();
 
 			// Now read all the RFCs
-			var size = reader.ReadInt32();
+			var count = reader.ReadInt32();
 
-			if (size != 0)
+			if (count != 0)
 			{
-				for (int i = 0; i < size; ++i)
+				for (int i = 0; i < count; ++i)
 				{
 					var rfc = new RFC();
 					rfc.uid = reader.ReadUInt32();
 					rfc.objectID = co.objectID;
 					if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
-					bytes = reader.ReadBytes(reader.ReadInt32());
 
-					var b = Buffer.Create();
-					b.BeginWriting(false).Write(bytes);
-					b.EndWriting();
-					rfc.data = b;
+					var dataSize = reader.ReadInt32();
+
+					if (dataSize > 0)
+					{
+						bytes = reader.ReadBytes(dataSize);
+
+						var b = Buffer.Create();
+						b.BeginWriting(false).Write(bytes);
+						b.EndWriting();
+						rfc.data = b;
+					}
+
 					rfcs.Add(rfc);
 
 					packet = Buffer.Create();
@@ -423,9 +434,12 @@ namespace TNet
 			{
 				for (int i = 0; i < created.size; ++i)
 				{
-					if (created.buffer[i].objectID == objID)
+					var r = created.buffer[i];
+
+					if (r.objectID == objID)
 					{
-						created.buffer[i].playerID = playerID;
+						r.playerID = playerID;
+						created.buffer[i] = r;
 						return true;
 					}
 				}
@@ -446,8 +460,8 @@ namespace TNet
 				// Static objects have ID below 32768
 				if (!destroyed.Contains(objID))
 				{
-					destroyed.Add(objID);
 					DestroyObjectRFCs(objID);
+					destroyed.Add(objID);
 					return true;
 				}
 			}
@@ -456,13 +470,13 @@ namespace TNet
 				// Dynamic objects are always a part of the 'created' array and the lookup table
 				for (int i = 0; i < created.size; ++i)
 				{
-					var obj = created.buffer[i];
+					var r = created.buffer[i];
 
-					if (obj.objectID == objID)
+					if (r.objectID == objID)
 					{
-						obj.Recycle();
 						created.RemoveAt(i);
 						DestroyObjectRFCs(objID);
+						r.Recycle();
 						return true;
 					}
 				}
@@ -480,10 +494,12 @@ namespace TNet
 #if !MODDING
 			for (int i = rfcs.size; i > 0;)
 			{
-				if (rfcs.buffer[--i].objectID == objectID)
+				var r = rfcs.buffer[--i];
+
+				if (r.objectID == objectID)
 				{
-					rfcs.buffer[i].Recycle();
 					rfcs.RemoveAt(i);
+					r.Recycle();
 				}
 			}
 #endif
@@ -538,7 +554,7 @@ namespace TNet
 						AddForwardRecord(objectID, newChannel, obj.objectID, time + 10000);
 
 						// If the other channel doesn't contain the object's owner, assign a new owner
-						bool changeOwner = true;
+						var changeOwner = true;
 
 						for (int b = 0; b < newChannel.players.size; ++b)
 						{
@@ -558,10 +574,12 @@ namespace TNet
 						// Move RFCs over to the other channel
 						for (int b = 0; b < rfcs.size;)
 						{
-							if (rfcs.buffer[b].objectID == objectID)
+							var r = rfcs.buffer[b];
+
+							if (r.objectID == objectID)
 							{
-								rfcs.buffer[b].objectID = obj.objectID;
-								newChannel.rfcs.Add(rfcs.buffer[b]);
+								r.objectID = obj.objectID;
+								newChannel.rfcs.Add(r);
 								rfcs.RemoveAt(b);
 							}
 							else ++b;
@@ -578,10 +596,10 @@ namespace TNet
 		/// Add a new saved remote function call.
 		/// </summary>
 
-		public void AddRFC (uint uid, string funcName, Buffer buffer, long time)
+		public void AddRFC (uint uid, in string funcName, Buffer b, long time)
 		{
 #if !MODDING
-			if (isClosed || buffer == null) return;
+			if (isClosed) return;
 			uint objID = (uid >> 8);
 
 			if (objID < 32768) // Static object ID
@@ -595,13 +613,15 @@ namespace TNet
 				{
 					for (int i = 0; i < mForward.size; ++i)
 					{
-						if (mForward.buffer[i].objectID == objID)
+						var r = mForward.buffer[i];
+
+						if (r.objectID == objID)
 						{
 							// Redirect this packet
-							mForward.buffer[i].newChannel.AddRFC((mForward.buffer[i].newID << 8) | (uid & 0xFF), funcName, buffer, time);
+							r.newChannel.AddRFC((r.newID << 8) | (uid & 0xFF), funcName, b, time);
 							return;
 						}
-						else if (mForward.buffer[i].expiration < time)
+						else if (r.expiration < time)
 						{
 							// Expired entry -- remove it
 							mForward.RemoveAt(i--);
@@ -612,19 +632,30 @@ namespace TNet
 				return; // This object doesn't exist
 			}
 
-			var b = Buffer.Create();
-			b.BeginWriting(false).Write(buffer.buffer, buffer.position, buffer.size);
-			b.EndWriting();
+			var sz = (b != null) ? b.size : 0;
+
+			Buffer newData = null;
+
+			if (sz > 0)
+			{
+				newData = Buffer.Create();
+				newData.BeginWriting(false).Write(b.buffer, b.position, sz);
+				newData.EndWriting();
+			}
 
 			for (int i = 0; i < rfcs.size; ++i)
 			{
-				if (rfcs.buffer[i].Matches(uid, ref funcName))
+				var r = rfcs.buffer[i];
+
+				if (r.Matches(uid, funcName))
 				{
-					var r = rfcs.buffer[i];
-					r.ReplaceData(b);
+					// RFC's position will be changed
+					rfcs.RemoveAt(i);
+
+					r.Recycle();
+					r.data = newData;
 
 					// Move this RFC to the end of the list so that it gets called in correct order on load
-					rfcs.RemoveAt(i);
 					rfcs.Add(r);
 					return;
 				}
@@ -633,7 +664,7 @@ namespace TNet
 			var rfc = new RFC();
 			rfc.uid = uid;
 			rfc.functionName = funcName;
-			rfc.data = b;
+			rfc.data = newData;
 			rfcs.Add(rfc);
 #endif
 		}
@@ -642,15 +673,17 @@ namespace TNet
 		/// Delete the specified remote function call.
 		/// </summary>
 
-		public void DeleteRFC (uint uid, string funcName, long time)
+		public void DeleteRFC (uint uid, in string funcName, long time)
 		{
 #if !MODDING
 			for (int i = 0; i < rfcs.size; ++i)
 			{
-				if (rfcs.buffer[i].Matches(uid, ref funcName))
+				var r = rfcs.buffer[i];
+
+				if (r.Matches(uid, funcName))
 				{
-					rfcs.buffer[i].Recycle();
 					rfcs.RemoveAt(i);
+					r.Recycle();
 					return;
 				}
 			}
@@ -661,13 +694,15 @@ namespace TNet
 
 				for (int i = 0; i < mForward.size; ++i)
 				{
-					if (mForward.buffer[i].objectID == objID)
+					var r = mForward.buffer[i];
+
+					if (r.objectID == objID)
 					{
 						// Redirect this packet
-						mForward.buffer[i].newChannel.DeleteRFC((mForward.buffer[i].newID << 8) | (uid & 0xFF), funcName, time);
+						r.newChannel.DeleteRFC((r.newID << 8) | (uid & 0xFF), funcName, time);
 						return;
 					}
-					else if (mForward.buffer[i].expiration < time)
+					else if (r.expiration < time)
 					{
 						// Expired entry -- remove it
 						mForward.RemoveAt(i--);
@@ -709,7 +744,7 @@ namespace TNet
 			{
 				var co = created.buffer[i];
 
-				if (co.type == 1)
+				if (co.type == 1) // Only persistent objects should be getting saved
 				{
 					mCreatedOBJs.Add(co);
 					mCleanedOBJs.Add(co.objectID);
@@ -745,8 +780,10 @@ namespace TNet
 				var rfc = mCreatedRFCs.buffer[i];
 				writer.Write(rfc.uid);
 				if (rfc.functionID == 0) writer.Write(rfc.functionName);
-				writer.Write(rfc.data.size);
-				if (rfc.data.size > 0) writer.Write(rfc.data.buffer, rfc.data.position, rfc.data.size);
+
+				var sz = rfc.data.size;
+				writer.Write(sz); // Technically the size is already inside the buffer, and can be retrieved via ReadInt()...
+				if (sz > 0) writer.Write(rfc.data.buffer, rfc.data.position, sz);
 			}
 
 			writer.Write(mCreatedOBJs.size);
@@ -756,8 +793,10 @@ namespace TNet
 				var co = mCreatedOBJs.buffer[i];
 				writer.Write(co.playerID);
 				writer.Write(co.objectID);
-				writer.Write(co.data.size);
-				if (co.data.size > 0) writer.Write(co.data.buffer, co.data.position, co.data.size);
+
+				var sz = co.data.size;
+				writer.Write(sz); // Technically the size is already inside the buffer, and can be retrieved via ReadInt()...
+				if (sz > 0) writer.Write(co.data.buffer, co.data.position, sz);
 			}
 
 			writer.Write(destroyed.size);
@@ -812,7 +851,13 @@ namespace TNet
 				rfc.uid = reader.ReadUInt32();
 				if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
 				var b = Buffer.Create();
-				b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));
+
+				var sz = reader.ReadInt32();
+				var bt = (sz > 0) ? reader.ReadBytes(sz) : null;
+				var w = b.BeginWriting(false);
+				if (bt != null) w.Write(bt);
+				else w.WriteInt(0);
+
 				b.EndWriting();
 				rfc.data = b;
 				rfcs.Add(rfc);
@@ -826,7 +871,7 @@ namespace TNet
 				co.playerID = reader.ReadInt32();
 				co.objectID = reader.ReadUInt32();
 				co.playerID = 0; // The player ID is no longer valid as player IDs reset on reload
-				co.type = 1;
+				co.type = 1; // Only persistent objects get saved to the file
 
 				var b = Buffer.Create();
 				b.BeginWriting(false).Write(reader.ReadBytes(reader.ReadInt32()));

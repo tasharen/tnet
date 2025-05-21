@@ -426,9 +426,9 @@ namespace TNet
 							continue;
 						}
 					}
-//#if DEBUG_THREAD_TIMING
-//					FastLog.Log("Time: " + ent.threadTime.ToString("N3") + " ms (thread) + " + ent.mainTime.ToString("N3") + " ms (main)\n   " + ent.trace + "\n");
-//#endif
+#if DEBUG_THREAD_TIMING
+					FastLog.Log("Time: " + ent.threadTime.ToString("N3") + " ms (thread) + " + ent.mainTime.ToString("N3") + " ms (main)\n   " + ent.trace + "\n");
+#endif
 					if (mStopwatch.GetElapsedMilliseconds() > maxMillisecondsPerFrame) break;
 				}
 			}

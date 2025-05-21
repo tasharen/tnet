@@ -63,8 +63,8 @@ namespace TNet
 
 	public class Player : DataNodeContainer
 	{
-		static protected int mPlayerCounter = 0;
-		static protected object mLock = new int();
+		[System.NonSerialized] static protected int mPlayerCounter = 0;
+		[System.NonSerialized] static protected object mLock = new int();
 
 		/// <summary>
 		/// Protocol version.

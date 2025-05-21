@@ -3,7 +3,7 @@
 // Copyright © 2012-2023 Tasharen Entertainment Inc
 //-------------------------------------------------
 
-#define USE_MAX_PACKET_TIME
+//#define USE_MAX_PACKET_TIME
 //#define COUNT_PACKETS
 //#define PROFILE_PACKETS
 
@@ -117,8 +117,6 @@ namespace TNet
 		// Local server is used for socket-less mode
 		GameServer mLocalServer;
 #endif
-		// Temporary, not important
-		Buffer mBuffer;
 		bool mIsAdmin = false;
 
 		// List of channels we are currently in the process of joining
@@ -147,8 +145,9 @@ namespace TNet
 		public void SetAdmin (string pass)
 		{
 			mIsAdmin = true;
-			BeginSend(Packet.RequestVerifyAdmin).Write(pass);
-			EndSend();
+			var b = CreatePacket(Packet.RequestVerifyAdmin);
+			b.writer.Write(pass);
+			SendPacket(b);
 		}
 
 		/// <summary>
@@ -159,10 +158,11 @@ namespace TNet
 		{
 			if (isConnected)
 			{
-				var writer = BeginSend(Packet.RequestValidate);
-				writer.Write(name);
-				writer.WriteObject(val);
-				EndSend(true);
+				var b = CreatePacket(Packet.RequestValidate);
+				var w = b.writer;
+				w.Write(name);
+				w.WriteObject(val);
+				SendPacket(b, true, true);
 			}
 		}
 
@@ -295,8 +295,9 @@ namespace TNet
 					mTcp.noDelay = value;
 
 					// Notify the server as well so that the server does the same
-					BeginSend(Packet.RequestNoDelay).Write(value);
-					EndSend();
+					var b = CreatePacket(Packet.RequestNoDelay);
+					b.writer.Write(value);
+					SendPacket(b);
 				}
 			}
 		}
@@ -340,10 +341,11 @@ namespace TNet
 					mConfig = value;
 					mDataHash = mConfig.CalculateHash();
 #if !MODDING
-					var writer = BeginSend(Packet.RequestSetServerData);
-					writer.Write("");
-					writer.WriteObject(value);
-					EndSend();
+					var b = CreatePacket(Packet.RequestSetServerData);
+					var w = b.writer;
+					w.Write("");
+					w.WriteObject(value);
+					SendPacket(b);
 #endif
 				}
 			}
@@ -378,9 +380,9 @@ namespace TNet
 #if !MODDING
 					if (isConnected)
 					{
-						var writer = BeginSend(Packet.RequestSetName);
-						writer.Write(value);
-						EndSend();
+						var b = CreatePacket(Packet.RequestSetName);
+						b.writer.Write(value);
+						SendPacket(b);
 					}
 					else mTcp.name = value;
 #else
@@ -415,11 +417,12 @@ namespace TNet
 		public void SyncPlayerData ()
 		{
 #if !MODDING
-			var writer = BeginSend(Packet.RequestSetPlayerData);
-			writer.Write(mTcp.id);
-			writer.Write("");
-			writer.WriteObject(mTcp.dataNode);
-			EndSend();
+			var b = CreatePacket(Packet.RequestSetPlayerData);
+			var w = b.writer;
+			w.Write(mTcp.id);
+			w.Write("");
+			w.WriteObject(mTcp.dataNode);
+			SendPacket(b);
 #endif
 		}
 
@@ -433,11 +436,12 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				var writer = BeginSend(Packet.RequestSetPlayerData);
-				writer.Write(mTcp.id);
-				writer.Write(path);
-				writer.WriteObject(val);
-				EndSend();
+				var b = CreatePacket(Packet.RequestSetPlayerData);
+				var w = b.writer;
+				w.Write(mTcp.id);
+				w.Write(path);
+				w.WriteObject(val);
+				SendPacket(b);
 			}
 #endif
 			if (onSetPlayerData != null)
@@ -501,8 +505,7 @@ namespace TNet
 
 				if (player == null && createIfMissing)
 				{
-					player = new Player();
-					player.id = id;
+					player = new Player(null, id);
 					mDictionary[id] = player;
 				}
 				return player;
@@ -547,106 +550,55 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Begin sending a new packet to the server.
+		/// Create a new packet of specified type.
 		/// </summary>
 
-		public BinaryWriter BeginSend (Packet type)
+		public Buffer CreatePacket (Packet type)
 		{
 #if UNITY_EDITOR
-			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.BeginSend(Packet)");
+			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.CreatePacket(type)");
 #endif
-			mBuffer = Buffer.Create();
-			return mBuffer.BeginPacket(type);
+			var b = Buffer.Create();
+			b.BeginPacket(type);
+			return b;
 		}
 
 		/// <summary>
-		/// Begin sending a new packet to the server.
+		/// Create a new packet of specified type.
 		/// </summary>
 
-		public BinaryWriter BeginSend (byte packetID)
+		public Buffer CreatePacket (byte packetID)
 		{
 #if UNITY_EDITOR
-			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.BeginSend(byte)");
+			UnityEngine.Profiling.Profiler.BeginSample("TNet.GameClient.CreatePacket(byte)");
 #endif
-			mBuffer = Buffer.Create();
-			return mBuffer.BeginPacket(packetID);
+			var b = Buffer.Create();
+			b.BeginPacket(packetID);
+			return b;
 		}
 
 		/// <summary>
-		/// Cancel the send operation.
+		/// Send out the specified packet that was created with CreatePacket() earlier.
 		/// </summary>
 
-		public void CancelSend ()
+		public void SendPacket (Buffer b, bool reliable = true, bool instant = false)
 		{
-			if (mBuffer != null)
+			if (b != null)
 			{
-				mBuffer.EndPacket();
-				mBuffer.Recycle();
-				mBuffer = null;
-#if UNITY_EDITOR
-				UnityEngine.Profiling.Profiler.EndSample();
-#endif
-			}
-		}
-
-		/// <summary>
-		/// Send the outgoing buffer.
-		/// </summary>
-
-		public void EndSend (bool instant = false)
-		{
-			if (mBuffer == null) return;
-			++mSentPacketCount;
-			mSentBytesCount += mBuffer.EndPacket();
-			mTcp.SendTcpPacket(mBuffer, instant);
-			mBuffer.Recycle();
-			mBuffer = null;
-#if UNITY_EDITOR
-			UnityEngine.Profiling.Profiler.EndSample();
-#endif
-		}
-
-		/// <summary>
-		/// Send the outgoing buffer.
-		/// </summary>
-
-		public void EndSend (int channelID, bool reliable, bool instant = false)
-		{
-			if (mBuffer == null) return;
-			++mSentPacketCount;
-			mSentBytesCount += mBuffer.EndPacket();
+				++mSentPacketCount;
+				mSentBytesCount += b.EndPacket();
 
 #if UNITY_WEBPLAYER || MODDING
-			mTcp.SendTcpPacket(mBuffer, instant);
+				mTcp.SendTcpPacket(b, instant);
 #else
-			if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
-			{
-				mTcp.SendTcpPacket(mBuffer, instant);
+				if (reliable || !mUdpIsUsable || mServerUdpEndPoint == null || !mUdp.isActive)
+				{
+					mTcp.SendTcpPacket(b, instant);
+				}
+				else mUdp.Send(b, mServerUdpEndPoint);
+#endif
+				b.Recycle();
 			}
-			else mUdp.Send(mBuffer, mServerUdpEndPoint);
-#endif
-
-			mBuffer.Recycle();
-			mBuffer = null;
-#if UNITY_EDITOR
-			UnityEngine.Profiling.Profiler.EndSample();
-#endif
-		}
-
-		/// <summary>
-		/// Broadcast the outgoing buffer to the entire LAN via UDP.
-		/// </summary>
-
-		public void EndSend (int port)
-		{
-			if (mBuffer == null) return;
-			++mSentPacketCount;
-			mSentBytesCount += mBuffer.EndPacket();
-#if !UNITY_WEBPLAYER && !MODDING
-			mUdp.Broadcast(mBuffer, port);
-#endif
-			mBuffer.Recycle();
-			mBuffer = null;
 #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.EndSample();
 #endif
@@ -656,16 +608,31 @@ namespace TNet
 		/// Send this packet to a remote UDP listener.
 		/// </summary>
 
-		public void EndSend (IPEndPoint target)
+		public void SendPacket (Buffer b, IPEndPoint target)
 		{
-			if (mBuffer == null) return;
 			++mSentPacketCount;
-			mSentBytesCount += mBuffer.EndPacket();
+			mSentBytesCount += b.EndPacket();
 #if !UNITY_WEBPLAYER && !MODDING
-			mUdp.Send(mBuffer, target);
+			mUdp.Send(b, target);
 #endif
-			mBuffer.Recycle();
-			mBuffer = null;
+			b.Recycle();
+#if UNITY_EDITOR
+			UnityEngine.Profiling.Profiler.EndSample();
+#endif
+		}
+
+		/// <summary>
+		/// Broadcast the outgoing buffer to the entire LAN via UDP.
+		/// </summary>
+
+		public void BroadcastPacket (Buffer b, int port)
+		{
+			++mSentPacketCount;
+			mSentBytesCount += b.EndPacket();
+#if !UNITY_WEBPLAYER && !MODDING
+			mUdp.Broadcast(b, port);
+#endif
+			b.Recycle();
 #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.EndSample();
 #endif
@@ -686,16 +653,17 @@ namespace TNet
 				server.localClient = this;
 
 				mTcp.stage = TcpProtocol.Stage.Verifying;
-				var writer = BeginSend(Packet.RequestID);
-				writer.Write(TcpProtocol.version);
+				var b = CreatePacket(Packet.RequestID);
+				var w = b.writer;
+				w.Write(TcpProtocol.version);
 #if UNITY_EDITOR
 				var n = string.IsNullOrEmpty(mTcp.name) ? "Editor" : mTcp.name;
 #else
 				var n = string.IsNullOrEmpty(mTcp.name) ? "Guest" : mTcp.name;
 #endif
-				writer.Write(n);
-				writer.Write(mTcp.dataNode);
-				EndSend();
+				w.Write(n);
+				w.Write(mTcp.dataNode);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -786,8 +754,9 @@ namespace TNet
 					{
 						if (isConnected)
 						{
-							BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
-							EndSend();
+							var b = CreatePacket(Packet.RequestSetUDP);
+							b.writer.Write((ushort)udpPort);
+							SendPacket(b);
 						}
 						return true;
 					}
@@ -796,8 +765,9 @@ namespace TNet
 				{
 					if (isConnected)
 					{
-						BeginSend(Packet.RequestSetUDP).Write((ushort)udpPort);
-						EndSend();
+						var b = CreatePacket(Packet.RequestSetUDP);
+						b.writer.Write((ushort)udpPort);
+						SendPacket(b);
 					}
 					return true;
 				}
@@ -819,8 +789,9 @@ namespace TNet
 			{
 				if (isConnected)
 				{
-					BeginSend(Packet.RequestSetUDP).Write((ushort)0);
-					EndSend();
+					var b = CreatePacket(Packet.RequestSetUDP);
+					b.writer.Write((ushort)0);
+					SendPacket(b);
 				}
 
 				mUdp.Stop();
@@ -843,18 +814,20 @@ namespace TNet
 		public void JoinChannel (int channelID, string levelName, bool persistent, int playerLimit, string password)
 		{
 #if !MODDING
-			if (isConnected && !IsInChannel(channelID) && !mJoining.Contains(channelID))
+			if (isConnected && !IsInChannel(channelID))
 			{
 				if (playerLimit > 65535) playerLimit = 65535;
 				else if (playerLimit < 0) playerLimit = 0;
 
-				var writer = BeginSend(Packet.RequestJoinChannel);
-				writer.Write(channelID);
-				writer.Write(string.IsNullOrEmpty(password) ? "" : password);
-				writer.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
-				writer.Write(persistent);
-				writer.Write((ushort)playerLimit);
-				EndSend(true);
+				var b = CreatePacket(Packet.RequestJoinChannel);
+				var w = b.writer;
+
+				w.Write(channelID);
+				w.Write(string.IsNullOrEmpty(password) ? "" : password);
+				w.Write(string.IsNullOrEmpty(levelName) ? "" : levelName);
+				w.Write(persistent);
+				w.Write((ushort)playerLimit);
+				SendPacket(b, true, true);
 
 				// Prevent all further packets from going out until the join channel response arrives.
 				// This prevents the situation where packets are sent out between LoadLevel / JoinChannel
@@ -875,8 +848,9 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
-				BeginSend(Packet.RequestCloseChannel).Write(channelID);
-				EndSend();
+				var b = CreatePacket(Packet.RequestCloseChannel);
+				b.writer.Write(channelID);
+				SendPacket(b);
 				return true;
 			}
 #endif
@@ -900,8 +874,9 @@ namespace TNet
 					{
 						if (ch.isLeaving) return false;
 						ch.isLeaving = true;
-						BeginSend(Packet.RequestLeaveChannel).Write(channelID);
-						EndSend();
+						var b = CreatePacket(Packet.RequestLeaveChannel);
+						b.writer.Write(channelID);
+						SendPacket(b);
 						return true;
 					}
 				}
@@ -926,8 +901,9 @@ namespace TNet
 					if (!ch.isLeaving)
 					{
 						ch.isLeaving = true;
-						BeginSend(Packet.RequestLeaveChannel).Write(ch.id);
-						EndSend();
+						var b = CreatePacket(Packet.RequestLeaveChannel);
+						b.writer.Write(ch.id);
+						SendPacket(b);
 					}
 				}
 			}
@@ -943,10 +919,11 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				var writer = BeginSend(Packet.RequestDeleteChannel);
-				writer.Write(id);
-				writer.Write(disconnect);
-				EndSend();
+				var b = CreatePacket(Packet.RequestDeleteChannel);
+				var w = b.writer;
+				w.Write(id);
+				w.Write(disconnect);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -960,10 +937,11 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
-				var writer = BeginSend(Packet.RequestSetPlayerLimit);
-				writer.Write(channelID);
-				writer.Write((ushort)max);
-				EndSend();
+				var b = CreatePacket(Packet.RequestSetPlayerLimit);
+				var w = b.writer;
+				w.Write(channelID);
+				w.Write((ushort)max);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -977,10 +955,11 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
-				var writer = BeginSend(Packet.RequestLoadLevel);
-				writer.Write(channelID);
-				writer.Write(levelName);
-				EndSend();
+				var b = CreatePacket(Packet.RequestLoadLevel);
+				var w = b.writer;
+				w.Write(channelID);
+				w.Write(levelName);
+				SendPacket(b);
 				return true;
 			}
 #endif
@@ -996,10 +975,11 @@ namespace TNet
 #if !MODDING
 			if (isConnected && GetHost(channelID) == mTcp)
 			{
-				var writer = BeginSend(Packet.RequestSetHost);
-				writer.Write(channelID);
-				writer.Write(player.id);
-				EndSend();
+				var b = CreatePacket(Packet.RequestSetHost);
+				var w = b.writer;
+				w.Write(channelID);
+				w.Write(player.id);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -1015,8 +995,9 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				BeginSend(Packet.RequestSetTimeout).Write(seconds);
-				EndSend();
+				var b = CreatePacket(Packet.RequestSetTimeout);
+				b.writer.Write(seconds);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -1037,8 +1018,9 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				BeginSend(Packet.RequestSetAlias).Write(a);
-				EndSend();
+				var b = CreatePacket(Packet.RequestSetAlias);
+				b.writer.Write(a);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -1052,8 +1034,8 @@ namespace TNet
 #if !MODDING
 			onPing = callback;
 			mPingTime = DateTime.UtcNow.Ticks / 10000;
-			BeginSend(Packet.RequestPing);
-			EndSend(udpEndPoint);
+			var b = CreatePacket(Packet.RequestPing);
+			SendPacket(b, udpEndPoint);
 #endif
 		}
 
@@ -1065,9 +1047,9 @@ namespace TNet
 		{
 #if !MODDING
 			mGetFiles[path] = callback;
-			var writer = BeginSend(Packet.RequestGetFileList);
-			writer.Write(path);
-			EndSend();
+			var b = CreatePacket(Packet.RequestGetFileList);
+			b.writer.Write(path);
+			SendPacket(b);
 #endif
 		}
 
@@ -1079,9 +1061,9 @@ namespace TNet
 		{
 #if !MODDING
 			mLoadFiles[filename] = callback;
-			var writer = BeginSend(Packet.RequestLoadFile);
-			writer.Write(filename);
-			EndSend();
+			var b = CreatePacket(Packet.RequestLoadFile);
+			b.writer.Write(filename);
+			SendPacket(b);
 #endif
 		}
 
@@ -1094,17 +1076,19 @@ namespace TNet
 #if !MODDING
 			if (data != null)
 			{
-				var writer = BeginSend(Packet.RequestSaveFile);
-				writer.Write(filename);
-				writer.Write(data.Length);
-				writer.Write(data);
+				var b = CreatePacket(Packet.RequestSaveFile);
+				var w = b.writer;
+				w.Write(filename);
+				w.Write(data.Length);
+				w.Write(data);
+				SendPacket(b);
 			}
 			else
 			{
-				var writer = BeginSend(Packet.RequestDeleteFile);
-				writer.Write(filename);
+				var b = CreatePacket(Packet.RequestDeleteFile);
+				b.writer.Write(filename);
+				SendPacket(b);
 			}
-			EndSend();
 #endif
 		}
 
@@ -1115,9 +1099,9 @@ namespace TNet
 		public void DeleteFile (string filename)
 		{
 #if !MODDING
-			var writer = BeginSend(Packet.RequestDeleteFile);
-			writer.Write(filename);
-			EndSend();
+			var b = CreatePacket(Packet.RequestDeleteFile);
+			b.writer.Write(filename);
+			SendPacket(b);
 #endif
 		}
 
@@ -1128,10 +1112,11 @@ namespace TNet
 		public void SendChat (string text, Player target = null)
 		{
 #if !MODDING
-			var writer = BeginSend(Packet.RequestSendChat);
-			writer.Write(target != null ? target.id : 0);
-			writer.Write(text);
-			EndSend();
+			var b = CreatePacket(Packet.RequestSendChat);
+			var w = b.writer;
+			w.Write(target != null ? target.id : 0);
+			w.Write(text);
+			SendPacket(b);
 #endif
 		}
 
@@ -1146,6 +1131,12 @@ namespace TNet
 		/// </summary>
 
 		[NonSerialized] static public int maxTimeDelta = 30000;
+
+		/// <summary>
+		/// Available inside packet processing for things like debugging the data that's being worked on.
+		/// </summary>
+
+		static public Buffer currentBuffer { get; private set; }
 
 		/// <summary>
 		/// Process all incoming packets.
@@ -1184,8 +1175,8 @@ namespace TNet
 			{
 				mCanPing = false;
 				mPingTime = mMyTime;
-				BeginSend(Packet.RequestPing);
-				EndSend();
+				var b = CreatePacket(Packet.RequestPing);
+				SendPacket(b);
 			}
 
 			Buffer buffer = null;
@@ -1209,8 +1200,11 @@ namespace TNet
 			while (keepGoing && isActive && mUdp.ReceivePacket(out buffer, out ip))
 			{
 				mUdpIsUsable = true;
+				++mReceivedPacketCount;
 				mReceivedBytesCount += buffer.size;
+				currentBuffer = buffer;
 				keepGoing = ProcessPacket(buffer, ip);
+				currentBuffer = null;
 				buffer.Recycle();
 			}
 #endif
@@ -1219,11 +1213,17 @@ namespace TNet
 				++mReceivedPacketCount;
 				mReceivedBytesCount += buffer.size;
 				UnityEngine.Profiling.Profiler.BeginSample("ProcessPacket");
+				currentBuffer = buffer;
 				keepGoing = ProcessPacket(buffer, null);
+				currentBuffer = null;
 				UnityEngine.Profiling.Profiler.EndSample();
 				buffer.Recycle();
 #if USE_MAX_PACKET_TIME
+#if W2
+				if (isJoiningChannel && mSw.ElapsedMilliseconds > (UILoadingScreen.isVisible ? MaxPacketTime * 10 : MaxPacketTime)) break;
+#else
 				if (isJoiningChannel && mSw.ElapsedMilliseconds > MaxPacketTime) break;
+#endif
 #endif
 			}
 
@@ -1297,8 +1297,9 @@ namespace TNet
 					if (mUdp.isActive)
 					{
 						// If we have a UDP listener active, tell the server
-						BeginSend(Packet.RequestSetUDP).Write((ushort)mUdp.listeningPort);
-						EndSend();
+						var b = CreatePacket(Packet.RequestSetUDP);
+						b.writer.Write((ushort)mUdp.listeningPort);
+						SendPacket(b);
 					}
 #endif
 					mCanPing = true;
@@ -1442,12 +1443,11 @@ namespace TNet
 						// Send the first UDP packet to the server
 						if (mUdp.isActive)
 						{
-							mBuffer = Buffer.Create();
-							mBuffer.BeginPacket(Packet.RequestActivateUDP).Write(playerID);
-							mBuffer.EndPacket();
-							mUdp.Send(mBuffer, mServerUdpEndPoint);
-							mBuffer.Recycle();
-							mBuffer = null;
+							var b = Buffer.Create();
+							b.BeginPacket(Packet.RequestActivateUDP).Write(playerID);
+							b.EndPacket();
+							mUdp.Send(b, mServerUdpEndPoint);
+							b.Recycle();
 						}
 					}
 					else mServerUdpEndPoint = null;
@@ -1844,8 +1844,9 @@ namespace TNet
 				{
 					foreach (var a in aliases)
 					{
-						BeginSend(Packet.RequestSetAlias).Write(a);
-						EndSend();
+						var b = CreatePacket(Packet.RequestSetAlias);
+						b.writer.Write(a);
+						SendPacket(b);
 					}
 
 					if (onConnect != null) onConnect(true, null);
@@ -1953,10 +1954,11 @@ namespace TNet
 		public void SetServerData (DataNode node)
 		{
 #if !MODDING
-			var writer = BeginSend(Packet.RequestSetServerData);
-			writer.Write(node.name);
-			writer.WriteObject(node);
-			EndSend();
+			var b = CreatePacket(Packet.RequestSetServerData);
+			var w = b.writer;
+			w.Write(node.name);
+			w.WriteObject(node);
+			SendPacket(b);
 #endif
 		}
 
@@ -1978,10 +1980,11 @@ namespace TNet
 				mDataHash = mConfig.CalculateHash();
 			}
 
-			var writer = BeginSend(Packet.RequestSetServerData);
-			writer.Write(key);
-			writer.WriteObject(val);
-			EndSend();
+			var b = CreatePacket(Packet.RequestSetServerData);
+			var w = b.writer;
+			w.Write(key);
+			w.WriteObject(val);
+			SendPacket(b);
 #endif
 		}
 
@@ -2016,11 +2019,12 @@ namespace TNet
 
 					node.SetHierarchy(path, val);
 
-					var bw = BeginSend(Packet.RequestSetChannelData);
-					bw.Write(channelID);
-					bw.Write(path);
-					bw.WriteObject(val);
-					EndSend();
+					var b = CreatePacket(Packet.RequestSetChannelData);
+					var w = b.writer;
+					w.Write(channelID);
+					w.Write(path);
+					w.WriteObject(val);
+					SendPacket(b);
 				}
 #if UNITY_EDITOR
 				else Debug.LogWarning("Trying to SetChannelData on a locked channel: " + channelID);
@@ -2043,8 +2047,8 @@ namespace TNet
 		{
 #if !MODDING
 			mGetChannelsCallbacks.Enqueue(callback);
-			BeginSend(Packet.RequestChannelList);
-			EndSend();
+			var b = CreatePacket(Packet.RequestChannelList);
+			SendPacket(b);
 #endif
 		}
 
@@ -2076,17 +2080,18 @@ namespace TNet
 
 				mOnExport.Add(++mRequestID, cb);
 
-				var writer = BeginSend(Packet.RequestExport);
-				writer.Write(mRequestID);
-				writer.Write(list.size);
+				var b = CreatePacket(Packet.RequestExport);
+				var w = b.writer;
+				w.Write(mRequestID);
+				w.Write(list.size);
 
 				foreach (var obj in list)
 				{
-					writer.Write(obj.channelID);
-					writer.Write(obj.id);
+					w.Write(obj.channelID);
+					w.Write(obj.id);
 				}
 
-				EndSend();
+				SendPacket(b);
 			}
 #if UNITY_EDITOR
 			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
@@ -2109,17 +2114,18 @@ namespace TNet
 
 				mOnExport.Add(++mRequestID, cb);
 
-				var writer = BeginSend(Packet.RequestExport);
-				writer.Write(mRequestID);
-				writer.Write(list.size);
+				var b = CreatePacket(Packet.RequestExport);
+				var w = b.writer;
+				w.Write(mRequestID);
+				w.Write(list.size);
 
 				foreach (var obj in list)
 				{
-					writer.Write(obj.channelID);
-					writer.Write(obj.id);
+					w.Write(obj.channelID);
+					w.Write(obj.id);
 				}
 
-				EndSend();
+				SendPacket(b);
 			}
 #if UNITY_EDITOR
 			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
@@ -2139,11 +2145,12 @@ namespace TNet
 				++mRequestID;
 				if (callback != null) mOnImport.Add(mRequestID, callback);
 
-				var writer = BeginSend(Packet.RequestImport);
-				writer.Write(mRequestID);
-				writer.Write(channelID);
-				writer.Write(data);
-				EndSend();
+				var b = CreatePacket(Packet.RequestImport);
+				var w = b.writer;
+				w.Write(mRequestID);
+				w.Write(channelID);
+				w.Write(data);
+				SendPacket(b);
 			}
 #if UNITY_EDITOR
 			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
@@ -2176,11 +2183,12 @@ namespace TNet
 				++mRequestID;
 				if (callback != null) mOnImport.Add(mRequestID, callback);
 
-				var writer = BeginSend(Packet.RequestImport);
-				writer.Write(mRequestID);
-				writer.Write(channelID);
-				writer.Write(buffer.buffer, buffer.position, buffer.size);
-				EndSend();
+				var b = CreatePacket(Packet.RequestImport);
+				var w = b.writer;
+				w.Write(mRequestID);
+				w.Write(channelID);
+				w.Write(buffer.buffer, buffer.position, buffer.size);
+				SendPacket(b);
 			}
 #if UNITY_EDITOR
 			else if (!isConnected) Debug.LogWarning("Import/export only works while connected to a game server");
@@ -2202,8 +2210,9 @@ namespace TNet
 			{
 				if (mCallbacks == null) mCallbacks = new Dictionary<uint, Action>();
 				mCallbacks.Add(++mCbID, callback);
-				BeginSend(Packet.Echo).Write(mCbID);
-				EndSend();
+				var b = CreatePacket(Packet.Echo);
+				b.writer.Write(mCbID);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -2219,8 +2228,9 @@ namespace TNet
 			{
 				if (mCallbacks == null) mCallbacks = new Dictionary<uint, Action>();
 				mCallbacks.Add(++mCbID, callback);
-				BeginSend(Packet.Echo).Write(mCbID);
-				EndSend(ip);
+				var b = CreatePacket(Packet.Echo);
+				b.writer.Write(mCbID);
+				SendPacket(b, ip);
 			}
 #endif
 		}
@@ -2248,6 +2258,7 @@ namespace TNet
 				for (int i = 0; i < count; ++i)
 				{
 					var obj = objects.buffer[i];
+					var type = reader.ReadByte(); // 1 = persistent, 2 = temporary
 					reader.ReadInt32(); // Size of the data, we don't need it since we're parsing everything
 					var rccID = reader.ReadByte();
 					var funcName = (rccID == 0) ? reader.ReadString() : null;
@@ -2256,6 +2267,7 @@ namespace TNet
 					var func = TNManager.GetRCC(rccID, funcName);
 
 					var child = (rccID != 0) ? node.AddChild("RCC", rccID) : node.AddChild("RCC", funcName);
+					child.AddChild("type", type);
 					child.AddChild("prefab", prefab);
 
 					if (func != null)
@@ -2294,7 +2306,7 @@ namespace TNet
 
 							if (funcRef.parameters.Length == pc)
 							{
-								var rfcNode = (funcID == 0) ? child.AddChild("RFC", funcName) : child.AddChild("RFC", funcID);
+								var rfcNode = (funcID == 0) ? child.AddChild(funcName) : child.AddChild("RFC", funcID);
 								for (int p = 0; p < pc; ++p) rfcNode.AddChild(funcRef.parameters[p].Name, array[p]);
 							}
 #if UNITY_EDITOR
@@ -2337,6 +2349,9 @@ namespace TNet
 				for (int i = 0; i < node.children.size; ++i)
 				{
 					var child = node.children.buffer[i];
+
+					writer.Write(child.GetChild<byte>("type", 1));
+
 					var sizePos = buffer.position;
 
 					if (child.value is string)
@@ -2379,12 +2394,10 @@ namespace TNet
 						{
 							var rfc = rfcs.children.buffer[b];
 
-							if (rfc.value is string)
+							if (rfc.value == null)
 							{
-								var s = (string)rfc.value;
-								if (string.IsNullOrEmpty(s)) continue;
 								writer.Write((uint)0);
-								writer.Write(s);
+								writer.Write(rfc.name);
 							}
 							else writer.Write(TNObject.GetUID(0, (byte)rfc.Get<int>()));
 

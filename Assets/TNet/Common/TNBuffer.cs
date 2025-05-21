@@ -71,6 +71,12 @@ namespace TNet
 		public bool isWriting { get { return mWriting; } }
 
 		/// <summary>
+		/// Access to the binary writer, if currently writing.
+		/// </summary>
+
+		public BinaryWriter writer { get { return mWriting ? mWriter : null; } }
+
+		/// <summary>
 		/// The size of the data present in the buffer.
 		/// </summary>
 
@@ -358,9 +364,6 @@ namespace TNet
 		{
 			if (!mWriting)
 			{
-#if UNITY_EDITOR
-				UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.BeginWriting");
-#endif
 				if (append)
 				{
 					mStream.Seek(mSize, SeekOrigin.Begin);
@@ -387,9 +390,6 @@ namespace TNet
 
 		public BinaryWriter BeginWriting (int startOffset)
 		{
-#if UNITY_EDITOR
-			if (!mWriting) UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.BeginWriting");
-#endif
 			if (mStream.Position != startOffset)
 			{
 				if (startOffset > mStream.Length)
@@ -416,9 +416,6 @@ namespace TNet
 				mWriting = false;
 				mSize = (int)mStream.Position;
 				mStream.Seek(0, SeekOrigin.Begin);
-#if UNITY_EDITOR
-				UnityEngine.Profiling.Profiler.EndSample();
-#endif
 			}
 			return mSize;
 		}

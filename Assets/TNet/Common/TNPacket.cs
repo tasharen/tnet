@@ -442,7 +442,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToAll,
@@ -453,7 +453,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToAllSaved,
@@ -464,7 +464,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToOthers,
@@ -475,7 +475,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToOthersSaved,
@@ -486,7 +486,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToServerSaved,
@@ -498,7 +498,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardToPlayer,
@@ -510,7 +510,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		ForwardByName,
@@ -528,7 +528,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		Broadcast,
@@ -539,7 +539,7 @@ namespace TNet
 		/// int32: Channel ID.
 		/// uint32: Object ID (24 bits), RFC ID (8 bits).
 		/// string: Function name (only if RFC ID is 0).
-		/// Arbitrary amount of data follows.
+		/// Arbitrary amount of data follows (ReadArray).
 		/// </summary>
 
 		BroadcastAdmin,

@@ -634,7 +634,7 @@ namespace TNet
 
 		public bool Write (string path, SaveType type = SaveType.Text, bool inMyDocuments = false, bool allowConfigAccess = false)
 		{
-			bool retVal = false;
+			bool retVal;
 			var stream = new MemoryStream();
 
 			if (type == SaveType.Binary)
@@ -670,7 +670,52 @@ namespace TNet
 			return retVal;
 		}
 
-		#if !STANDALONE
+		public delegate bool WriteCallback (string path, byte[] type);
+
+		/// <summary>
+		/// Write the node hierarchy to the specified filename.
+		/// </summary>
+
+		public bool Write (string path, SaveType type, WriteCallback writeFunc)
+		{
+			bool retVal;
+			var stream = new MemoryStream();
+
+			if (type == SaveType.Binary)
+			{
+				var writer = new BinaryWriter(stream);
+				writer.WriteObject(this);
+
+				retVal = writeFunc(path, stream.ToArray());
+				writer.Close();
+			}
+			else if (type == SaveType.Compressed)
+			{
+				var writer = new BinaryWriter(stream);
+				writer.WriteObject(this);
+
+				stream.Position = 0;
+				var comp = LZMA.Compress(stream, mLZMA);
+
+				if (comp != null)
+				{
+					retVal = writeFunc(path, comp.ToArray());
+					comp.Close();
+				}
+				else retVal = writeFunc(path, stream.ToArray());
+				writer.Close();
+			}
+			else
+			{
+				var writer = new StreamWriter(stream);
+				Write(writer, 0);
+				retVal = writeFunc(path, stream.ToArray());
+				writer.Close();
+			}
+			return retVal;
+		}
+
+#if !STANDALONE
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.
 		/// The binary DataNode serialization will happen immediately, while the compression will happen on another thread for performance.
@@ -695,11 +740,9 @@ namespace TNet
 					retVal = Tools.WriteFile(path, comp, inMyDocuments, allowConfigAccess);
 					comp.Close();
 				}
-				else
-				{
-					retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
-					writer.Close();
-				}
+				else retVal = Tools.WriteFile(path, stream, inMyDocuments, allowConfigAccess);
+
+				writer.Close();
 			},
 			(callback != null) ? delegate() { callback(retVal); } : null);
 #else
@@ -741,6 +784,42 @@ namespace TNet
 				});
 			}
 #endif
+		}
+#endif
+
+#if UNITY_2021_1_OR_NEWER
+		/// <summary>
+		/// Write the node hierarchy to the specified filename.
+		/// The binary DataNode serialization will happen immediately, while the compression will happen on another thread for performance.
+		/// The specified callback will be executed back on the main thread when the operation finishes.
+		/// </summary>
+
+		public void WriteCompressedDelayed (string path, WriteCallback writeFunc, Action<bool> callback = null)
+		{
+			var stream = new MemoryStream();
+			var writer = new BinaryWriter(stream);
+			writer.WriteObject(this);
+			stream.Position = 0;
+			byte[] arr = null;
+
+			WorkerThread.Create(delegate ()
+			{
+				var comp = LZMA.Compress(stream, mLZMA);
+
+				if (comp != null)
+				{
+					arr = comp.ToArray();
+					comp.Close();
+				}
+				else arr = stream.ToArray();
+
+				writer.Close();
+			},
+			delegate ()
+			{
+				writeFunc(path, arr);
+				if (callback != null) callback(true);
+			});
 		}
 #endif
 
@@ -910,6 +989,12 @@ namespace TNet
 			else if (value != null)
 			{
 				writer.WriteTabs(tab);
+			}
+			else if (tab != 0)
+			{
+				writer.WriteTabs(tab);
+				writer.Write("<null>");
+				return;
 			}
 
 			if (value != null && !writer.WriteObject(value, prefix))
@@ -1140,7 +1225,7 @@ namespace TNet
 					for (int i = 0; i < other.children.size; ++i)
 					{
 						var child = other.children.buffer[i];
-						replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
+						if (child != null) replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
 					}
 				}
 			}
@@ -1370,7 +1455,13 @@ namespace TNet
 							{
 								var child = children.buffer[i];
 
-								if (child.value == null)
+								if (child.name == "<null>")
+								{
+									child.mValue = null;
+									child.mResolved = true;
+									list.Add(child.mValue);
+								}
+								else if (child.value == null)
 								{
 									child.mValue = child.name;
 									child.mResolved = false;
@@ -1402,7 +1493,15 @@ namespace TNet
 							{
 								var child = children.buffer[i];
 
-								if (child.value == null)
+								if (child.name == "<null>")
+								{
+									child.mValue = null;
+									child.mResolved = true;
+
+									if (fixedSize) list[i] = child.mValue;
+									else list.Add(child.mValue);
+								}
+								else if (child.value == null)
 								{
 									child.mValue = child.name;
 									child.mResolved = false;

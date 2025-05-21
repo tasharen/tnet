@@ -18,7 +18,7 @@ namespace TNet
 
 	public class TNServerInstance : MonoBehaviour
 	{
-		static TNServerInstance mInstance;
+		[System.NonSerialized] static TNServerInstance mInstance;
 
 		[DoNotObfuscate] public enum Type
 		{

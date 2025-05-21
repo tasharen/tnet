@@ -28,7 +28,6 @@ namespace TNet
 		protected int mPort = 0;
 		protected Thread mThread;
 		protected bool mInstantUpdates = true;
-		protected Buffer mBuffer;
 
 		/// <summary>
 		/// If the number of simultaneous connected clients exceeds this number,
@@ -105,29 +104,6 @@ namespace TNet
 
 				Tools.LoadList(banFilePath, mBan);
 			}
-		}
-
-		/// <summary>
-		/// Start the sending process.
-		/// </summary>
-
-		BinaryWriter BeginSend (Packet type)
-		{
-			mBuffer = Buffer.Create();
-			BinaryWriter writer = mBuffer.BeginPacket(type);
-			return writer;
-		}
-
-		/// <summary>
-		/// Send the outgoing buffer to the specified player.
-		/// </summary>
-
-		void EndSend (TcpProtocol tc)
-		{
-			mBuffer.EndPacket();
-			tc.SendTcpPacket(mBuffer);
-			mBuffer.Recycle();
-			mBuffer = null;
 		}
 
 		/// <summary>
@@ -335,14 +311,19 @@ namespace TNet
 					if (!string.IsNullOrEmpty(tc.name) && !mBan.Contains(tc.name))
 					{
 						tc.AssignID();
-						var writer = tc.BeginSend(Packet.ResponseID);
-						writer.Write(TcpPlayer.version);
-						writer.Write(tc.id);
-						writer.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
-						tc.EndSend();
+						var b = tc.CreatePacket(Packet.ResponseID);
+						var w = b.writer;
+						w.Write(TcpPlayer.version);
+						w.Write(tc.id);
+						w.Write((Int64)(System.DateTime.UtcNow.Ticks / 10000));
+						tc.SendPacket(b);
 						return true;
 					}
-					else return false;
+					else
+					{
+						UnityEngine.Debug.LogError("Verify not quite successful: " + tc.name);
+						return false;
+					}
 				}
 
 				Tools.Print(tc.address + " has failed the verification step");
@@ -355,10 +336,11 @@ namespace TNet
 			{
 				case Packet.RequestPing:
 				{
-					var writer = BeginSend(Packet.ResponsePing);
-					writer.Write(mTime);
-					writer.Write((ushort)mList.list.size);
-					EndSend(tc);
+					var b = tc.CreatePacket(Packet.ResponsePing);
+					var w = b.writer;
+					w.Write(mTime);
+					w.Write((ushort)mList.list.size);
+					tc.SendPacket(b);
 
 					var ent = tc.Get<ServerList.Entry>("data");
 					if (ent != null) ent.recordTime = mTime;
@@ -367,8 +349,9 @@ namespace TNet
 				case Packet.Echo:
 				{
 					var requestID = reader.ReadUInt32();
-					BeginSend(Packet.Echo).Write(requestID);
-					EndSend(tc);
+					var b = tc.CreatePacket(Packet.Echo);
+					b.writer.Write(requestID);
+					tc.SendPacket(b);
 					return true;
 				}
 				case Packet.RequestSetAlias:
@@ -485,16 +468,17 @@ namespace TNet
 					var fn = reader.ReadString();
 					var data = LoadFile(fn);
 
-					var writer = BeginSend(Packet.ResponseLoadFile);
-					writer.Write(fn);
+					var b = tc.CreatePacket(Packet.ResponseLoadFile);
+					var w = b.writer;
+					w.Write(fn);
 
 					if (data != null)
 					{
-						writer.Write(data.Length);
-						writer.Write(data);
+						w.Write(data.Length);
+						w.Write(data);
 					}
-					else writer.Write(0);
-					EndSend(tc);
+					else w.Write(0);
+					tc.SendPacket(b);
 					return true;
 				}
 				case Packet.RequestDeleteFile:
@@ -567,12 +551,11 @@ namespace TNet
 						sb.Append(text);
 
 						// Send the response
-						mBuffer = Buffer.Create();
-						var bw = mBuffer.BeginWriting(false);
+						var b = Buffer.Create();
+						var bw = b.BeginWriting(false);
 						bw.Write(Encoding.UTF8.GetBytes(sb.ToString()));
-						tc.SendTcpPacket(mBuffer);
-						mBuffer.Recycle();
-						mBuffer = null;
+						tc.SendTcpPacket(b);
+						b.Recycle();
 					}
 					return false;
 				}

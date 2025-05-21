@@ -24,7 +24,6 @@ namespace TNet
 		protected long mTime = 0;
 		protected UdpProtocol mUdp;
 		protected Thread mThread;
-		protected Buffer mBuffer;
 
 		/// <summary>
 		/// Port used to listen for incoming packets.
@@ -141,17 +140,19 @@ namespace TNet
 			{
 				case Packet.RequestPing:
 				{
-					var writer = BeginSend(Packet.ResponsePing);
-					writer.Write(mTime);
-					writer.Write((ushort)mList.list.size);
-					EndSend(ip);
+					var b = CreatePacket(Packet.ResponsePing);
+					var w = b.writer;
+					w.Write(mTime);
+					w.Write((ushort)mList.list.size);
+					SendPacket(b, ip);
 					return true;
 				}
 				case Packet.Echo:
 				{
 					var requestID = reader.ReadUInt32();
-					BeginSend(Packet.Echo).Write(requestID);
-					EndSend(ip);
+					var b = CreatePacket(Packet.Echo);
+					b.writer.Write(requestID);
+					SendPacket(b, ip);
 					return true;
 				}
 				case Packet.RequestAddServer:
@@ -193,8 +194,9 @@ namespace TNet
 				case Packet.RequestServerList:
 				{
 					if (reader.ReadUInt16() != GameServer.gameID) return false;
-					mList.WriteTo(BeginSend(Packet.ResponseServerList));
-					EndSend(ip);
+					var b = CreatePacket(Packet.ResponseServerList);
+					mList.WriteTo(b.writer);
+					SendPacket(b, ip);
 					return true;
 				}
 			}
@@ -223,23 +225,22 @@ namespace TNet
 		/// Start the sending process.
 		/// </summary>
 
-		BinaryWriter BeginSend (Packet packet)
+		Buffer CreatePacket (Packet packet)
 		{
-			mBuffer = Buffer.Create();
-			BinaryWriter writer = mBuffer.BeginPacket(packet);
-			return writer;
+			var b = Buffer.Create();
+			b.BeginPacket(packet);
+			return b;
 		}
 
 		/// <summary>
 		/// Send the outgoing buffer to the specified remote destination.
 		/// </summary>
 
-		void EndSend (IPEndPoint ip)
+		void SendPacket (Buffer b, IPEndPoint ip)
 		{
-			mBuffer.EndPacket();
-			mUdp.Send(mBuffer, ip);
-			mBuffer.Recycle();
-			mBuffer = null;
+			b.EndPacket();
+			mUdp.Send(b, ip);
+			b.Recycle();
 		}
 	}
 }

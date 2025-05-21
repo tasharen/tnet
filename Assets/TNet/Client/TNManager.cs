@@ -223,8 +223,9 @@ namespace TNet
 #if !MODDING
 			if (isAdmin)
 			{
-				BeginSend(Packet.RequestCreateAdmin).Write(passKey);
-				EndSend();
+				var b = CreatePacket(Packet.RequestCreateAdmin);
+				b.writer.Write(passKey);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -238,8 +239,9 @@ namespace TNet
 #if !MODDING
 			if (isAdmin)
 			{
-				BeginSend(Packet.RequestRemoveAdmin).Write(passKey);
-				EndSend();
+				var b = CreatePacket(Packet.RequestRemoveAdmin);
+				b.writer.Write(passKey);
+				SendPacket(b);
 			}
 #endif
 		}
@@ -445,14 +447,14 @@ namespace TNet
 		/// Current time on the server in milliseconds.
 		/// </summary>
 
-		static public long serverTime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverTime : (System.DateTime.UtcNow.Ticks / 10000); } }
+		static public long serverTime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverTime : (DateTime.UtcNow.Ticks / 10000); } }
 
 		/// <summary>
 		/// Server's uptime in milliseconds.
 		/// </summary>
 
-		static public long serverUptime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverUptime : (System.DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
-		static readonly long mStartTime = (System.DateTime.UtcNow.Ticks / 10000);
+		static public long serverUptime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverUptime : (DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
+		static readonly long mStartTime = (DateTime.UtcNow.Ticks / 10000);
 
 		/// <summary>
 		/// Time elapsed either since the server has been started up in seconds, or (if not connected) -- time since TNManager was first used.
@@ -491,7 +493,7 @@ namespace TNet
 		{
 			get
 			{
-				if (mInstance == null || mInstance.mClient.packetSourceID == -1) return playerID;
+				if (mInstance == null) return playerID;
 				return mInstance.mClient.packetSourceID;
 			}
 			set
@@ -508,7 +510,8 @@ namespace TNet
 		{
 			get
 			{
-				if (mInstance == null || mInstance.mClient.packetSourceID == -1) return player;
+				if (mInstance == null) return player;
+				if (mInstance.mClient.packetSourceID < 1) return null;
 				return GetPlayer(mInstance.mClient.packetSourceID);
 			}
 		}
@@ -605,12 +608,9 @@ namespace TNet
 
 		static public bool IsPlayerInChannel (Player p, int channelID)
 		{
-			if (IsInChannel(channelID))
-			{
-				if (p == player) return true;
-				var channel = GetChannel(channelID);
-				for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i] == p) return true;
-			}
+			if (p == player) return IsInChannel(channelID);
+			var channel = GetChannel(channelID);
+			if (channel != null) for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i] == p) return true;
 			return false;
 		}
 
@@ -620,12 +620,9 @@ namespace TNet
 
 		static public bool IsPlayerInChannel (int playerID, int channelID)
 		{
-			if (IsInChannel(channelID))
-			{
-				if (playerID == TNManager.playerID) return true;
-				var channel = GetChannel(channelID);
-				for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i].id == playerID) return true;
-			}
+			if (playerID == TNManager.playerID) return IsInChannel(channelID);
+			var channel = GetChannel(channelID);
+			if (channel != null) for (int i = 0; i < channel.players.size; ++i) if (channel.players.buffer[i].id == playerID) return true;
 			return false;
 		}
 
@@ -753,7 +750,7 @@ namespace TNet
 				mInstance.mClient.ProcessPackets();
 #endif
 #if UNITY_EDITOR
-				if (sentPackets > 400)
+				if (sentPackets > 1000 && TNServerInstance.isActive)
 				{
 #if COUNT_PACKETS
 					var sb = new System.Text.StringBuilder();
@@ -770,10 +767,9 @@ namespace TNet
 
 					Debug.LogWarning(sb.ToString());
 #else
-					Debug.LogWarning("[TNet] Packets in the last second:\nSent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
-						receivedPackets + " (" + receivedBytes.ToString("N0") + " bytes)");
+					//Debug.LogWarning("[TNet] Packets in the last second:\nSent: " + sentPackets + " (" + sentBytes.ToString("N0") + " bytes), received: " +
+					//	receivedPackets + " (" + receivedBytes.ToString("N0") + " bytes)");
 #endif
-					ResetPacketCount();
 				}
 #endif
 			}
@@ -1240,14 +1236,7 @@ namespace TNet
 
 		static public LoadSceneFunc onLoadScene = delegate (string levelName)
 		{
-			if (!string.IsNullOrEmpty(levelName))
-			{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-				Application.LoadLevel(levelName);
-#else
-				UnityEngine.SceneManagement.SceneManager.LoadScene(levelName);
-#endif
-			}
+			if (!string.IsNullOrEmpty(levelName)) UnityTools.LoadScene(levelName);
 		};
 
 		/// <summary>
@@ -1256,14 +1245,7 @@ namespace TNet
 
 		static public LoadSceneAsyncFunc onLoadSceneAsync = delegate (string levelName)
 		{
-			if (!string.IsNullOrEmpty(levelName))
-			{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-				return Application.LoadLevelAsync(levelName);
-#else
-				return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(levelName);
-#endif
-			}
+			if (!string.IsNullOrEmpty(levelName)) return UnityTools.LoadSceneAsync(levelName);
 			return null;
 		};
 
@@ -1281,9 +1263,6 @@ namespace TNet
 		{
 			if (!IsInChannel(channelID))
 			{
-#if UNITY_EDITOR
-				Debug.Log("JoinChannel " + channelID);
-#endif
 				if (leaveCurrentChannel) LeaveAllChannels();
 
 				if (isConnected)
@@ -1534,11 +1513,12 @@ namespace TNet
 #if !MODDING
 			if (isConnected)
 			{
-				var writer = BeginSend(Packet.RequestSetPlayerSave);
+				var b = CreatePacket(Packet.RequestSetPlayerSave);
+				var writer = b.writer;
 				writer.Write(filename);
 				writer.Write((byte)type);
 				writer.Write(hash);
-				EndSend();
+				SendPacket(b);
 			}
 			else
 			{
@@ -1565,7 +1545,7 @@ namespace TNet
 				{
 					Tools.DeleteFile(filename);
 				}
-				catch (System.Exception ex)
+				catch (Exception ex)
 				{
 					Debug.LogError(ex.Message + " (" + filename + ")");
 				}
@@ -1615,10 +1595,11 @@ namespace TNet
 #if !MODDING
 			if (mInstance != null && isAdmin)
 			{
-				var writer = BeginSend(Packet.RequestLockChannel);
+				var b = CreatePacket(Packet.RequestLockChannel);
+				var writer = b.writer;
 				writer.Write(channelID);
 				writer.Write(locked);
-				EndSend(channelID, true);
+				SendPacket(b, channelID);
 			}
 #endif
 		}
@@ -1709,7 +1690,8 @@ namespace TNet
 						return;
 					}
 
-					var writer = mInstance.mClient.BeginSend(Packet.RequestCreateObject);
+					var b = CreatePacket(Packet.RequestCreateObject);
+					var writer = b.writer;
 					writer.Write(playerID);
 					writer.Write(channelID);
 					writer.Write(persistent ? (byte)1 : (byte)2);
@@ -1726,7 +1708,7 @@ namespace TNet
 
 					writer.Write(path);
 					writer.WriteArray(objs);
-					EndSend(channelID, true);
+					SendPacket(b, channelID);
 				}
 #endif
 				else
@@ -1896,70 +1878,62 @@ namespace TNet
 #else
 			if (isConnected)
 			{
-				BeginSend(Packet.ServerLog).Write(text);
-				EndSend();
+				var b = CreatePacket(Packet.ServerLog);
+				b.writer.Write(text);
+				SendPacket(b);
 			}
 #endif
 		}
 
 		/// <summary>
-		/// Begin sending a new packet to the server.
+		/// Create a new packet of specified type.
 		/// </summary>
 
-		static public BinaryWriter BeginSend (Packet type) { return instance.mClient.BeginSend(type); }
+		static public Buffer CreatePacket (Packet type)  { return instance.mClient.CreatePacket(type); }
 
 		/// <summary>
-		/// Begin sending a new packet to the server.
+		/// Create a new packet of specified type.
 		/// </summary>
 
-		static public BinaryWriter BeginSend (byte packetID) { return instance.mClient.BeginSend(packetID); }
+		static public Buffer CreatePacket (byte type) { return instance.mClient.CreatePacket(type); }
 
 		/// <summary>
-		/// Send the outgoing buffer. This should only be used for generic packets going straight to the server.
-		/// Packets that are going to a channel should use EndSend(channelID, reliable) function instead.
+		/// Send out the specified packet that was created with CreatePacket() earlier.
 		/// </summary>
 
-		static public void EndSend () { mInstance.mClient.EndSend(); }
+		static public void SendPacket (Buffer b, bool reliable = true, bool instant = false) { instance.mClient.SendPacket(b, reliable, instant); }
 
 		/// <summary>
 		/// Send the outgoing buffer.
 		/// </summary>
 
-		static public void EndSend (int channelID, bool reliable = true)
+		static public void SendPacket (Buffer b, int channelID, bool reliable = true, bool instant = false)
 		{
 			if (!IsJoiningChannel(channelID))
 			{
-				mInstance.mClient.EndSend(channelID, reliable);
+				mInstance.mClient.SendPacket(b, reliable, instant);
 			}
 			else
 			{
-				mInstance.mClient.CancelSend();
+				b.EndPacket();
+				b.Recycle();
 #if UNITY_EDITOR
 				Debug.LogWarning("Trying to send a packet to channel " + channelID + " while still joining it. This packet will be ignored. You should check [tno.canSend] before trying to send something.");
 #endif
 			}
 		}
 
-#if UNITY_EDITOR
-		[ContextMenu("Close channel")]
-		void ForceCloseChannel ()
-		{
-			mInstance.mClient.BeginSend(Packet.RequestCloseChannel).Write(lastChannelID);
-			mInstance.mClient.EndSend(true);
-		}
-#endif
+		/// <summary>
+		/// Broadcast the packet to everyone on the LAN.
+		/// </summary>
+
+		static public void SendPacket (Buffer b, IPEndPoint target) { mInstance.mClient.SendPacket(b, target); }
 
 		/// <summary>
 		/// Broadcast the packet to everyone on the LAN.
 		/// </summary>
 
-		static public void EndSendToLAN (int port) { mInstance.mClient.EndSend(port); }
-
-		/// <summary>
-		/// Broadcast the packet to the specified endpoint via UDP.
-		/// </summary>
-
-		static public void EndSend (IPEndPoint target) { mInstance.mClient.EndSend(target); }
+		static public void BroadcastPacket (Buffer b, int port) { mInstance.mClient.BroadcastPacket(b, port); }
 
 		/// <summary>
 		/// Write the specified data into a local cache file belonging to connected server.
@@ -2211,9 +2185,26 @@ namespace TNet
 			if (func != null)
 			{
 				// Custom creation function
-				var objs = reader.ReadArray(go);
-				go = func.Execute(objs) as GameObject;
-				UnityTools.Clear(objs);
+				try
+				{
+					var objs = reader.ReadArray(go);
+					go = func.Execute(objs) as GameObject;
+					UnityTools.Clear(objs);
+				}
+				catch (Exception ex)
+				{
+					var c = GetPlayer(creator);
+					var srcName = (c != null) ? c.name : "unknown";
+					Debug.LogError("[TNet] OnCreateObject failed: " + ex.Message + "\n" + ex.StackTrace +
+						$"\n    {rccID} ({funcName}), prefab: {prefab}, src: {srcName}", go);
+
+					if (GameClient.currentBuffer != null)
+					{
+						var byteCount = GameClient.currentBuffer.size;
+						var fn = "Errors/error_" + serverTime + ".packet";
+						Tools.WriteFile(fn, GameClient.currentBuffer.buffer, true, false, byteCount);
+					}
+				}
 			}
 			// Fallback to a very basic function
 			else go = OnCreate1(go);
@@ -2292,6 +2283,7 @@ namespace TNet
 		{
 			uint objID;
 			byte funcID;
+			var start = reader.BaseStream.Position;
 			TNObject.DecodeUID(reader.ReadUInt32(), out objID, out funcID);
 
 			if (funcID == 0)
@@ -2305,8 +2297,24 @@ namespace TNet
 					funcName = reader.ReadString();
 					UnityEngine.Profiling.Profiler.BeginSample(funcName);
 					var array = reader.ReadArray();
-					TNObject.FindAndExecute(channelID, objID, funcName, array);
+					var result = TNObject.FindAndExecute(channelID, objID, funcName, array);
 					UnityEngine.Profiling.Profiler.EndSample();
+
+					if (result != null && !result.success)
+					{
+						var last = reader.BaseStream.Position;
+						var fn = "Errors/Error_" + funcName + "_" + start + ".dat";
+
+						reader.BaseStream.Seek(0, SeekOrigin.End);
+						var len = reader.BaseStream.Position;
+						reader.BaseStream.Seek(0, SeekOrigin.Begin);
+						var bytes = reader.ReadBytes((int)len);
+
+						reader.BaseStream.Position = last < len ? last : len;
+
+						Tools.WriteFile(fn, bytes, true);
+						Debug.Log("Packet saved as " + fn);
+					}
 				}
 #if SAFE_EXCEPTIONS
 				catch (Exception ex)
@@ -2315,7 +2323,22 @@ namespace TNet
 				}
 #endif
 			}
-			else TNObject.FindAndExecute(channelID, objID, funcID, reader.ReadArray());
+			else
+			{
+#if SAFE_EXCEPTIONS
+				try
+#endif
+				{
+					var arr = reader.ReadArray();
+					TNObject.FindAndExecute(channelID, objID, funcID, arr);
+				}
+#if SAFE_EXCEPTIONS
+				catch (Exception ex)
+				{
+					Debug.LogError(objID + " " + funcID + "\n" + ex.Message + "\n" + ex.StackTrace, TNObject.Find(((ulong)channelID << 32) | objID));
+				}
+#endif
+			}
 		}
 
 		/// <summary>
@@ -2512,22 +2535,90 @@ namespace TNet
 		[Obsolete("You should create a custom RCC and use TNManager.Instantiate instead of using this function")]
 		static internal void CreateEx (int rccID, bool persistent, string path, params object[] objs) { Instantiate(lastChannelID, rccID, path, persistent, objs); }
 
+		[NonSerialized] static Buffer mBuffer;
+
+		/// <summary>
+		/// Begin sending a new packet to the server.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public BinaryWriter BeginSend (Packet type) { return BeginSend((byte)type); }
+
+		/// <summary>
+		/// Begin sending a new packet to the server.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public BinaryWriter BeginSend (byte packetID)
+		{
+			Debug.Assert(mBuffer == null, "BeginSend is not thread safe. Use CreatePacket/SendPacket instead");
+			mBuffer = instance.mClient.CreatePacket(packetID);
+			return mBuffer.BeginPacket(packetID);
+		}
+
+		/// <summary>
+		/// Send the outgoing buffer. This should only be used for generic packets going straight to the server.
+		/// Packets that are going to a channel should use EndSend(channelID, reliable) function instead.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public void EndSend ()
+		{
+			if (mBuffer != null)
+			{
+				SendPacket(mBuffer);
+				mBuffer = null;
+			}
+		}
+
+		/// <summary>
+		/// Send the outgoing buffer.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public void EndSend (int channelID, bool reliable = true)
+		{
+			if (mBuffer != null)
+			{
+				SendPacket(mBuffer, channelID, reliable);
+				mBuffer = null;
+			}
+		}
+
+		/// <summary>
+		/// Broadcast the packet to everyone on the LAN.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public void EndSendToLAN (int port)
+		{
+			if (mBuffer != null)
+			{
+				SendPacket(mBuffer, port);
+				mBuffer = null;
+			}
+		}
+
+		/// <summary>
+		/// Broadcast the packet to the specified endpoint via UDP.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
+		static public void EndSend (IPEndPoint target)
+		{
+			if (mBuffer != null)
+			{
+				SendPacket(mBuffer, target);
+				mBuffer = null;
+			}
+		}
+
 		[Obsolete("You need to specify a channel ID to send the packet to: TNManager.EndSend(channelID, reliable);")]
 		static public void EndSend (bool reliable)
 		{
-			if (!IsJoiningChannel(lastChannelID))
-			{
-				if (channels.size > 1)
-					Debug.LogWarning("You need to specify which channel this packet should be going to");
-				mInstance.mClient.EndSend(lastChannelID, reliable);
-			}
-			else
-			{
-				mInstance.mClient.CancelSend();
-#if UNITY_EDITOR
-				Debug.LogWarning("Trying to send a packet while joining a channel. Ignored.");
-#endif
-			}
+			if (channels.size > 1) Debug.LogWarning("You need to specify which channel this packet should be going to");
+			SendPacket(mBuffer, lastChannelID, reliable);
+			mBuffer = null;
 		}
 
 		[System.Obsolete("Use TNManager.GetServerData instead")]

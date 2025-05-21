@@ -80,13 +80,17 @@ namespace TNet
 								// Send all previously set aliases
 								foreach (var a in GameClient.aliases)
 								{
-									mTcp.BeginSend(Packet.RequestSetAlias).Write(a);
-									mTcp.EndSend();
+									var b = mTcp.CreatePacket(Packet.RequestSetAlias);
+									b.writer.Write(a);
+									mTcp.SendPacket(b);
 								}
 
 								// Request the server list -- with TCP this only needs to be done once
-								mTcp.BeginSend(Packet.RequestServerList).Write(GameServer.gameID);
-								mTcp.EndSend();
+								{
+									var b = mTcp.CreatePacket(Packet.RequestServerList);
+									b.writer.Write(GameServer.gameID);
+									mTcp.SendPacket(b);
+								}
 							}
 						}
 						else if (response == Packet.Disconnect)

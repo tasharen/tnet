@@ -36,6 +36,7 @@ public class ExampleMenu : TNEventReceiver
 	}
 
 	public int serverTcpPort = 5127;
+	public bool useUDP = false;
 	public IPType addressFamily = IPType.IP_v_4;
 	public string mainMenu = "Example Menu";
 	public string[] examples;
@@ -275,11 +276,10 @@ public class ExampleMenu : TNEventReceiver
 
 	protected override void OnConnect (bool success, string message)
 	{
-		Debug.Log("Connected: " + success + " " + message + " (Player ID #" + TNManager.playerID + ")");
 		mMessage = message;
 
 		// Make it possible to use UDP using a random port
-		if (success && !TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
+		if (success && useUDP && !TNServerInstance.isLocal) TNManager.StartUDP(Random.Range(10000, 50000));
 	}
 
 	/// <summary>

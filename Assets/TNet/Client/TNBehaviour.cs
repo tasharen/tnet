@@ -85,11 +85,14 @@ namespace TNet
 
 		public virtual T Get<T> (in string name, T defVal) { return mTNO ? mTNO.Get<T>(name, defVal) : defVal; }
 
+		// By default all calls to Set() with the default parameter will immediately sync with everyone
+		[System.NonSerialized] public bool immediateSync = true;
+
 		/// <summary>
 		/// Set the object-specific data.
 		/// </summary>
 
-		public virtual void Set (in string name, object val, bool sync = true) { if (mTNO) mTNO.Set(name, val, sync); }
+		public virtual void Set (in string name, object val, bool sync = true) { if (mTNO) mTNO.Set(name, val, sync && immediateSync); }
 
 		/// <summary>
 		/// Convenience function to set the data using a single string notation such as "key = value".
@@ -106,7 +109,7 @@ namespace TNet
 					var key = parts[0].Trim();
 					var val = parts[1].Trim();
 					var node = new DataNode(key, val);
-					if (node.ResolveValue()) Set(node.name, node.value);
+					if (node.ResolveValue()) Set(node.name, node.value, immediateSync);
 				}
 				else Debug.LogWarning("Invalid syntax [" + text + "]. Expected [key = value].");
 			}

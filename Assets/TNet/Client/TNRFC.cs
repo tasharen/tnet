@@ -77,10 +77,11 @@ namespace TNet
 		public object obj = null;
 		public MethodInfo mi;
 
-		ParameterInfo[] mParams;
-		Type[] mTypes;
-		int mParamCount = 0;
-		bool mAutoCast = false;
+		[NonSerialized] ParameterInfo[] mParams;
+		[NonSerialized] Type[] mTypes;
+		[NonSerialized] int mParamCount = 0;
+		[NonSerialized] bool mAutoCast = false;
+		[NonSerialized] public bool success = true;
 
 		public ParameterInfo[] parameters
 		{
@@ -102,6 +103,8 @@ namespace TNet
 
 		public object Execute (params object[] pars)
 		{
+			success = true;
+
 			if (mi == null) return null;
 
 			var parameters = this.parameters;
@@ -159,6 +162,7 @@ namespace TNet
 				}
 
 				UnityTools.PrintException(ex, this, 0, mi.Name, pars);
+				success = false;
 				return null;
 			}
 		}

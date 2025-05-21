@@ -12,7 +12,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 
-#if UNITY_EDITOR
+#if !STANDALONE
 using UnityEngine;
 #endif
 
@@ -88,7 +88,7 @@ namespace TNet
 
 		// Incoming and outgoing queues
 		Queue<Buffer> mIn = new Queue<Buffer>();
-		Queue<Buffer> mOut = new Queue<Buffer>();
+		Buffer mSendBuffer = Buffer.Create();
 
 #if !MODDING
 		volatile bool mSending = false;
@@ -126,23 +126,6 @@ namespace TNet
 		public int availablePacketSize { get { return 0; } }
 		public int incomingPacketSize { get { return 0; } }
 #endif
-		/// <summary>
-		/// Current size of the outgoing queue in bytes.
-		/// </summary>
-
-		public int outgoingQueueSize
-		{
-			get
-			{
-				lock (mOut)
-				{
-					int size = 0;
-					foreach (var q in mOut) size += q.size;
-					return size;
-				}
-			}
-		}
-
 		const int defaultBufferSize = 8192;
 		const int maxPacketSize = 16777216;
 
@@ -158,6 +141,7 @@ namespace TNet
 		bool mNoDelay = false;
 		IPEndPoint mFallback;
 		Socket mSocket;
+		object mSendLock = new object();
 
 		/// <summary>
 		/// Socket used for communication.
@@ -183,14 +167,17 @@ namespace TNet
 
 		[System.NonSerialized] public IConnection custom;
 
-		// Static as it's temporary
-		static Buffer mBuffer;
-
 		/// <summary>
 		/// Whether the connection is currently active.
 		/// </summary>
 
 		public bool isConnected { get { return stage == Stage.Connected; } }
+
+		/// <summary>
+		/// Current size of the outgoing buffer in bytes.
+		/// </summary>
+
+		public int outgoingBufferSize { get { lock (mSendLock) return mSendBuffer.size; } }
 
 		/// <summary>
 		/// If sockets are not used, an outgoing queue can be specified instead.
@@ -253,7 +240,6 @@ namespace TNet
 			if (isConnected || isTryingToConnect) return;
 #if !MODDING
 			lock (mIn) Buffer.Recycle(mIn);
-			lock (mOut) Buffer.Recycle(mOut);
 
 #if SIGHTSEER && !STANDALONE
 			if (externalIP != null && externalIP.Port != 5181 && Game.shadow)
@@ -405,12 +391,13 @@ namespace TNet
 				{
 					// Request a player ID
 					stage = Stage.Verifying;
-					var writer = BeginSend(Packet.RequestID);
-					writer.Write(version);
-					writer.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
-					writer.Write(dataNode);
+					var b = CreatePacket(Packet.RequestID);
+					var w = b.writer;
+					w.Write(version);
+					w.Write(string.IsNullOrEmpty(name) ? "Guest" : name);
+					w.Write(dataNode);
 
-					EndSend();
+					SendPacket(b);
 					StartReceiving();
 				}
 				else if (!ConnectToFallback())
@@ -458,7 +445,7 @@ namespace TNet
 		/// Close the connection.
 		/// </summary>
 
-		public void Close (bool notify) { lock (mOut) CloseNotThreadSafe(notify); }
+		public void Close (bool notify) { lock (mSendLock) CloseNotThreadSafe(notify); }
 
 		/// <summary>
 		/// Close the connection.
@@ -477,7 +464,7 @@ namespace TNet
 				Tools.Log(name + " (" + address + "): Disconnected [" + id + "]");
 			}
 #endif
-			Buffer.Recycle(mOut);
+			mSendBuffer.Clear();
 			stage = Stage.NotConnected;
 			mSending = false;
 
@@ -553,7 +540,7 @@ namespace TNet
 
 		public void Release ()
 		{
-			lock (mOut) CloseNotThreadSafe(false);
+			lock (mSendLock) CloseNotThreadSafe(false);
 			dataNode = null;
 		}
 
@@ -561,6 +548,44 @@ namespace TNet
 		/// Begin sending a new packet to the server.
 		/// </summary>
 
+		public Buffer CreatePacket (Packet type)
+		{
+			var b = Buffer.Create();
+			b.BeginPacket(type);
+			return b;
+		}
+
+		/// <summary>
+		/// Begin sending a new packet to the server.
+		/// </summary>
+
+		public Buffer CreatePacket (byte packetID)
+		{
+			var b = Buffer.Create();
+			b.BeginPacket(packetID);
+			return b;
+		}
+
+		/// <summary>
+		/// Send the outgoing buffer.
+		/// </summary>
+
+		public void SendPacket (Buffer b)
+		{
+			b.EndPacket();
+			SendTcpPacket(b);
+			b.Recycle();
+		}
+
+	#region Obsolete code
+		// Static as it's temporary
+		static Buffer mBuffer;
+
+		/// <summary>
+		/// Begin sending a new packet to the server.
+		/// </summary>
+
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
 		public BinaryWriter BeginSend (Packet type)
 		{
 			mBuffer = Buffer.Create();
@@ -571,6 +596,7 @@ namespace TNet
 		/// Begin sending a new packet to the server.
 		/// </summary>
 
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
 		public BinaryWriter BeginSend (byte packetID)
 		{
 			mBuffer = Buffer.Create();
@@ -581,6 +607,7 @@ namespace TNet
 		/// Send the outgoing buffer.
 		/// </summary>
 
+		[Obsolete("Use CreatePacket/SendPacket instead as they are thread-safe")]
 		public void EndSend ()
 		{
 			if (mBuffer != null)
@@ -591,6 +618,7 @@ namespace TNet
 				mBuffer = null;
 			}
 		}
+#endregion
 
 		/// <summary>
 		/// Send the specified packet. Marks the buffer as used.
@@ -629,13 +657,10 @@ namespace TNet
 
 			if (mSocket != null && mSocket.Connected)
 			{
-				lock (mOut)
+				lock (mSendLock)
 				{
 					if (mSocket != null)
 					{
-#if UNITY_WINRT
-						mSocket.Send(buffer.buffer, buffer.size, SocketFlags.None);
-#else
 						if (instant)
 						{
 							try
@@ -647,13 +672,48 @@ namespace TNet
 								buffer.Recycle();
 								return;
 							}
-							catch { }
+							catch (Exception ex)
+							{
+								AddError(ex);
+								CloseNotThreadSafe(false);
+								return;
+							}
 						}
 
 						if (mSending)
 						{
-							// Simply add this packet to the outgoing queue
-							mOut.Enqueue(buffer);
+							// We are in the process of sending data alredy, so append this to the wait buffer
+							var w = mSendBuffer.BeginWriting(true);
+							w.Write(buffer.buffer, buffer.position, buffer.size);
+							buffer.Recycle();
+						}
+						else if (mSendBuffer.size != 0)
+						{
+							// Append this packet to the wait buffer
+							var w = mSendBuffer.BeginWriting(true);
+							w.Write(buffer.buffer, buffer.position, buffer.size);
+							buffer.Recycle();
+
+							// Reset the wait buffer's position to the beginning
+							mSendBuffer.BeginReading();
+
+							// If it's the first packet, let's begin the send process
+							mSending = true;
+
+							try
+							{
+								// Start the send operation
+								mSocket.BeginSend(mSendBuffer.buffer, mSendBuffer.position, mSendBuffer.size, SocketFlags.None, OnSend, mSendBuffer);
+
+								// We now need a new wait buffer
+								mSendBuffer = Buffer.Create();
+							}
+							catch (Exception ex)
+							{
+								AddError(ex);
+								CloseNotThreadSafe(false);
+								return;
+							}
 						}
 						else
 						{
@@ -666,14 +726,11 @@ namespace TNet
 							}
 							catch (Exception ex)
 							{
-								mOut.Clear();
-								buffer.Recycle();
 								AddError(ex);
 								CloseNotThreadSafe(false);
-								mSending = false;
+								return;
 							}
 						}
-#endif
 					}
 				}
 				return;
@@ -729,52 +786,44 @@ namespace TNet
 		void OnSend (IAsyncResult result)
 		{
 			if (stage == Stage.NotConnected) { mSending = false; return; }
-			int bytes;
+			int sent;
 
 			try
 			{
-#if !UNITY_WINRT
-				bytes = mSocket.EndSend(result);
-				var buff = (Buffer)result.AsyncState;
-
-				// If not everything was sent...
-				if (bytes < buff.size)
+				lock (mSendLock)
 				{
-					try
-					{
-						// The original buffer can't be modified as multiple sends can be happening concurrently,
-						// so we have to make a copy of the remaining buffer, and send that instead.
-						var remaining = Buffer.Create();
-						remaining.BeginWriting().Write(buff.buffer, buff.position + bytes, buff.size - bytes);
-						remaining.EndWriting();
-						buff.Recycle();
-						mSocket.BeginSend(remaining.buffer, remaining.position, remaining.size, SocketFlags.None, OnSend, remaining);
-						return;
-					}
-					catch (Exception ex)
-					{
-						AddError(ex);
-						CloseNotThreadSafe(false);
-					}
-				}
-#endif
-				buff.Recycle();
+					sent = mSocket.EndSend(result);
+					var buff = (Buffer)result.AsyncState;
 
-				lock (mOut)
-				{
-#if !UNITY_WINRT
-					if (bytes > 0 && mSocket != null && mSocket.Connected)
+					// If not everything was sent...
+					if (sent < buff.size)
 					{
-						// Nothing else left -- just exit
-						if (mOut.Count > 0)
+						try
 						{
+							// Send the remaining buffer
+							buff.position += sent;
+							mSocket.BeginSend(buff.buffer, buff.position, buff.size, SocketFlags.None, OnSend, buff.size);
+							return;
+						}
+						catch (Exception ex)
+						{
+							AddError(ex);
+							CloseNotThreadSafe(false);
+						}
+					}
+
+					buff.Recycle();
+
+					if (mSocket != null && mSocket.Connected)
+					{
+						if (mSendBuffer.size > 0)
+						{
+							mSendBuffer.BeginReading();
+
 							try
 							{
-								var next = mOut.Dequeue();
-#if UNITY_EDITOR
-								if (next.size == 0) Debug.LogError("Packet size is zero, the send will fail. " + next.position + " " + next.isWriting);
-#endif
-								mSocket.BeginSend(next.buffer, next.position, next.size, SocketFlags.None, OnSend, next);
+								mSocket.BeginSend(mSendBuffer.buffer, mSendBuffer.position, mSendBuffer.size, SocketFlags.None, OnSend, mSendBuffer);
+								mSendBuffer = Buffer.Create();
 							}
 							catch (Exception ex)
 							{
@@ -787,16 +836,15 @@ namespace TNet
 					else
 					{
 #if UNITY_EDITOR
-						Debug.LogWarning("Socket.EndSend fail: " + bytes + " " + buff.position + " " + buff.size + " (" + (mSocket != null) + " " + (mSocket != null ? mSocket.Connected : false) + ")");
+						Debug.LogWarning("Socket.EndSend fail: " + sent + " " + buff.position + " " + buff.size + " (" + (mSocket != null) + " " + (mSocket != null ? mSocket.Connected : false) + ")");
 #endif
 						CloseNotThreadSafe(true);
 					}
-#endif
 				}
 			}
-			catch (System.Exception ex)
+			catch (Exception ex)
 			{
-				bytes = 0;
+				sent = 0;
 				Close(true);
 				AddError(ex);
 			}
@@ -946,14 +994,11 @@ namespace TNet
 			}
 			else
 			{
-#if UNITY_EDITOR
+#if !STANDALONE
 				if (bytes != null && bytes.Length > 0)
 				{
-					var temp = new byte[byteCount];
-					for (int i = 0; i < byteCount; ++i) temp[i] = bytes[i];
-
-					var fn = "error_" + lastReceivedTime + ".packet";
-					Tools.WriteFile(fn, temp);
+					var fn = "Errors/error_" + lastReceivedTime + "_" + mOffset + ".packet";
+					Tools.WriteFile(fn, bytes, true, false, byteCount);
 					Debug.Log("Packet saved as " + fn);
 				}
 #endif
@@ -988,101 +1033,95 @@ namespace TNet
 				mReceiveBuffer.BeginWriting(true).Write(bytes, offset, byteCount);
 			}
 
-			for (mAvailable = mReceiveBuffer.size - mOffset; mAvailable > 4;)
+			lock (mIn)
 			{
-				// Figure out the expected size of the packet
-				if (mExpected == 0)
+				for (mAvailable = mReceiveBuffer.size - mOffset; mAvailable > 4;)
 				{
-					mExpected = mReceiveBuffer.PeekInt(mOffset);
-
-					// "GET " -- HTTP GET request sent by a web browser
-					if (mExpected == 542393671)
+					// Figure out the expected size of the packet
+					if (mExpected == 0)
 					{
-						if (httpGetSupport)
-						{
-							if (stage == Stage.Verifying || stage == Stage.WebBrowser)
-							{
-								stage = Stage.WebBrowser;
-								string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, mAvailable);
-								mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
-								mReceiveBuffer.EndPacket();
-								mReceiveBuffer.BeginReading(4);
+						mExpected = mReceiveBuffer.PeekInt(mOffset);
 
-								lock (mIn)
+						// "GET " -- HTTP GET request sent by a web browser
+						if (mExpected == 542393671)
+						{
+							if (httpGetSupport)
+							{
+								if (stage == Stage.Verifying || stage == Stage.WebBrowser)
 								{
+									stage = Stage.WebBrowser;
+									string request = Encoding.ASCII.GetString(mReceiveBuffer.buffer, mOffset, mAvailable);
+									mReceiveBuffer.BeginPacket(Packet.RequestHTTPGet).Write(request);
+									mReceiveBuffer.EndPacket();
+									mReceiveBuffer.BeginReading(4);
+
 									mIn.Enqueue(mReceiveBuffer);
 									mReceiveBuffer = null;
 									mExpected = 0;
 									mOffset = 0;
 								}
+								return true;
 							}
-							return true;
+
+							mReceiveBuffer.Recycle();
+							mReceiveBuffer = null;
+							mExpected = 0;
+							mOffset = 0;
+							Disconnect();
+							return false;
 						}
-
-						mReceiveBuffer.Recycle();
-						mReceiveBuffer = null;
-						mExpected = 0;
-						mOffset = 0;
-						Disconnect();
-						return false;
-					}
-					else if (mExpected < 0 || mExpected > maxPacketSize)
-					{
+						else if (mExpected < 0 || mExpected > maxPacketSize)
+						{
 #if UNITY_EDITOR
-						LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
+							LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
 
-						var temp = new byte[mReceiveBuffer.size];
-						for (int i = 0; i < byteCount; ++i) temp[i] = mReceiveBuffer.buffer[i];
+							var temp = new byte[mReceiveBuffer.size];
+							for (int i = 0; i < byteCount; ++i) temp[i] = mReceiveBuffer.buffer[i];
 
-						var fn = "error_" + lastReceivedTime + ".full";
-						Tools.WriteFile(fn, temp);
-						Debug.Log("Packet saved as " + fn);
+							var fn = "error_" + lastReceivedTime + ".full";
+							Tools.WriteFile(fn, temp);
+							Debug.Log("Packet saved as " + fn);
 #else
-						LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
+							LogError("Malformed data packet: " + mOffset + ", " + mAvailable + " / " + mExpected);
 #endif
-						mReceiveBuffer.Recycle();
-						mReceiveBuffer = null;
-						mExpected = 0;
-						mOffset = 0;
-						Disconnect();
-						return false;
+							mReceiveBuffer.Recycle();
+							mReceiveBuffer = null;
+							mExpected = 0;
+							mOffset = 0;
+							Disconnect();
+							return false;
+						}
 					}
-				}
 
-				// The first 4 bytes of any packet always contain the number of bytes in that packet
-				mAvailable -= 4;
+					// The first 4 bytes of any packet always contain the number of bytes in that packet
+					mAvailable -= 4;
 
-				// If the entire packet is present
-				if (mAvailable == mExpected)
-				{
-					// Reset the position to the beginning of the packet
-					mReceiveBuffer.BeginReading(mOffset + 4);
-
-					// This packet is now ready to be processed
-					lock (mIn)
+					// If the entire packet is present
+					if (mAvailable == mExpected)
 					{
+						// Reset the position to the beginning of the packet
+						mReceiveBuffer.BeginReading(mOffset + 4);
+
+						// This packet is now ready to be processed
 						mIn.Enqueue(mReceiveBuffer);
 						mReceiveBuffer = null;
 						mAvailable = 0;
 						mExpected = 0;
 						mOffset = 0;
+						break;
 					}
-					break;
-				}
-				else if (mAvailable > mExpected)
-				{
-					// There is more than one packet. Extract this packet fully.
-					int realSize = mExpected + 4;
-					var temp = Buffer.Create();
-
-					// Extract the packet and move past its size component
-					var bw = temp.BeginWriting();
-					bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
-					temp.BeginReading(4);
-
-					// This packet is now ready to be processed
-					lock (mIn)
+					else if (mAvailable > mExpected)
 					{
+						// There is more than one packet. Extract this packet fully.
+						int realSize = mExpected + 4;
+						var temp = Buffer.Create();
+
+						// Extract the packet and move past its size component
+						var bw = temp.BeginWriting();
+						bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
+						temp.BeginReading(4);
+
+						// This packet is now ready to be processed
 						mIn.Enqueue(temp);
 
 						// Skip this packet
@@ -1090,8 +1129,8 @@ namespace TNet
 						mOffset += realSize;
 						mExpected = 0;
 					}
+					else break;
 				}
-				else break;
 			}
 			return true;
 		}
@@ -1238,6 +1277,10 @@ namespace TNet
 					return true;
 				}
 			}
+			else if (request == Packet.Disconnect)
+			{
+				stage = Stage.NotConnected;
+			}
 #endif
 			return false;
 		}
@@ -1246,7 +1289,7 @@ namespace TNet
 		/// Assign an ID to this player.
 		/// </summary>
 
-		public void AssignID () { if (id == 0) lock (mLock) { id = ++mPlayerCounter; } }
+		public void AssignID () { lock (mLock) id = ++mPlayerCounter; }
 
 		/// <summary>
 		/// Verify the connection. Returns 'true' if successful.

@@ -668,6 +668,28 @@ namespace TNet
 				}
 			}
 #if !STANDALONE
+			else if (valueType == typeof(Color32[]))
+			{
+				if (desiredType == typeof(Color[]))
+				{
+					var arr = (Color32[])value;
+					var len = arr.Length;
+					var na = new Color[len];
+					for (int i = 0; i < len; ++i) na[i] = arr[i];
+					return na;
+				}
+			}
+			else if (valueType == typeof(Color[]))
+			{
+				if (desiredType == typeof(Color32[]))
+				{
+					var arr = (Color[])value;
+					var len = arr.Length;
+					var na = new Color32[len];
+					for (int i = 0; i < len; ++i) na[i] = arr[i];
+					return na;
+				}
+			}
 			else if (valueType == typeof(Vector4[]) && desiredType == typeof(AnimationCurve))
 			{
 				var vs = (Vector4[])value;

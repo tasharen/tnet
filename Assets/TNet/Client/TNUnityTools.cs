@@ -25,65 +25,88 @@ namespace TNet
 				objs[i] = null;
 		}
 
+		[System.NonSerialized] static int mExceptionCount = 0;
 		/// <summary>
 		/// Print out useful information about an exception that occurred when trying to call a function.
 		/// </summary>
 
 		static public void PrintException (System.Exception ex, CachedFunc ent, int funcID, string funcName, params object[] parameters)
 		{
-			string received = "";
-
-			if (parameters != null)
+			if (System.Threading.Interlocked.Increment(ref mExceptionCount) == 1)
 			{
-				for (int b = 0; b < parameters.Length; ++b)
+				var received = "";
+				var expanded = "";
+
+				if (parameters != null)
 				{
-					if (b != 0) received += ", ";
-					received += (parameters[b] != null) ? parameters[b].GetType().ToString() : "<null>";
+					for (int b = 0; b < parameters.Length; ++b)
+					{
+						if (b != 0) received += ", ";
+						received += (parameters[b] != null) ? parameters[b].GetType().ToString() : "<null>";
+
+						try
+						{
+							expanded += (parameters[b] != null) ?
+								($"    {b}: {parameters[b]}\n") :
+								($"    {b}: <null>\n");
+						}
+						catch (System.Exception)
+						{
+							expanded += $"    {b}: <error>\n";
+						}
+					}
 				}
-			}
 
-			string expected = "";
+				string expected = "";
 
-			if (ent.parameters != null)
-			{
-				for (int b = 0; b < ent.parameters.Length; ++b)
+				if (ent.parameters != null)
 				{
-					if (b != 0) expected += ", ";
-					expected += ent.parameters[b].ParameterType.ToString();
+					for (int b = 0; b < ent.parameters.Length; ++b)
+					{
+						if (b != 0) expected += ", ";
+						expected += ent.parameters[b].ParameterType.ToString();
+					}
 				}
+
+				string err = "[TNet] Failed to call ";
+
+				if (ent.obj != null && ent.obj is TNBehaviour)
+				{
+					TNBehaviour tb = ent.obj as TNBehaviour;
+					err += "TNO #" + tb.tno.id + " ";
+				}
+
+				if (string.IsNullOrEmpty(funcName))
+				{
+					err += "function #" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
+				}
+				else if (ent.obj != null)
+				{
+					err += "function " + ent.obj.GetType() + "." + funcName;
+				}
+				else err += "function " + funcName;
+
+				if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";
+				else err += ": " + ex.Message + "\n";
+
+				var src = TNManager.packetSourcePlayer;
+				err += "  Packet Sender: " + (src != null ? src.name : "server") + " (" + TNManager.packetSourceID + ")" + "\n";
+
+				if (received != expected)
+				{
+					err += "  Expected: " + expected + "\n";
+					err += "  Received: " + received + "\n";
+					err += "  Values:\n" + expanded + "\n";
+				}
+				else err += "\n";
+
+				if (ex.InnerException != null) err += ex.InnerException.StackTrace + "\n";
+				else err += ex.StackTrace + "\n";
+
+				Debug.LogError(err, ent.obj as Object);
 			}
 
-			string err = "[TNet] Failed to call ";
-
-			if (ent.obj != null && ent.obj is TNBehaviour)
-			{
-				TNBehaviour tb = ent.obj as TNBehaviour;
-				err += "TNO #" + tb.tno.id + " ";
-			}
-
-			if (string.IsNullOrEmpty(funcName))
-			{
-				err += "function #" + funcID + " on " + (ent.obj != null ? ent.obj.GetType().ToString() : "<null>");
-			}
-			else if (ent.obj != null)
-			{
-				err += "function " + ent.obj.GetType() + "." + funcName;
-			}
-			else err += "function " + funcName;
-
-			if (ex.InnerException != null) err += ": " + ex.InnerException.Message + "\n";
-			else err += ": " + ex.Message + "\n";
-
-			if (received != expected)
-			{
-				err += "  Expected args: " + expected + "\n";
-				err += "  Received args: " + received + "\n\n";
-			}
-
-			if (ex.InnerException != null) err += ex.InnerException.StackTrace + "\n";
-			else err += ex.StackTrace + "\n";
-
-			Debug.LogError(err, ent.obj as Object);
+			System.Threading.Interlocked.Decrement(ref mExceptionCount);
 		}
 
 		/// <summary>
@@ -329,6 +352,18 @@ namespace TNet
 		{
 			if (string.IsNullOrEmpty(path)) return null;
 			return LoadResourceEx(path, typeof(T), name) as T;
+		}
+
+		static public string activeScene { get { return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name; } }
+
+		static public void LoadScene (string scene)
+		{
+			UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+		}
+
+		static public AsyncOperation LoadSceneAsync (string scene)
+		{
+			return UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(scene);
 		}
 
 		/// <summary>

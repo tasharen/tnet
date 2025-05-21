@@ -28,7 +28,7 @@ namespace TNet
 
 	static public class Tools
 	{
-		static string mChecker = null;
+		[System.NonSerialized] static string mChecker = null;
 
 		/// <summary>
 		/// Get or set the URL that will perform the IP check. The URL-returned value should be simply the IP address:
@@ -433,9 +433,17 @@ namespace TNet
 
 			try
 			{
-				WebClient web = new WebClient();
-				string text = web.DownloadString(url).Trim();
-				mExternalAddress = ResolveAddress(text);
+				var web = new WebClient();
+				var text = web.DownloadString(url).Trim();
+
+				var colon = text.IndexOf(":");
+
+				if (colon != -1)
+				{
+					text = text.Substring(colon + 1);
+					IPAddress.TryParse(text, out mExternalAddress);
+				}
+				else IPAddress.TryParse(text, out mExternalAddress);
 
 				if (mExternalAddress != null && localAddress.AddressFamily == mExternalAddress.AddressFamily)
 				{
@@ -477,7 +485,7 @@ namespace TNet
 
 			if (address.Contains(":"))
 			{
-				string[] parts = address.Split(':');
+				var parts = address.Split(':');
 
 				if (parts.Length == 2)
 				{
@@ -486,13 +494,12 @@ namespace TNet
 				}
 			}
 
-			if (IPAddress.TryParse(address, out ip))
-				return ip;
+			if (IPAddress.TryParse(address, out ip)) return ip;
 
 #if !UNITY_WINRT
 			try
 			{
-				IPAddress[] ips = Dns.GetHostAddresses(address);
+				var ips = Dns.GetHostAddresses(address);
 
 				for (int i = 0; i < ips.Length; ++i)
 					if (!IPAddress.IsLoopback(ips[i]))
@@ -657,6 +664,16 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Whether the specified file exists or not.
+		/// </summary>
+
+		static public bool FileExists (string path, bool inMyDocuments = false)
+		{
+			if (inMyDocuments) path = GetDocumentsPath(path);
+			return File.Exists(path);
+		}
+
+		/// <summary>
 		/// Retrieve the list of filenames from the specified directory.
 		/// </summary>
 
@@ -669,7 +686,10 @@ namespace TNet
 			{
 				if (inMyDocuments) directory = GetDocumentsPath(directory);
 				if (!Directory.Exists(directory)) return null;
-				return Directory.GetFiles(directory);
+				var files = Directory.GetFiles(directory);
+				
+				for (int i = 0; i < files.Length; ++i) files[i] = files[i].Replace('\\', '/');
+				return files;
 			}
 			catch (System.Exception) { }
 #endif
@@ -686,7 +706,7 @@ namespace TNet
 			if (!IsAllowedToAccess(directory, allowConfigAccess)) return null;
 			if (!Directory.Exists(directory)) return null;
 			var files = Directory.GetFiles(directory, fileName, SearchOption.AllDirectories);
-			return (files.Length == 0) ? null : files[0];
+			return (files.Length == 0) ? null : files[0].Replace('\\', '/');
 #else
 		return null;
 #endif
@@ -702,7 +722,8 @@ namespace TNet
 			if (!IsAllowedToAccess(directory, allowConfigAccess)) return null;
 			if (!Directory.Exists(directory)) return null;
 			var files = Directory.GetFiles(directory, pattern, SearchOption.AllDirectories);
-			return (files.Length == 0) ? null : files;
+			for (int i = 0; i < files.Length; ++i) files[i] = files[i].Replace('\\', '/');
+			return files;
 #else
 			return null;
 #endif
@@ -718,6 +739,7 @@ namespace TNet
 
 		static public bool IsAllowedToAccess (string path, bool allowConfigAccess = false)
 		{
+			if (string.IsNullOrEmpty(path)) return true;
 #if UNITY_EDITOR
 			return true;
 #else
@@ -783,11 +805,11 @@ namespace TNet
 			{
 				if (!string.IsNullOrEmpty(applicationDirectory))
 				{
-					var docs = Path.Combine(persistentDataPath, applicationDirectory).Replace("\\", "/");
+					var docs = Path.Combine(persistentDataPath, applicationDirectory).Replace('\\', '/');
 					path = string.IsNullOrEmpty(path) ? docs : Path.Combine(docs, path);
 				}
 
-				if (!string.IsNullOrEmpty(path)) path = path.Replace("\\", "/");
+				if (!string.IsNullOrEmpty(path)) path = path.Replace('\\', '/');
 			}
 			catch (System.Exception ex)
 			{
@@ -803,11 +825,41 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Get a temporary file location for data that's not important, but still persistent.
+		/// </summary>
+
+		static public string GetTemporaryPath (string path = null)
+		{
+			try
+			{
+#if STANDALONE
+				var s = Path.Combine(persistentDataPath, "Temp");
+				path = string.IsNullOrEmpty(path) ? s : Path.Combine(s, path);
+#else
+				path = string.IsNullOrEmpty(path) ? UnityEngine.Application.persistentDataPath : Path.Combine(UnityEngine.Application.persistentDataPath, path);
+#endif
+				path = path.Replace("\\", "/");
+			}
+			catch (System.Exception ex)
+			{
+#if UNITY_EDITOR
+				UnityEngine.Debug.LogError(ex.Message.Trim() + "\n" + path + "\n" + ex.StackTrace.Replace("\r\n", "\n"));
+#else
+				LogError(ex.Message + " (" + path + ")", ex.StackTrace.Replace("\r\n", "\n"), false);
+#endif
+				return null;
+			}
+			return path;
+		}
+
+
+		/// <summary>
 		/// Application directory to use in My Documents. Generally should be the name of your game.
 		/// If not set, current directory will be used instead.
 		/// </summary>
 
-		static public string applicationDirectory = null;
+		[System.NonSerialized] static public string applicationDirectory = null;
+		[System.NonSerialized] static object mRWLock = new object();
 
 		/// <summary>
 		/// Write the specified file, creating all the subdirectories in the process.
@@ -815,7 +867,7 @@ namespace TNet
 
 		static public bool WriteFile (string path, byte[] data, bool inMyDocuments = false, bool allowConfigAccess = false, int maxBytes = -1, int offset = 0, bool append = false)
 		{
-#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (inMyDocuments) path = GetDocumentsPath(path);
 
 			if (data == null || data.Length == 0)
@@ -839,35 +891,38 @@ namespace TNet
 				{
 					var dir = Path.GetDirectoryName(path);
 
-					if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-						Directory.CreateDirectory(dir);
-
-					if (File.Exists(path))
+					lock (mRWLock)
 					{
-						var att = File.GetAttributes(path);
+						if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+							Directory.CreateDirectory(dir);
 
-						if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+						if (File.Exists(path))
 						{
-							att = (att & ~FileAttributes.ReadOnly);
-							File.SetAttributes(path, att);
+							var att = File.GetAttributes(path);
+
+							if ((att & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+							{
+								att = (att & ~FileAttributes.ReadOnly);
+								File.SetAttributes(path, att);
+							}
 						}
-					}
 
-					if (maxBytes == -1 && offset == 0 && !append)
-					{
-						File.WriteAllBytes(path, data);
-					}
-					else
-					{
-						if (maxBytes == -1) maxBytes = data.Length;
-						var stream = new FileStream(path, append ? FileMode.Append : FileMode.Create);
-						var bw = new BinaryWriter(stream);
-						bw.Write(data, offset, maxBytes);
-						stream.Flush();
-						stream.Close();
-					}
+						if (maxBytes == -1 && offset == 0 && !append)
+						{
+							File.WriteAllBytes(path, data);
+						}
+						else
+						{
+							if (maxBytes == -1) maxBytes = data.Length;
+							var stream = new FileStream(path, append ? FileMode.Append : FileMode.Create);
+							var bw = new BinaryWriter(stream);
+							bw.Write(data, offset, maxBytes);
+							stream.Flush();
+							stream.Close();
+						}
 
-					if (File.Exists(path)) return true;
+						if (File.Exists(path)) return true;
+					}
 #if !STANDALONE
 					UnityEngine.Debug.LogWarning("Unable to write to " + path);
 #endif
@@ -917,15 +972,13 @@ namespace TNet
 			}
 		}
 
-		[System.NonSerialized] static object mRWLock = new object();
-
 		/// <summary>
 		/// Write the specified file, creating all the subdirectories in the process.
 		/// </summary>
 
 		static public bool WriteFile (string path, MemoryStream data, bool inMyDocuments = false, bool allowConfigAccess = false)
 		{
-#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			if (inMyDocuments) path = GetDocumentsPath(path);
 
 			if (!IsAllowedToAccess(path, allowConfigAccess))
@@ -938,7 +991,7 @@ namespace TNet
 
 			if (data == null || data.Length == 0)
 			{
-				lock (mRWLock) return DeleteFile(path);
+				return DeleteFile(path);
 			}
 			else
 			{
@@ -1027,12 +1080,12 @@ namespace TNet
 		/// Delete the specified file, if it exists.
 		/// </summary>
 
-		static public bool DeleteFile (string path)
+		static public bool DeleteFile (string path, bool allowConfigAccess = false)
 		{
-#if !DEMO && !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
+#if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_METRO && !UNITY_WP8 && !UNITY_WP_8_1
 			try
 			{
-				path = FindFile(path);
+				path = FindFile(path, allowConfigAccess);
 
 				if (!string.IsNullOrEmpty(path) && File.Exists(path))
 				{
@@ -1330,23 +1383,23 @@ namespace TNet
 			if (len == 7)
 			{
 				string text = "20" + stringVersion.Substring(0, 2);
-				text += "-" + stringVersion.Substring(2, 2);
-				text += "-" + stringVersion.Substring(4, 2);
+				text += "." + stringVersion.Substring(2, 2);
+				text += "." + stringVersion.Substring(4, 2);
 				text += "." + stringVersion[6];
 				return text;
 			}
 			else if (len == 8)
 			{
 				string text = stringVersion.Substring(0, 4);
-				text += "-" + stringVersion.Substring(4, 2);
-				text += "-" + stringVersion.Substring(6, 2);
+				text += "." + stringVersion.Substring(4, 2);
+				text += "." + stringVersion.Substring(6, 2);
 				return text;
 			}
 			else if (len == 9)
 			{
 				string text = stringVersion.Substring(0, 4);
-				text += "-" + stringVersion.Substring(4, 2);
-				text += "-" + stringVersion.Substring(6, 2);
+				text += "." + stringVersion.Substring(4, 2);
+				text += "." + stringVersion.Substring(6, 2);
 				text += "." + stringVersion[8];
 				return text;
 			}

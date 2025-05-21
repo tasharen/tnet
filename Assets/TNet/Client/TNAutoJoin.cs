@@ -93,14 +93,7 @@ public class TNAutoJoin : MonoBehaviour
 
 	void OnDisconnect ()
 	{
-#if UNITY_4_6 || UNITY_4_7 || UNITY_5_0 || UNITY_5_1 || UNITY_5_2
-		if (!string.IsNullOrEmpty(disconnectLevel) && Application.loadedLevelName != disconnectLevel)
-			Application.LoadLevel(disconnectLevel);
-#else
-		if (!string.IsNullOrEmpty(disconnectLevel) &&
-			UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != disconnectLevel)
-			UnityEngine.SceneManagement.SceneManager.LoadScene(disconnectLevel);
-#endif
+		if (!string.IsNullOrEmpty(disconnectLevel) && UnityTools.activeScene != disconnectLevel) UnityTools.LoadScene(disconnectLevel);
 	}
 }
 }
