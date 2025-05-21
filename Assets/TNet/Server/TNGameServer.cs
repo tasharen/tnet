@@ -18,7 +18,7 @@ using System.Threading;
 using System.Net;
 using System.Text;
 
-#if UNITY_EDITOR
+#if !STANDALONE
 using UnityEngine;
 #endif
 
@@ -641,39 +641,46 @@ namespace TNet
 							continue;
 						}
 
-						while (player.ReceivePacket(out buffer))
-						{
-							if (buffer.size > 0)
-							{
-#if SINGLE_THREADED
-								ProcessPlayerPacket(buffer, player, true);
-#else
-								try
-								{
-									if (ProcessPlayerPacket(buffer, player, true))
-										received = true;
-								}
-#if STANDALONE
-								catch (System.Exception ex)
-								{
-									if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
-									else player.LogError(ex.Message, ex.StackTrace);
-									RemovePlayer(player);
-									buffer.Recycle();
-									continue;
-								}
-#else
-								catch (Exception ex)
-								{
-									if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
-									else player.LogError(ex.Message, ex.StackTrace);
-									RemovePlayer(player);
-								}
-#endif
-#endif
-							}
+						//var iqs = player.incomingQueueSize;
+						//var iqc = player.incomingQueueCount;
+						//if (iqc != 0) Debug.Log("PID: " + player.id + ", queue: " + iqs + " bytes (" + iqc + " packets)");
 
-							buffer.Recycle();
+						lock (player.incomingLock)
+						{
+							while (player.ReceivePacketNTS(out buffer))
+							{
+								if (buffer.size > 0)
+								{
+#if SINGLE_THREADED
+									ProcessPlayerPacket(buffer, player, true);
+#else
+									try
+									{
+										if (ProcessPlayerPacket(buffer, player, true))
+											received = true;
+									}
+#if STANDALONE
+									catch (System.Exception ex)
+									{
+										if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
+										else player.LogError(ex.Message, ex.StackTrace);
+										RemovePlayer(player);
+										buffer.Recycle();
+										continue;
+									}
+#else
+									catch (Exception ex)
+									{
+										if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
+										else player.LogError(ex.Message, ex.StackTrace);
+										RemovePlayer(player);
+									}
+#endif
+#endif
+								}
+
+								buffer.Recycle();
+							}
 						}
 
 						if (player != mLocalPlayer)

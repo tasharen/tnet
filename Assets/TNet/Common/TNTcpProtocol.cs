@@ -110,6 +110,12 @@ namespace TNet
 			}
 		}
 
+		/// <summary>
+		/// Current size of the incoming queue in bytes.
+		/// </summary>
+
+		public int incomingQueueCount { get { lock (mIn) return mIn.Count; } }
+
 #if !MODDING
 		/// <summary>
 		/// Number of bytes available in the incoming buffer that have not yet been processed.
@@ -659,77 +665,74 @@ namespace TNet
 			{
 				lock (mSendLock)
 				{
-					if (mSocket != null)
+					if (instant)
 					{
-						if (instant)
+						try
 						{
-							try
-							{
-								var before = mSocket.NoDelay;
-								if (!before) mSocket.NoDelay = true;
-								mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
-								if (!before) mSocket.NoDelay = false;
-								buffer.Recycle();
-								return;
-							}
-							catch (Exception ex)
-							{
-								AddError(ex);
-								CloseNotThreadSafe(false);
-								return;
-							}
-						}
-
-						if (mSending)
-						{
-							// We are in the process of sending data alredy, so append this to the wait buffer
-							var w = mSendBuffer.BeginWriting(true);
-							w.Write(buffer.buffer, buffer.position, buffer.size);
+							var before = mSocket.NoDelay;
+							if (!before) mSocket.NoDelay = true;
+							mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
+							if (!before) mSocket.NoDelay = false;
 							buffer.Recycle();
+							return;
 						}
-						else if (mSendBuffer.size != 0)
+						catch (Exception ex)
 						{
-							// Append this packet to the wait buffer
-							var w = mSendBuffer.BeginWriting(true);
-							w.Write(buffer.buffer, buffer.position, buffer.size);
-							buffer.Recycle();
-
-							// Reset the wait buffer's position to the beginning
-							mSendBuffer.BeginReading();
-
-							// If it's the first packet, let's begin the send process
-							mSending = true;
-
-							try
-							{
-								// Start the send operation
-								mSocket.BeginSend(mSendBuffer.buffer, mSendBuffer.position, mSendBuffer.size, SocketFlags.None, OnSend, mSendBuffer);
-
-								// We now need a new wait buffer
-								mSendBuffer = Buffer.Create();
-							}
-							catch (Exception ex)
-							{
-								AddError(ex);
-								CloseNotThreadSafe(false);
-								return;
-							}
+							AddError(ex.InnerException != null ? ex.InnerException : ex);
+							CloseNotThreadSafe(false);
+							return;
 						}
-						else
-						{
-							// If it's the first packet, let's begin the send process
-							mSending = true;
+					}
 
-							try
-							{
-								mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
-							}
-							catch (Exception ex)
-							{
-								AddError(ex);
-								CloseNotThreadSafe(false);
-								return;
-							}
+					if (mSending)
+					{
+						// We are in the process of sending data alredy, so append this to the wait buffer
+						var w = mSendBuffer.BeginWriting(true);
+						w.Write(buffer.buffer, buffer.position, buffer.size);
+						buffer.Recycle();
+					}
+					else if (mSendBuffer.size != 0)
+					{
+						// Append this packet to the wait buffer
+						var w = mSendBuffer.BeginWriting(true);
+						w.Write(buffer.buffer, buffer.position, buffer.size);
+						buffer.Recycle();
+
+						// Reset the wait buffer's position to the beginning
+						mSendBuffer.BeginReading();
+
+						// If it's the first packet, let's begin the send process
+						mSending = true;
+
+						try
+						{
+							// Start the send operation
+							mSocket.BeginSend(mSendBuffer.buffer, mSendBuffer.position, mSendBuffer.size, SocketFlags.None, OnSend, mSendBuffer);
+
+							// We now need a new wait buffer
+							mSendBuffer = Buffer.Create();
+						}
+						catch (Exception ex)
+						{
+							AddError(ex.InnerException != null ? ex.InnerException : ex);
+							CloseNotThreadSafe(false);
+							return;
+						}
+					}
+					else
+					{
+						// If it's the first packet, let's begin the send process
+						mSending = true;
+
+						try
+						{
+							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
+						}
+						catch (Exception ex)
+						{
+							AddError(ex.InnerException != null ? ex.InnerException : ex);
+							CloseNotThreadSafe(false);
+							return;
 						}
 					}
 				}
@@ -807,7 +810,7 @@ namespace TNet
 						}
 						catch (Exception ex)
 						{
-							AddError(ex);
+							AddError(ex.InnerException != null ? ex.InnerException : ex);
 							CloseNotThreadSafe(false);
 						}
 					}
@@ -827,7 +830,7 @@ namespace TNet
 							}
 							catch (Exception ex)
 							{
-								AddError(ex);
+								AddError(ex.InnerException != null ? ex.InnerException : ex);
 								CloseNotThreadSafe(false);
 							}
 						}
@@ -846,7 +849,7 @@ namespace TNet
 			{
 				sent = 0;
 				Close(true);
-				AddError(ex);
+				AddError(ex.InnerException != null ? ex.InnerException : ex);
 			}
 		}
 #endif
@@ -892,7 +895,7 @@ namespace TNet
 #if UNITY_EDITOR
 					Debug.Log(ex.Message + "\n" + ex.StackTrace);
 #endif
-					if (!(ex is SocketException)) AddError(ex);
+					if (!(ex is SocketException)) AddError(ex.InnerException != null ? ex.InnerException : ex);
 					Disconnect(true);
 				}
 			}
@@ -930,6 +933,40 @@ namespace TNet
 			return false;
 		}
 
+		/// <summary>
+		/// Incoming buffer lock object.
+		/// </summary>
+
+		public object incomingLock { get { return mIn; } }
+
+		/// <summary>
+		/// Extract the first incoming packet.
+		/// </summary>
+
+		public bool ReceivePacketNTS (out Buffer buffer)
+		{
+#if !MODDING
+			if (custom != null)
+			{
+				custom.ReceivePacket(out buffer);
+
+				if (buffer != null)
+				{
+					lastReceivedTime = DateTime.UtcNow.Ticks / 10000;
+					return buffer != null;
+				}
+			}
+
+			if (mIn.Count != 0)
+			{
+				buffer = mIn.Dequeue();
+				return buffer != null;
+			}
+#endif
+			buffer = null;
+			return false;
+		}
+
 #if !MODDING
 		/// <summary>
 		/// Receive incoming data.
@@ -951,7 +988,7 @@ namespace TNet
 			catch (Exception ex)
 			{
 				if (socket != mSocket) return;
-				if (!(ex is SocketException)) AddError(ex);
+				if (!(ex is SocketException)) AddError(ex.InnerException != null ? ex.InnerException : ex);
 				Disconnect(true);
 				return;
 			}
@@ -969,7 +1006,7 @@ namespace TNet
 				}
 				catch (Exception ex)
 				{
-					if (!(ex is SocketException)) AddError(ex);
+					if (!(ex is SocketException)) AddError(ex.InnerException != null ? ex.InnerException : ex);
 					Close(false);
 				}
 			}
