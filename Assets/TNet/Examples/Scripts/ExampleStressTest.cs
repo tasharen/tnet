@@ -12,6 +12,10 @@ public class ExampleStressTest : MonoBehaviour
 {
 	static public ExampleStressTest instance { get; private set; }
 
+	static public bool debug { get; private set; }
+
+	static public Action<string, Color> onAddToChat;
+
 	[NonSerialized] Rect mRect;
 	[NonSerialized] string mInput = "";
 
@@ -23,6 +27,8 @@ public class ExampleStressTest : MonoBehaviour
 
 	[NonSerialized] List<ChatEntry> mChatEntries = new List<ChatEntry>();
 	[NonSerialized] int mChannelID = 0;
+
+	static public bool mute { get; private set; }
 
 	/// <summary>
 	/// Add a new chat entry.
@@ -71,6 +77,12 @@ public class ExampleStressTest : MonoBehaviour
 		}
 	}
 
+	void Stop ()
+	{
+		instance = null;
+		AddToChat("Test stopped", Color.yellow);
+	}
+
 	void Send ()
 	{
 		if (mInput == "start")
@@ -79,13 +91,19 @@ public class ExampleStressTest : MonoBehaviour
 			{
 				instance = this;
 				AddToChat("Test started", Color.yellow);
-				for (int i = 0; i < 1000; ++i) TNManager.Instantiate(mChannelID, "OnStressObj", null, false);
+				for (int i = 0; i < 1000; ++i) TNManager.Instantiate(mChannelID, "OnStressObj", null, false, i == 0);
+				Invoke("Stop", 1f);
 			}
 		}
 		else if (mInput == "stop")
 		{
 			instance = null;
 			AddToChat("Test stopped", Color.yellow);
+		}
+		else if (mInput == "mute")
+		{
+			mute = !mute;
+			AddToChat("Muted: " + mute, Color.yellow);
 		}
 		else AddToChat(mInput, Color.white);
 
@@ -128,6 +146,7 @@ public class ExampleStressTest : MonoBehaviour
 	{
 		if (Application.isPlaying)
 		{
+			onAddToChat = AddToChat;
 			TNManager.onJoinChannel += OnJoinChannel;
 			TNManager.onError += OnError;
 			Application.logMessageReceivedThreaded += LogCallback;
@@ -138,6 +157,7 @@ public class ExampleStressTest : MonoBehaviour
 	{
 		if (Application.isPlaying)
 		{
+			onAddToChat = null;
 			TNManager.onJoinChannel -= OnJoinChannel;
 			TNManager.onError -= OnError;
 			Application.logMessageReceivedThreaded -= LogCallback;
@@ -176,11 +196,17 @@ public class ExampleStressTest : MonoBehaviour
 	[System.NonSerialized] static int mID = 0;
 
 	[RCC]
-	static GameObject OnStressObj (GameObject prefab)
+	static GameObject OnStressObj (GameObject prefab, bool debug)
 	{
 		var go = prefab.Instantiate();
 		go.name = "Obj #" + (mID++) + " (player " + TNManager.packetSourceID + ")";
-		go.AddComponent<ExampleStressObj>();
+		var e = go.AddComponent<ExampleStressObj>();
+		e.debug = debug;
 		return go;
+	}
+
+	void Update ()
+	{
+		debug = Input.GetKey(KeyCode.LeftShift);
 	}
 }
