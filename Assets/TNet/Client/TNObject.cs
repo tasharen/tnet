@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -194,9 +194,6 @@ namespace TNet
 					{
 						// Set it locally so that the effect is immediate and all further checks pass as expected
 						var target = (value == TNManager.playerID) ? TNManager.player : TNManager.GetPlayer(value);
-//#if UNITY_EDITOR
-//						Debug.Log("Requesting " + name + " ownership change from " + (mOwner != null ? mOwner.name : "null") + " to " + (target != null ? target.name : "null"), this);
-//#endif
 						mOwner = target;
 
 						var b = TNManager.CreatePacket(Packet.RequestSetOwner);
@@ -235,13 +232,7 @@ namespace TNet
 			}
 		}
 
-		public void OnChangeOwnerPacket (Player p)
-		{
-//#if UNITY_EDITOR
-//			if (mOwner != p) Debug.Log($"{name} changing ownership from " + (mOwner != null ? mOwner.name : "null") + " to " + (p != null ? p.name : "null"), this);
-//#endif
-			mOwner = p;
-		}
+		public void OnChangeOwnerPacket (Player p) { mOwner = p; }
 
 		/// <summary>
 		/// Object's DataNode synchronized using TNObject.Set commands. It's better to retrieve data using TNObject.Get instead of checking the node directly.
@@ -450,12 +441,30 @@ namespace TNet
 
 			if (isMine)
 			{
-				// Inform others of this change
-				Send("OnSet", Target.Others, name, val);
+				if (canSend)
+				{
+					// Inform others of this change
+					Send("OnSet", Target.Others, name, val);
 
-				// Update the entire data tree on the server for future users
-				Send(2, Target.NoneSaved, mData);
+					// Update the entire data tree on the server for future users
+					Send(2, Target.NoneSaved, mData);
+				}
+				else if (!mDelayedSend)
+				{
+					mDelayedSend = true;
+					StartCoroutine("SyncSetWhenAble");
+				}
 			}
+		}
+
+		[System.NonSerialized] bool mDelayedSend = false;
+
+		[DoNotObfuscate]
+		System.Collections.IEnumerable SyncSetWhenAble ()
+		{
+			while (!canSend) yield return null;
+			if (isMine) Send(2, Target.OthersSaved, mData);
+			mDelayedSend = false;
 		}
 
 		[RFC(2)]
@@ -650,7 +659,7 @@ namespace TNet
 		{
 			if (mForwardRecords == null) return null;
 
-			var time = TNManager.serverTime;
+			var time = TNManager.serverTimeMS;
 
 			for (int i = 0; i < mForwardRecords.size; ++i)
 			{
@@ -2317,7 +2326,7 @@ namespace TNet
 			fw.newChannelID = newChannel;
 			fw.oldObjectID = id;
 			fw.newObjectID = newObjectID;
-			fw.expiration = TNManager.serverTime + 2000;
+			fw.expiration = TNManager.serverTimeMS + 2000;
 			if (mForwardRecords == null) mForwardRecords = new List<ForwardRecord>();
 			mForwardRecords.Add(fw);
 
@@ -2356,6 +2365,12 @@ namespace TNet
 		#if UNITY_EDITOR
 		[ContextMenu("Make mine")]
 		void MakeMine () { isMine = true; }
-		#endif
+
+		[ContextMenu("Export data")]
+		void ExportDataToFile () { dataNode.Write("temp.dat", DataNode.SaveType.Binary); }
+
+		[ContextMenu("Import data")]
+		void ImportDataFromFile () { var d = DataNode.Read("temp.dat"); if (d != null) dataNode = d; }
+#endif
 	}
 }

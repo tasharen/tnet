@@ -1,10 +1,14 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
-#define RECYCLE_BUFFERS
+//#define RECYCLE_BUFFERS
+
+#if UNITY_EDITOR
 //#define DEBUG_BUFFERS
+//#define DEBUG_RECYCLE
+#endif
 
 using System.IO;
 using System.Threading;
@@ -30,6 +34,8 @@ namespace TNet
 		MemoryStream mStream;
 		BinaryWriter mWriter;
 		BinaryReader mReader;
+
+		//public string callStack;
 
 #if RECYCLE_BUFFERS
 		int mCounter = 0;
@@ -134,17 +140,20 @@ namespace TNet
 
 		static public Buffer Create ()
 		{
-#if UNITY_EDITOR
+#if !RECYCLE_BUFFERS
+			return new Buffer();
+#else
+  #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.BeginSample("TNBuffer.Create()");
-#endif
+  #endif
 			Buffer b = null;
 
 			if (mPool.Count == 0)
 			{
 				b = new Buffer();
-#if DEBUG_BUFFERS
+  #if DEBUG_BUFFERS
 				FastLog.Log("Buffer.Create (new) " + b.mUniqueID);
-#endif
+  #endif
 			}
 			else
 			{
@@ -154,32 +163,54 @@ namespace TNet
 					{
 						--mPoolCount;
 						b = mPool.Dequeue();
-#if DEBUG_BUFFERS
+  #if DEBUG_BUFFERS
 						FastLog.Log("Buffer.Create (existing) " + b.mUniqueID + " (" + mPool.Count + ")");
-#endif
+  #endif
 					}
 					else
 					{
 						b = new Buffer();
-#if DEBUG_BUFFERS
+  #if DEBUG_BUFFERS
 						FastLog.Log("Buffer.Create (new) " + b.mUniqueID);
-#endif
+  #endif
 					}
 				}
 			}
-#if RECYCLE_BUFFERS
-#if UNITY_EDITOR && DEBUG_BUFFERS
+  #if UNITY_EDITOR && DEBUG_BUFFERS
 			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use (counter == " + b.mCounter + "): " + b.mUniqueID);
-#elif UNITY_EDITOR
+  #elif UNITY_EDITOR
 			if (b.mCounter != 0) UnityEngine.Debug.LogWarning("Acquiring a buffer that's potentially in use (counter == " + b.mCounter + ")");
-#endif
+  #endif
 			b.mCounter = 1;
-#endif
-#if UNITY_EDITOR
+
+  #if UNITY_EDITOR
 			UnityEngine.Profiling.Profiler.EndSample();
-#endif
+  #endif
+			//b.callStack = Tools.stackTrace2;
 			return b;
+#endif
 		}
+
+		/// <summary>
+		/// Used for debuffing purposes together with DEBUG_RECYCLE enabled to track down where the buffer got released from.
+		/// </summary>
+
+		public bool AssertThatItsUsed ()
+		{
+#if UNITY_EDITOR && DEBUG_BUFFERS
+			if (mCounter > 0) return true;
+#if DEBUG_RECYCLE
+			UnityEngine.Debug.LogWarning("The requested buffer has been recycled from:\n" + mReleaseStack);
+#endif
+			return false;
+#else
+			return true;
+#endif
+		}
+
+#if DEBUG_RECYCLE
+		[System.NonSerialized] string mReleaseStack = null;
+#endif
 
 		/// <summary>
 		/// Release the buffer into the reusable pool.
@@ -188,37 +219,51 @@ namespace TNet
 		public bool Recycle (bool threadSafe = true)
 		{
 #if RECYCLE_BUFFERS
- #if UNITY_EDITOR
+#if UNITY_EDITOR
 			if (mCounter == 0)
 			{
-  #if DEBUG_BUFFERS
+#if DEBUG_RECYCLE
+				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool. Previously released in:\n"  + mReleaseStack);
+#elif DEBUG_BUFFERS
 				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool: " + mUniqueID);
-  #else
+#else
 				UnityEngine.Debug.LogWarning("Releasing a buffer that's already in the pool!");
-  #endif
+#endif
 				return false;
 			}
- #endif
-			if (Interlocked.Decrement(ref mCounter) > 0) return false;
-
-			Clear();
-
-			if (mPoolCount < 250)
+#endif
+			if (threadSafe)
 			{
-				if (threadSafe)
+				lock (mPool)
 				{
-					lock (mPool)
+					if (Interlocked.Decrement(ref mCounter) > 0) return false;
+
+					Clear();
+
+					if (mPoolCount < 250)
 					{
+#if DEBUG_RECYCLE
+						mReleaseStack = Tools.stackTrace2;
+#endif
 						++mPoolCount;
 						mPool.Enqueue(this);
 #if DEBUG_BUFFERS
 						FastLog.Log("Recycling " + mUniqueID + " (" + mPool.Count + ")");
 #endif
 					}
-#endif
 				}
-				else
+			}
+			else
+			{
+				if (Interlocked.Decrement(ref mCounter) > 0) return false;
+
+				Clear();
+
+				if (mPoolCount < 250)
 				{
+#if DEBUG_RECYCLE
+					mReleaseStack = Tools.stackTrace2;
+#endif
 					++mPoolCount;
 					mPool.Enqueue(this);
 #if DEBUG_BUFFERS
@@ -226,6 +271,7 @@ namespace TNet
 #endif
 				}
 			}
+#endif
 			return true;
 		}
 
@@ -233,7 +279,33 @@ namespace TNet
 		/// Recycle an entire queue of buffers.
 		/// </summary>
 
-		static public void Recycle (Queue<Buffer> list)
+		static public void Recycle (TNet.Queue<Buffer> list)
+		{
+#if RECYCLE_BUFFERS
+			lock (mPool) while (list.Count != 0) list.Dequeue()?.Recycle(false);
+#else
+			list.Clear();
+#endif
+		}
+
+		/// <summary>
+		/// Recycle an entire queue of buffers.
+		/// </summary>
+
+		static public void Recycle (System.Collections.Generic.Queue<Buffer> list)
+		{
+#if RECYCLE_BUFFERS
+			lock (mPool) while (list.Count != 0) list.Dequeue()?.Recycle(false);
+#else
+			list.Clear();
+#endif
+		}
+
+		/// <summary>
+		/// Recycle an entire queue of buffers.
+		/// </summary>
+
+		static public void Recycle (TNet.Queue<Datagram> list)
 		{
 #if RECYCLE_BUFFERS
 			lock (mPool) while (list.Count != 0) list.Dequeue().Recycle(false);
@@ -246,7 +318,7 @@ namespace TNet
 		/// Recycle an entire queue of buffers.
 		/// </summary>
 
-		static public void Recycle (Queue<Datagram> list)
+		static public void Recycle (System.Collections.Generic.Queue<Datagram> list)
 		{
 #if RECYCLE_BUFFERS
 			lock (mPool) while (list.Count != 0) list.Dequeue().Recycle(false);

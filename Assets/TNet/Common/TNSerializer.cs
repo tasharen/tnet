@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // NOTE: This class is meant to be internal. It provides efficient serialization for basic types such as Vector3, Vector3D, etc.

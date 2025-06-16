@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;
@@ -319,11 +319,7 @@ namespace TNet
 						tc.SendPacket(b);
 						return true;
 					}
-					else
-					{
-						UnityEngine.Debug.LogError("Verify not quite successful: " + tc.name);
-						return false;
-					}
+					else return false;
 				}
 
 				Tools.Print(tc.address + " has failed the verification step");

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 namespace TNet
@@ -64,7 +64,6 @@ namespace TNet
 	public class Player : DataNodeContainer
 	{
 		[System.NonSerialized] static protected int mPlayerCounter = 0;
-		[System.NonSerialized] static protected object mLock = new int();
 
 		/// <summary>
 		/// Protocol version.

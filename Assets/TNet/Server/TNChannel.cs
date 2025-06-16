@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.IO;
@@ -43,6 +43,8 @@ namespace TNet
 			public int WritePacket (int channelID, Buffer buffer, int offset)
 			{
 #if !MODDING
+				if (functionID == 0 && string.IsNullOrEmpty(functionName)) return buffer.position;
+
 				var writer = buffer.BeginPacket(Packet.ForwardToOthers, offset);
 				writer.Write(0);
 				writer.Write(channelID);
@@ -315,6 +317,7 @@ namespace TNet
 						{
 							var r = rfcs.buffer[b];
 							if (r.objectID != objID) continue;
+							if (r.functionID == 0 && string.IsNullOrEmpty(r.functionName)) continue;
 
 							writer.Write(r.uid);
 							if (r.functionID == 0) writer.Write(r.functionName);
@@ -393,6 +396,8 @@ namespace TNet
 						b.EndWriting();
 						rfc.data = b;
 					}
+
+					if (rfc.functionID == 0 && string.IsNullOrEmpty(rfc.functionName)) continue;
 
 					rfcs.Add(rfc);
 
@@ -600,6 +605,17 @@ namespace TNet
 		{
 #if !MODDING
 			if (isClosed) return;
+
+			if (uid == 0 && string.IsNullOrEmpty(funcName))
+			{
+#if UNITY_EDITOR
+				UnityEngine.Debug.LogError("Trying to add an RFC without an ID or function name");
+#else
+				Tools.LogError("Trying to add an RFC without an ID or function name");
+#endif
+				return;
+			}
+
 			uint objID = (uid >> 8);
 
 			if (objID < 32768) // Static object ID
@@ -779,7 +795,7 @@ namespace TNet
 			{
 				var rfc = mCreatedRFCs.buffer[i];
 				writer.Write(rfc.uid);
-				if (rfc.functionID == 0) writer.Write(rfc.functionName);
+				if (rfc.functionID == 0) writer.Write(string.IsNullOrEmpty(rfc.functionName) ? "DoNothing" : rfc.functionName);
 
 				var sz = rfc.data.size;
 				writer.Write(sz); // Technically the size is already inside the buffer, and can be retrieved via ReadInt()...
@@ -850,8 +866,8 @@ namespace TNet
 				var rfc = new RFC();
 				rfc.uid = reader.ReadUInt32();
 				if (rfc.functionID == 0) rfc.functionName = reader.ReadString();
-				var b = Buffer.Create();
 
+				var b = Buffer.Create();
 				var sz = reader.ReadInt32();
 				var bt = (sz > 0) ? reader.ReadBytes(sz) : null;
 				var w = b.BeginWriting(false);
@@ -859,6 +875,13 @@ namespace TNet
 				else w.WriteInt(0);
 
 				b.EndWriting();
+
+				if (rfc.functionID == 0 && string.IsNullOrEmpty(rfc.functionName))
+				{
+					b.Recycle();
+					continue;
+				}
+
 				rfc.data = b;
 				rfcs.Add(rfc);
 			}

@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define COUNT_PACKETS
@@ -33,61 +33,61 @@ namespace TNet
 		/// Ping notification.
 		/// </summary>
 
-		static public TNEvents.OnPing onPing { get { return instance ? instance.mClient.onPing : null; } set { if (instance) instance.mClient.onPing = value; } }
+		static public TNEvents.OnPing onPing;
 
 		/// <summary>
 		/// Error notification.
 		/// </summary>
 
-		static public TNEvents.OnError onError { get { return instance ? instance.mClient.onError : null; } set { if (instance) instance.mClient.onError = value; } }
+		static public TNEvents.OnError onError;
 
 		/// <summary>
 		/// Connection attempt result indicating success or failure.
 		/// </summary>
 
-		static public TNEvents.OnConnect onConnect { get { return instance ? instance.mClient.onConnect : null; } set { if (instance) instance.mClient.onConnect = value; } }
+		static public TNEvents.OnConnect onConnect;
 
 		/// <summary>
 		/// Notification sent after the connection terminates for any reason.
 		/// </summary>
 
-		static public TNEvents.OnDisconnect onDisconnect { get { return instance ? instance.mClient.onDisconnect : null; } set { if (instance) instance.mClient.onDisconnect = value; } }
+		static public TNEvents.OnDisconnect onDisconnect;
 
 		/// <summary>
 		/// Notification sent when attempting to join a channel, indicating a success or failure.
 		/// </summary>
 
-		static public TNEvents.OnJoinChannel onJoinChannel { get { return instance ? instance.mClient.onJoinChannel : null; } set { if (instance) instance.mClient.onJoinChannel = value; } }
+		static public TNEvents.OnJoinChannel onJoinChannel;
 
 		/// <summary>
 		/// Notification sent when the channel gets updated.
 		/// </summary>
 
-		static public TNEvents.OnUpdateChannel onUpdateChannel { get { return instance ? instance.mClient.onUpdateChannel : null; } set { if (instance) instance.mClient.onUpdateChannel = value; } }
+		static public TNEvents.OnUpdateChannel onUpdateChannel;
 
 		/// <summary>
 		/// Notification sent when leaving a channel for any reason, including being disconnected.
 		/// </summary>
 
-		static public TNEvents.OnLeaveChannel onLeaveChannel { get { return instance ? instance.mClient.onLeaveChannel : null; } set { if (instance) instance.mClient.onLeaveChannel = value; } }
+		static public TNEvents.OnLeaveChannel onLeaveChannel;
 
 		/// <summary>
 		/// Notification sent when changing levels.
 		/// </summary>
 
-		static public TNEvents.OnLoadLevel onLoadLevel { get { return instance ? instance.mClient.onLoadLevel : null; } set { if (instance) instance.mClient.onLoadLevel = value; } }
+		static public TNEvents.OnLoadLevel onLoadLevel;
 
 		/// <summary>
 		/// Notification sent when a new player joins the channel.
 		/// </summary>
 
-		static public TNEvents.OnPlayerJoin onPlayerJoin { get { return instance ? instance.mClient.onPlayerJoin : null; } set { if (instance) instance.mClient.onPlayerJoin = value; } }
+		static public TNEvents.OnPlayerJoin onPlayerJoin;
 
 		/// <summary>
 		/// Notification sent when a player leaves the channel.
 		/// </summary>
 
-		static public TNEvents.OnPlayerLeave onPlayerLeave { get { return instance ? instance.mClient.onPlayerLeave : null; } set { if (instance) instance.mClient.onPlayerLeave = value; } }
+		static public TNEvents.OnPlayerLeave onPlayerLeave;
 
 		/// <summary>
 		/// Notification of some player changing their name.
@@ -105,19 +105,19 @@ namespace TNet
 		/// Notification sent when the server's data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetServerData onSetServerData { get { return instance ? instance.mClient.onSetServerData : null; } set { if (instance) instance.mClient.onSetServerData = value; } }
+		static public TNEvents.OnSetServerData onSetServerData;
 
 		/// <summary>
 		/// Notification sent when the channel's data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetChannelData onSetChannelData { get { return instance ? instance.mClient.onSetChannelData : null; } set { if (instance) instance.mClient.onSetChannelData = value; } }
+		static public TNEvents.OnSetChannelData onSetChannelData;
 
 		/// <summary>
 		/// Notification sent when player data gets changed.
 		/// </summary>
 
-		static public TNEvents.OnSetPlayerData onSetPlayerData { get { return instance ? instance.mClient.onSetPlayerData : null; } set { if (instance) instance.mClient.onSetPlayerData = value; } }
+		static public TNEvents.OnSetPlayerData onSetPlayerData;
 
 		/// <summary>
 		/// Callback triggered when the player gets verified as an administrator.
@@ -198,7 +198,23 @@ namespace TNet
 			set
 			{
 				var inst = instance;
-				if (inst != null) inst.mClient.custom = value;
+
+				if (inst != null)
+				{
+					inst.mClient.custom = value;
+
+					if (value != null)
+					{
+						client.stage = TcpProtocol.Stage.Verifying;
+
+						var b = CreatePacket(Packet.RequestID);
+						var w = b.writer;
+						w.Write(Player.version);
+						w.Write(mPlayer.name);
+						w.Write(mPlayer.dataNode);
+						SendPacket(b);
+					}
+				}
 			}
 		}
 
@@ -206,7 +222,7 @@ namespace TNet
 		/// Whether the player has verified himself as an administrator.
 		/// </summary>
 
-		static public bool isAdmin { get { return (TNServerInstance.isActive || mInstance == null || !mInstance.mClient.isConnected || mInstance.mClient.isAdmin); } }
+		static public bool isAdmin { get { return isConnected && mInstance.mClient.isAdmin; } }
 
 		/// <summary>
 		/// Set administrator privileges. Note that failing the password test will cause a disconnect.
@@ -447,13 +463,13 @@ namespace TNet
 		/// Current time on the server in milliseconds.
 		/// </summary>
 
-		static public long serverTime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverTime : (DateTime.UtcNow.Ticks / 10000); } }
+		static public long serverTimeMS { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverTime : (DateTime.UtcNow.Ticks / 10000); } }
 
 		/// <summary>
 		/// Server's uptime in milliseconds.
 		/// </summary>
 
-		static public long serverUptime { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverUptime : (DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
+		static public long serverUptimeMS { get { return (mInstance != null && mInstance.mClient.isConnected) ? mInstance.mClient.serverUptime : (DateTime.UtcNow.Ticks / 10000) - mStartTime; } }
 		static readonly long mStartTime = (DateTime.UtcNow.Ticks / 10000);
 
 		/// <summary>
@@ -462,7 +478,10 @@ namespace TNet
 		/// It has an added benefit of usable from any thread, unlike Unity's Time.time (which must be used from the main thread).
 		/// </summary>
 
-		static public double time { get { return serverUptime * 0.001; } }
+		static public double serverUptime { get { return serverUptimeMS * 0.001; } }
+
+		[Obsolete("Use TNManager.serverUptime instead for clarity")]
+		static public double time => serverUptime;
 
 		/// <summary>
 		/// Player's /played time in seconds. This value is automatically tracked by the server and is saved as a part of the player file.
@@ -476,7 +495,7 @@ namespace TNet
 				var server = player.dataNode.GetChild("Server");
 				if (server == null) return 0;
 
-				var time = serverTime;
+				var time = serverTimeMS;
 				var played = server.GetChild<long>("playedTime", 0);
 				var save = server.GetChild<long>("lastSave", time);
 				var elapsed = time - save;
@@ -1323,8 +1342,8 @@ namespace TNet
 					ch.host = player;
 					mDummyCL.Add(ch);
 					lastChannelID = channelID;
-					onLoadScene(levelName);
-					onJoinChannel(channelID, true, null);
+					if (onLoadScene != null) onLoadScene(levelName);
+					if (onJoinChannel != null) onJoinChannel(channelID, true, null);
 					if (onJoin != null) onJoin(channelID, true, null);
 				}
 			}
@@ -2059,66 +2078,55 @@ namespace TNet
 
 		void SetDefaultCallbacks ()
 		{
-			mClient.onDisconnect = delegate () { mLoadingLevel.Clear(); };
-
-			mClient.onJoinChannel = delegate (int channelID, bool success, string message)
-			{
-				lastChannelID = channelID;
-
-				if (mJoinCallbacks != null)
-				{
-					TNEvents.OnJoinChannel onJoin;
-
-					if (mJoinCallbacks.TryGetValue(channelID, out onJoin))
-					{
-						onJoin(channelID, success, message);
-						mJoinCallbacks.Remove(channelID);
-					}
-				}
-			};
-
-			mClient.onLeaveChannel = delegate (int channelID)
-			{
-				UnityEngine.Profiling.Profiler.BeginSample("CleanupChannelObjects");
-				TNObject.CleanupChannelObjects(channelID);
-				UnityEngine.Profiling.Profiler.EndSample();
-
-				if (lastChannelID == channelID)
-				{
-					var chs = channels;
-
-					for (int i = 0; i < chs.size; ++i)
-					{
-						var ch = chs.buffer[i];
-
-						if (ch.id != lastChannelID)
-						{
-							lastChannelID = ch.id;
-							return;
-						}
-					}
-					lastChannelID = 0;
-				}
-			};
-
-			mClient.onLoadLevel = delegate (int channelID, string levelName)
-			{
-				lastChannelID = channelID;
-				TNObject.CleanupChannelObjects(channelID);
-
-				if (!string.IsNullOrEmpty(levelName))
-				{
-					mLoadingLevel.Add(channelID);
-					StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
-				}
-			};
-
+#if SQUIRREL
+			Debug.Log("TNManager.SetDefaultCallbacks()");
+#endif
+			mClient.onConnect = OnConnect;
+			mClient.onDisconnect = OnDisconnect;
+			mClient.onJoinChannel = OnJoinChannel;
+			mClient.onLeaveChannel = OnLeaveChannel;
+			mClient.onLoadLevel = OnLoadLevel;
 			mClient.onCreate = OnCreateObject;
 			mClient.onDestroy = OnDestroyObject;
 			mClient.onTransfer = OnTransferObject;
 			mClient.onChangeOwner = OnChangeOwner;
 			mClient.onForwardedPacket = OnForwardedPacket;
-			mClient.onPlayerLeave = TNObject.OnPlayerLeave;
+			mClient.onPlayerJoin = OnPlayerJoin;
+			mClient.onPlayerLeave = OnPlayerLeave;
+			mClient.onSetServerData = OnSetServerData;
+			mClient.onSetChannelData = OnSetChannelData;
+			mClient.onSetPlayerData = OnSetPlayerData;
+		}
+
+		void OnConnect (bool success, string message)
+		{
+			if (onConnect != null) onConnect(success, message);
+		}
+
+		void OnPlayerJoin (int channelID, Player p)
+		{
+			if (onPlayerJoin != null) onPlayerJoin(channelID, p);
+		}
+
+		void OnPlayerLeave (int channelID, Player p)
+		{
+			TNObject.OnPlayerLeave(channelID, p);
+			if (onPlayerLeave != null) onPlayerLeave(channelID, p);
+		}
+
+		void OnSetServerData (string path, DataNode node)
+		{
+			if (onSetServerData != null) onSetServerData(path, node);
+		}
+
+		void OnSetChannelData (Channel ch, string path, DataNode node)
+		{
+			if (onSetChannelData != null) onSetChannelData(ch, path, node);
+		}
+
+		void OnSetPlayerData (Player p, string path, DataNode node)
+		{
+			if (onSetPlayerData != null) onSetPlayerData(p, path, node);
 		}
 
 		/// <summary>
@@ -2152,9 +2160,77 @@ namespace TNet
 			return -1;
 		}
 
-		/// <summary>
-		/// Notification of a new object being created.
-		/// </summary>
+		void OnJoinChannel (int channelID, bool success, string message)
+		{
+			lastChannelID = channelID;
+#if SQUIRREL
+			Debug.Log("TNManager.OnJoinChannel #" + channelID + " = " + success + " (" + message + ")");
+#endif
+			if (onJoinChannel != null) onJoinChannel(channelID, success, message);
+
+			if (mJoinCallbacks != null)
+			{
+				TNEvents.OnJoinChannel onJoin;
+
+				if (mJoinCallbacks.TryGetValue(channelID, out onJoin))
+				{
+#if SQUIRREL
+					Debug.Log("Found a callback... executing...");
+#endif
+					onJoin(channelID, success, message);
+					mJoinCallbacks.Remove(channelID);
+				}
+			}
+		}
+
+		void OnLeaveChannel (int channelID)
+		{
+			UnityEngine.Profiling.Profiler.BeginSample("CleanupChannelObjects");
+			TNObject.CleanupChannelObjects(channelID);
+			UnityEngine.Profiling.Profiler.EndSample();
+
+			if (onLeaveChannel != null) onLeaveChannel(channelID);
+
+			if (lastChannelID == channelID)
+			{
+				var chs = channels;
+
+				for (int i = 0; i < chs.size; ++i)
+				{
+					var ch = chs.buffer[i];
+
+					if (ch.id != lastChannelID)
+					{
+						lastChannelID = ch.id;
+						return;
+					}
+				}
+
+				lastChannelID = 0;
+			}
+		}
+
+		void OnLoadLevel (int channelID, string levelName)
+		{
+			lastChannelID = channelID;
+			TNObject.CleanupChannelObjects(channelID);
+#if SQUIRREL
+			Debug.Log("TNManager.OnLoadLevel #" + channelID + " = " + levelName);
+#endif
+			if (!string.IsNullOrEmpty(levelName))
+			{
+				mLoadingLevel.Add(channelID);
+				StartCoroutine("LoadLevelCoroutine", new System.Collections.Generic.KeyValuePair<int, string>(channelID, levelName));
+			}
+
+			if (onLoadLevel != null) onLoadLevel(channelID, levelName);
+		}
+
+		void OnDisconnect ()
+		{
+			if (onDisconnect != null) onDisconnect();
+			mLoadingLevel.Clear();
+		}
 
 		void OnCreateObject (int channelID, int creator, uint objectID, BinaryReader reader)
 		{
@@ -2201,7 +2277,7 @@ namespace TNet
 					if (GameClient.currentBuffer != null)
 					{
 						var byteCount = GameClient.currentBuffer.size;
-						var fn = "Errors/error_" + serverTime + ".packet";
+						var fn = "Errors/error_" + serverTimeMS + ".packet";
 						Tools.WriteFile(fn, GameClient.currentBuffer.buffer, true, false, byteCount);
 					}
 				}
@@ -2359,7 +2435,7 @@ namespace TNet
 #endif
 		}
 
-		#endregion
+#endregion
 
 		/// <summary>
 		/// Load level coroutine handling asynchronous loading of levels.
@@ -2395,19 +2471,6 @@ namespace TNet
 		static public AsyncOperation loadLevelOperation = null;
 
 		void OnApplicationPause (bool paused) { isPaused = paused; }
-
-		/// <summary>
-		/// Add the specified packet to the receive queue. Useful for inserting messages to be processed by the network manager.
-		/// </summary>
-
-		static public void AddToReceiveQueue (TNet.Buffer buff)
-		{
-			if (mInstance != null && mInstance.mClient != null)
-			{
-				var queue = mInstance.mClient.receiveQueue;
-				lock (queue) queue.Enqueue(buff);
-			}
-		}
 
 		/// <summary>
 		/// Send a chat message to everyone on the server. If you want custom parameters or options, such as sending packets to a specific group of players,
@@ -2469,8 +2532,8 @@ namespace TNet
 			while (!done) yield return null;
 		}
 
-		#region Obsolete calls, kept for backwards compatibility
-		[System.Obsolete("Renamed to SendChat")]
+#region Obsolete calls, kept for backwards compatibility
+		[Obsolete("Renamed to SendChat")]
 		static public void SendGlobalChat (string text) { if (mInstance != null) mInstance.mClient.SendChat(text); }
 
 		/// <summary>
@@ -2479,13 +2542,13 @@ namespace TNet
 
 		static public void SendPM (Player p, string text) { if (mInstance != null) mInstance.mClient.SendChat(text, p); }
 
-		[System.Obsolete("Use TNManager.playerData")]
+		[Obsolete("Use TNManager.playerData")]
 		static public DataNode playerDataNode { get { return playerData; } }
 
 		//[Obsolete("Use TNManager.serverData instead")]
 		//static public DataNode serverOptions { get { return serverData; } }
 
-		[System.Obsolete("Use TNManager.SetServerData instead")]
+		[Obsolete("Use TNManager.SetServerData instead")]
 		static public void SetServerOption (string text) { SetServerData(text); }
 
 		[Obsolete("Use TNManager.SetServerData instead")]
@@ -2632,6 +2695,6 @@ namespace TNet
 
 		[System.Obsolete("Use gameObject.DestroySelf() instead")]
 		static public void Destroy (GameObject go) { go.DestroySelf(); }
-		#endregion
+#endregion
 	}
 }

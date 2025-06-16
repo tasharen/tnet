@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.Net;
@@ -1065,7 +1065,6 @@ namespace TNet
 		{
 #if !UNITY_WEBPLAYER && !UNITY_FLASH && !UNITY_WINRT
 			path = FindFile(path, allowConfigAccess);
-
 			try { if (!string.IsNullOrEmpty(path)) lock (mRWLock) return File.ReadAllBytes(path); }
 #if STANDALONE
 			catch (System.Exception) { }
@@ -1197,7 +1196,7 @@ namespace TNet
 
 		static public void LogError (string msg, string stack = null, bool logInFile = true)
 		{
-			if (msg.Contains("forcibly closed")) return;
+			if (msg.Contains("forcibly closed") || msg.Contains("aborted by the software")) return;
 #if UNITY_EDITOR
 			UnityEngine.Debug.LogError(msg + "\n" + stack);
 #else

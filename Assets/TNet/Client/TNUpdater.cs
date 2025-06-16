@@ -1,6 +1,6 @@
 ﻿//-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define PROFILE_PACKETS
@@ -104,7 +104,7 @@ namespace TNet
 				if (mInfrequent.Count != 0)
 				{
 					mUpdating = true;
-					var time = Time.time;
+					var time = Time.unscaledTime;
 
 					for (int i = 0; i < mInfrequent.Count; ++i)
 					{
@@ -155,7 +155,7 @@ namespace TNet
 
 			if (mInvoke.Count != 0)
 			{
-				var time = Time.time;
+				var time = Time.unscaledTime;
 
 				for (int i = 0, imax = mInvoke.Count; i < imax; ++i)
 				{
@@ -285,7 +285,7 @@ namespace TNet
 #endif
 			{
 				var ent = new InfrequentEntry();
-				ent.nextTime = Time.time + interval * Random.value;
+				ent.nextTime = Time.unscaledTime + interval * Random.value;
 				ent.interval = interval;
 				ent.obj = obj;
 				mInfrequent.Add(ent);
@@ -465,7 +465,7 @@ namespace TNet
 			}
 
 			var inv = new InvokeEntry();
-			inv.invokeTime = Time.time + delay;
+			inv.invokeTime = Time.unscaledTime + delay;
 			inv.callback = callback;
 
 #if THREAD_SAFE_UPDATER

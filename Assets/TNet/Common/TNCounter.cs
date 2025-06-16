@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;
@@ -38,7 +38,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 #if STANDALONE
 			var time = System.DateTime.UtcNow.Ticks / 10000;
 #else
-			var time = TNManager.serverTime;
+			var time = TNManager.serverTimeMS;
 #endif
 			if (mTimestamp != time)
 			{
@@ -57,7 +57,7 @@ public class Counter : IBinarySerializable, IDataNodeSerializable
 #if STANDALONE
 			mTimestamp = System.DateTime.UtcNow.Ticks / 10000;
 #else
-			mTimestamp = TNManager.serverTime;
+			mTimestamp = TNManager.serverTimeMS;
 #endif
 		}
 	}

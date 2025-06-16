@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System;
@@ -78,8 +78,8 @@ namespace TNet
 #endif
 
 		// Incoming message queue
-		protected Queue<Datagram> mIn = new Queue<Datagram>();
-		protected Queue<Datagram> mOut = new Queue<Datagram>();
+		protected System.Collections.Generic.Queue<Datagram> mIn = new System.Collections.Generic.Queue<Datagram>();
+		protected System.Collections.Generic.Queue<Datagram> mOut = new System.Collections.Generic.Queue<Datagram>();
 
 		/// <summary>
 		/// Whether we can send or receive through the UDP socket.

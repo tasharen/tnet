@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define USE_MAX_PACKET_TIME
@@ -215,7 +215,7 @@ namespace TNet
 #if MODDING
 		public bool isConnected { get { return false; } }
 #else
-		public bool isConnected { get { return mTcp.isConnected || mLocalServer != null; } }
+		public bool isConnected { get { return mTcp.isConnected || mLocalServer != null || (custom != null && custom.isConnected); } }
 #endif
 		/// <summary>
 		/// Whether we are currently trying to establish a new connection.
@@ -377,6 +377,7 @@ namespace TNet
 			{
 				if (mTcp.name != value)
 				{
+					mTcp.name = value;
 #if !MODDING
 					if (isConnected)
 					{
@@ -384,9 +385,6 @@ namespace TNet
 						b.writer.Write(value);
 						SendPacket(b);
 					}
-					else mTcp.name = value;
-#else
-					mTcp.name = value;
 #endif
 				}
 			}
@@ -691,6 +689,8 @@ namespace TNet
 			if (mLocalServer != null) DisconnectNow();
 			else mTcp.Disconnect();
 			mMyTime = 0;
+			if (mCallbacks != null) mCallbacks.Clear();
+			mCbID = 0;
 #endif
 		}
 
@@ -816,6 +816,9 @@ namespace TNet
 #if !MODDING
 			if (isConnected && !IsInChannel(channelID))
 			{
+#if SQUIRREL
+				Debug.Log("GameClient.JoinChannel #" + channelID);
+#endif
 				if (playerLimit > 65535) playerLimit = 65535;
 				else if (playerLimit < 0) playerLimit = 0;
 
@@ -848,6 +851,9 @@ namespace TNet
 #if !MODDING
 			if (isConnected && IsInChannel(channelID))
 			{
+#if SQUIRREL
+				Debug.Log("GameClient.CloseChannel #" + channelID);
+#endif
 				var b = CreatePacket(Packet.RequestCloseChannel);
 				b.writer.Write(channelID);
 				SendPacket(b);
@@ -874,6 +880,9 @@ namespace TNet
 					{
 						if (ch.isLeaving) return false;
 						ch.isLeaving = true;
+#if SQUIRREL
+						Debug.Log("GameClient.LeaveChannel #" + channelID);
+#endif
 						var b = CreatePacket(Packet.RequestLeaveChannel);
 						b.writer.Write(channelID);
 						SendPacket(b);
@@ -901,6 +910,9 @@ namespace TNet
 					if (!ch.isLeaving)
 					{
 						ch.isLeaving = true;
+#if SQUIRREL
+						Debug.Log("GameClient.LeaveChannel #" + ch.id);
+#endif
 						var b = CreatePacket(Packet.RequestLeaveChannel);
 						b.writer.Write(ch.id);
 						SendPacket(b);
@@ -1006,7 +1018,17 @@ namespace TNet
 		/// Add a new alias. Aliases are used to uniquely identify users on the server-side.
 		/// </summary>
 
-		static public void AddAlias (string a) { if (!aliases.Contains(a)) aliases.Add(a); }
+		static public bool AddAlias (string a)
+		{
+#if !MODDING
+			if (!aliases.Contains(a))
+			{
+				aliases.Add(a);
+				return true;
+			}
+#endif
+			return false;
+		}
 
 		/// <summary>
 		/// Add a new alias. Aliases are used to uniquely identify users on the server-side.
@@ -1014,14 +1036,17 @@ namespace TNet
 
 		public void SetAlias (string a)
 		{
-			AddAlias(a);
 #if !MODDING
 			if (isConnected)
 			{
-				var b = CreatePacket(Packet.RequestSetAlias);
-				b.writer.Write(a);
-				SendPacket(b);
+				if (AddAlias(a))
+				{
+					var b = CreatePacket(Packet.RequestSetAlias);
+					b.writer.Write(a);
+					SendPacket(b);
+				}
 			}
+			else AddAlias(a);
 #endif
 		}
 
@@ -1470,6 +1495,9 @@ namespace TNet
 							p.name = reader.ReadString();
 							p.dataNode = reader.ReadDataNode();
 						}
+#if SQUIRREL
+						Debug.Log(Time.time + " ResponseJoiningChannel: " + p.name + ", channel " + channelID + " " + IsJoiningChannel(channelID) + " " + IsInChannel(channelID));
+#endif
 						ch.players.Add(p);
 					}
 					break;
@@ -1479,6 +1507,9 @@ namespace TNet
 					// Purposely return after loading a level, ensuring that all future callbacks happen after loading
 					int channelID = reader.ReadInt32();
 					string scene = reader.ReadString();
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseLoadLevel: " + channelID + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 					if (onLoadLevel != null) onLoadLevel(channelID, scene);
 #if PROFILE_PACKETS
 					UnityEngine.Profiling.Profiler.EndSample();
@@ -1513,6 +1544,9 @@ namespace TNet
 							}
 
 							ch.players.Add(p);
+#if SQUIRREL
+							Debug.Log(Time.time + " ResponsePlayerJoined: " + p.name + ", channel " + channelID + " = " + IsJoiningChannel(channelID) + " " + IsInChannel(channelID));
+#endif
 							if (onPlayerJoin != null) onPlayerJoin(channelID, p);
 						}
 					}
@@ -1530,22 +1564,25 @@ namespace TNet
 
 						if (p != null)
 						{
+#if SQUIRREL
+							Debug.Log(Time.time + " ResponsePlayerLeft: " + p.name + ", channel " + channelID + " = " + IsJoiningChannel(channelID) + " " + IsInChannel(channelID));
+#endif
 							ch.players.Remove(p);
 							RebuildPlayerDictionary();
 							if (onPlayerLeave != null) onPlayerLeave(channelID, p);
 						}
-#if !STANDALONE
-						else
-						{
-							var sb = new System.Text.StringBuilder();
-							sb.AppendLine("ResponsePlayerLeft in channel " + channelID + ", player #" + playerID + " returned a null player. Players here:");
-							foreach (var cp in ch.players) sb.AppendLine("   " + cp.id + " = " + cp.name);
-							Debug.LogWarning(sb.ToString());
-						}
-#endif
+//#if !STANDALONE
+//						else
+//						{
+//							var sb = new System.Text.StringBuilder();
+//							sb.AppendLine("ResponsePlayerLeft in channel " + channelID + ", player #" + playerID + " returned a null player. Players here:");
+//							foreach (var cp in ch.players) sb.AppendLine("   " + cp.id + " = " + cp.name);
+//							Debug.LogWarning(sb.ToString());
+//						}
+//#endif
 					}
 #if !STANDALONE
-					else Debug.LogWarning("ResponsePlayerLeft for a channel (" + channelID + ") the player isn't currently in, ignoring.");
+					else Debug.LogWarning("ResponsePlayerLeft for a channel (" + channelID + ") the player isn't currently in, ignoring. " + IsJoiningChannel(channelID) + " " + IsInChannel(channelID));
 #endif
 					break;
 				}
@@ -1553,7 +1590,9 @@ namespace TNet
 				{
 					int channelID = reader.ReadInt32();
 					int hostID = reader.ReadInt32();
-
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseSetHost: " + channelID + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 					for (int i = 0; i < mChannels.size; ++i)
 					{
 						var ch = mChannels.buffer[i];
@@ -1573,7 +1612,9 @@ namespace TNet
 					var ch = GetChannel(channelID);
 					var path = reader.ReadString();
 					var node = ch.Set(path, reader.ReadObject());
-
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseSetChannelData: " + channelID + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 					if (ch != null)
 					{
 						if (onSetChannelData != null) onSetChannelData(ch, path, node);
@@ -1585,6 +1626,9 @@ namespace TNet
 					int channelID = reader.ReadInt32();
 					bool success = reader.ReadBoolean();
 					string msg = success ? null : reader.ReadString();
+
+					// How is it possible for ResponseJoinChannel to happen without ResponseSetChannelData first?
+					if (success) GetChannel(channelID, true);
 
 					// mJoining can contain -2 and -1 when joining random channels
 					if (!mJoining.Remove(channelID))
@@ -1600,6 +1644,9 @@ namespace TNet
 							}
 						}
 					}
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseJoinChannel: " + channelID + " = " + success + " [" + msg + "] Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 #if UNITY_EDITOR
 					if (!success) UnityEngine.Debug.LogError("ResponseJoinChannel: " + success + ", " + msg);
 #endif
@@ -1609,7 +1656,9 @@ namespace TNet
 				case Packet.ResponseLeaveChannel:
 				{
 					int channelID = reader.ReadInt32();
-
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseLeaveChannel: " + channelID + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 					for (int i = 0; i < mChannels.size; ++i)
 					{
 						var ch = mChannels.buffer[i];
@@ -1645,6 +1694,9 @@ namespace TNet
 						packetSourceID = reader.ReadInt32();
 						int channelID = reader.ReadInt32();
 						uint objID = reader.ReadUInt32();
+#if SQUIRREL
+						Debug.Log(Time.time + " ResponseCreateObject: " + channelID + "_" + objID + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 						onCreate(channelID, packetSourceID, objID, reader);
 						packetSourceID = -1;
 					}
@@ -1661,6 +1713,9 @@ namespace TNet
 						for (int i = 0; i < count; ++i)
 						{
 							uint val = reader.ReadUInt32();
+#if SQUIRREL
+							Debug.Log(Time.time + " ResponseDestroyObject: " + channelID + "_" + val + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 							onDestroy(channelID, val);
 						}
 						packetSourceID = -1;
@@ -1719,11 +1774,20 @@ namespace TNet
 					var requestID = reader.ReadUInt32();
 
 					Action cb;
-					
+
 					if (mCallbacks.TryGetValue(requestID, out cb))
 					{
 						mCallbacks.Remove(requestID);
 						if (cb != null) cb();
+					}
+					else
+					{
+#if UNITY_EDITOR
+						Debug.LogError("Echo packet arrived, but no such ID found: " + requestID + ". Requests waiting: " + mCallbacks.Count);
+#if SQUIRREL
+						UILoadingScreen.SetText("Echo packet arrived, but no such ID found: " + requestID + ". Requests waiting: " + mCallbacks.Count, false);
+#endif
+#endif
 					}
 					break;
 				}
@@ -1802,6 +1866,9 @@ namespace TNet
 				}
 				case Packet.ResponseVerifyAdmin:
 				{
+#if SQUIRREL
+					Debug.Log(Time.time + " VERIFY ADMIN");
+#endif
 					int pid = reader.ReadInt32();
 					Player p = GetPlayer(pid);
 					if (p == player) mIsAdmin = true;
@@ -1879,10 +1946,13 @@ namespace TNet
 				}
 				case Packet.ResponseUpdateChannel:
 				{
-					var ch = GetChannel(reader.ReadInt32());
+					var channelID = reader.ReadInt32();
+					var ch = GetChannel(channelID);
 					var playerLimit = reader.ReadUInt16();
 					var val = reader.ReadUInt16();
-
+#if SQUIRREL
+					Debug.Log(Time.time + " ResponseUpdateChannel: " + channelID + "_" + val + ". Still joining: " + IsJoiningChannel(channelID) + ", In channel: " + IsInChannel(channelID));
+#endif
 					if (ch != null)
 					{
 						ch.playerLimit = playerLimit;
@@ -1898,7 +1968,8 @@ namespace TNet
 					var channelID = reader.ReadInt32();
 					var objID = reader.ReadUInt32();
 					var playerID = reader.ReadInt32();
-					onChangeOwner(channelID, objID, playerID != 0 ? GetPlayer(playerID) : null);
+					var p = (playerID != 0) ? GetPlayer(playerID) : null;
+					onChangeOwner(channelID, objID, p);
 					break;
 				}
 			}
@@ -2326,7 +2397,7 @@ namespace TNet
 			catch (Exception ex)
 			{
 				TNManager.Log("ERROR: " + ex.Message + "\n" + ex.StackTrace);
-				TNManager.SaveFile("Debug/" + TNManager.playerName + "_" + (TNManager.serverUptime / 1000) + ".txt", bytes);
+				TNManager.SaveFile("Debug/" + TNManager.playerName + "_" + (TNManager.serverUptimeMS / 1000) + ".txt", bytes);
 				return node;
 			}
 #endif

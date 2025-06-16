@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 using System.Diagnostics;
@@ -434,5 +434,108 @@ namespace TNet
 				}
 			}
 		}
+	}
+
+	/// <summary>
+	/// Simple queue made with thread safety in mind. More of a wrapper than anything.
+	/// </summary>
+
+	public class Queue<T>
+	{
+		[System.NonSerialized] volatile System.Collections.Generic.Queue<T> mQueue = new System.Collections.Generic.Queue<T>();
+		[System.NonSerialized] volatile object mLock = new object();
+		[System.NonSerialized] volatile int mCount = 0;
+
+		public object lockObj { get { return mLock; } }
+
+		public int size { get { return mCount; } }
+
+		public int Count { get { return mCount; } }
+
+		public bool isEmpty { get { return mCount == 0; } }
+
+		public void Enqueue (T item) { lock (mLock) { mQueue.Enqueue(item); ++mCount; } }
+
+		public void EnqueueNTS (T item) { mQueue.Enqueue(item); ++mCount; }
+
+		public T Dequeue ()
+		{
+			if (mCount > 0)
+			{
+				lock (mLock)
+				{
+					if (mCount > 0)
+					{
+						--mCount;
+						return mQueue.Dequeue();
+					}
+				}
+			}
+			return default(T);
+		}
+
+		public T DequeueNTS ()
+		{
+			if (mCount > 0)
+			{
+				--mCount;
+				return mQueue.Dequeue();
+			}
+			return default(T);
+		}
+
+		public bool TryDequeue (out T item)
+		{
+			if (mCount > 0)
+			{
+				lock (mLock)
+				{
+					if (mCount > 0)
+					{
+						--mCount;
+						item = mQueue.Dequeue();
+						return true;
+					}
+				}
+			}
+
+			item = default(T);
+			return false;
+		}
+
+		public bool TryDequeueNTS (out T item)
+		{
+			if (mCount > 0)
+			{
+				--mCount;
+				item = mQueue.Dequeue();
+				return true;
+			}
+
+			item = default(T);
+			return false;
+		}
+
+		public bool TryPeek (out T item)
+		{
+			if (mCount > 0)
+			{
+				lock (mLock)
+				{
+					if (mCount > 0)
+					{
+						item = mQueue.Peek();
+						return true;
+					}
+				}
+			}
+
+			item = default(T);
+			return false;
+		}
+
+		public void Clear () { lock (mLock) { mQueue.Clear(); mCount = 0; } }
+
+		public void ClearNTS () { mQueue.Clear(); mCount = 0; }
 	}
 }

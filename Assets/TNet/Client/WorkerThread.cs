@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 // Use this for debugging purposes
@@ -272,7 +272,7 @@ namespace TNet
 								}
 								catch (System.Exception ex)
 								{
-									UnityEngine.Debug.LogError(ex.Message + "\n" + ex.StackTrace);
+									if (!(ex is ThreadInterruptedException)) UnityEngine.Debug.LogError(ex.Message + "\n" + ex.StackTrace);
 									active.RemoveAt(b);
 								}
 							}

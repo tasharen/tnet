@@ -1,6 +1,6 @@
 //-------------------------------------------------
 //                    TNet 3
-// Copyright © 2012-2023 Tasharen Entertainment Inc
+// Copyright © 2012-2025 Tasharen Entertainment Inc
 //-------------------------------------------------
 
 //#define DEBUG_PACKETS
@@ -51,6 +51,12 @@ namespace TNet
 		/// </summary>
 
 		static public ushort gameID = 1;
+
+		/// <summary>
+		/// Set this to the local address before starting the server.
+		/// </summary>
+
+		static public string myAddress { get; private set; }
 
 		public delegate void OnCustomPacket (TcpPlayer player, Buffer buffer, BinaryReader reader, byte request, bool reliable);
 		public delegate void OnPlayerAction (Player p);
@@ -125,7 +131,7 @@ namespace TNet
 		protected long mTime = 0;
 		protected UdpProtocol mUdp = new UdpProtocol("Game Server");
 		protected bool mAllowUdp = false;
-		protected object mLock = 0;
+		protected object mServerLock = 0;
 		protected DataNode mServerData = null;
 		protected string mFilename = "world.dat";
 		protected long mNextSave = 0;
@@ -144,7 +150,7 @@ namespace TNet
 
 		public void Sleep (bool val)
 		{
-			lock (mLock)
+			lock (mServerLock)
 			{
 				foreach (var ch in mChannelList)
 				{
@@ -216,7 +222,7 @@ namespace TNet
 					}
 					else if (lobbyLink != null)
 					{
-						lock (mLock) { if (lobbyLink != null) lobbyLink.Stop(); }
+						lock (mServerLock) { if (lobbyLink != null) lobbyLink.Stop(); }
 					}
 				}
 			}
@@ -238,7 +244,7 @@ namespace TNet
 		/// How many players are currently connected to the server.
 		/// </summary>
 
-		public int playerCount { get { return isActive ? mPlayerDict.Count : 0; } }
+		public int playerCount { get { if (!isActive) return 0; return mPlayerList.size; } }
 
 		/// <summary>
 		/// List of connected players.
@@ -267,7 +273,7 @@ namespace TNet
 
 				if (value != null)
 				{
-					lock (mLock)
+					lock (mServerLock)
 					{
 						mLocalClient = value;
 						mLocalPlayer = new TcpPlayer();
@@ -293,7 +299,7 @@ namespace TNet
 #if !MODDING
 			if (mListenerPort == port) return true;
 
-			lock (mLock)
+			lock (mServerLock)
 			{
 				if (mListener != null)
 				{
@@ -355,6 +361,8 @@ namespace TNet
 #if FORCE_EN_US
 			Tools.SetCurrentCultureToEnUS();
 #endif
+			myAddress = Tools.localAddress.ToString();
+
 			LoadBanList();
 			LoadAdminList();
 
@@ -459,8 +467,13 @@ namespace TNet
 
 			// Remove all connected players and clear the list of channels
 			for (int i = mPlayerList.size; i > 0;) RemovePlayer(mPlayerList.buffer[--i]);
-			mPlayerList.Clear();
-			mPlayerDict.Clear();
+
+			lock (mPlayerDict)
+			{
+				mPlayerList.Clear();
+				mPlayerDict.Clear();
+			}
+
 			mDictionaryEP.Clear();
 			mChannelList.Clear();
 			mChannelDict.Clear();
@@ -486,6 +499,8 @@ namespace TNet
 
 		static public volatile TcpPlayer currentPlayer;
 
+		public object lockObj { get { return mServerLock; } }
+
 #if !MODDING
 		/// <summary>
 		/// Thread that will be processing incoming data.
@@ -507,7 +522,7 @@ namespace TNet
 #if !SINGLE_THREADED
 				bool received = false;
 #endif
-				lock (mLock)
+				lock (mServerLock)
 				{
 					mTime = DateTime.UtcNow.Ticks / 10000;
 
@@ -518,10 +533,20 @@ namespace TNet
 						{
 							if (!mListener.Pending()) break;
 						}
-						catch (ThreadInterruptedException)
+						catch (Exception e)
 						{
-							try { if (mListener != null) mListener.Stop(); }
-							catch (Exception) { }
+							Tools.LogError(e.Message, e.StackTrace, true);
+
+							try
+							{
+								if (mListener != null) mListener.Stop();
+							}
+							catch (Exception ex)
+							{
+								Tools.LogError(ex.Message, ex.StackTrace, true);
+							}
+
+							Tools.Log("Socket listener has been shut down. You can re-open it by typing 'listen <port>'.");
 							mListener = null;
 							break;
 						}
@@ -647,6 +672,8 @@ namespace TNet
 
 						lock (player.incomingLock)
 						{
+							var playerStart = DateTime.UtcNow.Ticks / 10000;
+
 							while (player.ReceivePacketNTS(out buffer))
 							{
 								if (buffer.size > 0)
@@ -660,7 +687,7 @@ namespace TNet
 											received = true;
 									}
 #if STANDALONE
-									catch (System.Exception ex)
+									catch (Exception ex)
 									{
 										if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
 										else player.LogError(ex.Message, ex.StackTrace);
@@ -679,7 +706,22 @@ namespace TNet
 #endif
 								}
 
+								var playerNow = DateTime.UtcNow.Ticks / 10000;
+#if W2 && STANDALONE
+								// No one player should take more than 500 milliseconds of processing time
+								if (playerNow - playerStart > 500 && player.connectedTime > 30000)
+								{
+									player.LogError(player.name + " has taken up too much processing time: " + (playerNow - playerStart) + " ms, queue size " + player.incomingQueueSize.ToString("N0") + " bytes (" + player.incomingPacketCount + " packets)");
+									RemovePlayer(player);
+									buffer.Recycle();
+									continue;
+								}
+#endif
 								buffer.Recycle();
+#if W2 && STANDALONE
+								// No more than 250 ms per player per update
+								if (playerNow - playerStart > 250) break;
+#endif
 							}
 						}
 
@@ -732,7 +774,7 @@ namespace TNet
 			player.stage = TcpProtocol.Stage.Verifying;
 			player.StartReceiving(socket);
 			player.onClose = OnClose;
-			mPlayerList.Add(player);
+			lock (mPlayerDict) mPlayerList.Add(player);
 			return player;
 		}
 
@@ -748,7 +790,7 @@ namespace TNet
 			player.custom = p;
 			player.onClose = OnClose;
 			player.stage = TcpProtocol.Stage.Verifying;
-			mPlayerList.Add(player);
+			lock (mPlayerDict) mPlayerList.Add(player);
 			return player;
 		}
 
@@ -782,12 +824,7 @@ namespace TNet
 		/// Remove the specified player.
 		/// </summary>
 
-		public void RemovePlayer (TcpPlayer p)
-		{
-#if !MODDING
-			if (p != null) p.Release();
-#endif
-		}
+		public void RemovePlayer (TcpPlayer p) { if (p != null) p.Release(); }
 
 		protected void OnClose (TcpProtocol tcp)
 		{
@@ -806,7 +843,19 @@ namespace TNet
 				}
 			}
 
-			mPlayerList.Remove(p);
+			lock (mPlayerDict)
+			{
+				mPlayerList.Remove(p);
+				if (p.id != 0) mPlayerDict.Remove(p.id);
+			}
+
+			if (p.id != 0)
+			{
+				if (onPlayerDisconnect != null) onPlayerDisconnect(p);
+				p.id = 0;
+			}
+
+			if (lobbyLink != null) lobbyLink.SendUpdate(this);
 
 			if (p.udpEndPoint != null)
 			{
@@ -821,17 +870,6 @@ namespace TNet
 				p.custom = null;
 			}
 
-			if (p.id != 0)
-			{
-				if (mPlayerDict.Remove(p.id))
-				{
-					if (lobbyLink != null) lobbyLink.SendUpdate(this);
-					if (onPlayerDisconnect != null) onPlayerDisconnect(p);
-				}
-
-				p.id = 0;
-			}
-
 			p.savePath = null;
 #endif
 		}
@@ -841,9 +879,21 @@ namespace TNet
 
 		protected TcpPlayer GetPlayer (int id)
 		{
-			TcpPlayer p = null;
-			mPlayerDict.TryGetValue(id, out p);
-			return p;
+			TcpPlayer p;
+			if (mPlayerDict.TryGetValue(id, out p)) return p;
+
+			lock (mPlayerDict)
+			{
+				foreach (var pl in mPlayerList)
+				{
+					if (pl.id == id)
+					{
+						mPlayerDict[id] = pl;
+						return pl;
+					}
+				}
+			}
+			return null;
 		}
 
 		/// <summary>
@@ -872,7 +922,7 @@ namespace TNet
 				// Alias match
 				for (int i = 0; i < mPlayerList.size; ++i)
 				{
-					TcpPlayer p = mPlayerList.buffer[i];
+					var p = mPlayerList.buffer[i];
 					if (p.HasAlias(name)) return p;
 				}
 			}
@@ -1363,8 +1413,6 @@ namespace TNet
 		protected void SendJoinChannel (TcpPlayer player, Channel channel, string requestedLevelName)
 		{
 #if !MODDING
-			if (player.IsInChannel(channel.id)) return;
-
 			// Load the channel's data into memory
 			channel.Wake();
 
@@ -1572,14 +1620,23 @@ namespace TNet
 #if DEBUG_PACKETS && !STANDALONE
 					UnityEngine.Debug.Log("Protocol verified");
 #endif
-					player.isAdmin = (player.custom == null) && (player.id == 1 || player.address == null || player.address == "0.0.0.0:0" || player.address.StartsWith("127.0.0.1:"));
+					player.isAdmin = (player.custom == null) && (player.address == null || player.address == "0.0.0.0:0" || player.address.StartsWith(myAddress));
 
 					if (player.isAdmin || !mBan.Contains(player.name))
 					{
 #if STANDALONE || UNITY_EDITOR
 						Tools.Log(player.name + " (" + player.address + "): Connected [" + player.id + "], admin: " + player.isAdmin);
 #endif
-						mPlayerDict.Add(player.id, player);
+						// For some unknown reason, mPlayerDict.Add can fail with "Index was outside the bounds of the array", even though the ID is a normal positive integer value?
+						try
+						{
+							lock (mPlayerDict) mPlayerDict[player.id] = player;
+						}
+						catch (Exception ex)
+						{
+							player.LogError(ex.Message, ex.StackTrace);
+							lock (mPlayerDict) mPlayerDict.Clear();
+						}
 
 						var b = CreatePacket(Packet.ResponseID);
 						var writer = b.writer;
@@ -1659,7 +1716,7 @@ namespace TNet
 				case Packet.Disconnect:
 				{
 					RemovePlayer(player);
-					break;
+					return false;
 				}
 				case Packet.RequestPing:
 				{
@@ -1759,7 +1816,7 @@ namespace TNet
 					{
 						player.Log("FAILED a ban check: " + player.name);
 						RemovePlayer(player);
-						break;
+						return false;
 					}
 
 					var b = player.CreatePacket(Packet.ResponseRenamePlayer);
@@ -1873,7 +1930,8 @@ namespace TNet
 					}
 #endif
 					// Load and set the player's data from the specified file
-					player.dataNode = DataNode.Read(string.IsNullOrEmpty(rootDirectory) ? path : Path.Combine(rootDirectory, path));
+					if (!string.IsNullOrEmpty(rootDirectory)) path = Path.Combine(rootDirectory, path);
+					player.dataNode = DataNode.Read(path);
 
 					// The player data must be valid at this point
 					if (player.dataNode == null)
@@ -2034,6 +2092,7 @@ namespace TNet
 					{
 						player.LogError(ex.Message, ex.StackTrace);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
@@ -2210,7 +2269,7 @@ namespace TNet
 						{
 							player.Log("SPAM filter trigger!");
 							RemovePlayer(player);
-							break;
+							return false;
 						}
 						else if (player.broadcastCount > 2)
 						{
@@ -2225,7 +2284,7 @@ namespace TNet
 					{
 						player.LogError("Tried to echo a broadcast packet (" + playerID + " vs " + player.id + ")", null);
 						RemovePlayer(player);
-						break;
+						return false;
 					}
 
 					buffer.position = origin;
@@ -2233,7 +2292,7 @@ namespace TNet
 					// Forward the packet to everyone connected to the server
 					for (int i = 0; i < mPlayerList.size; ++i)
 					{
-						TcpPlayer tp = mPlayerList.buffer[i];
+						var tp = mPlayerList.buffer[i];
 						if (!tp.isConnected) continue;
 						if (request == Packet.BroadcastAdmin && !tp.isAdmin) continue;
 
@@ -2247,7 +2306,7 @@ namespace TNet
 				}
 				case Packet.RequestVerifyAdmin:
 				{
-					string pass = reader.ReadString();
+					var pass = reader.ReadString();
 
 					if (mAdmin.Count == 0) { mAdmin.Add(pass); SaveAdminList(); }
 
@@ -2266,12 +2325,13 @@ namespace TNet
 					{
 						player.LogError("Tried to authenticate as admin and failed (" + pass + ")");
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
 				case Packet.RequestCreateAdmin:
 				{
-					string s = reader.ReadString();
+					var s = reader.ReadString();
 
 					if (player.isAdmin)
 					{
@@ -2283,12 +2343,13 @@ namespace TNet
 					{
 						player.LogError("Tried to add an admin (" + s + ") and failed");
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
 				case Packet.RequestRemoveAdmin:
 				{
-					string s = reader.ReadString();
+					var s = reader.ReadString();
 
 					// First administrator can't be removed
 					if (player.isAdmin)
@@ -2303,13 +2364,14 @@ namespace TNet
 					{
 						player.LogError("Tried to remove an admin (" + s + ") without authorization", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
 				case Packet.RequestSetAlias:
 				{
-					string s = reader.ReadString();
-					if (!SetAlias(player, s)) break;
+					var s = reader.ReadString();
+					if (!SetAlias(player, s)) return false;
 
 					if (mAdmin.Contains(s))
 					{
@@ -2336,7 +2398,7 @@ namespace TNet
 				}
 				case Packet.RequestUnban:
 				{
-					string s = reader.ReadString();
+					var s = reader.ReadString();
 
 					if (player.isAdmin)
 					{
@@ -2348,12 +2410,13 @@ namespace TNet
 					{
 						player.LogError("Tried to unban (" + s + ") without authorization", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
 				case Packet.RequestSetBanList:
 				{
-					string s = reader.ReadString();
+					var s = reader.ReadString();
 
 					if (player.isAdmin)
 					{
@@ -2369,6 +2432,7 @@ namespace TNet
 					{
 						player.LogError("Tried to set the ban list without authorization", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
@@ -2400,21 +2464,24 @@ namespace TNet
 					{
 						player.LogError("Tried to request reloaded server data without authorization", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
 				case Packet.RequestSetServerData:
 				{
+					// 4 bytes for size, 1 byte for ID
+					int origin = buffer.position - 5;
+					var key = reader.ReadString();
+					var obj = reader.ReadObject();
+
 					// Only administrators can set the server data to prevent sensitive data corruption
 					if (player.isAdmin)
 					{
 						if (mServerData == null) mServerData = new DataNode("Version", Player.version);
 
-						// 4 bytes for size, 1 byte for ID
-						int origin = buffer.position - 5;
-
 						// Change the local configuration
-						mServerData.SetHierarchy(reader.ReadString(), reader.ReadObject());
+						mServerData.SetHierarchy(key, obj);
 						mServerDataChanged = true;
 
 						// Change the packet type to a response before sending it as-is
@@ -2426,8 +2493,9 @@ namespace TNet
 					}
 					else
 					{
-						player.LogError("Tried to set the server data without authorization", null);
+						player.LogError("Tried to set the server data without authorization (" + key + " = " + (obj != null ? obj.ToString() : "null") + ")", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
@@ -2454,6 +2522,7 @@ namespace TNet
 						{
 							player.Log(player.name + " kicked " + other.name + " (" + other.address + ")");
 							RemovePlayer(other);
+							return false;
 						}
 					}
 					break;
@@ -2494,6 +2563,7 @@ namespace TNet
 					{
 						player.LogError("Tried to ban " + (other != null ? other.name : s) + " without authorization", null);
 						RemovePlayer(player);
+						return false;
 					}
 					break;
 				}
@@ -2538,6 +2608,7 @@ namespace TNet
 						{
 							player.LogError("RequestLockChannel(" + ch.id + ", " + locked + ") without authorization", null);
 							RemovePlayer(player);
+							return false;
 						}
 					}
 					break;
@@ -2770,9 +2841,10 @@ namespace TNet
 					}
 				}
 #if STANDALONE
-				player.Log("Passed a ban check: " + s);
-#endif
+				if (player.AddAlias(s)) player.Log("Passed a ban check: " + s);
+#else
 				player.AddAlias(s);
+#endif
 				return true;
 			}
 #else
@@ -2850,35 +2922,43 @@ namespace TNet
 						RemovePlayer(player);
 						return;
 					}
+					else if (target == 0 && string.IsNullOrEmpty(funcName))
+					{
+						player.LogError("Tried to send a packet without an ID or function name", null);
+						RemovePlayer(player);
+						return;
+					}
 					else ch.AddRFC(target, funcName, buffer, mTime);
 				}
 			}
 			else
 			{
 				// We want to exclude the player if the request was to forward to others
-				var exclude = (
-					request == Packet.ForwardToOthers ||
-					request == Packet.ForwardToOthersSaved) ? player : null;
+				var exclude = (request == Packet.ForwardToOthers || request == Packet.ForwardToOthersSaved) ? player : null;
+				var target = reader.ReadUInt32();
+				var funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
+
+				// Exploit: echoed packet of another player
+				if (playerID != player.id)
+				{
+					player.LogError("Tried to echo a " + request + " packet from PID #" + playerID + " as " + player.id + ". Func: " + funcName, null);
+					RemovePlayer(player);
+					return;
+				}
+				else if (target == 0 && string.IsNullOrEmpty(funcName))
+				{
+					player.LogError("Tried to send a packet without an ID or function name", null);
+					RemovePlayer(player);
+					return;
+				}
 
 				// If the request should be saved, let's do so
 				if (request == Packet.ForwardToAllSaved || request == Packet.ForwardToOthersSaved)
 				{
-					if (!ch.isLocked || player.isAdmin)
-					{
-						var target = reader.ReadUInt32();
-						var funcName = ((target & 0xFF) == 0) ? reader.ReadString() : null;
-
-						// Exploit: echoed packet of another player
-						if (playerID != player.id)
-						{
-							player.LogError("Tried to echo a " + request + " packet from PID #" + playerID + " as " + player.id + ". Func: " + funcName, null);
-							RemovePlayer(player);
-							return;
-						}
-						else ch.AddRFC(target, funcName, buffer, mTime);
-					}
+					if (!ch.isLocked || player.isAdmin) ch.AddRFC(target, funcName, buffer, mTime);
 				}
 
+				// Back to the origin for forwarding the data as-is
 				buffer.position = origin;
 
 				// Forward the packet to everyone except the sender
@@ -3107,6 +3187,18 @@ namespace TNet
 							WriteChannelDescriptor(ch, b);
 							ch.SendToAll(b);
 						}
+#if W2
+						// Players can close channels if they are the last person inside
+						else if (ch.id > 0 && ch.players.size == 1 && ch.players.Contains(player))
+						{
+							ch.isPersistent = false;
+							ch.isClosed = true;
+
+							var b = Buffer.Create();
+							WriteChannelDescriptor(ch, b);
+							ch.SendToAll(b);
+						}
+#endif
 						else if (player.isAdmin)
 						{
 							player.Log("Closing channel " + ch.id);
@@ -3268,7 +3360,7 @@ namespace TNet
 
 			long length = 0;
 
-			lock (mLock)
+			lock (mServerLock)
 			{
 				mWriter.Write(0);
 				int count = 0;
@@ -3299,7 +3391,7 @@ namespace TNet
 			// Create backups as requested
 			if (backupInterval > 0)
 			{
-				var time = (System.DateTime.UtcNow.Ticks / 10000) / 1000;
+				var time = (DateTime.UtcNow.Ticks / 10000) / 1000;
 
 				if (mLastSave == 0 || time - mLastSave > backupInterval)
 				{
@@ -3339,7 +3431,7 @@ namespace TNet
 #endif
 		}
 
-		System.Collections.Generic.Queue<string> mFilenames = new Queue<string>();
+		System.Collections.Generic.Queue<string> mFilenames = new System.Collections.Generic.Queue<string>();
 
 		/// <summary>
 		/// Save this player's data.
@@ -3353,8 +3445,7 @@ namespace TNet
 
 			if (player.dataNode == null || player.dataNode.children == null || player.dataNode.children.size == 0)
 			{
-				if (DeleteFile(player.savePath))
-					player.Log("Deleted " + player.savePath);
+				if (DeleteFile(player.savePath)) player.Log("Deleted " + player.savePath);
 			}
 			else
 			{
@@ -3391,6 +3482,28 @@ namespace TNet
 #endif
 		}
 
+		public void SendConfigToPlayers ()
+		{
+			if (mServerData == null) mServerData = new DataNode("Version", Player.version);
+
+			if (mPlayerList.size != 0)
+			{
+				var buff = Buffer.Create();
+				var writer = buff.BeginPacket(Packet.ResponseSetServerData);
+				writer.Write("");
+				writer.WriteObject(mServerData);
+				buff.EndPacket();
+
+				// Forward the packet to everyone connected to the server
+				for (int i = 0; i < mPlayerList.size; ++i)
+				{
+					var tp = mPlayerList.buffer[i];
+					tp.SendTcpPacket(buff);
+				}
+				buff.Recycle();
+			}
+		}
+
 		[System.Obsolete("Use Load() instead")]
 		public bool LoadFrom (string fileName) { return Load(fileName); }
 
@@ -3416,7 +3529,7 @@ namespace TNet
 
 			var stream = new MemoryStream(bytes);
 
-			lock (mLock)
+			lock (mServerLock)
 			{
 				try
 				{
