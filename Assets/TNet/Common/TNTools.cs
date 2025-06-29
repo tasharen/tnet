@@ -989,6 +989,8 @@ namespace TNet
 				return false;
 			}
 
+			if (data != null) data.Flush();
+
 			if (data == null || data.Length == 0)
 			{
 				return DeleteFile(path);

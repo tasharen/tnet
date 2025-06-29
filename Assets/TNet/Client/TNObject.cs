@@ -264,19 +264,19 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public DataNode Get (in string name) { return (mData != null ? mData.GetHierarchy(name) : null); }
+		public DataNode Get (string name) { return (mData != null ? mData.GetHierarchy(name) : null); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (in string name) { return (mData != null) ? mData.GetHierarchy<T>(name) : default(T); }
+		public T Get<T> (string name) { return (mData != null) ? mData.GetHierarchy<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public T Get<T> (in string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
+		public T Get<T> (string name, T defVal) { return (mData != null) ? mData.GetHierarchy<T>(name, defVal) : defVal; }
 
 		/// <summary>
 		/// Set the object-specific data. Note that ideally it's the object's owner that should be calling this function.
@@ -284,7 +284,7 @@ namespace TNet
 		/// one immediately to keep all local data in sync, and another one after the packet returns from the object's owner.
 		/// </summary>
 
-		public void Set (in string name, object val, bool sync = true)
+		public void Set (string name, object val, bool sync = true)
 		{
 			if (mData == null) mData = new DataNode("TNO");
 
@@ -1742,18 +1742,18 @@ namespace TNet
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (in string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
+		public void SendQuickly (string rfcName, Target target, params object[] objs) { SendRFC(0, rfcName, target, false, objs); }
 
-		public void SendQuickly (in string rfcName, Target target) { SendRFC(0, rfcName, target, false, null); }
+		public void SendQuickly (string rfcName, Target target) { SendRFC(0, rfcName, target, false, null); }
 
-		public void SendQuickly (in string rfcName, Target target, object obj0)
+		public void SendQuickly (string rfcName, Target target, object obj0)
 		{
 			if (mObj1 == null) mObj1 = new object[1];
 			mObj1[0] = obj0;
 			SendRFC(0, rfcName, target, false, mObj1);
 		}
 
-		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1)
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1)
 		{
 			if (mObj2 == null) mObj2 = new object[2];
 			mObj2[0] = obj0;
@@ -1761,7 +1761,7 @@ namespace TNet
 			SendRFC(0, rfcName, target, false, mObj2);
 		}
 
-		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1, object obj2)
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2)
 		{
 			if (mObj3 == null) mObj3 = new object[3];
 			mObj3[0] = obj0;
@@ -1770,7 +1770,7 @@ namespace TNet
 			SendRFC(0, rfcName, target, false, mObj3);
 		}
 
-		public void SendQuickly (in string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
+		public void SendQuickly (string rfcName, Target target, object obj0, object obj1, object obj2, object obj3)
 		{
 			if (mObj4 == null) mObj4 = new object[4];
 			mObj4[0] = obj0;
@@ -1795,29 +1795,29 @@ namespace TNet
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (in string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
-		public void SendQuickly (in string rfcName, Player target) { if (target != null) SendQuickly(rfcName, target.id); }
-		public void SendQuickly (in string rfcName, Player target, object obj0) { if (target != null) SendQuickly(rfcName, target.id, obj0); }
-		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1); }
-		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2); }
-		public void SendQuickly (in string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2, obj3); }
+		public void SendQuickly (string rfcName, Player target, params object[] objs) { SendRFC(0, rfcName, target.id, false, objs); }
+		public void SendQuickly (string rfcName, Player target) { if (target != null) SendQuickly(rfcName, target.id); }
+		public void SendQuickly (string rfcName, Player target, object obj0) { if (target != null) SendQuickly(rfcName, target.id, obj0); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2); }
+		public void SendQuickly (string rfcName, Player target, object obj0, object obj1, object obj2, object obj3) { if (target != null) SendQuickly(rfcName, target.id, obj0, obj1, obj2, obj3); }
 
 		/// <summary>
 		/// Send a remote function call via UDP (if possible).
 		/// </summary>
 
-		public void SendQuickly (in string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, false, objs); }
+		public void SendQuickly (string rfcName, int playerID, params object[] objs) { SendRFC(0, rfcName, playerID, false, objs); }
 
-		public void SendQuickly (in string rfcName, int playerID) { SendRFC(0, rfcName, playerID, false, null); }
+		public void SendQuickly (string rfcName, int playerID) { SendRFC(0, rfcName, playerID, false, null); }
 
-		public void SendQuickly (in string rfcName, int playerID, object obj0)
+		public void SendQuickly (string rfcName, int playerID, object obj0)
 		{
 			if (mObj1 == null) mObj1 = new object[1];
 			mObj1[0] = obj0;
 			SendRFC(0, rfcName, playerID, false, mObj1);
 		}
 
-		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1)
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1)
 		{
 			if (mObj2 == null) mObj2 = new object[2];
 			mObj2[0] = obj0;
@@ -1825,7 +1825,7 @@ namespace TNet
 			SendRFC(0, rfcName, playerID, false, mObj2);
 		}
 
-		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1, object obj2)
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2)
 		{
 			if (mObj3 == null) mObj3 = new object[3];
 			mObj3[0] = obj0;
@@ -1834,7 +1834,7 @@ namespace TNet
 			SendRFC(0, rfcName, playerID, false, mObj3);
 		}
 
-		public void SendQuickly (in string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
+		public void SendQuickly (string rfcName, int playerID, object obj0, object obj1, object obj2, object obj3)
 		{
 			if (mObj4 == null) mObj4 = new object[4];
 			mObj4[0] = obj0;
@@ -1854,7 +1854,7 @@ namespace TNet
 		/// Send a broadcast to the entire LAN. Does not require an active connection.
 		/// </summary>
 
-		public void BroadcastToLAN (int port, in string rfcName, params object[] objs) { BroadcastToLAN(port, 0, rfcName, objs); }
+		public void BroadcastToLAN (int port, string rfcName, params object[] objs) { BroadcastToLAN(port, 0, rfcName, objs); }
 
 #endregion
 
@@ -1875,7 +1875,7 @@ namespace TNet
 		/// </summary>
 
 		[System.Obsolete("Use RemoveSavedRFC instead")]
-		public void Remove (in string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
+		public void Remove (string rfcName) { RemoveSavedRFC(channelID, id, 0, rfcName); }
 
 		/// <summary>
 		/// Remove a previously saved remote function call.
@@ -1904,7 +1904,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, in string rfcName, Target target, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, string rfcName, Target target, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -2103,7 +2103,7 @@ namespace TNet
 		/// Send a new RFC call to the specified target.
 		/// </summary>
 
-		void SendRFC (byte rfcID, in string rfcName, in string targetName, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, string rfcName, string targetName, bool reliable, object[] objs)
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying) return;
@@ -2147,7 +2147,7 @@ namespace TNet
 		/// Send a new remote function call to the specified player.
 		/// </summary>
 
-		void SendRFC (byte rfcID, in string rfcName, int target, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, string rfcName, int target, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0) return;
 #if UNITY_EDITOR
@@ -2188,7 +2188,7 @@ namespace TNet
 		/// Send a new remote function call to the specified player.
 		/// </summary>
 
-		void SendRFC (byte rfcID, in string rfcName, List<int> targets, bool reliable, object[] objs)
+		void SendRFC (byte rfcID, string rfcName, List<int> targets, bool reliable, object[] objs)
 		{
 			if (hasBeenDestroyed || id == 0 || targets == null || targets.size == 0) return;
 
@@ -2231,7 +2231,7 @@ namespace TNet
 		/// Broadcast a remote function call to all players on the network.
 		/// </summary>
 
-		void BroadcastToLAN (int port, byte rfcID, in string rfcName, object[] objs)
+		void BroadcastToLAN (int port, byte rfcID, string rfcName, object[] objs)
 		{
 #if !MODDING
 			if (hasBeenDestroyed || id == 0) return;
@@ -2255,7 +2255,7 @@ namespace TNet
 		/// Remove a previously saved remote function call.
 		/// </summary>
 
-		static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, in string funcName)
+		static void RemoveSavedRFC (int channelID, uint objID, byte rfcID, string funcName)
 		{
 #if !MODDING
 			if (TNManager.IsInChannel(channelID))

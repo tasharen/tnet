@@ -71,19 +71,19 @@ namespace TNet
 		/// Get the object-specific child data node.
 		/// </summary>
 
-		public virtual DataNode Get (in string name) { return mTNO ? mTNO.Get(name) : null; }
+		public virtual DataNode Get (string name) { return mTNO ? mTNO.Get(name) : null; }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public virtual T Get<T> (in string name) { return mTNO ? mTNO.Get<T>(name) : default(T); }
+		public virtual T Get<T> (string name) { return mTNO ? mTNO.Get<T>(name) : default(T); }
 
 		/// <summary>
 		/// Get the object-specific data.
 		/// </summary>
 
-		public virtual T Get<T> (in string name, T defVal) { return mTNO ? mTNO.Get<T>(name, defVal) : defVal; }
+		public virtual T Get<T> (string name, T defVal) { return mTNO ? mTNO.Get<T>(name, defVal) : defVal; }
 
 		// By default all calls to Set() with the default parameter will immediately sync with everyone
 		[System.NonSerialized] public bool immediateSync = true;
@@ -92,13 +92,13 @@ namespace TNet
 		/// Set the object-specific data.
 		/// </summary>
 
-		public virtual void Set (in string name, object val, bool sync = true) { if (mTNO) mTNO.Set(name, val, sync && immediateSync); }
+		public virtual void Set (string name, object val, bool sync = true) { if (mTNO) mTNO.Set(name, val, sync && immediateSync); }
 
 		/// <summary>
 		/// Convenience function to set the data using a single string notation such as "key = value".
 		/// </summary>
 
-		public virtual void Set (in string text)
+		public virtual void Set (string text)
 		{
 			if (!string.IsNullOrEmpty(text))
 			{

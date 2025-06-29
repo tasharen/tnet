@@ -230,7 +230,7 @@ namespace TNet
 		/// Add a new child node without checking to see if another child with the same name already exists.
 		/// </summary>
 
-		public DataNode AddChild (in string name)
+		public DataNode AddChild (string name)
 		{
 			var node = AddChild();
 			node.name = name;
@@ -241,7 +241,7 @@ namespace TNet
 		/// Add a new child node without checking to see if another child with the same name already exists.
 		/// </summary>
 
-		public DataNode AddChild (in string name, object value)
+		public DataNode AddChild (string name, object value)
 		{
 			var node = AddChild();
 			node.name = name;
@@ -253,7 +253,7 @@ namespace TNet
 		/// Updates the specified value on the child, but only if the child is already present or 'addIfMissing' is 'true'.
 		/// </summary>
 
-		public void UpdateChild (in string name, object value, bool addIfMissing = false)
+		public void UpdateChild (string name, object value, bool addIfMissing = false)
 		{
 			var node = GetChild(name);
 			if (node == null && !addIfMissing) return;
@@ -266,7 +266,7 @@ namespace TNet
 		/// Add a new child node after checking to see if it already exists. If it does, the existing node is returned.
 		/// </summary>
 
-		public DataNode AddMissingChild (in string name, object value = null)
+		public DataNode AddMissingChild (string name, object value = null)
 		{
 			var node = GetChild(name);
 			if (node != null) return node;
@@ -315,7 +315,7 @@ namespace TNet
 
 		public DataNode SetChild (string name, object value)
 		{
-			DataNode node = GetChild(name);
+			var node = GetChild(name);
 			if (node == null) node = AddChild();
 			node.name = name;
 			node.value = value;
@@ -399,7 +399,7 @@ namespace TNet
 		/// Retrieve a child by its path.
 		/// </summary>
 
-		public T GetHierarchy<T> (in string path)
+		public T GetHierarchy<T> (string path)
 		{
 			var node = GetHierarchy(path);
 			if (node == null) return default(T);
@@ -412,7 +412,7 @@ namespace TNet
 		/// Retrieve a child by its path.
 		/// </summary>
 
-		public T GetHierarchy<T> (in string path, T defaultValue)
+		public T GetHierarchy<T> (string path, T defaultValue)
 		{
 			var node = GetHierarchy(path);
 			if (node == null) return defaultValue;
@@ -513,13 +513,13 @@ namespace TNet
 		/// Remove the specified child from the list. Returns the parent node of the removed node if successful.
 		/// </summary>
 
-		public DataNode RemoveHierarchy (in string path) { return SetHierarchy(path, null); }
+		public DataNode RemoveHierarchy (string path) { return SetHierarchy(path, null); }
 
 		/// <summary>
 		/// Retrieve a child by name, optionally creating a new one if the child doesn't already exist.
 		/// </summary>
 
-		public DataNode GetChild (in string name, bool createIfMissing = false)
+		public DataNode GetChild (string name, bool createIfMissing = false)
 		{
 			if (string.IsNullOrEmpty(name)) return null;
 
@@ -565,7 +565,7 @@ namespace TNet
 		/// Get the value of the existing child.
 		/// </summary>
 
-		public T GetChild<T> (in string name)
+		public T GetChild<T> (string name)
 		{
 			var node = GetChild(name);
 			if (node == null) return default(T);
@@ -576,7 +576,7 @@ namespace TNet
 		/// Get the value of the existing child or the default value if the child is not present.
 		/// </summary>
 
-		public T GetChild<T> (in string name, T defaultValue)
+		public T GetChild<T> (string name, T defaultValue)
 		{
 			var node = GetChild(name);
 			if (node == null) return defaultValue;
@@ -587,7 +587,7 @@ namespace TNet
 		/// Remove the specified child from the list.
 		/// </summary>
 
-		public bool RemoveChild (in string name)
+		public bool RemoveChild (string name)
 		{
 			if (mCache != null) mCache.Remove(name);
 
@@ -1225,7 +1225,22 @@ namespace TNet
 					for (int i = 0; i < other.children.size; ++i)
 					{
 						var child = other.children.buffer[i];
-						if (child != null) replaced |= GetChild(child.name, true).Merge(child, replaceExisting);
+
+						if (child != null)
+						{
+							var existing = GetChild(child.name, true);
+							
+							// Special handling: if a previous node had children and no value, and the new node has a boolean 'true' value,
+							// replace the existing node by clearing all children.
+							if (replaceExisting && existing.value == null && existing.children != null && existing.children.size != 0 &&
+								child.value != null && child.value is bool && child.Get<bool>())
+							{
+								existing.children.Clear();
+								existing.value = true;
+							}
+
+							replaced |= existing.Merge(child, replaceExisting);
+						}
 					}
 				}
 			}

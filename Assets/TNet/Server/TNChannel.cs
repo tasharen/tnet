@@ -34,7 +34,7 @@ namespace TNet
 
 			public void Recycle () { if (data != null) { data.Recycle(); data = null; } }
 
-			public bool Matches (uint uid, in string funcName) { return uid == this.uid && funcName == functionName; }
+			public bool Matches (uint uid, string funcName) { return uid == this.uid && funcName == functionName; }
 
 			/// <summary>
 			/// Write a complete ForwardToOthers packet to the specified buffer.
@@ -333,7 +333,7 @@ namespace TNet
 					return true;
 				}
 			}
-			else if (mForward.size != 0)
+			else if (mForward != null && mForward.size != 0)
 			{
 				for (int i = 0; i < mForward.size; ++i)
 				{
@@ -601,7 +601,7 @@ namespace TNet
 		/// Add a new saved remote function call.
 		/// </summary>
 
-		public void AddRFC (uint uid, in string funcName, Buffer b, long time)
+		public void AddRFC (uint uid, string funcName, Buffer b, long time)
 		{
 #if !MODDING
 			if (isClosed) return;
@@ -689,7 +689,7 @@ namespace TNet
 		/// Delete the specified remote function call.
 		/// </summary>
 
-		public void DeleteRFC (uint uid, in string funcName, long time)
+		public void DeleteRFC (uint uid, string funcName, long time)
 		{
 #if !MODDING
 			for (int i = 0; i < rfcs.size; ++i)

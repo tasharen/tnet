@@ -188,7 +188,7 @@ namespace TNet
 		/// Create a new field or property reference of specified name.
 		/// </summary>
 
-		static public FieldOrProperty Create (Type type, string name)
+		static public FieldOrProperty Create (Type type, string name, bool warnIfMissing = true)
 		{
 			const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 			var field = type.GetField(name, flags);
@@ -209,16 +209,8 @@ namespace TNet
 				return fp;
 			}
 
-#if UNITY_EDITOR
-#if TNET_EXCEPTIONS
-			throw new Exception("Unable to find " + type + "." + name);
-#else
-			Debug.LogWarning("Unable to find " + type + "." + name);
+			if (warnIfMissing) Debug.LogWarning("Unable to find " + type + "." + name);
 			return null;
-#endif
-#else
-		return null;
-#endif
 		}
 
 		/// <summary>
@@ -287,7 +279,7 @@ namespace TNet
 		/// Get the specified field or property. The result is cached in a lookup table.
 		/// </summary>
 
-		static public FieldOrProperty GetFieldOrProperty (this object obj, string name)
+		static public FieldOrProperty GetFieldOrProperty (this object obj, string name, bool warnIfMissing = true)
 		{
 			var type = obj.GetType();
 			Dictionary<string, FieldOrProperty> dict;
@@ -302,7 +294,7 @@ namespace TNet
 
 			if (!dict.TryGetValue(name, out fp))
 			{
-				fp = FieldOrProperty.Create(type, name);
+				fp = FieldOrProperty.Create(type, name, warnIfMissing);
 				dict[name] = fp;
 			}
 			return fp;
@@ -312,7 +304,7 @@ namespace TNet
 		/// Get the specified field or property. The result is cached in a lookup table.
 		/// </summary>
 
-		static public FieldOrProperty GetFieldOrProperty (this Type type, string name)
+		static public FieldOrProperty GetFieldOrProperty (this Type type, string name, bool warnIfMissing = true)
 		{
 			Dictionary<string, FieldOrProperty> dict;
 
@@ -326,7 +318,7 @@ namespace TNet
 
 			if (!dict.TryGetValue(name, out fp))
 			{
-				fp = FieldOrProperty.Create(type, name);
+				fp = FieldOrProperty.Create(type, name, warnIfMissing);
 				dict[name] = fp;
 			}
 			return fp;
@@ -336,9 +328,9 @@ namespace TNet
 		/// Get the value of a field or property of an object.
 		/// </summary>
 
-		static public object GetFieldOrPropertyValue (this object obj, string name)
+		static public object GetFieldOrPropertyValue (this object obj, string name, bool warnIfMissing = true)
 		{
-			var fp = obj.GetFieldOrProperty(name);
+			var fp = obj.GetFieldOrProperty(name, warnIfMissing);
 			return (fp != null) ? fp.GetValue(obj) : null;
 		}
 
@@ -346,9 +338,9 @@ namespace TNet
 		/// Get the value of a field or property of an object.
 		/// </summary>
 
-		static public object GetFieldOrPropertyValue (this object obj, string name, object defaultVal)
+		static public object GetFieldOrPropertyValue (this object obj, string name, object defaultVal, bool warnIfMissing = true)
 		{
-			var fp = obj.GetFieldOrProperty(name);
+			var fp = obj.GetFieldOrProperty(name, warnIfMissing);
 			return (fp != null) ? fp.GetValue(obj) : defaultVal;
 		}
 
@@ -356,18 +348,18 @@ namespace TNet
 		/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
 		/// </summary>
 
-		static public T GetFieldOrPropertyValue<T> (this object obj, string name)
+		static public T GetFieldOrPropertyValue<T> (this object obj, string name, bool warnIfMissing = true)
 		{
-			return Serialization.Convert<T>(obj.GetFieldOrPropertyValue(name));
+			return Serialization.Convert<T>(obj.GetFieldOrPropertyValue(name, warnIfMissing));
 		}
 
 		/// <summary>
 		/// Get the specified field or property of an object, cast into the chosen type using TNet's serialization.
 		/// </summary>
 
-		static public T GetFieldOrPropertyValue<T> (this object obj, string name, T defaultVal)
+		static public T GetFieldOrPropertyValue<T> (this object obj, string name, T defaultVal, bool warnIfMissing = true)
 		{
-			var fp = obj.GetFieldOrProperty(name);
+			var fp = obj.GetFieldOrProperty(name, warnIfMissing);
 
 			if (fp != null)
 			{
