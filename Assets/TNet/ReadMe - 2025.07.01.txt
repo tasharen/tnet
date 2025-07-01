@@ -1,6 +1,6 @@
 ------------------------------------------------------------
    TNet 3: Tasharen's Networking and Serialization Tools
-     Copyright © 2012-2023 Tasharen Entertainment Inc.
+     Copyright © 2012-2025 Tasharen Entertainment Inc.
                   Version 2023.10.04
        http://www.tasharen.com/?page_id=4518
 ------------------------------------------------------------
@@ -115,6 +115,9 @@ http://www.tasharen.com/?page_id=4518
 --------------------------------------------------------------------------------------------------------------------
  Version History
 --------------------------------------------------------------------------------------------------------------------
+
+2025.07.01
+- Many small changes from the past 2 years of game development of working on Windward Horizon. Everything is still backwards compatible.
 
 2023.10.04
 - NEW: Added a new packet type (Echo), along with TNManager.SendCallback() functions to use it. Can be used to send a packet to the server, and when it returns, execute the specified callback. Can even be sent to a remote server via UDP (without connecting to it), facilitating ping-style checks. This new packet type is also handled by the lobby servers.
