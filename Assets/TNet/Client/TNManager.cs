@@ -460,6 +460,12 @@ namespace TNet
 		static public int listeningPort { get { return mInstance != null ? mInstance.mClient.listeningPort : 0; } }
 
 		/// <summary>
+		/// Time on the server in seconds.
+		/// </summary>
+
+		static public double serverTime { get { return serverTimeMS * 0.001; } }
+
+		/// <summary>
 		/// Current time on the server in milliseconds.
 		/// </summary>
 

@@ -49,7 +49,7 @@ public class ExampleStressObj : TNBehaviour
 
 		if (ExampleStressTest.mute) return;
 
-		//if (!mCanSend) return;
+		if (!mCanSend) return;
 
 		mCanSend = false;
 		++mUpdateCount;
@@ -60,13 +60,13 @@ public class ExampleStressObj : TNBehaviour
 		if (Random.value < 0.9f) tno.Send("OneArgFunc", Target.OthersSaved, TNManager.playerID);
 		else if (tno.isMine) tno.RemoveSavedRFC("OneArgFunc");
 		
-		if (Random.value < 0.9f) tno.Send("TwoArgFunc", Target.OthersSaved, TNManager.playerID, TNManager.serverTime);
+		if (Random.value < 0.9f) tno.Send("TwoArgFunc", Target.OthersSaved, TNManager.playerID, TNManager.serverTimeMS);
 		else if (tno.isMine) tno.RemoveSavedRFC("TwoArgFunc");
 		
 		if (Random.value < 0.9f) tno.Send("ThreeArgFunc", Target.OthersSaved, TNManager.playerID, "Third", true);
 		else if (tno.isMine) tno.RemoveSavedRFC("ThreeArgFunc");
 
-		tno.Send("UnlockSending", Target.All, TNManager.playerID, TNManager.serverTime);
+		tno.Send("UnlockSending", Target.All, TNManager.playerID, TNManager.serverTimeMS);
 	}
 
 	[RFC] void NoArgFunc () { }
