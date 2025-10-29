@@ -7,4 +7,5 @@ Nowadays, I use TNet in all of my own projects for both multiplayer and serializ
 As of this writing (October 2025), TNet is now free and open source.
 
 -Michael "Aren" Lyashenko
+
 discord.gg/tasharen
