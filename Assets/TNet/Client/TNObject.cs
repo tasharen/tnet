@@ -286,7 +286,7 @@ namespace TNet
 
 		public void Set (string name, object val, bool sync = true)
 		{
-			if (mData == null) mData = new DataNode("TNO");
+			if (mData == null) mData = new DataNode();
 
 			// Set the local data immediately so that the change is available right away
 			mData.SetHierarchy(name, val);

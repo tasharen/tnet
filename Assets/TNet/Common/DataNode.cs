@@ -670,7 +670,7 @@ namespace TNet
 			return retVal;
 		}
 
-		public delegate bool WriteCallback (string path, byte[] type);
+		public delegate bool WriteCallback (string path, byte[] type, bool forceWrite = false, bool forceBackup = false);
 
 		/// <summary>
 		/// Write the node hierarchy to the specified filename.

@@ -252,6 +252,30 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Clone this game object.
+		/// </summary>
+
+		static public GameObject Instantiate (this GameObject prefab, Vector3 pos)
+		{
+			var obj = Object.Instantiate(prefab, pos, Quaternion.identity) as GameObject;
+			obj.name = prefab.name;
+			obj.SetActive(true);
+			return obj;
+		}
+
+		/// <summary>
+		/// Clone this game object.
+		/// </summary>
+
+		static public GameObject Instantiate (this GameObject prefab, Vector3 pos, Quaternion rot)
+		{
+			var obj = Object.Instantiate(prefab, pos, rot) as GameObject;
+			obj.name = prefab.name;
+			obj.SetActive(true);
+			return obj;
+		}
+
+		/// <summary>
 		/// Destroy the game object.
 		/// </summary>
 
@@ -872,16 +896,23 @@ namespace TNet
 
 		static public Texture2D ReadPNG (string path, Texture2D existing = null)
 		{
-			Texture2D tex = null;
-			byte[] bytes = Tools.ReadFile(path);
+			var wrap = path.Contains("Repeat") ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+			return ReadPNG(Tools.ReadFile(path), wrap, existing);
+		}
 
+		/// <summary>
+		/// Read a PNG file from the specified location. Expects a full path with extension.
+		/// </summary>
+
+		static public Texture2D ReadPNG (byte[] bytes, TextureWrapMode wrap = TextureWrapMode.Clamp, Texture2D existing = null)
+		{
 			if (bytes != null)
 			{
-				tex = existing ?? new Texture2D(2, 2);
+				var tex = existing ?? new Texture2D(2, 2);
 
 				if (tex.LoadImage(bytes))
 				{
-					tex.wrapMode = path.Contains("Repeat") ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+					tex.wrapMode = wrap;
 					tex.filterMode = FilterMode.Trilinear;
 					tex.anisoLevel = 4;
 					tex.Apply();

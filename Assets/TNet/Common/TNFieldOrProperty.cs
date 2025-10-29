@@ -209,7 +209,9 @@ namespace TNet
 				return fp;
 			}
 
+#if !STANDALONE
 			if (warnIfMissing) Debug.LogWarning("Unable to find " + type + "." + name);
+#endif
 			return null;
 		}
 

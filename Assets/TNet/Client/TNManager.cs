@@ -12,7 +12,6 @@ using System.IO;
 using UnityEngine;
 using System.Net;
 using System.Reflection;
-using UnityTools = TNet.UnityTools;
 using System;
 
 namespace TNet
@@ -25,8 +24,8 @@ namespace TNet
 	{
 		// Will be 'true' at play time unless the application is shutting down. 'false' at edit time.
 		static bool isPlaying { get { return !mDestroyed && !mShuttingDown && Application.isPlaying; } }
-		[System.NonSerialized] static bool mDestroyed = false;
-		[System.NonSerialized] static bool mShuttingDown = false;
+		[NonSerialized] static bool mDestroyed = false;
+		[NonSerialized] static bool mShuttingDown = false;
 
 		#region Delegates
 		/// <summary>
@@ -93,13 +92,13 @@ namespace TNet
 		/// Notification of some player changing their name.
 		/// </summary>
 
-		static public TNEvents.OnRenamePlayer onRenamePlayer { get { return instance ? instance.mClient.onRenamePlayer : null; } set { if (instance) instance.mClient.onRenamePlayer = value; } }
+		static public TNEvents.OnRenamePlayer onRenamePlayer { get { return mInstance ? mInstance.mClient.onRenamePlayer : null; } set { if (mInstance) mInstance.mClient.onRenamePlayer = value; } }
 
 		/// <summary>
 		/// Notification sent when the channel's host changes.
 		/// </summary>
 
-		static public TNEvents.OnHostChanged onHostChanged { get { return instance ? instance.mClient.onHostChanged : null; } set { if (instance) instance.mClient.onHostChanged = value; } }
+		static public TNEvents.OnHostChanged onHostChanged { get { return mInstance ? mInstance.mClient.onHostChanged : null; } set { if (mInstance) mInstance.mClient.onHostChanged = value; } }
 
 		/// <summary>
 		/// Notification sent when the server's data gets changed.
@@ -123,45 +122,45 @@ namespace TNet
 		/// Callback triggered when the player gets verified as an administrator.
 		/// </summary>
 
-		static public TNEvents.OnSetAdmin onSetAdmin { get { return instance ? instance.mClient.onSetAdmin : null; } set { if (instance) instance.mClient.onSetAdmin = value; } }
+		static public TNEvents.OnSetAdmin onSetAdmin { get { return mInstance ? mInstance.mClient.onSetAdmin : null; } set { if (mInstance) mInstance.mClient.onSetAdmin = value; } }
 
 		/// <summary>
 		/// Callback triggered when a chat message arrives.
 		/// </summary>
 
-		static public TNEvents.OnChatPacket onChat { get { return instance ? instance.mClient.onChat : null; } set { if (instance) instance.mClient.onChat = value; } }
+		static public TNEvents.OnChatPacket onChat { get { return mInstance ? mInstance.mClient.onChat : null; } set { if (mInstance) mInstance.mClient.onChat = value; } }
 		#endregion
 
 		/// <summary>
 		/// Whether the application is currently paused.
 		/// </summary>
 
-		static public bool isPaused = false;
+		[NonSerialized] static public bool isPaused = false;
 
 		/// <summary>
 		/// If set to 'true', the list of custom creation functions will be rebuilt the next time it's accessed.
 		/// </summary>
 
-		static public bool rebuildMethodList = true;
+		[NonSerialized] static public bool rebuildMethodList = true;
 
 		// Cached list of creation functions
-		static System.Collections.Generic.Dictionary<int, CachedFunc> mDict0 = new System.Collections.Generic.Dictionary<int, CachedFunc>();
-		static System.Collections.Generic.Dictionary<string, CachedFunc> mDict1 = new System.Collections.Generic.Dictionary<string, CachedFunc>();
+		[NonSerialized] static System.Collections.Generic.Dictionary<int, CachedFunc> mDict0 = new System.Collections.Generic.Dictionary<int, CachedFunc>();
+		[NonSerialized] static System.Collections.Generic.Dictionary<string, CachedFunc> mDict1 = new System.Collections.Generic.Dictionary<string, CachedFunc>();
 
 		// Static player, here just for convenience so that GetPlayer() works the same even if instance is missing.
 #if UNITY_EDITOR
-		[System.NonSerialized] static Player mPlayer = new Player("Editor", 1);
+		[NonSerialized] static Player mPlayer = new Player("Editor", 1);
 #else
-		[System.NonSerialized] static Player mPlayer = new Player("Guest", 1);
+		[NonSerialized] static Player mPlayer = new Player("Guest", 1);
 #endif
 		// Player list that will contain only the player in it. Here for the same reason as 'mPlayer'.
-		static List<Player> mPlayers;
+		[NonSerialized] static List<Player> mPlayers;
 
 		// Instance pointer
-		static TNManager mInstance;
+		[NonSerialized] static TNManager mInstance;
 
 		// Used to stop processing incoming packets after a delayed disconnect operation
-		[System.NonSerialized] bool mDelayedDisconnect = false;
+		[NonSerialized] bool mDelayedDisconnect = false;
 
 		/// <summary>
 		/// Delayed disconnect had been initiated.
@@ -182,8 +181,8 @@ namespace TNet
 		public GameObject[] objects;
 
 		// Network client
-		[System.NonSerialized] GameClient mClient = new GameClient();
-		[System.NonSerialized] List<int> mLoadingLevel = new List<int>();
+		[NonSerialized] GameClient mClient = new GameClient();
+		[NonSerialized] List<int> mLoadingLevel = new List<int>();
 
 		/// <summary>
 		/// Custom protocol, if used.

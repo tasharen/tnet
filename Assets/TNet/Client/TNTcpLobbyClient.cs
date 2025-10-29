@@ -95,15 +95,19 @@ namespace TNet
 						}
 						else if (response == Packet.Disconnect)
 						{
-							knownServers.Clear();
+							lock (knownServers.list) knownServers.Clear();
 							isActive = false;
 							changed = true;
 							errorString = "";
 						}
 						else if (response == Packet.ResponseServerList)
 						{
-							lock (knownServers.list) knownServers.list.Clear();
-							knownServers.ReadFrom(reader, System.DateTime.UtcNow.Ticks / 10000);
+							lock (knownServers.list)
+							{
+								knownServers.list.Clear();
+								knownServers.ReadFrom(reader, System.DateTime.UtcNow.Ticks / 10000);
+							}
+
 							changed = true;
 							errorString = "";
 						}

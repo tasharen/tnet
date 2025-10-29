@@ -2161,6 +2161,66 @@ namespace TNet
 			if (child != null && setActive != child.activeSelf) child.SetActive(setActive);
 			return child;
 		}
+
+		/// <summary>
+		/// Instantiate a new game object given its previously serialized DataNode.
+		/// </summary>
+
+		static public GameObject Instantiate (this DataNode data, Vector3 pos, Quaternion rot, bool setActive = true)
+		{
+			GameObject child = null;
+			var assetBytes = data.GetChild<byte[]>("assetBundle");
+
+			if (assetBytes != null)
+			{
+				var ab = UnityTools.LoadAssetBundle(assetBytes);
+
+				if (ab != null)
+				{
+#if UNITY_5
+					var go = ab.mainAsset as GameObject;
+#else
+					var all = ab.LoadAllAssets<GameObject>();
+					var go = (all != null && all.Length > 0) ? all[0] : null;
+#endif
+					if (go != null)
+					{
+						child = GameObject.Instantiate(go, pos, rot) as GameObject;
+						child.name = data.name;
+					}
+				}
+			}
+			else
+			{
+				var path = data.GetChild<string>("prefab");
+
+				if (!string.IsNullOrEmpty(path))
+				{
+					var prefab = UnityTools.LoadPrefab(path);
+
+					if (prefab != null)
+					{
+						child = GameObject.Instantiate(prefab, pos, rot) as GameObject;
+						child.name = data.name;
+					}
+					else
+					{
+						child = new GameObject(data.name);
+						var t = child.transform;
+						t.position = pos;
+						t.rotation = rot;
+					}
+				}
+				else child = new GameObject(data.name);
+
+				// In order to mimic Unity's prefabs, serialization should be performed on a disabled game object's hierarchy
+				if (child.activeSelf) child.SetActive(false);
+				child.Deserialize(data, true);
+			}
+
+			if (child != null && setActive != child.activeSelf) child.SetActive(setActive);
+			return child;
+		}
 	}
 }
 #endif

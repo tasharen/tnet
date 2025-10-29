@@ -1100,6 +1100,17 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Rename a file.
+		/// </summary>
+
+		static public bool RenameFile (string before, string after)
+		{
+			var bytes = ReadFile(before);
+			if (bytes == null) return false;
+			return WriteFile(after, bytes) && DeleteFile(before);
+		}
+
+		/// <summary>
 		/// Find a directory, given the specified path.
 		/// </summary>
 

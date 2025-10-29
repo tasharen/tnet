@@ -105,6 +105,20 @@ namespace TNet
 
 		public Action onReceivePackets;
 
+		/// <summary>
+		/// Function used to read the world data. Overwrite if these are stored elsewhere, such as the Steam Cloud.
+		/// </summary>
+
+		static public ReadFunc readFunc;// = delegate (string path) { return Tools.ReadFile(path); };
+		public delegate byte[] ReadFunc (string path);
+
+		/// <summary>
+		/// Function used to write the world data. Overwrite if these are stored elsewhere, such as the Steam Cloud.
+		/// </summary>
+
+		static public WriteFunc writeFunc;// = delegate (string path, byte[] bytes) { return Tools.WriteFile(path, bytes, !string.IsNullOrEmpty(Tools.applicationDirectory)); };
+		public delegate void WriteFunc (string path, byte[] bytes);
+
 		// List of players in a consecutive order for each looping.
 		protected List<TcpPlayer> mPlayerList = new List<TcpPlayer>();
 
@@ -142,6 +156,12 @@ namespace TNet
 		protected bool mIsActive = false;
 		protected bool mServerDataChanged = false;
 		protected long mStartTime = 0;
+
+		/// <summary>
+		/// Server's save filename.
+		/// </summary>
+
+		public string saveFile { get { return mFilename; } }
 
 		/// <summary>
 		/// Put the server to sleep or wake it up. Putting the server to sleep reduces its memory footprint of channels that have no players in them.
@@ -1545,7 +1565,7 @@ namespace TNet
 			{
 				var p = (TcpPlayer)channel.players.buffer[i];
 				var b = CreatePacket(Packet.ResponsePlayerJoined);
-				
+
 				writer = b.writer;
 				writer.Write(channel.id);
 				writer.Write(player.id);
@@ -3320,7 +3340,7 @@ namespace TNet
 		protected bool mWriting = false;
 #endif
 
-		[System.NonSerialized] long mLastSave = 0;
+		[NonSerialized] long mLastSave = 0;
 
 		/// <summary>
 		/// Auto-backup interval, in seconds. 3600 would be hourly, for example.
@@ -3396,27 +3416,45 @@ namespace TNet
 				if (mLastSave == 0 || time - mLastSave > backupInterval)
 				{
 					mLastSave = time;
-					var prev = Tools.ReadFile(mFilename);
+					var prev = (readFunc != null) ? readFunc(mFilename) : Tools.ReadFile(mFilename);
 
 					if (prev != null)
 					{
 						var fn = mFilename + "_" + time;
 						mFilenames.Enqueue(fn);
-						Tools.WriteFile(fn, prev, inMyDocuments);
+						if (writeFunc != null) writeFunc(fn, prev);
+						else Tools.WriteFile(fn, prev, inMyDocuments);
 					}
 
 					if (mFilenames.Count > 5) Tools.DeleteFile(mFilenames.Dequeue());
 				}
 			}
 
-			Tools.WriteFile(mFilename, mWriteStream, inMyDocuments);
-
-			// Save the server configuration data
-			if (mServerDataChanged && mServerData != null)
+			if (writeFunc != null)
 			{
-				mServerDataChanged = false;
-				try { mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true); }
-				catch (Exception) { }
+				if (mWriteStream != null) mWriteStream.Flush();
+				var bytes = mWriteStream.ToArray();
+				writeFunc(mFilename, bytes);
+
+				// Save the server configuration data
+				if (mServerDataChanged && mServerData != null)
+				{
+					mServerDataChanged = false;
+					bytes = mServerData.ToArray(DataNode.SaveType.Text);
+					writeFunc(mFilename + ".config", bytes);
+				}
+			}
+			else
+			{
+				Tools.WriteFile(mFilename, mWriteStream, inMyDocuments);
+
+				// Save the server configuration data
+				if (mServerDataChanged && mServerData != null)
+				{
+					mServerDataChanged = false;
+					try { mServerData.Write(mFilename + ".config", DataNode.SaveType.Text, true); }
+					catch (Exception) { }
+				}
 			}
 
 			// Save the player data
@@ -3445,7 +3483,7 @@ namespace TNet
 
 			if (player.dataNode == null || player.dataNode.children == null || player.dataNode.children.size == 0)
 			{
-				if (DeleteFile(player.savePath)) player.Log("Deleted " + player.savePath);
+				Tools.DeleteFile(player.savePath);
 			}
 			else
 			{
@@ -3459,9 +3497,9 @@ namespace TNet
 				played.value = played.Get<long>() + elapsed;
 				save.value = mTime;
 
-				// Save to file
-				var bytes = player.dataNode.ToArray(player.saveType);
-				if (!SaveFile(player.savePath, bytes)) player.LogError("Unable to save " + player.savePath);
+				// Save the player file
+				var inMyDocuments = !string.IsNullOrEmpty(Tools.applicationDirectory);
+				player.dataNode.Write(player.savePath, player.saveType, inMyDocuments);
 			}
 #endif
 		}
@@ -3475,8 +3513,17 @@ namespace TNet
 #if !MODDING
 			if (!string.IsNullOrEmpty(mFilename))
 			{
-				try { mServerData = DataNode.Read(mFilename + ".config", true); }
-				catch (Exception) { mServerData = null; }
+				if (readFunc != null)
+				{
+					try { mServerData = DataNode.Read(readFunc(mFilename + ".config")); }
+					catch (Exception) { mServerData = null; }
+				}
+				else
+				{
+					try { mServerData = DataNode.Read(mFilename + ".config", true); }
+					catch (Exception) { mServerData = null; }
+				}
+
 				mServerDataChanged = false;
 			}
 #endif
@@ -3524,7 +3571,7 @@ namespace TNet
 #else
 			LoadConfig();
 
-			var bytes = Tools.ReadFile(fileName);
+			var bytes = (readFunc != null) ? readFunc(fileName) : Tools.ReadFile(fileName);
 			if (bytes == null) return false;
 
 			var stream = new MemoryStream(bytes);
