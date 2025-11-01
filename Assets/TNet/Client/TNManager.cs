@@ -391,8 +391,7 @@ namespace TNet
 		{
 			get
 			{
-				return !isJoiningChannel && (mInstance == null || mInstance.mClient == null ||
-					(mInstance.mClient.isConnected && mInstance.mClient.isInChannel));
+				return !isJoiningChannel && mInstance != null && mInstance.mClient != null && (mInstance.mClient.isConnected && mInstance.mClient.isInChannel);
 			}
 		}
 
