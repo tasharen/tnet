@@ -87,8 +87,8 @@ namespace TNet
 #endif
 
 		// Incoming and outgoing queues
-		Queue<Buffer> mIn = new Queue<Buffer>();
-		Buffer mWaitingToBeSent = Buffer.Create();
+		volatile Queue<Buffer> mIn = new Queue<Buffer>();
+		volatile Buffer mWaitingToBeSent = null;
 
 #if !MODDING
 		volatile bool mSending = false;
@@ -132,7 +132,7 @@ namespace TNet
 		Buffer mReceiveBuffer;
 		int mAvailable = 0;
 		int mExpected = 0;
-		int mOffset = 0;
+		volatile int mOffset = 0;
 		bool mNoDelay = false;
 		IPEndPoint mFallback;
 		Socket mSocket;
@@ -179,7 +179,7 @@ namespace TNet
 		/// Current size of the outgoing buffer in bytes.
 		/// </summary>
 
-		public int outgoingBufferSize { get { lock (mSendLock) return mWaitingToBeSent.size; } }
+		public int outgoingBufferSize { get { lock (mSendLock) return mWaitingToBeSent != null ? mWaitingToBeSent.size : 0; } }
 
 		/// <summary>
 		/// If sockets are not used, an outgoing queue can be specified instead.
@@ -467,13 +467,26 @@ namespace TNet
 #endif
 			if (lockSend)
 			{
-				lock (mSendLock) mWaitingToBeSent.Clear();
-				stage = Stage.NotConnected;
-				mSending = false;
+				lock (mSendLock)
+				{
+					if (mWaitingToBeSent != null)
+					{
+						mWaitingToBeSent.Clear();
+						mWaitingToBeSent = null;
+					}
+
+					stage = Stage.NotConnected;
+					mSending = false;
+				}
 			}
 			else
 			{
-				mWaitingToBeSent.Clear();
+				if (mWaitingToBeSent != null)
+				{
+					mWaitingToBeSent.Clear();
+					mWaitingToBeSent = null;
+				}
+
 				stage = Stage.NotConnected;
 				mSending = false;
 			}
@@ -678,13 +691,13 @@ namespace TNet
 				return;
 			}
 
-			var pos = buffer.position;
-			var size = reader.ReadInt32();
-			buffer.position = pos;
+			var offset = buffer.position;
+			var bufferSize = buffer.size;
+			var expected = buffer.PeekInt(offset);
 
-			if (size > buffer.size - 4)
+			if (expected > bufferSize - 4)
 			{
-				LogError("SendTcpPacket called on a buffer with invalid data. Size: " + size + " found, but " + (buffer.size - 4) + " is available");
+				LogError("SendTcpPacket called on a buffer with invalid data. Size: " + expected + " found, but " + (bufferSize - 4) + " is available");
 				buffer.Recycle();
 				Disconnect(true);
 				return;
@@ -693,7 +706,7 @@ namespace TNet
 #if DEBUG_PACKETS && !STANDALONE
 			var packet = (Packet)buffer.PeekByte(4);
 			if (packet != Packet.RequestPing && packet != Packet.ResponsePing)
-				FastLog.Log("Sending: " + packet + " to " + name + " (" + (buffer.size - 5).ToString("N0") + " bytes)");
+				FastLog.Log("Sending: " + packet + " to " + name + " (" + (size - 5).ToString("N0") + " bytes)");
 #endif
 			if (custom != null)
 			{
@@ -716,7 +729,7 @@ namespace TNet
 						{
 							var before = mSocket.NoDelay;
 							if (!before) mSocket.NoDelay = true;
-							mSocket.Send(buffer.buffer, buffer.position, buffer.size, SocketFlags.None);
+							mSocket.Send(buffer.buffer, offset, bufferSize, SocketFlags.None);
 							if (!before) mSocket.NoDelay = false;
 							buffer.Recycle();
 							return;
@@ -729,64 +742,21 @@ namespace TNet
 						}
 					}
 
-					if (mSending)
+					// If this buffer doesn't begin at 0, then it's safer to create a new temporary buffer and copy the contents over
+					if (offset != 0 && mWaitingToBeSent == null) mWaitingToBeSent = Buffer.Create();
+
+					// If there is already a buffer waiting, append this buffer to the end of the existing wait buffer
+					if (mWaitingToBeSent != null)
 					{
-						// We are in the process of sending data already, so append this to the wait buffer
 						var w = mWaitingToBeSent.BeginWriting(true);
-						w.Write(buffer.buffer, buffer.position, buffer.size);
+						w.Write(buffer.buffer, offset, bufferSize);
 						buffer.Recycle();
 					}
-					else if (mWaitingToBeSent.size != 0)
-					{
-						// Append this packet to the wait buffer
-						var w = mWaitingToBeSent.BeginWriting(true);
-						w.Write(buffer.buffer, buffer.position, buffer.size);
-						buffer.Recycle();
+					// If this point is reached, simply use the current buffer as the waiting to be sent buffer
+					else mWaitingToBeSent = buffer;
 
-						// Reset the wait buffer's position to the beginning
-						mWaitingToBeSent.BeginReading();
-
-						if (mWaitingToBeSent.size > 10000000)
-						{
-							AddError(name + " has accumulated too much data in the send buffer: " + mWaitingToBeSent.size.ToString("N0") + " bytes. Disconnecting.");
-							Close(false, false);
-							return;
-						}
-
-						// If it's the first packet, let's begin the send process
-						mSending = true;
-
-						try
-						{
-							// Start the send operation
-							mSocket.BeginSend(mWaitingToBeSent.buffer, mWaitingToBeSent.position, mWaitingToBeSent.size, SocketFlags.None, OnSend, mWaitingToBeSent);
-
-							// We now need a new wait buffer
-							mWaitingToBeSent = Buffer.Create();
-						}
-						catch (Exception ex)
-						{
-							AddError(ex.InnerException != null ? ex.InnerException : ex);
-							Close(false, false);
-							return;
-						}
-					}
-					else if (mSocket != null)
-					{
-						// If it's the first packet, let's begin the send process
-						mSending = true;
-
-						try
-						{
-							mSocket.BeginSend(buffer.buffer, buffer.position, buffer.size, SocketFlags.None, OnSend, buffer);
-						}
-						catch (Exception ex)
-						{
-							AddError(ex);
-							Close(false, false);
-							return;
-						}
-					}
+					// Send out the waiting packet
+					if (!mSending) SendWaitingBuffer();
 				}
 				return;
 			}
@@ -805,7 +775,7 @@ namespace TNet
 				// Skip the packet's size
 				reader.ReadInt32();
 
-				if (size == buffer.size)
+				if (expected == buffer.size)
 				{
 					lock (sendQueue) sendQueue.Enqueue(buffer);
 					return;
@@ -816,15 +786,16 @@ namespace TNet
 				{
 					for (;;)
 					{
-						var bytes = reader.ReadBytes(size);
 						var temp = Buffer.Create();
 						var writer = temp.BeginWriting();
-						writer.Write(size);
-						writer.Write(bytes);
+						writer.Write(expected);
+						writer.Write(buffer.buffer, buffer.position, expected);
 						temp.BeginReading(4);
 						sendQueue.Enqueue(temp);
+						buffer.position += expected;
 
-						if (buffer.size > 0) size = reader.ReadInt32();
+						// Read and skip past the next packet size
+						if (buffer.size > 0) expected = reader.ReadInt32();
 						else break;
 					}
 				}
@@ -834,6 +805,42 @@ namespace TNet
 		}
 
 #if !MODDING
+		/// <summary>
+		/// Send out the waiting buffer. This function should only be called from within a lock (mSendLock).
+		/// </summary>
+
+		void SendWaitingBuffer ()
+		{
+			if (mWaitingToBeSent != null)
+			{
+				mWaitingToBeSent.BeginReading();
+
+				if (mWaitingToBeSent.size != 0)
+				{
+					mSending = true;
+					var b = mWaitingToBeSent;
+					mWaitingToBeSent = null;
+
+					try
+					{
+						mSocket.BeginSend(b.buffer, b.position, b.size, SocketFlags.None, OnSend, b);
+					}
+					catch (Exception ex)
+					{
+						AddError(ex.InnerException != null ? ex.InnerException : ex);
+						Close(false, false);
+					}
+				}
+				else
+				{
+					mWaitingToBeSent.Recycle();
+					mWaitingToBeSent = null;
+					mSending = false;
+				}
+			}
+			else mSending = false;
+		}
+
 		/// <summary>
 		/// Send completion callback. Recycles the buffer.
 		/// </summary>
@@ -874,23 +881,8 @@ namespace TNet
 					// Still connected?
 					if (mSocket != null && mSocket.Connected)
 					{
-						if (mWaitingToBeSent.size > 0)
-						{
-							mWaitingToBeSent.BeginReading();
-
-							try
-							{
-								mSocket.BeginSend(mWaitingToBeSent.buffer, mWaitingToBeSent.position, mWaitingToBeSent.size, SocketFlags.None, OnSend, mWaitingToBeSent);
-								mWaitingToBeSent = Buffer.Create();
-							}
-							catch (Exception ex)
-							{
-								AddError(ex.InnerException != null ? ex.InnerException : ex);
-								Close(false, false);
-								return;
-							}
-						}
-						else mSending = false;
+						// If we have data to be sent, let's do that now
+						SendWaitingBuffer();
 					}
 					else
 					{
@@ -1041,9 +1033,7 @@ namespace TNet
 
 			try
 			{
-#if !UNITY_WINRT
 				bytes = socket.EndReceive(result);
-#endif
 				if (socket != mSocket) return;
 			}
 			catch (Exception ex)
@@ -1060,10 +1050,8 @@ namespace TNet
 
 				try
 				{
-#if !UNITY_WINRT
 					// Queue up the next read operation
 					mSocket.BeginReceive(mTemp, 0, defaultBufferSize, SocketFlags.None, OnReceive, mSocket);
-#endif
 				}
 				catch (Exception ex)
 				{
@@ -1122,6 +1110,7 @@ namespace TNet
 				if (mReceiveBuffer == null)
 				{
 					// Create a new packet buffer
+					//Log("Received " + byteCount + " bytes");
 					mReceiveBuffer = Buffer.Create();
 					mReceiveBuffer.BeginWriting(false).Write(bytes, offset, byteCount);
 					mExpected = 0;
@@ -1130,6 +1119,7 @@ namespace TNet
 				else
 				{
 					// Append this data to the end of the last used buffer
+					//Log("Received " + byteCount + " bytes, appending to existing " + (mReceiveBuffer.size - mOffset));
 					mReceiveBuffer.BeginWriting(true).Write(bytes, offset, byteCount);
 				}
 
@@ -1199,8 +1189,16 @@ namespace TNet
 					// If the entire packet is present
 					if (mAvailable == mExpected)
 					{
-						// Reset the position to the beginning of the packet
+						// Reset the position to the beginning of the packet, skipping past its size
 						mReceiveBuffer.BeginReading(mOffset + 4);
+
+						//var type = (Packet)mReceiveBuffer.PeekByte(mOffset + 4);
+
+						//if (type == Packet.ResponseCreateObject)
+						//{
+						//	var id = mReceiveBuffer.PeekUInt(mOffset + 5 + 8);
+						//	Log("Whole create packet with ID: " + id);
+						//}
 
 						// This packet is now ready to be processed
 						incomingQueueSize += mReceiveBuffer.size;
@@ -1222,6 +1220,15 @@ namespace TNet
 						var bw = temp.BeginWriting();
 						bw.Write(mReceiveBuffer.buffer, mOffset, realSize);
 						temp.BeginReading(4);
+
+						//var type = (Packet)mReceiveBuffer.PeekByte(mOffset + 4);
+
+						//if (type == Packet.ResponseCreateObject || type == Packet.RequestCreateObject)
+						//{
+						//	var id = mReceiveBuffer.PeekUInt(mOffset + realSize - 4);
+						//	var next = (mAvailable - mExpected > 4) ? mReceiveBuffer.PeekInt(mOffset + realSize) : -1;
+						//	Log("Create ID: " + id + ", " + (mAvailable - mExpected) + " bytes remaining, next packet is " + next + " bytes. Buffer #" + temp.id);
+						//}
 
 						// This packet is now ready to be processed
 						incomingQueueSize += temp.size;

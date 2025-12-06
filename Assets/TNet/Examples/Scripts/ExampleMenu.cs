@@ -46,7 +46,7 @@ public class ExampleMenu : TNEventReceiver
 	[HideInInspector] public GUIStyle textLeft;
 	[HideInInspector] public GUIStyle input;
 
-	string mAddress = "127.0.0.1";
+	string mAddress;
 	string mMessage = "";
 	float mAlpha = 0f;
 
@@ -148,6 +148,9 @@ public class ExampleMenu : TNEventReceiver
 		GUILayout.BeginArea(rect);
 		{
 			GUILayout.Label("Server Address", text);
+
+			if (string.IsNullOrEmpty(mAddress)) mAddress = PlayerPrefs.GetString("addr", "127.0.0.1");
+
 			mAddress = GUILayout.TextField(mAddress, input, GUILayout.Width(200f));
 
 			if (GUILayout.Button("Connect", button))
@@ -155,6 +158,7 @@ public class ExampleMenu : TNEventReceiver
 				// We want to connect to the specified destination when the button is clicked on.
 				// "OnConnect" function will be called sometime later with the result.
 				TNManager.Connect(mAddress);
+				PlayerPrefs.SetString("addr", mAddress);
 				mMessage = "Connecting...";
 			}
 

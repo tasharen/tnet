@@ -5,11 +5,9 @@
 
 //#define COUNT_PACKETS
 
-using System.IO;
 using System.Reflection;
 using UnityEngine;
 using System.Collections.Generic;
-using UnityTools = TNet.UnityTools;
 
 namespace TNet
 {
@@ -767,11 +765,18 @@ namespace TNet
 			return "\"" + path + "\"";
 		}
 
+		string GetCreatorName ()
+		{
+			if (creatorPlayerID == 0) return "<Server>";
+			var p = TNManager.GetPlayer(creatorPlayerID);
+			return (p != null) ? (p.name + " (#" + creatorPlayerID + ")") : ("#" + creatorPlayerID);
+		}
+
 		/// <summary>
 		/// Make sure that this object's ID is actually unique.
 		/// </summary>
 
-		void UniqueCheck ()
+		bool UniqueCheck ()
 		{
 			if (id == 0)
 			{
@@ -780,7 +785,7 @@ namespace TNet
 			}
 			else
 			{
-				TNObject tobj = Find(channelID, id);
+				var tobj = Find(channelID, id);
 
 				if (tobj != null && tobj != this)
 				{
@@ -788,20 +793,27 @@ namespace TNet
 					{
 						if (tobj != null)
 						{
-							Debug.LogError("Network ID " + channelID + "." + id + " is already in use by " +
-								GetHierarchy(tobj.gameObject) +
-								".\nPlease make sure that the network IDs are unique.", tobj.gameObject);
+							Debug.LogError("Network ID " + id + " for " + GetHierarchy(gameObject) + ", instantiated by " + GetCreatorName() + " is already in use by " + GetHierarchy(tobj.gameObject) +
+								", instantiated by " + tobj.GetCreatorName() + ".\nPlease make sure that the network IDs are unique.", gameObject);
+#if UNITY_EDITOR
+							Debug.Log("First object: " + GetHierarchy(tobj.gameObject) + ", instantiated by " + tobj.GetCreatorName(), tobj.gameObject);
+							Debug.Log("Second object: " + GetHierarchy(gameObject) + ", instantiated by " + GetCreatorName(), gameObject);
+							gameObject.SetActive(false);
+#else
 							Destroy(gameObject);
+#endif
+							return false;
 						}
 						else
 						{
-							Debug.LogError("Network ID of 0 is used by " + GetHierarchy(gameObject) +
+							Debug.LogWarning("Network ID of 0 is used by " + GetHierarchy(gameObject) +
 								"\nPlease make sure that a unique non-zero ID is given to all objects.", this);
 							id = GetUniqueID(false);
 						}
 					}
 				}
 			}
+			return true;
 		}
 
 		[ContextMenu("Export data as Text")]
@@ -847,9 +859,10 @@ namespace TNet
 			{
 				if (id != 0)
 				{
-#if UNITY_EDITOR
-					UniqueCheck();
-#endif
+					var valid = UniqueCheck();
+					if (!valid) return;
+
+					mIsRegistered = true;
 					Dictionary<uint, TNObject> dict;
 
 					if (!mDictionary.TryGetValue(channelID, out dict) || dict == null)
@@ -870,7 +883,6 @@ namespace TNet
 					}
 
 					list.Add(this);
-					mIsRegistered = true;
 				}
 			}
 

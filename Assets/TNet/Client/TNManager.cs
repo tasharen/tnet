@@ -2082,9 +2082,6 @@ namespace TNet
 
 		void SetDefaultCallbacks ()
 		{
-#if SQUIRREL
-			Debug.Log("TNManager.SetDefaultCallbacks()");
-#endif
 			mClient.onConnect = OnConnect;
 			mClient.onDisconnect = OnDisconnect;
 			mClient.onJoinChannel = OnJoinChannel;
@@ -2167,9 +2164,7 @@ namespace TNet
 		void OnJoinChannel (int channelID, bool success, string message)
 		{
 			lastChannelID = channelID;
-#if SQUIRREL
-			Debug.Log("TNManager.OnJoinChannel #" + channelID + " = " + success + " (" + message + ")");
-#endif
+
 			if (onJoinChannel != null) onJoinChannel(channelID, success, message);
 
 			if (mJoinCallbacks != null)
@@ -2178,9 +2173,6 @@ namespace TNet
 
 				if (mJoinCallbacks.TryGetValue(channelID, out onJoin))
 				{
-#if SQUIRREL
-					Debug.Log("Found a callback... executing...");
-#endif
 					onJoin(channelID, success, message);
 					mJoinCallbacks.Remove(channelID);
 				}
@@ -2218,9 +2210,7 @@ namespace TNet
 		{
 			lastChannelID = channelID;
 			TNObject.CleanupChannelObjects(channelID);
-#if SQUIRREL
-			Debug.Log("TNManager.OnLoadLevel #" + channelID + " = " + levelName);
-#endif
+
 			if (!string.IsNullOrEmpty(levelName))
 			{
 				mLoadingLevel.Add(channelID);
@@ -2246,28 +2236,29 @@ namespace TNet
 			var func = GetRCC(rccID, funcName);
 
 			// Load the object from the resources folder
-			var prefab = reader.ReadString();
-			var go = UnityTools.LoadPrefab(prefab);
+			var prefabName = reader.ReadString();
+			var prefab = UnityTools.LoadPrefab(prefabName);
 
-			if (go == null)
+			if (prefab == null)
 			{
-				go = UnityTools.GetDummyObject();
+				prefab = UnityTools.GetDummyObject();
 
 #if UNITY_EDITOR
-				if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\". Make sure it's in the Resources folder.");
+				if (!string.IsNullOrEmpty(prefabName)) Debug.LogError("[TNet] Unable to find prefab \"" + prefabName + "\". Make sure it's in the Resources folder.");
 #else
-				if (!string.IsNullOrEmpty(prefab)) Debug.LogError("[TNet] Unable to find prefab \"" + prefab + "\"");
+				if (!string.IsNullOrEmpty(prefabName)) Debug.LogError("[TNet] Unable to find prefab \"" + prefabName + "\"");
 #endif
 			}
 
 			currentRccObjectID = objectID;
+			GameObject go = null;
 
 			if (func != null)
 			{
 				// Custom creation function
 				try
 				{
-					var objs = reader.ReadArray(go);
+					var objs = reader.ReadArray(prefab);
 					go = func.Execute(objs) as GameObject;
 					UnityTools.Clear(objs);
 				}
@@ -2276,7 +2267,7 @@ namespace TNet
 					var c = GetPlayer(creator);
 					var srcName = (c != null) ? c.name : "unknown";
 					Debug.LogError("[TNet] OnCreateObject failed: " + ex.Message + "\n" + ex.StackTrace +
-						$"\n    {rccID} ({funcName}), prefab: {prefab}, src: {srcName}", go);
+						$"\n    {rccID} ({funcName}), prefab: {prefabName}, src: {srcName}", go);
 
 					if (GameClient.currentBuffer != null)
 					{
@@ -2287,7 +2278,13 @@ namespace TNet
 				}
 			}
 			// Fallback to a very basic function
-			else go = OnCreate1(go);
+			else go = OnCreate1(prefab);
+
+			if (go == prefab)
+			{
+				Debug.LogError("Why is the prefab being returned as the instantiated object from " + funcName + "?", go);
+				go = null;
+			}
 
 			if (go != null)
 			{
@@ -2308,7 +2305,7 @@ namespace TNet
 				else
 				{
 #if UNITY_EDITOR
-					Debug.LogWarning("Object ID is 0. Intentional?", go);
+					Debug.LogWarning("Object ID is 0. This isn't valid. Keeping the object disabled.", go);
 #endif
 					go.SetActive(true);
 				}

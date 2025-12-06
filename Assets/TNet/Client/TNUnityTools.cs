@@ -653,7 +653,8 @@ namespace TNet
 				mDummy = new GameObject("Dummy Network Object");
 				mDummy.SetActive(false);
 				Object.DontDestroyOnLoad(mDummy);
-				mDummy.AddComponent<TNObject>();
+				var tno = mDummy.AddComponent<TNObject>();
+				tno.id = 32767;
 			}
 			return mDummy;
 		}
