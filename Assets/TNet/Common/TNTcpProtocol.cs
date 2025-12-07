@@ -676,29 +676,26 @@ namespace TNet
 		/// Send the specified packet. Marks the buffer as used.
 		/// </summary>
 
-		public void SendTcpPacket (Buffer buffer, bool instant = false)
+		public void SendTcpPacket (Buffer readOnlyBuffer, bool instant = false)
 		{
 #if !MODDING
-			buffer.MarkAsUsed();
-			var reader = buffer.BeginReading();
+			var reader = readOnlyBuffer.BeginReading();
 
-			if (buffer.size == 0)
+			if (readOnlyBuffer.size == 0)
 			{
 #if UNITY_EDITOR
-				Debug.LogError("Trying to send a zero packet! " + buffer.position + " " + buffer.isWriting + " " + id);
+				Debug.LogError("Trying to send a zero packet! " + readOnlyBuffer.position + " " + readOnlyBuffer.isWriting + " " + id);
 #endif
-				buffer.Recycle();
 				return;
 			}
 
-			var offset = buffer.position;
-			var bufferSize = buffer.size;
-			var expected = buffer.PeekInt(offset);
+			var offset = readOnlyBuffer.position;
+			var bufferSize = readOnlyBuffer.size;
+			var expected = readOnlyBuffer.PeekInt(offset);
 
 			if (expected > bufferSize - 4)
 			{
 				LogError("SendTcpPacket called on a buffer with invalid data. Size: " + expected + " found, but " + (bufferSize - 4) + " is available");
-				buffer.Recycle();
 				Disconnect(true);
 				return;
 			}
@@ -710,12 +707,10 @@ namespace TNet
 #endif
 			if (custom != null)
 			{
-				if (!custom.SendPacket(buffer))
+				if (!custom.SendPacket(readOnlyBuffer))
 				{
-					buffer.Recycle();
 					Disconnect();
 				}
-				else buffer.Recycle();
 				return;
 			}
 
@@ -729,9 +724,8 @@ namespace TNet
 						{
 							var before = mSocket.NoDelay;
 							if (!before) mSocket.NoDelay = true;
-							mSocket.Send(buffer.buffer, offset, bufferSize, SocketFlags.None);
+							mSocket.Send(readOnlyBuffer.buffer, offset, bufferSize, SocketFlags.None);
 							if (!before) mSocket.NoDelay = false;
-							buffer.Recycle();
 							return;
 						}
 						catch (Exception ex)
@@ -742,18 +736,11 @@ namespace TNet
 						}
 					}
 
-					// If this buffer doesn't begin at 0, then it's safer to create a new temporary buffer and copy the contents over
-					if (offset != 0 && mWaitingToBeSent == null) mWaitingToBeSent = Buffer.Create();
-
-					// If there is already a buffer waiting, append this buffer to the end of the existing wait buffer
-					if (mWaitingToBeSent != null)
-					{
-						var w = mWaitingToBeSent.BeginWriting(true);
-						w.Write(buffer.buffer, offset, bufferSize);
-						buffer.Recycle();
-					}
-					// If this point is reached, simply use the current buffer as the waiting to be sent buffer
-					else mWaitingToBeSent = buffer;
+					// The incoming buffer can be anything, including something that's sent to multiple people.
+					// It's not safe to use it without first making a copy.
+					if (mWaitingToBeSent == null) mWaitingToBeSent = Buffer.Create();
+					var w = mWaitingToBeSent.BeginWriting(true);
+					w.Write(readOnlyBuffer.buffer, offset, bufferSize);
 
 					// Send out the waiting packet
 					if (!mSending) SendWaitingBuffer();
@@ -763,11 +750,11 @@ namespace TNet
 
 			if (sendQueue != null)
 			{
-				if (buffer.position != 0)
+				if (readOnlyBuffer.position != 0)
 				{
 					// Offline mode sends packets individually and they should not be reused
 #if UNITY_EDITOR
-					Debug.LogWarning("Packet's position is " + buffer.position + " instead of 0. Potentially sending the same packet more than once. Ignoring...");
+					Debug.LogWarning("Packet's position is " + readOnlyBuffer.position + " instead of 0. Potentially sending the same packet more than once. Ignoring...");
 #endif
 					return;
 				}
@@ -775,9 +762,9 @@ namespace TNet
 				// Skip the packet's size
 				reader.ReadInt32();
 
-				if (expected == buffer.size)
+				if (expected == readOnlyBuffer.size)
 				{
-					lock (sendQueue) sendQueue.Enqueue(buffer);
+					lock (sendQueue) sendQueue.Enqueue(readOnlyBuffer);
 					return;
 				}
 
@@ -789,19 +776,18 @@ namespace TNet
 						var temp = Buffer.Create();
 						var writer = temp.BeginWriting();
 						writer.Write(expected);
-						writer.Write(buffer.buffer, buffer.position, expected);
+						writer.Write(readOnlyBuffer.buffer, readOnlyBuffer.position, expected);
 						temp.BeginReading(4);
 						sendQueue.Enqueue(temp);
-						buffer.position += expected;
+						readOnlyBuffer.position += expected;
 
 						// Read and skip past the next packet size
-						if (buffer.size > 0) expected = reader.ReadInt32();
+						if (readOnlyBuffer.size > 0) expected = reader.ReadInt32();
 						else break;
 					}
 				}
 			}
 #endif
-			buffer.Recycle();
 		}
 
 #if !MODDING

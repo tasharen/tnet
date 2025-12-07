@@ -22,8 +22,8 @@ namespace TNet
 
 	public class Buffer
 	{
-		static Queue<Buffer> mPool = new Queue<Buffer>();
-		static int mPoolCount = 0;
+		[System.NonSerialized] static Queue<Buffer> mPool = new Queue<Buffer>();
+		[System.NonSerialized] static int mPoolCount = 0;
 
 		/// <summary>
 		/// Number of unused entries in the pool.
@@ -31,22 +31,22 @@ namespace TNet
 
 		static public int poolSize { get { return mPoolCount; } }
 
-		MemoryStream mStream;
-		BinaryWriter mWriter;
-		BinaryReader mReader;
+		[System.NonSerialized] MemoryStream mStream;
+		[System.NonSerialized] BinaryWriter mWriter;
+		[System.NonSerialized] BinaryReader mReader;
 
 		//public string callStack;
 
 #if RECYCLE_BUFFERS
-		int mCounter = 0;
+		[System.NonSerialized] int mCounter = 0;
 #endif
 #if DEBUG_BUFFERS
-		static int mUniqueCounter = 0;
-		internal int mUniqueID = 0;
+		[System.NonSerialized] static int mUniqueCounter = 0;
+		[System.NonSerialized] internal int mUniqueID = 0;
 		public int id { get { return mUniqueID; } }
 #endif
-		int mSize = 0;
-		bool mWriting = false;
+		[System.NonSerialized] int mSize = 0;
+		[System.NonSerialized] bool mWriting = false;
 
 		Buffer ()
 		{
