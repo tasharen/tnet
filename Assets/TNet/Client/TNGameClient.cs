@@ -1981,11 +1981,20 @@ namespace TNet
 		public void SetServerData (DataNode node)
 		{
 #if !MODDING
-			var b = CreatePacket(Packet.RequestSetServerData);
-			var w = b.writer;
-			w.Write(node.name);
-			w.WriteObject(node);
-			SendPacket(b);
+			if (node != null)
+			{
+				if (mConfig == null) mConfig = new DataNode("Version", Player.version);
+				
+				mConfig.RemoveChild(node.name);
+				mConfig.AddChild(node);
+				mDataHash = mConfig.CalculateHash();
+
+				var b = CreatePacket(Packet.RequestSetServerData);
+				var w = b.writer;
+				w.Write(node.name);
+				w.WriteObject(node);
+				SendPacket(b);
+			}
 #endif
 		}
 

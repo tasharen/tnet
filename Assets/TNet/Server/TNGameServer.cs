@@ -680,10 +680,20 @@ namespace TNet
 						var player = mPlayerList.buffer[i];
 
 						// Remove disconnected players
-						if (player != mLocalPlayer && !player.isSocketConnected)
+						if (player != mLocalPlayer)
 						{
-							RemovePlayer(player);
-							continue;
+							if (!player.isSocketConnected)
+							{
+								RemovePlayer(player);
+								continue;
+							}
+							else if (player.id == 0 && player.stage == TcpProtocol.Stage.NotConnected)
+							{
+								// I am not entirely sure how this can happen, but it does on occasion, so player count check returns non-zero even with no clients connected.
+								// This forcefully removes such ghost clients.
+								mPlayerList.RemoveAt(i);
+								continue;
+							}
 						}
 
 						//var iqs = player.incomingQueueSize;
@@ -721,6 +731,8 @@ namespace TNet
 										if (ex.InnerException != null) player.LogError(ex.InnerException.Message, ex.InnerException.StackTrace);
 										else player.LogError(ex.Message, ex.StackTrace);
 										RemovePlayer(player);
+										buffer.Recycle();
+										continue;
 									}
 #endif
 #endif
@@ -781,6 +793,37 @@ namespace TNet
 			}
 		}
 #endif
+		public void DebugConnected ()
+		{
+			lock (mServerLock)
+			{
+				Tools.Log("Connected players: " + mPlayerList.size);
+
+				for (int i = 0; i < mPlayerList.size; ++i)
+				{
+					var p = mPlayerList.buffer[i];
+					Tools.Log("PID: " + p.id + ", Name: " + p.name + ", IP: " + p.address + ", Stage: " + p.stage + ", connected: " + p.isConnected);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Forcefully disconnects everyone currently connected to the server.
+		/// </summary>
+
+		public void DisconnectEveryone ()
+		{
+			lock (mServerLock)
+			{
+				for (int i = mPlayerList.size; i > 0;)
+				{
+					var p = mPlayerList.buffer[--i];
+					var b = CreatePacket(Packet.Disconnect);
+					p.SendPacket(b);
+					RemovePlayer(p);
+				}
+			}
+		}
 
 		/// <summary>
 		/// Add a new player entry.
@@ -3545,7 +3588,7 @@ namespace TNet
 				for (int i = 0; i < mPlayerList.size; ++i)
 				{
 					var tp = mPlayerList.buffer[i];
-					tp.SendTcpPacket(buff);
+					if (tp.stage == TcpProtocol.Stage.Connected) tp.SendTcpPacket(buff);
 				}
 				buff.Recycle();
 			}

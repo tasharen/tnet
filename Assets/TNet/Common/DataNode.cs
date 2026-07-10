@@ -1248,6 +1248,30 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Overwrites this node's values with everything from the specified one.
+		/// </summary>
+
+		public void ReplaceWith (DataNode other)
+		{
+			Clear();
+
+			if (other != null)
+			{
+				name = other.name;
+				value = other.value;
+
+				if (other.children != null)
+				{
+					for (int i = 0; i < other.children.size; ++i)
+					{
+						var child = other.children.buffer[i];
+						if (child != null) AddChild().ReplaceWith(child);
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Convenience function for easy debugging -- convert the entire data into the string representation form.
 		/// </summary>
 
