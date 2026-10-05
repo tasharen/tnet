@@ -162,6 +162,7 @@ namespace TNet
 		}
 
 		public override bool Equals (object obj) { return this == obj as Player; }
+
 		public override int GetHashCode () { return id.GetHashCode(); }
 	}
 }

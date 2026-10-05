@@ -674,28 +674,23 @@ namespace TNet
 						buffer.Recycle();
 					}
 
+					// Remove disconnected players
+					for (int i = mPlayerList.size; i > 0;)
+					{
+						var p = mPlayerList.buffer[--i];
+						if (p != mLocalPlayer && !p.isConnected) RemovePlayer(p);
+					}
+
+					for (int i = mPlayerList.size; i > 0;)
+					{
+						var p = mPlayerList.buffer[--i];
+						if (p != mLocalPlayer && !p.isConnected) mPlayerList.RemoveAt(i);
+					}
+
 					// Process player connections next
 					for (int i = 0; i < mPlayerList.size;)
 					{
 						var player = mPlayerList.buffer[i];
-
-						// Remove disconnected players
-						if (player != mLocalPlayer)
-						{
-							if (!player.isSocketConnected)
-							{
-								RemovePlayer(player);
-								continue;
-							}
-							else if (player.id == 0 && player.stage == TcpProtocol.Stage.NotConnected)
-							{
-								// I am not entirely sure how this can happen, but it does on occasion, so player count check returns non-zero even with no clients connected.
-								// This forcefully removes such ghost clients.
-								mPlayerList.RemoveAt(i);
-								continue;
-							}
-						}
-
 						//var iqs = player.incomingQueueSize;
 						//var iqc = player.incomingQueueCount;
 						//if (iqc != 0) Debug.Log("PID: " + player.id + ", queue: " + iqs + " bytes (" + iqc + " packets)");
@@ -799,10 +794,27 @@ namespace TNet
 			{
 				Tools.Log("Connected players: " + mPlayerList.size);
 
-				for (int i = 0; i < mPlayerList.size; ++i)
+				for (int i = mPlayerList.size; i > 0; )
 				{
-					var p = mPlayerList.buffer[i];
+					var p = mPlayerList.buffer[--i];
 					Tools.Log("PID: " + p.id + ", Name: " + p.name + ", IP: " + p.address + ", Stage: " + p.stage + ", connected: " + p.isConnected);
+
+					if (p.stage == TcpProtocol.Stage.NotConnected)
+					{
+						Tools.Log("Orphaned connection detected #1, forcefully removing it.");
+						RemovePlayer(p);
+					}
+				}
+
+				for (int i = mPlayerList.size; i > 0;)
+				{
+					var p = mPlayerList.buffer[--i];
+
+					if (p.stage == TcpProtocol.Stage.NotConnected)
+					{
+						Tools.Log("Orphaned connection detected #2, forcefully removing it.");
+						mPlayerList.RemoveAt(i);
+					}
 				}
 			}
 		}
@@ -887,23 +899,46 @@ namespace TNet
 		/// Remove the specified player.
 		/// </summary>
 
-		public void RemovePlayer (TcpPlayer p) { if (p != null) p.Release(); }
+		public void RemovePlayer (TcpPlayer p)
+		{
+			if (p != null)
+			{
+				p.Release();
+
+				// I don't know what causes this to occur. Sometimes players just get orphaned after disconnecting with "NoConnected" state. This attempts to force them to be removed.
+				lock (mPlayerList)
+				{
+					if (mPlayerList.Contains(p))
+					{
+						p.Log("WARNING: Orphaned player detected (check 1). Forcefully removing it.");
+						OnClose(p);
+					}
+
+					if (mPlayerList.Contains(p))
+					{
+						p.Log("WARNING: Orphaned player detected (check 2). Forcefully removing it.");
+						mPlayerList.Remove(p);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Notification of this connection being closed.
+		/// </summary>
 
 		protected void OnClose (TcpProtocol tcp)
 		{
 #if !MODDING
 			var p = tcp as TcpPlayer;
 
-			if (p.id != 0)
-			{
-				if (mServerData == null || mServerData.GetChild<bool>("save", true)) SavePlayer(p, true);
+			if (p.id != 0 && (mServerData == null || mServerData.GetChild<bool>("save", true))) SavePlayer(p, true);
 
-				for (int i = p.channels.size; i > 0;)
-				{
-					var ch = p.channels.buffer[--i];
-					if (ch != null) SendLeaveChannel(p, ch, false);
-					else p.channels.RemoveAt(i);
-				}
+			for (int i = p.channels.size; i > 0;)
+			{
+				var ch = p.channels.buffer[--i];
+				if (ch != null) SendLeaveChannel(p, ch, false);
+				else p.channels.RemoveAt(i);
 			}
 
 			lock (mPlayerDict)

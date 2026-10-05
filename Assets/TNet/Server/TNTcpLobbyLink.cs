@@ -126,8 +126,8 @@ namespace TNet
 
 				while (mTcp.ReceivePacket(out buffer))
 				{
-					BinaryReader reader = buffer.BeginReading();
-					Packet response = (Packet)reader.ReadByte();
+					var reader = buffer.BeginReading();
+					var response = (Packet)reader.ReadByte();
 
 					if (mTcp.stage == TcpProtocol.Stage.Verifying)
 					{
@@ -170,7 +170,7 @@ namespace TNet
 						mUpdateNeeded = false;
 						mNextPing = time + 5000;
 
-						Buffer buff = Buffer.Create();
+						var buff = Buffer.Create();
 						var writer = buff.BeginPacket(Packet.RequestAddServer);
 						writer.Write(GameServer.gameID);
 						writer.Write(mGameServer.name);
@@ -184,7 +184,7 @@ namespace TNet
 					else if (mNextPing < time)
 					{
 						mNextPing = time + 5000;
-						Buffer buff = Buffer.Create();
+						var buff = Buffer.Create();
 						buff.BeginPacket(Packet.RequestPing);
 						buff.EndPacket();
 						mTcp.SendTcpPacket(buff);

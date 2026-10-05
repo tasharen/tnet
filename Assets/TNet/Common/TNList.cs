@@ -267,6 +267,8 @@ namespace TNet
 		public bool Contains (T item)
 		{
 			if (buffer == null) return false;
+			var comp = System.Collections.Generic.EqualityComparer<T>.Default;
+			for (int i = 0; i < size; ++i) if (comp.Equals(buffer[i], item)) return true;
 			for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return true;
 			return false;
 		}
@@ -278,6 +280,8 @@ namespace TNet
 		public int IndexOf (T item)
 		{
 			if (buffer == null) return -1;
+			var comp = System.Collections.Generic.EqualityComparer<T>.Default;
+			for (int i = 0; i < size; ++i) if (comp.Equals(buffer[i], item)) return i;
 			for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return i;
 			return -1;
 		}
@@ -295,6 +299,16 @@ namespace TNet
 				for (int i = 0; i < size; ++i)
 				{
 					if (comp.Equals(buffer[i], item))
+					{
+						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
+						--size;
+						return true;
+					}
+				}
+
+				for (int i = 0; i < size; ++i)
+				{
+					if (buffer[i] != null && buffer[i].Equals(item))
 					{
 						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
 						--size;

@@ -243,7 +243,7 @@ namespace TNet
 				{
 					var r = created.buffer[i];
 
-					if (r.playerID == p.id)
+					if (r.playerID != 0 && r.playerID == p.id)
 					{
 						if (r.type == 2)
 						{

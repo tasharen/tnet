@@ -1166,8 +1166,9 @@ namespace TNet
 			if (mMyTime != 0)
 			{
 				var delta = time - mMyTime;
+				if (delta < 0) delta = -delta;
 
-				if (delta < 0 || delta > maxTimeDelta)
+				if (delta > maxTimeDelta)
 				{
 					UnityEngine.Debug.Log("Time delta exceeded the GameClient.maxTimeDelta value, forcing a disconnect (" + delta + " > " + maxTimeDelta + ")");
 					mMyTime = time;
