@@ -693,7 +693,7 @@ namespace TNet
 			var bufferSize = readOnlyBuffer.size;
 			var expected = readOnlyBuffer.PeekInt(offset);
 
-			if (expected > bufferSize - 4)
+			if (stage != Stage.WebBrowser && expected > bufferSize - 4)
 			{
 				LogError("SendTcpPacket called on a buffer with invalid data. Size: " + expected + " found, but " + (bufferSize - 4) + " is available");
 				Disconnect(true);

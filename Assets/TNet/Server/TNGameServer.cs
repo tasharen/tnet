@@ -2728,9 +2728,12 @@ namespace TNet
 						sb.Append("Name: ");
 						sb.AppendLine(name);
 
+						var clients = 0;
+						for (int i = 0; i < mPlayerList.size; ++i) if (mPlayerList.buffer[i].stage == TcpProtocol.Stage.Connected) ++clients;
+
 						// Number of connected clients
 						sb.Append("Clients: ");
-						sb.AppendLine(playerCount.ToString());
+						sb.AppendLine(clients.ToString());
 
 						// Detailed list of clients
 						for (int i = 0, count = 0; i < mPlayerList.size; ++i)
