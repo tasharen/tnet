@@ -621,7 +621,7 @@ namespace TNet
 			mLastChange = mTime;
 #if STANDALONE
 			var ent = mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
-			Tools.Print("[+] " + ent.name + " (" + ent.playerCount + ")");
+			Tools.Print("[+] " + ent.name + " (" + ent.playerCount + "): " + externalAddress.ToString());
 #else
 			mList.Add(name, playerCount, internalAddress, externalAddress, mTime);
 #endif
