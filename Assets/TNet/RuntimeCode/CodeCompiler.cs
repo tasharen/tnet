@@ -87,7 +87,7 @@ namespace CSharpCompiler
 				compilerResults.Errors.Add(new CompilerError()
 				{
 					IsWarning = false,
-					ErrorText = e.Message,
+					ErrorText = (e.InnerException != null) ? e.Message + "\n" + e.InnerException.Message : e.Message,
 				});
 			}
 			compilerResults.CompiledAssembly = outAssembly;

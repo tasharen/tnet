@@ -110,6 +110,26 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Make sure the buffer can hold at least the specified number of elements, doubling its size as many times as needed.
+		/// Unlike Allocate(), which allocates exactly what's asked for, this keeps repeated additions from reallocating every time.
+		/// </summary>
+
+		void Grow (int needed)
+		{
+			if (buffer != null && buffer.Length >= needed) return;
+
+			int max = (buffer == null || buffer.Length < 32) ? 32 : buffer.Length;
+			while (max < needed && max > 0) max <<= 1;
+
+			// Doubling past int.MaxValue wraps around, so fall back to the exact size
+			if (max < needed) max = needed;
+
+			T[] newList = new T[max];
+			if (buffer != null && size > 0) System.Array.Copy(buffer, newList, size);
+			buffer = newList;
+		}
+
+		/// <summary>
 		/// Resize the array to the specified size, keeping the existing elements.
 		/// </summary>
 
@@ -177,8 +197,7 @@ namespace TNet
 		public int Expand (int count)
 		{
 			var offset = size;
-			var needed = size + count;
-			if (buffer == null || size + needed >= buffer.Length) Allocate(size + needed);
+			Grow(size + count);
 			size += count;
 			return offset;
 		}
@@ -195,13 +214,14 @@ namespace TNet
 		}
 
 		/// <summary>
-		/// Add the specified items to the array.
+		/// Add the specified items to the array. The buffer grows by doubling, so adding to the same list repeatedly doesn't reallocate every time.
 		/// </summary>
 
 		public void Add (T[] items, int offset, int count)
 		{
+			if (count == 0) return;
 			var needed = size + count;
-			if (buffer == null || needed >= buffer.Length) Allocate(needed);
+			Grow(needed);
 			System.Array.Copy(items, offset, buffer, size, count);
 			size = needed;
 		}
@@ -264,14 +284,7 @@ namespace TNet
 		/// Returns 'true' if the specified item is within the list.
 		/// </summary>
 
-		public bool Contains (T item)
-		{
-			if (buffer == null) return false;
-			var comp = System.Collections.Generic.EqualityComparer<T>.Default;
-			for (int i = 0; i < size; ++i) if (comp.Equals(buffer[i], item)) return true;
-			for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return true;
-			return false;
-		}
+		public bool Contains (T item) { return IndexOf(item) != -1; }
 
 		/// <summary>
 		/// Return the index of the specified item.
@@ -280,9 +293,11 @@ namespace TNet
 		public int IndexOf (T item)
 		{
 			if (buffer == null) return -1;
+
+			// The default comparer uses IEquatable<T> when the type implements it, and Equals(object) otherwise,
+			// so it finds everything a separate Equals() pass would, without boxing value types.
 			var comp = System.Collections.Generic.EqualityComparer<T>.Default;
 			for (int i = 0; i < size; ++i) if (comp.Equals(buffer[i], item)) return i;
-			for (int i = 0; i < size; ++i) if (buffer[i] != null && buffer[i].Equals(item)) return i;
 			return -1;
 		}
 
@@ -292,31 +307,15 @@ namespace TNet
 
 		public bool Remove (T item)
 		{
-			if (buffer != null)
-			{
-				var comp = System.Collections.Generic.EqualityComparer<T>.Default;
+			var i = IndexOf(item);
+			if (i == -1) return false;
 
-				for (int i = 0; i < size; ++i)
-				{
-					if (comp.Equals(buffer[i], item))
-					{
-						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
-						--size;
-						return true;
-					}
-				}
+			if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
+			--size;
 
-				for (int i = 0; i < size; ++i)
-				{
-					if (buffer[i] != null && buffer[i].Equals(item))
-					{
-						if (i + 1 < size) System.Array.Copy(buffer, i + 1, buffer, i, size - i - 1);
-						--size;
-						return true;
-					}
-				}
-			}
-			return false;
+			// The last slot still holds a copy of the last entry, which would keep a removed object from being garbage collected
+			buffer[size] = default(T);
+			return true;
 		}
 
 		/// <summary>

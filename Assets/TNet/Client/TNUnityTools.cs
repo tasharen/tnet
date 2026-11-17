@@ -297,7 +297,6 @@ namespace TNet
 			else Object.Destroy(go, delay);
 		}
 
-		public delegate System.Type GetTypeFunc (string name);
 		public delegate UnityEngine.Object LoadFunc (string path, System.Type type);
 		public delegate UnityEngine.Object LoadExFunc (string path, System.Type type, string name);
 		public delegate byte[] LoadBinaryFunc (string path);
@@ -306,7 +305,18 @@ namespace TNet
 		/// Try to resolve a type. Considers all loaded binaries.
 		/// </summary>
 
-		static new public GetTypeFunc GetType = TypeExtensions.GetType;
+		[System.Obsolete("Use TypeExtensions.GetType instead")]
+		static new public TypeExtensions.GetTypeFunc GetType
+		{
+			get
+			{
+				return TypeExtensions.GetType;
+			}
+			set
+			{
+				TypeExtensions.GetType = value;
+			}
+		}
 
 		/// <summary>
 		/// Function used to load binaries. Loads built-in TextAssets first, then tries appending the "bytes" extension.
@@ -580,7 +590,7 @@ namespace TNet
 
 			if (split.Length == 3)
 			{
-				var myType = UnityTools.GetType(split[1]);
+				var myType = TypeExtensions.GetType(split[1]);
 
 				if (myType != null)
 				{
@@ -624,7 +634,7 @@ namespace TNet
 			}
 			else if (split.Length == 2 && split[0] == "ref") // No longer used, but kept for backwards compatibility
 			{
-				var myType = UnityTools.GetType(split[1]);
+				var myType = TypeExtensions.GetType(split[1]);
 
 				if (myType != null)
 				{

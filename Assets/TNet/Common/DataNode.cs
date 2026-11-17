@@ -122,6 +122,25 @@ namespace TNet
 		}
 
 		/// <summary>
+		/// Same as 'value', but if the value is still in its text form, it gets parsed as the specified type rather than guessed.
+		/// For example "(0.1, 0, 0)" read as Vector3D keeps double precision instead of going through a float-based Vector3 first.
+		/// </summary>
+
+		public object GetValue (Type type)
+		{
+			if (!mResolved && !ResolveValue(type))
+			{
+#if DATANODE_CHILDREN_CAN_BE_NULL
+				children = null;
+#else
+				children.Clear();
+#endif
+				mCache = null;
+			}
+			return mValue;
+		}
+
+		/// <summary>
 		/// Whether this node is serializable or not.
 		/// A node must have a value or children for it to be serialized. Otherwise there isn't much point in doing so.
 		/// </summary>

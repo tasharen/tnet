@@ -674,17 +674,26 @@ namespace TNet
 						buffer.Recycle();
 					}
 
-					// Remove disconnected players
+					// Remove disconnected players. Note: check the stage rather than 'isConnected', which is also false for
+					// players that are still in the Verifying stage (including ones that were just added above).
 					for (int i = mPlayerList.size; i > 0;)
 					{
 						var p = mPlayerList.buffer[--i];
-						if (p != mLocalPlayer && !p.isConnected) RemovePlayer(p);
+						if (p != mLocalPlayer && p.stage == TcpProtocol.Stage.NotConnected) RemovePlayer(p);
 					}
 
-					for (int i = mPlayerList.size; i > 0;)
+					lock (mPlayerDict)
 					{
-						var p = mPlayerList.buffer[--i];
-						if (p != mLocalPlayer && !p.isConnected) mPlayerList.RemoveAt(i);
+						for (int i = mPlayerList.size; i > 0;)
+						{
+							var p = mPlayerList.buffer[--i];
+
+							if (p != mLocalPlayer && p.stage == TcpProtocol.Stage.NotConnected)
+							{
+								p.Log("WARNING: Orphaned player still in the list after RemovePlayer(). Forcefully removing it.");
+								mPlayerList.RemoveAt(i);
+							}
+						}
 					}
 
 					// Process player connections next
@@ -905,8 +914,9 @@ namespace TNet
 			{
 				p.Release();
 
-				// I don't know what causes this to occur. Sometimes players just get orphaned after disconnecting with "NoConnected" state. This attempts to force them to be removed.
-				lock (mPlayerList)
+				// Safety net: Release() should have removed the player via OnClose. If it's still listed, something skipped
+				// the close callback (see Close() and OnClose()), so force the removal and log it.
+				lock (mPlayerDict)
 				{
 					if (mPlayerList.Contains(p))
 					{
@@ -931,29 +941,46 @@ namespace TNet
 		{
 #if !MODDING
 			var p = tcp as TcpPlayer;
+			if (p == null) return;
 
-			if (p.id != 0 && (mServerData == null || mServerData.GetChild<bool>("save", true))) SavePlayer(p, true);
-
-			for (int i = p.channels.size; i > 0;)
+			// This can run on a socket thread. By the time it's called, the player's stage is already NotConnected and its
+			// onClose callback has been cleared, so if anything here throws before the player is removed from the list,
+			// nothing would ever remove it. Exceptions are logged, and the removal itself always happens.
+			try
 			{
-				var ch = p.channels.buffer[--i];
-				if (ch != null) SendLeaveChannel(p, ch, false);
-				else p.channels.RemoveAt(i);
+				if (p.id != 0 && (mServerData == null || mServerData.GetChild<bool>("save", true))) SavePlayer(p, true);
+
+				for (int i = p.channels.size; i > 0;)
+				{
+					var ch = p.channels.buffer[--i];
+					if (ch != null) SendLeaveChannel(p, ch, false);
+					else p.channels.RemoveAt(i);
+				}
+			}
+			catch (Exception ex)
+			{
+				p.LogError(ex.Message, ex.StackTrace);
+			}
+			finally
+			{
+				lock (mPlayerDict)
+				{
+					mPlayerList.Remove(p);
+					if (p.id != 0) mPlayerDict.Remove(p.id);
+				}
 			}
 
-			lock (mPlayerDict)
+			try
 			{
-				mPlayerList.Remove(p);
-				if (p.id != 0) mPlayerDict.Remove(p.id);
+				if (p.id != 0 && onPlayerDisconnect != null) onPlayerDisconnect(p);
+				if (lobbyLink != null) lobbyLink.SendUpdate(this);
+			}
+			catch (Exception ex)
+			{
+				p.LogError(ex.Message, ex.StackTrace);
 			}
 
-			if (p.id != 0)
-			{
-				if (onPlayerDisconnect != null) onPlayerDisconnect(p);
-				p.id = 0;
-			}
-
-			if (lobbyLink != null) lobbyLink.SendUpdate(this);
+			p.id = 0;
 
 			if (p.udpEndPoint != null)
 			{

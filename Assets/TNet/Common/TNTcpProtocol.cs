@@ -454,7 +454,29 @@ namespace TNet
 
 		public void Close (bool notify, bool lockSend = true)
 		{
+#if !MODDING
+			if (stage == Stage.NotConnected)
+			{
+				// The stage can end up as NotConnected without Close() having run (or Close() may have been interrupted).
+				// Still release the socket and fire the close callback, or the owner never learns about the disconnect.
+				if (mSocket != null)
+				{
+					try
+					{
+						if (mSocket.Connected) mSocket.Shutdown(SocketShutdown.Both);
+						mSocket.Close();
+					}
+					catch (System.Exception) { }
+					mSocket = null;
+				}
+
+				var cb = System.Threading.Interlocked.Exchange(ref onClose, null);
+				if (cb != null) cb(this);
+				return;
+			}
+#else
 			if (stage == Stage.NotConnected) return;
+#endif
 #if !MODDING
 #if STANDALONE || UNITY_EDITOR
 			if (id != 0)
@@ -569,12 +591,9 @@ namespace TNet
 				}
 			}
 
-			if (onClose != null)
-			{
-				var c = onClose;
-				onClose = null;
-				c(this);
-			}
+			// Atomic swap so that two threads closing at the same time can't both fire the callback
+			var c = System.Threading.Interlocked.Exchange(ref onClose, null);
+			if (c != null) c(this);
 
 			id = 0;
 #endif
@@ -1397,10 +1416,9 @@ namespace TNet
 					return true;
 				}
 			}
-			else if (request == Packet.Disconnect)
-			{
-				stage = Stage.NotConnected;
-			}
+			// Note: don't set 'stage' to NotConnected here. Close() exits early if the stage is already NotConnected,
+			// which would prevent the onClose callback from firing and leave the player orphaned in the server's list.
+			// The caller is responsible for closing the connection when verification fails.
 #endif
 			return false;
 		}

@@ -1090,17 +1090,21 @@ namespace TNet
 		/// Serialize the entire texture into the specified DataNode.
 		/// </summary>
 
-		static public void Serialize (this Texture tex, DataNode node)
+		static public void Serialize (this Texture tex, DataNode node, bool keepReference = true)
 		{
-			if (!mFullSerialization) return;
+			if (tex == null || !mFullSerialization) return;
 
 			node.AddChild("name", tex.name);
-			var path = UnityTools.LocateResource(tex);
 
-			if (!string.IsNullOrEmpty(path))
+			if (keepReference)
 			{
-				node.AddChild("path", path);
-				return;
+				var path = UnityTools.LocateResource(tex);
+
+				if (!string.IsNullOrEmpty(path))
+				{
+					node.AddChild("path", path);
+					return;
+				}
 			}
 
 			if (tex is Texture2D)
@@ -1130,14 +1134,17 @@ namespace TNet
 
 		/// <summary>
 		/// Deserialize the texture that was previously serialized into the DataNode format.
+		/// Set 'useCache' to 'false' to always create a new texture from the saved data, bypassing the cache of
+		/// previously deserialized textures (and not adding to it). Useful for textures whose content can change
+		/// while their name stays the same, such as texture atlases.
 		/// </summary>
 
-		static public Texture DeserializeTexture (this DataNode node)
+		static public Texture DeserializeTexture (this DataNode node, bool useCache = true)
 		{
 			// First try the cache
 			Texture tex = null;
 			int id = node.Get<int>();
-			if (id != 0 && referencedTextures.TryGetValue(id, out tex) && tex != null) return tex;
+			if (useCache && id != 0 && referencedTextures.TryGetValue(id, out tex) && tex != null) return tex;
 
 			// If the texture's ID is unknown, make a dummy one and try going through cache again
 			var name = node.GetChild("name", "Unnamed");
@@ -1146,7 +1153,7 @@ namespace TNet
 			if (id == 0)
 			{
 				id = (path + name).GetHashCode();
-				if (referencedTextures.TryGetValue(id, out tex) && tex != null) return tex;
+				if (useCache && referencedTextures.TryGetValue(id, out tex) && tex != null) return tex;
 			}
 
 			// Next try to load the texture
@@ -1156,14 +1163,14 @@ namespace TNet
 
 				if (tex != null)
 				{
-					AddReference(tex, id);
+					if (useCache) AddReference(tex, id);
 					return tex;
 				}
 			}
 
 			var lzma = node.GetChild<byte[]>("lzma");
 			var bytes = (lzma != null) ? LZMA.Decompress(lzma) : node.GetChild<byte[]>("bytes");
-			var t2 = RemoveTempObject<Texture2D>(id);
+			var t2 = useCache ? RemoveTempObject<Texture2D>(id) : null;
 
 			if (bytes != null)
 			{
@@ -1221,7 +1228,7 @@ namespace TNet
 			}
 
 			// Add it to cache
-			referencedTextures[id] = tex;
+			if (useCache) referencedTextures[id] = tex;
 			return tex;
 		}
 
@@ -2076,7 +2083,7 @@ namespace TNet
 			for (int i = 0; i < scriptNode.children.size; ++i)
 			{
 				var node = scriptNode.children.buffer[i];
-				var type = UnityTools.GetType(node.name);
+				var type = TypeExtensions.GetType(node.name);
 
 				if (type != null && type.IsSubclassOf(typeof(Component)))
 				{

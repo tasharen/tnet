@@ -58,6 +58,14 @@ public struct Vector2
 	public Vector2 (float xx, float yy) { x = xx; y = yy; }
 }
 
+public struct Vector2Int
+{
+	public int x;
+	public int y;
+
+	public Vector2Int (int xx, int yy) { x = xx; y = yy; }
+}
+
 public struct ClothSkinningCoefficient
 {
 	public float maxDistance;
@@ -282,6 +290,7 @@ namespace TNet
 				else if (name == "uint") type = typeof(UInt32);
 				else if (name == "ulong") type = typeof(UInt64);
 				else if (name == "Vector2") type = typeof(Vector2);
+				else if (name == "Vector2Int") type = typeof(Vector2Int);
 				else if (name == "Vector3") type = typeof(Vector3);
 				else if (name == "Vector4") type = typeof(Vector4);
 				else if (name == "Vector2D") type = typeof(Vector2D);
@@ -331,11 +340,7 @@ namespace TNet
 				{
 					try
 					{
-#if STANDALONE
-						type = Type.GetType(name);
-#else
-						type = UnityTools.GetType(name);
-#endif
+						type = TypeExtensions.GetType(name);
 					}
 					catch (Exception) { }
 				}
@@ -376,6 +381,7 @@ namespace TNet
 				else if (type == typeof(UInt32)) name = "uint";
 				else if (type == typeof(UInt64)) name = "ulong";
 				else if (type == typeof(Vector2)) name = "Vector2";
+				else if (type == typeof(Vector2Int)) name = "Vector2Int";
 				else if (type == typeof(Vector3)) name = "Vector3";
 				else if (type == typeof(Vector2D)) name = "Vector2D";
 				else if (type == typeof(Vector3D)) name = "Vector3D";
@@ -460,6 +466,7 @@ namespace TNet
 				if (desiredType == typeof(ObsInt)) return new ObsInt((int)value);
 				if (desiredType == typeof(Vector3)) return new Vector3((int)value, (int)value, (int)value);
 				if (desiredType == typeof(Vector2)) return new Vector2((int)value, (int)value);
+				if (desiredType == typeof(Vector2Int)) return new Vector2Int((int)value, (int)value);
 #if !STANDALONE
 				if (desiredType == typeof(LayerMask)) return (LayerMask)(int)value;
 
@@ -483,6 +490,7 @@ namespace TNet
 				if (desiredType == typeof(long)) return (long)Round((float)value);
 				if (desiredType == typeof(Vector3)) return new Vector3((float)value, (float)value, (float)value);
 				if (desiredType == typeof(Vector2)) return new Vector2((float)value, (float)value);
+				if (desiredType == typeof(Vector2Int)) { var i = Round((float)value); return new Vector2Int(i, i); }
 			}
 			else if (valueType == typeof(double))
 			{
@@ -496,6 +504,7 @@ namespace TNet
 				if (desiredType == typeof(float)) return (float)(double)value;
 				if (desiredType == typeof(long)) return (long)Math.Round((double)value);
 				if (desiredType == typeof(Vector2)) return new Vector2((float)(double)value, (float)(double)value);
+				if (desiredType == typeof(Vector2Int)) { var i = Round((double)value); return new Vector2Int(i, i); }
 				if (desiredType == typeof(Vector3)) return new Vector3((float)(double)value, (float)(double)value, (float)(double)value);
 			}
 			else if (valueType == typeof(long))
@@ -614,6 +623,11 @@ namespace TNet
 					var v = (Vector2D)value;
 					return new Vector2((float)v.x, (float)v.y);
 				}
+				else if (desiredType == typeof(Vector2Int))
+				{
+					var v = (Vector2D)value;
+					return new Vector2Int(Round(v.x), Round(v.y));
+				}
 			}
 			else if (valueType == typeof(Vector2))
 			{
@@ -622,6 +636,18 @@ namespace TNet
 					var v = (Vector2)value;
 					return new Vector2D(v.x, v.y);
 				}
+				else if (desiredType == typeof(Vector2Int))
+				{
+					var v = (Vector2)value;
+					return new Vector2Int(Round(v.x), Round(v.y));
+				}
+			}
+			else if (valueType == typeof(Vector2Int))
+			{
+				var v = (Vector2Int)value;
+				if (desiredType == typeof(Vector2)) return new Vector2(v.x, v.y);
+				if (desiredType == typeof(Vector2D)) return new Vector2D(v.x, v.y);
+				if (desiredType == typeof(Vector3)) return new Vector3(v.x, v.y, 0f);
 			}
 			else if (valueType == typeof(Vector3D))
 			{
@@ -1100,11 +1126,9 @@ namespace TNet
 
 						if (dn != null)
 						{
-#if STANDALONE
+
 							var realType = TypeExtensions.GetType(dn.name);
-#else
-							var realType = UnityTools.GetType(dn.name);
-#endif
+
 							if (realType != null && desiredType.IsAssignableFrom(realType))
 							{
 								var ser = (IDataNodeSerializable)realType.Create();
@@ -1410,6 +1434,17 @@ namespace TNet
 							return v;
 					}
 				}
+				else if (type == typeof(Vector2Int))
+				{
+					if (parts.Length == 2)
+					{
+						// Parsed as floats and rounded, so that values saved from a Vector2 still load
+						float x, y;
+						if (float.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out x) &&
+							float.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out y))
+							return new Vector2Int(Round(x), Round(y));
+					}
+				}
 				else if (type == typeof(Vector3))
 				{
 					if (parts.Length == 3)
@@ -1498,6 +1533,18 @@ namespace TNet
 						if (double.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
 							double.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
 							double.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z))
+							return v;
+					}
+				}
+				else if (type == typeof(QuaternionD))
+				{
+					if (parts.Length == 4)
+					{
+						QuaternionD v;
+						if (double.TryParse(parts[0], NumberStyles.Float, Tools.englishUSCulture, out v.x) &&
+							double.TryParse(parts[1], NumberStyles.Float, Tools.englishUSCulture, out v.y) &&
+							double.TryParse(parts[2], NumberStyles.Float, Tools.englishUSCulture, out v.z) &&
+							double.TryParse(parts[3], NumberStyles.Float, Tools.englishUSCulture, out v.w))
 							return v;
 					}
 				}
@@ -1684,6 +1731,17 @@ namespace TNet
 				return true;
 			}
 
+			if (type == typeof(Vector2Int))
+			{
+				var v = (Vector2Int)value;
+				writer.Write(prefix ? " = (" : "(");
+				writer.Write(v.x);
+				writer.Write(", ");
+				writer.Write(v.y);
+				writer.Write(")");
+				return true;
+			}
+
 			if (type == typeof(Vector3))
 			{
 				var v = (Vector3)value;
@@ -1766,6 +1824,22 @@ namespace TNet
 				writer.WriteFloat(v.z);
 				writer.Write(", ");
 				writer.WriteFloat(v.w);
+				writer.Write(")");
+				return true;
+			}
+
+			if (type == typeof(QuaternionD))
+			{
+				var q = (QuaternionD)value;
+				if (prefix) writer.Write(" = ");
+				writer.Write('(');
+				writer.WriteDouble(q.x);
+				writer.Write(", ");
+				writer.WriteDouble(q.y);
+				writer.Write(", ");
+				writer.WriteDouble(q.z);
+				writer.Write(", ");
+				writer.WriteDouble(q.w);
 				writer.Write(")");
 				return true;
 			}
@@ -2091,6 +2165,12 @@ namespace TNet
 		}
 
 		static public void Write (this BinaryWriter writer, Vector2 v)
+		{
+			writer.Write(v.x);
+			writer.Write(v.y);
+		}
+
+		static public void Write (this BinaryWriter writer, Vector2Int v)
 		{
 			writer.Write(v.x);
 			writer.Write(v.y);
@@ -2425,6 +2505,7 @@ namespace TNet
 			if (type == typeof(Gradient)) return 28;
 			if (type == typeof(ParticleSystem.MinMaxCurve)) return 29;
 #endif
+			if (type == typeof(Vector2Int)) return 30;
 			if (type == typeof(bool[])) return 101;
 			if (type == typeof(byte[])) return 102;
 			if (type == typeof(ushort[])) return 103;
@@ -2457,6 +2538,7 @@ namespace TNet
 			if (type == typeof(Gradient[])) return 128;
 			if (type == typeof(ParticleSystem.MinMaxCurve[])) return 129;
 #endif
+			if (type == typeof(Vector2Int[])) return 130;
 
 #if !STANDALONE
 			if (mForcedLazySer == null)
@@ -2558,6 +2640,7 @@ namespace TNet
 				case 28: return typeof(Gradient);
 				case 29: return typeof(ParticleSystem.MinMaxCurve);
 #endif
+				case 30: return typeof(Vector2Int);
 				case 101: return typeof(bool[]);
 				case 102: return typeof(byte[]);
 				case 103: return typeof(ushort[]);
@@ -2590,6 +2673,7 @@ namespace TNet
 				case 128: return typeof(Gradient[]);
 				case 129: return typeof(ParticleSystem.MinMaxCurve[]);
 #endif
+				case 130: return typeof(Vector2Int[]);
 			}
 
 			if (useUserTypes && onGetTypeByPrefix != null) return onGetTypeByPrefix(prefix);
@@ -2999,6 +3083,7 @@ namespace TNet
 				case 28: bw.Write((Gradient)obj); break;
 				case 29: bw.Write((ParticleSystem.MinMaxCurve)obj); break;
 #endif
+				case 30: bw.Write((Vector2Int)obj); break;
 				case 101:
 				{
 					var arr = (bool[])obj;
@@ -3205,6 +3290,13 @@ namespace TNet
 					break;
 				}
 #endif
+				case 130:
+				{
+					var arr = (Vector2Int[])obj;
+					bw.WriteInt(arr.Length);
+					for (int i = 0, imax = arr.Length; i < imax; ++i) bw.Write(arr[i]);
+					break;
+				}
 				case 254: // Serialization using Reflection
 				{
 #if REFLECTION_SUPPORT
@@ -3377,6 +3469,17 @@ namespace TNet
 			if (float.IsNaN(x)) x = 0f;
 			if (float.IsNaN(y)) y = 0f;
 			return new Vector2(x, y);
+		}
+
+		/// <summary>
+		/// Read a value from the stream.
+		/// </summary>
+
+		static public Vector2Int ReadVector2Int (this BinaryReader reader)
+		{
+			var x = reader.ReadInt32();
+			var y = reader.ReadInt32();
+			return new Vector2Int(x, y);
 		}
 
 		/// <summary>
@@ -3686,6 +3789,7 @@ namespace TNet
 					case 28: return reader.ReadGradient();
 					case 29: return reader.ReadMinMaxCurve();
 #endif
+					case 30: return reader.ReadVector2Int();
 					case 98: // TNet.List
 					{
 						type = reader.ReadType(out prefix);
@@ -3987,6 +4091,13 @@ namespace TNet
 						return arr;
 					}
 #endif
+					case 130:
+					{
+						int elements = reader.ReadInt();
+						var arr = new Vector2Int[elements];
+						for (int b = 0; b < elements; ++b) arr[b] = reader.ReadVector2Int();
+						return arr;
+					}
 #if SERIALIZATION_WITHOUT_INTERFACE
 					case 250:
 					{

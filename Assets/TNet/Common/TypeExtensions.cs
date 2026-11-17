@@ -171,33 +171,41 @@ namespace TNet
 				{
 					mFieldDict = new List<FieldInfo>();
 
-					var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-					//bool serializable = type.IsDefined(typeof(SerializableAttribute), true);
+					AddSerializableFields(type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic), false);
 
-					for (int i = 0, imax = fields.Length; i < imax; ++i)
-					{
-						var field = fields[i];
-
-						// Don't do anything with static fields
-						if ((field.Attributes & FieldAttributes.Static) != 0) continue;
-						if (field.IsDefined(typeof(IgnoredByTNet), true)) continue;
-#if !STANDALONE
-						// Ignore fields that were not marked as serializable
-						if (!field.IsDefined(typeof(UnityEngine.SerializeField), true))
-#endif
-						{
-							// Class is not serializable
-							if (!field.IsPublic) continue;
-						}
-
-						// Ignore fields that were marked as non-serializable
-						if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
-
-						// It's a valid serializable field
-						mFieldDict.Add(field);
-					}
+					// Private fields declared by base classes are only visible when asking the base class itself.
+					// Everything else declared by base classes was already returned above.
+					for (var t = type.BaseType; t != null && t != typeof(object); t = t.BaseType)
+						AddSerializableFields(t.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly), true);
 				}
 				return mFieldDict;
+			}
+
+			void AddSerializableFields (FieldInfo[] fields, bool privateOnly)
+			{
+				for (int i = 0, imax = fields.Length; i < imax; ++i)
+				{
+					var field = fields[i];
+					if (privateOnly && !field.IsPrivate) continue;
+
+					// Don't do anything with static fields
+					if ((field.Attributes & FieldAttributes.Static) != 0) continue;
+					if (field.IsDefined(typeof(IgnoredByTNet), true)) continue;
+#if !STANDALONE
+					// Ignore fields that were not marked as serializable
+					if (!field.IsDefined(typeof(UnityEngine.SerializeField), true))
+#endif
+					{
+						// Class is not serializable
+						if (!field.IsPublic) continue;
+					}
+
+					// Ignore fields that were marked as non-serializable
+					if (field.IsDefined(typeof(System.NonSerializedAttribute), true)) continue;
+
+					// It's a valid serializable field
+					mFieldDict.Add(field);
+				}
 			}
 
 			/// <summary>
@@ -384,16 +392,16 @@ namespace TNet
 			return ci.method;
 		}
 
-		[System.NonSerialized] static List<CachedType> mCachedTypes = null;
-		[System.NonSerialized] static Dictionary<Type, CachedType> mTypeDict = null;
-		[System.NonSerialized] static Dictionary<string, Type> mTypeLookup = null;
-		[System.NonSerialized] static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
-		[System.NonSerialized] static List<Assembly> mFullAssemblyList = null;
-		[System.NonSerialized] static List<Assembly> mRefinedAssemblyList = null;
-		[System.NonSerialized] static int mHash = 0;
-		[System.NonSerialized] static bool mHashIsValid = false;
+		[NonSerialized] static List<CachedType> mCachedTypes = null;
+		[NonSerialized] static Dictionary<Type, CachedType> mTypeDict = null;
+		[NonSerialized] static Dictionary<string, Type> mTypeLookup = null;
+		[NonSerialized] static Dictionary<Assembly, Type[]> mAssemblyTypes = null;
+		[NonSerialized] static List<Assembly> mFullAssemblyList = null;
+		[NonSerialized] static List<Assembly> mRefinedAssemblyList = null;
+		[NonSerialized] static int mHash = 0;
+		[NonSerialized] static bool mHashIsValid = false;
 
-		static void CacheTypes ()
+		static public void CacheTypes ()
 		{
 			if (mFullAssemblyList == null) mFullAssemblyList = new List<Assembly>();
 			else mFullAssemblyList.Clear();
@@ -405,8 +413,11 @@ namespace TNet
 
 			mAssemblyTypes = new Dictionary<Assembly, Type[]>();
 			mCachedTypes = new List<CachedType>();
-			mTypeDict = new Dictionary<Type, CachedType>();
 			mTypeLookup = new Dictionary<string, Type>();
+
+			// GetCache() doesn't need the full list of types, so it may have already cached some types on demand. Those entries remain valid.
+			if (mTypeDict == null) mTypeDict = new Dictionary<Type, CachedType>();
+			else foreach (var pair in mTypeDict) mCachedTypes.Add(pair.Value);
 
 			foreach (Assembly asm in currentAssemblies)
 			{
@@ -450,12 +461,19 @@ namespace TNet
 
 				foreach (Type t in types)
 				{
-					var ent = new CachedType();
-					ent.type = t;
+					CachedType ent;
+
+					// Types already cached on demand by GetCache() keep their entries
+					if (!mTypeDict.TryGetValue(t, out ent))
+					{
+						ent = new CachedType();
+						ent.type = t;
+						mTypeDict[t] = ent;
+						mCachedTypes.Add(ent);
+					}
+
 					ent.name = t.ToString().Replace("UnityEngine.", "");
 					mTypeLookup[ent.name] = t;
-					mTypeDict[t] = ent;
-					mCachedTypes.Add(ent);
 				}
 
 				mAssemblyTypes[asm] = types;
@@ -590,25 +608,43 @@ namespace TNet
 
 		static public CachedType GetCache (this Type type)
 		{
-			if (mTypeDict == null) CacheTypes();
+			// Caching data of a single type doesn't require scanning all loaded assemblies, which can be very slow (especially in the editor)
+			if (mTypeDict == null) mTypeDict = new Dictionary<Type, CachedType>();
 			CachedType ent = null;
 
 			if (!mTypeDict.TryGetValue(type, out ent))
 			{
 				ent = new CachedType();
 				ent.type = type;
-				ent.name = ent.ToString();
-				mCachedTypes.Add(ent);
+				ent.name = type.ToString().Replace("UnityEngine.", "");
+				if (mCachedTypes != null) mCachedTypes.Add(ent);
 				mTypeDict[type] = ent;
 			}
 			return ent;
 		}
 
 		/// <summary>
+		/// Try to resolve a type. Considers all loaded binaries.
+		/// </summary>
+
+		static new public GetTypeFunc GetType = GetTypeImpl;
+		public delegate Type GetTypeFunc (string name);
+
+		/// <summary>
+		/// Convenience function that returns the type's name from cache.
+		/// </summary>
+
+		static public string GetTypeName (this object obj)
+		{
+			if (obj == null) return null;
+			return obj.GetType().GetCache().name;
+		}
+
+		/// <summary>
 		/// Resolve a type by its name.
 		/// </summary>
 
-		static public Type GetType (string name)
+		static public Type GetTypeImpl (string name)
 		{
 			if (mTypeLookup == null) CacheTypes();
 			Type type;
@@ -717,8 +753,8 @@ namespace TNet
 			return type.GetMethodOrExtension(methodName, paramTypes) != null;
 		}
 
-		[System.NonSerialized] static public Dictionary<Type, bool> mHasDataNodeSerialization = new Dictionary<Type, bool>();
-		[System.NonSerialized] static public Dictionary<Type, bool> mHasBinarySerialization = new Dictionary<Type, bool>();
+		[NonSerialized] static public Dictionary<Type, bool> mHasDataNodeSerialization = new Dictionary<Type, bool>();
+		[NonSerialized] static public Dictionary<Type, bool> mHasBinarySerialization = new Dictionary<Type, bool>();
 
 		/// <summary>
 		/// Whether this type has DataNode serialization functions.
@@ -752,11 +788,11 @@ namespace TNet
 		/// must be set to the 'this' object at the end of the invoked serialization function.
 		/// </summary>
 
-		[System.NonSerialized]
+		[NonSerialized]
 		static public object invokedObject;
 
-		[System.NonSerialized] static object[] mTemp;
-		[System.NonSerialized] static object[] mTempExtended;
+		[NonSerialized] static object[] mTemp;
+		[NonSerialized] static object[] mTempExtended;
 
 		/// <summary>
 		/// Convenience function that will invoke the specified method or extension, if possible. Return value will be 'true' if successful.

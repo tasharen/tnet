@@ -193,6 +193,10 @@ namespace TNet
 			const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 			var field = type.GetField(name, flags);
 
+			// Private fields declared by base classes are only visible when asking the base class itself
+			for (var t = type.BaseType; field == null && t != null && t != typeof(object); t = t.BaseType)
+				field = t.GetField(name, flags | BindingFlags.DeclaredOnly);
+
 			if (field != null)
 			{
 				var fp = new FieldOrProperty();
@@ -201,6 +205,9 @@ namespace TNet
 			}
 
 			var property = type.GetProperty(name, flags);
+
+			for (var t = type.BaseType; property == null && t != null && t != typeof(object); t = t.BaseType)
+				property = t.GetProperty(name, flags | BindingFlags.DeclaredOnly);
 
 			if (property != null)
 			{
